@@ -347,6 +347,18 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual([1,0], p)
 
+    def test_request_cb_explore(self):
+
+        vw = VowpalMediatorMocked([0.25, 0.75])
+        p = VowpalLearner("--cb_explore 2", vw).request(None, ['yes','no'], ['yes','no'])
+
+        self.assertIsInstance(vw._predict_calls[0], VowpalEaxmpleMock)
+
+        self.assertEqual({'x':None }, vw._predict_calls[0].ns)
+        self.assertEqual(None       , vw._predict_calls[0].label)
+
+        self.assertEqual([.25, .75], p)
+
     def test_predict_cb_explore(self):
 
         vw = VowpalMediatorMocked([0.25, 0.75])
@@ -402,7 +414,6 @@ class VowpalLearner_Tests(unittest.TestCase):
             VowpalLearner("--cb", VowpalMediatorMocked()).learn(None,None,1,.2,.2)
 
     def test_cb_predict_action_change(self):
-
         learner = VowpalLearner("--cb", VowpalMediatorMocked())
         learner.predict(None, [1,2,3])
 
@@ -415,7 +426,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         learner = VowpalLearner("--cb 3", VowpalMediatorMocked())
 
-        with self.assertRaises(CobaException) as e:
+        with self.assertRaises(CobaException):
             learner.predict(None, [1,2,3,4])
 
     def test_cb_learn_before_predict(self):

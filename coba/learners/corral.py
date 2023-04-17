@@ -1,13 +1,13 @@
 import math
 
-from typing import Any, Sequence, Optional, Dict, Tuple
+from typing import Any, Sequence, Optional, Mapping, Tuple
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.primitives import Context, Action
 
-from coba.learners.primitives import Learner, SafeLearner, PMF, kwargs, Actions
+from coba.learners.primitives import Learner, SafeLearner, PMF, kwargs, Actions, Prob
 
 class CorralLearner(Learner):
     """A meta-learner that takes a collection of learners and determines
@@ -64,8 +64,12 @@ class CorralLearner(Learner):
         self._random_reject = CobaRandom(CobaRandom(seed).randint(0,1000))
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
+
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+        request = set(request)
+        return [p for p,a in zip(self.predict(context,actions)[0],actions) if a in request]
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:
 

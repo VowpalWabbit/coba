@@ -1,11 +1,11 @@
-from typing import Any, Dict, Sequence
+from typing import Any, Mapping, Sequence
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.primitives import Context, Action
 from coba.encodings import InteractionsEncoder
 
-from coba.learners.primitives import PMF, Actions, Learner
+from coba.learners.primitives import PMF, Learner, Actions, Prob
 
 class LinUCBLearner(Learner):
     """A contextual bandit learner that represents expected reward as a
@@ -51,13 +51,17 @@ class LinUCBLearner(Learner):
         self._theta = None
         self._A_inv = None
 
+        import numpy as np
+        self._np = np
+
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
 
-    def predict(self, context: Context, actions: Actions) -> PMF:
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+        return [p for p,a in zip(self.predict(context,actions),actions) if a in request]
 
-        import numpy as np
+    def predict(self, context: Context, actions: Actions) -> PMF:
 
         if isinstance(actions[0], dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this implementation at this time.")
@@ -66,23 +70,21 @@ class LinUCBLearner(Learner):
             self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') if isinstance(f,str) else f for f in self._X ]))))
 
         context = context or []
-        features: np.ndarray = np.array([self._X_encoder.encode(x=context,a=action) for action in actions]).T
+        features = self._np.array([self._X_encoder.encode(x=context,a=action) for action in actions]).T
 
         if(self._A_inv is None):
-            self._theta = np.zeros(features.shape[0])
-            self._A_inv = np.identity(features.shape[0])
+            self._theta = self._np.zeros(features.shape[0])
+            self._A_inv = self._np.identity(features.shape[0])
 
         point_estimate = self._theta @ features
-        point_bounds   = np.diagonal(features.T @ self._A_inv @ features)
+        point_bounds   = self._np.diagonal(features.T @ self._A_inv @ features)
 
-        action_values = point_estimate + self._alpha*np.sqrt(point_bounds)
-        max_indexes   = np.where(action_values == np.amax(action_values))[0]
+        action_values = point_estimate + self._alpha*self._np.sqrt(point_bounds)
+        max_indexes   = self._np.where(action_values == self._np.amax(action_values))[0]
 
         return PMF([int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))])
 
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability: float) -> None:
-
-        import numpy as np
 
         if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
@@ -91,15 +93,15 @@ class LinUCBLearner(Learner):
             self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') if isinstance(f,str) else f for f in self._X ]))))
 
         context = context or []
-        features: np.ndarray = np.array(self._X_encoder.encode(x=context,a=action)).T
+        features = self._np.array(self._X_encoder.encode(x=context,a=action)).T
 
         if(self._A_inv is None):
-            self._theta = np.zeros((features.shape[0]))
-            self._A_inv = np.identity(features.shape[0])
+            self._theta = self._np.zeros((features.shape[0]))
+            self._A_inv = self._np.identity(features.shape[0])
 
         r = self._theta @ features
         w = self._A_inv @ features
         v = features    @ w
 
-        self._A_inv = self._A_inv - np.outer(w,w)/(1+v)
+        self._A_inv = self._A_inv - self._np.outer(w,w)/(1+v)
         self._theta = self._theta + (reward-r)/(1+v) * w

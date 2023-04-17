@@ -3,7 +3,7 @@ import unittest
 from statistics import mean
 
 from coba.contexts import CobaContext
-from coba.learners import CorralLearner, FixedLearner, LinUCBLearner
+from coba.learners import CorralLearner, FixedLearner
 
 class ReceivedLearnFixedLearner(FixedLearner):
 
@@ -25,6 +25,15 @@ class FamilyLearner:
         return {'family': self._family}
 
 class CorralLearner_Tests(unittest.TestCase):
+
+    def test_importance_request(self):
+
+        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="importance")
+
+        mean_request = list(map(mean, zip(*[learner.request(None, [1,2],[1,2]) for _ in range(10000)])) )
+
+        self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_request[0], 2)
+        self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_request[1], 2)
 
     def test_importance_predict(self):
 
@@ -49,6 +58,15 @@ class CorralLearner_Tests(unittest.TestCase):
 
         self.assertEqual((None, actions, actions[0], 1, 1), base1.received_learn)
         self.assertEqual((None, actions, actions[1], 0, 1), base2.received_learn)
+
+    def test_off_policy_request(self):
+
+        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="off-policy")
+
+        mean_request = list(map(mean, zip(*[learner.request(None, [1,2], [1,2]) for _ in range(10000)])) )
+
+        self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_request[0], 2)
+        self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_request[1], 2)
 
     def test_off_policy_predict(self):
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
 
 from coba.backports import Literal
 from coba.exceptions import CobaException
-from coba.learners.primitives import Learner, PMF
+from coba.learners.primitives import Learner, PMF, Prob
 from coba.primitives import Sparse, Context, Action, Actions
 from coba.utilities import PackageChecker
 
@@ -276,6 +276,9 @@ class VowpalLearner(Learner):
     @property
     def params(self) -> Mapping[str, Any]:
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
+
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+        return [p for p,a in zip(self.predict(context,actions),actions) if a in request]
 
     def predict(self, context: Context, actions: Sequence[Action]) -> PMF:
 
