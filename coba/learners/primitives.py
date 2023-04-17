@@ -52,7 +52,7 @@ class Learner(ABC):
                 hashable dictionary (sparse context).
             actions: The current set of actions to choose from in the given context.
                 Each action will either be a value (a single feature), a hashable tuple
-                (dense context), or a hashable dictionary (sparse context)..
+                (dense context), or a hashable dictionary (sparse context).
 
         Returns:
             A Prediction. Several prediction formats are supported. See the type-hint for these.
@@ -328,7 +328,7 @@ class SafeLearner(Learner):
 
     def _possible_type_3(self,pred,actions):
         #action,score
-        correct_shape = len(pred) in [2,3]        
+        correct_shape = len(pred) in [2,3]
         return self._pred_0_possible_action(pred,actions) and correct_shape
 
     def _get_pmf_action_score(self,rng,pmf,actions):
