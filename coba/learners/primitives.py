@@ -17,8 +17,8 @@ class PMF(list):
     pass
 
 class ActionProb(tuple):
-    def __new__(self, action: Action, score: Prob):
-        return tuple.__new__(ActionProb, (action, score))
+    def __new__(self, action: Action, prob: Prob):
+        return tuple.__new__(ActionProb, (action, prob))
 
 Prediction = Union[
     PMF,

@@ -278,7 +278,8 @@ class VowpalLearner(Learner):
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        return [p for p,a in zip(self.predict(context,actions),actions) if a in request]
+        probs = self.predict(context,actions)
+        return [probs[actions.index(a)] for a in request]
 
     def predict(self, context: Context, actions: Sequence[Action]) -> PMF:
 

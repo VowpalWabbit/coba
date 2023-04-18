@@ -172,8 +172,8 @@ class FixedLearner(Learner):
         return {"family":"fixed"}
     
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        request = set(request)
-        return [ p for a,p in zip(actions,self._pmf) if a in request ]
+        probs = self._pmf
+        return [ probs[actions.index(a)] for a in request ]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         return PMF(self._pmf)

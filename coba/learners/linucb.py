@@ -59,7 +59,8 @@ class LinUCBLearner(Learner):
         return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
 
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        return [p for p,a in zip(self.predict(context,actions),actions) if a in request]
+        probs = self.predict(context,actions)
+        return [ probs[actions.index(a)] for a in request ]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
 

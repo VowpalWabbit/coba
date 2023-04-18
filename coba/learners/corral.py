@@ -68,8 +68,8 @@ class CorralLearner(Learner):
         return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
 
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        request = set(request)
-        return [p for p,a in zip(self.predict(context,actions)[0],actions) if a in request]
+        probs = self.predict(context,actions)[0]
+        return [ probs[actions.index(a)] for a in request ]
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:
 

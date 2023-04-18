@@ -63,10 +63,10 @@ class CorralLearner_Tests(unittest.TestCase):
 
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="off-policy")
 
-        mean_request = list(map(mean, zip(*[learner.request(None, [1,2], [1,2]) for _ in range(10000)])) )
+        mean_request = list(map(mean, zip(*[learner.request(None, [1,2], [2,1]) for _ in range(10000)])) )
 
-        self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_request[0], 2)
-        self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_request[1], 2)
+        self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_request[1], 2)
+        self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_request[0], 2)
 
     def test_off_policy_predict(self):
 

@@ -7,7 +7,7 @@ from coba.random import CobaRandom
 
 from coba.learners.bandit import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral import CorralLearner
-from coba.learners.vowpal import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner
+from coba.learners.vowpal import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
 from coba.learners.vowpal import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
 from coba.learners.linucb import LinUCBLearner
 
@@ -41,6 +41,7 @@ __all__ = [
     'VowpalRegcbLearner',
     'VowpalSquarecbLearner',
     'VowpalOffPolicyLearner',
+    'VowpalRndLearner',
     'OnlineGroundedEval',
     'OnlineOnPolicyEval',
     'CobaRandom',
