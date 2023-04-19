@@ -9,7 +9,8 @@ from coba import VowpalSoftmaxLearner
 from coba.contexts import CobaContext
 from coba.environments import Shuffle, Noise, Batch
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
-from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo, SimpleEvaluation, OnPolicyEvaluation
+from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo
+from coba.experiments import SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation
 from coba.learners import Learner
 from coba.pipes import Pipes
 from coba.primitives import SequenceReward
@@ -1113,6 +1114,153 @@ class OnPolicyEvaluation_Tests(unittest.TestCase):
                 self.learn_call = args
 
         task         = OnPolicyEvaluation()
+        learner      = SimpleLearner()
+        interactions = [
+            SimulatedInteraction(1,[1,2,3],[7,8,9]),
+            SimulatedInteraction(2,[4,5,6],[4,5,6]),
+            SimulatedInteraction(3,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, Batch(3).filter(interactions)))
+
+        expected_predict_call = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]])
+        expected_learn_call   = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]],[1,5,9],[7,5,3],[1,1,1])
+        expected_task_results  = [ {"reward":7},{"reward":5},{"reward":3} ]
+
+        self.assertEqual(expected_predict_call, learner.predict_call[0])
+        self.assertEqual(expected_learn_call, learner.learn_call)
+        self.assertEqual(expected_task_results, task_results)
+
+class OffPolicyEvaluation_Tests(unittest.TestCase):
+
+    def test_logged_interaction_no_actions_no_probability_no_info_no_logs(self):
+        task    = OffPolicyEvaluation()
+        learner = RecordingLearner(with_info=False,with_log=False)
+        interactions = [
+            LoggedInteraction(1, 2, 3),
+            LoggedInteraction(2, 3, 4),
+            LoggedInteraction(3, 4, 5)
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = []
+        expected_predict_returns = []
+        expected_learn_calls     = [(1,None,2,3,None,{}),(2,None,3,4,None,{}),(3,None,4,5,None,{})]
+        expected_task_results    = []
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_logged_interaction_actions_no_probability_no_info_no_logs(self):
+        task    = OffPolicyEvaluation()
+        learner = RecordingLearner(with_info=False,with_log=False)
+        interactions = [
+            LoggedInteraction(1, 2, 3, actions=[2,5,8]),
+            LoggedInteraction(2, 3, 4, actions=[3,6,9]),
+            LoggedInteraction(3, 4, 5, actions=[4,7,0])
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_learn_calls     = [(1,[2,5,8],2,3,None,{}),(2,[3,6,9],3,4,None,{}),(3,[4,7,0],4,5,None,{})]
+        expected_task_results    = [{'reward': 3.0}, {'reward': 0.0}, {'reward': 0.0}]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_logged_interaction_actions_probability_no_info_no_logs(self):
+        task    = OffPolicyEvaluation()
+        learner = RecordingLearner(with_info=False,with_log=False)
+        interactions = [
+            LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
+            LoggedInteraction(2, 3, 4, probability=.3, actions=[3,6,9]),
+            LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0])
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_learn_calls     = [(1,[2,5,8],2,3,.2,{}),(2,[3,6,9],3,4,.3,{}),(3,[4,7,0],4,5,.4,{})]
+        expected_task_results    = [{'reward':3/.2},{'reward':0},{'reward':0}]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_logged_interaction_actions_probability_info_logs_kwargs(self):
+        task    = OffPolicyEvaluation()
+        learner = RecordingLearner(with_info=True,with_log=True)
+        interactions = [
+            LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8], L='a'),
+            LoggedInteraction(2, 3, 4, probability=.3, actions=[3,6,9], L='b'),
+            LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0], L='c')
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
+        expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
+        expected_learn_calls     = [(1,[2,5,8],2,3,.2,{}),(2,[3,6,9],3,4,.3,{}),(3,[4,7,0],4,5,.4,{})]
+        expected_task_results    = [
+            {'reward':3/.2, 'learn':1, 'predict':1, 'L':'a'},
+            {'reward':0   , 'learn':2, 'predict':2, 'L':'b'},
+            {'reward':0   , 'learn':3, 'predict':3, 'L':'c'}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_time(self):
+        task         = OffPolicyEvaluation(['time'])
+        learner      = RecordingLearner()
+        interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
+
+        task_results = list(task.process(learner, interactions))
+
+        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
+        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    def test_ope_loss_logging(self):
+        task         = OffPolicyEvaluation(['reward','ope_loss'])
+        interactions = [
+            LoggedInteraction(1, 0, 0, actions=[0, 1], probability=1.0),
+            LoggedInteraction(2, 0, 1, actions=[0, 1], probability=1.0),
+            LoggedInteraction(3, 0, 0, actions=[0, 1], probability=1.0),
+        ]
+
+        #VW learner
+        task_results = list(task.process(VowpalSoftmaxLearner(), interactions))
+        ope_losses = [result['ope_loss'] for result in task_results]
+        self.assertListEqual(ope_losses, [0.0, -0.5, -0.5])
+
+        # Non-VW learner
+        task_results = list(task.process(RecordingLearner(), interactions))
+        self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
+
+    def test_batched_simulated_interaction(self):
+
+        class SimpleLearner:
+            def __init__(self) -> None:
+                self.predict_call = []
+            def predict(self,*args):
+                self.predict_call.append(args)
+                return [[1,0,0],[0,1,0],[0,0,1]][:len(args[0])]
+            def learn(self,*args):
+                self.learn_call = args
+
+        task         = SimpleEvaluation()
         learner      = SimpleLearner()
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),

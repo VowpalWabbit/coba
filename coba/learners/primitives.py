@@ -97,7 +97,9 @@ class Learner(ABC):
                  probability if off-policy learning is being performed on LoggedInteractions.
             **kwargs: Optional information returned with the prediction.
         """
-        ...
+        raise CobaException((
+            "The `predict` interface has not been implemented for this learner."
+        ))
 
 class SafeLearner(Learner):
     """A wrapper for learner-likes that guarantees interface consistency."""

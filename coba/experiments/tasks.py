@@ -3,13 +3,14 @@ import collections.abc
 import time
 import warnings
 from abc import ABC, abstractmethod
-from itertools import combinations
+from itertools import combinations, count
 from statistics import mean
 from typing import Iterable, Any, Sequence, Mapping, Hashable
 
 import math
 
 from coba.backports import Literal
+from coba.exceptions import CobaException
 from coba.contexts import CobaContext
 from coba.encodings import InteractionsEncoder
 from coba.environments import Environment, SafeEnvironment, Interaction
@@ -238,7 +239,7 @@ class SimpleEvaluation(EvaluationTask):
 
 class OnPolicyEvaluation(EvaluationTask):
 
-    IMPLICIT_EXCLUDE = {"actions", "rewards", "action", "reward", "probability",}
+    IMPLICIT_EXCLUDE = {"actions", "rewards", "action", "reward", "probability"}
     ONLY_DISCRETE    = {'rank', 'rewards'}
 
     def __init__(self, 
@@ -340,6 +341,132 @@ class OnPolicyEvaluation(EvaluationTask):
                 if batched:
                     #we flatten batched items so output works seamlessly with Result
                     yield from ({k:v[i] for k,v in out.items()} for i in range(len(context)))
+                else:
+                    yield out
+
+class OffPolicyEvaluation(EvaluationTask):
+
+    IMPLICIT_EXCLUDE = {"actions", "rewards", "action", "reward", "probability", "ope_loss"}
+
+    def __init__(self, 
+        record: Sequence[Literal['reward','time','ope_loss']] = ['reward'],
+        learn: bool = True,
+        predict: bool = True,
+        seed: float = None) -> None:
+        """
+        Args:
+            record: The datapoints to record for each interaction.
+            learn: Indicates if learning should occur during the evaluation process.
+            predict: Indicates if prediction should occur during the evaluation process.
+            seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
+        """
+
+        self._record  = [record] if isinstance(record,str) else record
+        self._learn   = learn
+        self._predict = predict
+        self._seed    = seed
+
+        if 'ope_loss' in self._record:
+            # OPE loss metric is only available for VW models
+            # Divide by the number of samples for the average loss metric and see this article for more info
+            # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
+            PackageChecker.vowpalwabbit('SimpleEvaluation.__init__')
+
+
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
+
+        learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
+
+        first, interactions = peek_first(interactions)        
+        batched  = first and isinstance(first['context'], Batch)
+        discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
+
+        try:
+            learner.request(first['context'],[],[])
+        except Exception as ex:            
+            implements_request = '`request`' not in str(ex)            
+        else:
+            implements_request = True
+
+        record_time     = 'time'     in self._record
+        record_reward   = 'reward'   in self._record and self._predict and 'actions' in first
+        record_ope_loss = 'ope_loss' in self._record and self._predict and 'actions' in first
+
+        get_action_index = lambda actions,action : actions.index(action)
+
+        request = learner.request
+        predict = learner.predict
+        learn   = learner.learn
+        info    = CobaContext.learning_info
+
+        info.clear()
+
+        for interaction in interactions:
+
+            out = {}
+            interaction = interaction.copy()
+
+            log_context = interaction.pop('context')
+            log_action  = interaction.pop('action')
+            log_reward  = interaction.pop('reward') 
+            log_prob    = interaction.pop('probability',None)
+            log_rewards = interaction.pop('rewards',None)
+            log_actions = interaction.pop('actions',None)
+
+            batched  = isinstance(log_context, Batch)
+            discrete = log_actions and len(log_actions[0] if batched else log_actions) > 0
+
+            if record_time:
+                predict_time = 0
+                learn_time   = 0
+
+            if self._predict and log_actions is not None:
+                if implements_request:
+                    if discrete:
+                        start_time   = time.time()
+                        on_probs     = request(log_context,log_actions,log_actions)
+                        predict_time = time.time()-start_time
+                        on_reward    = sum(on_p*log_rewards.eval(a) for on_p,a in zip(on_probs,count()))
+                    else:
+                        start_time   = time.time()
+                        on_prob      = request(log_context,log_actions,[log_action])
+                        predict_time = time.time()-start_time
+                        on_reward    = on_prob*log_rewards.eval(log_action)
+                else:
+                    start_time        = time.time()
+                    on_action,on_prob = predict(log_context, log_actions)[:2]
+                    predict_time      = time.time()-start_time
+
+                    _action   = on_action if not discrete else list(map(get_action_index,log_actions,on_action)) if batched else get_action_index(log_actions,on_action)
+                    on_reward = on_prob*log_rewards.eval(_action)
+
+            if self._learn:
+                start_time = time.time()
+                if self._learn: learn(log_context, log_actions, log_action, log_reward, log_prob)
+                learn_time = time.time() - start_time
+
+            if record_time  : out['predict_time'] = predict_time
+            if record_time  : out['learn_time']   = learn_time
+            if record_reward: out['reward']       = on_reward
+
+            if interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE:
+                out.update({k: interaction[k] for k in interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE})
+
+            if record_ope_loss:
+                # OPE loss metric is only available for VW models
+                try:
+                    out['ope_loss'] = learner._learner._vw._vw.get_sum_loss()
+                except AttributeError:
+                    out['ope_loss'] = float("nan")
+
+            if info:
+                out.update(info)
+                info.clear()
+
+            if out:
+                if batched:
+                    #we flatten batched items so output works seamlessly with Result
+                    yield from ({k:v[i] for k,v in out.items()} for i in range(len(log_context)))
                 else:
                     yield out
 
