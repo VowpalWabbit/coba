@@ -342,19 +342,22 @@ class SafeLearner_Tests(unittest.TestCase):
         #self.assertEqual(learner.get_type(lambda a: 1, True),1)
 
         #this is definitely a pmf because of how long it is
-        self.assertEqual(learner._determine_pred_type((0,1,0,0,0,0), True),2)
+        self.assertEqual(learner._determine_pred_type((0,1,0,0,0,0), [1]*6, True),2)
 
         #this is definitely a pmf because it is explicitly typed
-        self.assertEqual(learner._determine_pred_type(PMF([0,1]), True),2)
+        self.assertEqual(learner._determine_pred_type(PMF([0,1]), [], True),2)
 
         #this is definitely an action-score pair because it is explicitly typed
-        self.assertEqual(learner._determine_pred_type(ActionProb(0,1), False),3)
+        self.assertEqual(learner._determine_pred_type(ActionProb(0,1), [], False),3)
 
         #this is definitely an action-score pair because it is explicitly typed
-        self.assertEqual(learner._determine_pred_type(ActionProb((1,0,0),1), True),3)
+        self.assertEqual(learner._determine_pred_type(ActionProb((1,0,0),1), [], True),3)
+
+        #this is definitely an action-score pair because the action is a string
+        self.assertEqual(learner._determine_pred_type(('a',1), ['a','b'], True),3)
 
         #this can't be determined
-        self.assertEqual(learner._determine_pred_type((0,1), True),None)
+        self.assertEqual(learner._determine_pred_type((0,1), [0,1], True),None)
 
     def test_request_not_implemented(self):
         class MyLearner:

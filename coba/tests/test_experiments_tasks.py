@@ -9,13 +9,14 @@ from coba import VowpalSoftmaxLearner
 from coba.contexts import CobaContext
 from coba.environments import Shuffle, Noise, Batch
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
-from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo, SimpleEvaluation
+from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo, SimpleEvaluation, OnPolicyEvaluation
 from coba.learners import Learner
 from coba.pipes import Pipes
 from coba.primitives import SequenceReward
 
 #for testing purposes
-class BatchFixedActionScoreLearner(Learner):
+class BatchFixedLearner(Learner):
+    
     @property
     def params(self):
         return {"family": "Recording"}
@@ -26,7 +27,7 @@ class BatchFixedActionScoreLearner(Learner):
     def learn(self, context, actions, action, reward, probability, **kwargs):
         pass
 
-class FixedActionScoreLearner(Learner):
+class FixedActionProbLearner(Learner):
     def __init__(self, actions):
         self._actions = actions
 
@@ -432,7 +433,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
     def test_continuous_simulated_interaction_no_info_no_logs_no_kwargs(self):
         task         = SimpleEvaluation(["reward","rank"])
-        learner      = FixedActionScoreLearner([0,1,2])
+        learner      = FixedActionProbLearner([0,1,2])
         interactions = [
             SimulatedInteraction(1,[],SequenceReward([7,8,9])),
             SimulatedInteraction(2,[],SequenceReward([4,5,6])),
@@ -450,14 +451,14 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         # test warning about rewards metric
         task         = SimpleEvaluation(["reward","rewards"])
-        learner      = FixedActionScoreLearner([0,1,2])
+        learner      = FixedActionProbLearner([0,1,2])
         with self.assertWarns(UserWarning) as w:
             list(task.process(learner, interactions))
         self.assertEqual("The rewards metric can only be calculated for discrete environments", str(w.warning))
 
         # test warnings for both rank and rewards
         task         = SimpleEvaluation(["reward","rewards", "rank"])
-        learner      = FixedActionScoreLearner([0,1,2])
+        learner      = FixedActionProbLearner([0,1,2])
         with self.assertWarns(UserWarning) as w:
             list(task.process(learner, interactions))
 
@@ -467,7 +468,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         # test for neither
         task         = SimpleEvaluation(["reward","actions", "context"])
-        learner      = FixedActionScoreLearner([0,1,2])
+        learner      = FixedActionProbLearner([0,1,2])
         with self.assertWarns(UserWarning) as w:
             # Adding a dummy warning log to test the absence of any actual warning
             # Should use assertNoLogs when switching to Python 3.10+"
@@ -731,7 +732,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
     def test_rewards_logging_batched(self):
         task                 = SimpleEvaluation(['reward','rewards'])
-        learner              = BatchFixedActionScoreLearner()
+        learner              = BatchFixedLearner()
         interactions         = [
             LoggedInteraction(1, "action_1", 1, probability=1.0, actions=["action_1", "action_2", "action_3"]),
             LoggedInteraction(2, "action_2", 2, probability=1.0, actions=["action_1", "action_2", "action_3"])
@@ -777,6 +778,341 @@ class SimpleEvaluation_Tests(unittest.TestCase):
                 self.learn_call = args
 
         task         = SimpleEvaluation()
+        learner      = SimpleLearner()
+        interactions = [
+            SimulatedInteraction(1,[1,2,3],[7,8,9]),
+            SimulatedInteraction(2,[4,5,6],[4,5,6]),
+            SimulatedInteraction(3,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, Batch(3).filter(interactions)))
+
+        expected_predict_call = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]])
+        expected_learn_call   = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]],[1,5,9],[7,5,3],[1,1,1])
+        expected_task_results  = [ {"reward":7},{"reward":5},{"reward":3} ]
+
+        self.assertEqual(expected_predict_call, learner.predict_call[0])
+        self.assertEqual(expected_learn_call, learner.learn_call)
+        self.assertEqual(expected_task_results, task_results)
+
+class OnPolicyEvaluation_Tests(unittest.TestCase):
+
+    def test_one_metric(self):
+        task         = OnPolicyEvaluation("reward")
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            SimulatedInteraction(None,[1,2,3],[7,8,9]),
+            SimulatedInteraction(None,[4,5,6],[4,5,6]),
+            SimulatedInteraction(None,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
+        expected_task_results    = [
+            {"reward":7},
+            {"reward":5},
+            {"reward":3}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_all_reward_metrics(self):
+        task         = OnPolicyEvaluation(["reward","rank","regret"])
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            SimulatedInteraction(None,[1,2,3],[7,8,9]),
+            SimulatedInteraction(None,[4,5,6],[4,5,6]),
+            SimulatedInteraction(None,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
+        expected_task_results    = [
+            {"reward":7,'rank':0,'regret':2},
+            {"reward":5,'rank':.5,'regret':1},
+            {"reward":3,'rank':1,'regret':0}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_none_no_info_no_logs_no_kwargs(self):
+        task         = OnPolicyEvaluation()
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            SimulatedInteraction(None,[1,2,3],[7,8,9]),
+            SimulatedInteraction(None,[4,5,6],[4,5,6]),
+            SimulatedInteraction(None,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
+        expected_task_results    = [
+            {"reward":7},
+            {"reward":5},
+            {"reward":3}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_sparse_no_info_no_logs_no_kwargs(self):
+        task         = OnPolicyEvaluation()
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            SimulatedInteraction({'c':1},[{'a':1},{'a':2},{'a':2}],[7,8,9]),
+            SimulatedInteraction({'c':2},[{'a':4},{'a':5},{'a':2}],[4,5,9]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [({'c':1},[{'a':1},{'a':2},{'a':2}]),({'c':2},[{'a':4},{'a':5},{'a':2}])]
+        expected_predict_returns = [[1,0,0],[0,1,0]]
+        expected_learn_calls     = [({'c':1},[{'a':1},{'a':2},{'a':2}],{'a':1},7,1,{}),({'c':2},[{'a':4},{'a':5},{'a':2}],{'a':5},5,1,{})]
+        expected_task_results    = [
+            {"reward":7},
+            {"reward":5},
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_dense_no_info_no_logs_no_kwargs(self):
+        task         = OnPolicyEvaluation()
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            SimulatedInteraction(1,[1,2,3],[7,8,9]),
+            SimulatedInteraction(2,[4,5,6],[4,5,6]),
+            SimulatedInteraction(3,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{}),(2,[4,5,6],5,5,1,{}),(3,[7,8,9],9,3,1,{})]
+        expected_task_results    = [
+            {"reward":7},
+            {"reward":5},
+            {"reward":3}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_continuous_no_info_no_logs_no_kwargs(self):
+        task         = OnPolicyEvaluation(["reward","rank"])
+        learner      = FixedActionProbLearner([0,1,2])
+        interactions = [
+            SimulatedInteraction(1,[],SequenceReward([7,8,9])),
+            SimulatedInteraction(2,[],SequenceReward([4,5,6])),
+            SimulatedInteraction(3,[],SequenceReward([1,2,3])),
+        ]
+        
+        with self.assertWarns(UserWarning) as w:
+            task_results = list(task.process(learner, interactions))
+
+        self.assertEqual("The rank metric can only be calculated for discrete environments", str(w.warning))
+        
+        expected_task_results = [{"reward":7},{"reward":5},{"reward":3}]
+
+        self.assertEqual(expected_task_results, task_results)
+
+        # test warning about rewards metric
+        task         = SimpleEvaluation(["reward","rewards"])
+        learner      = FixedActionProbLearner([0,1,2])
+        with self.assertWarns(UserWarning) as w:
+            list(task.process(learner, interactions))
+        self.assertEqual("The rewards metric can only be calculated for discrete environments", str(w.warning))
+
+        # test warnings for both rank and rewards
+        task         = SimpleEvaluation(["reward","rewards", "rank"])
+        learner      = FixedActionProbLearner([0,1,2])
+        with self.assertWarns(UserWarning) as w:
+            list(task.process(learner, interactions))
+
+        self.assertEqual(2, len(w.warnings))
+        self.assertTrue(all([str(warning.message).endswith("can only be calculated for discrete environments")
+                             for warning in w.warnings]))
+
+        # test for neither
+        task         = SimpleEvaluation(["reward","actions", "context"])
+        learner      = FixedActionProbLearner([0,1,2])
+        with self.assertWarns(UserWarning) as w:
+            # Adding a dummy warning log to test the absence of any actual warning
+            # Should use assertNoLogs when switching to Python 3.10+"
+            warnings.warn("Dummy warning")
+            list(task.process(learner, interactions))
+        self.assertEqual(1, len(w.warnings))
+        self.assertEqual("Dummy warning", str(w.warning))
+
+    def test_info_logs_kwargs(self):
+        task         = OnPolicyEvaluation()
+        learner      = RecordingLearner(with_info=True, with_log=True)
+        interactions = [
+            SimulatedInteraction(1,[1,2,3],[7,8,9],I=1),
+            SimulatedInteraction(2,[4,5,6],[4,5,6],I=2),
+            SimulatedInteraction(3,[7,8,9],[1,2,3],I=3),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
+        expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{'i':1}),(2,[4,5,6],5,5,1,{'i':2}),(3,[7,8,9],9,3,1,{'i':3})]
+        expected_task_results    = [
+            {"reward":7,'learn':1,'predict':1,'I':1},
+            {"reward":5,'learn':2,'predict':2,'I':2},
+            {"reward":3,'learn':3,'predict':3,'I':3}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_info_logs_kwargs_partial(self):
+        task         = OnPolicyEvaluation()
+        learner      = RecordingLearner(with_info=True, with_log=True)
+        interactions = [
+            SimulatedInteraction(1,[1,2,3],[7,8,9]),
+            SimulatedInteraction(2,[4,5,6],[4,5,6],letter='d'),
+            SimulatedInteraction(3,[7,8,9],[1,2,3],letter='g'),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
+        expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{'i':1}),(2,[4,5,6],5,5,1,{'i':2}),(3,[7,8,9],9,3,1,{'i':3})]
+        expected_task_results    = [
+            {"reward":7,'learn':1,'predict':1,            },
+            {"reward":5,'learn':2,'predict':2,'letter':'d'},
+            {"reward":3,'learn':3,'predict':3,'letter':'g'}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_two_grounded_interactions(self):
+        task    = OnPolicyEvaluation()
+        learner = DummyIglLearner([[1,0,0],[0,0,1]])
+        interactions = [
+            GroundedInteraction(0,[1,2,3],[1,0,0],[4,5,6],userid=0,isnormal=False),
+            GroundedInteraction(1,[1,2,3],[0,1,0],[7,8,9],userid=1,isnormal=True),
+        ]
+
+        expected_predict_calls = [
+            (0,[1,2,3]),
+            (1,[1,2,3])
+        ]
+
+        expected_learn_calls = [
+            (0,[1,2,3],1,4,1,{}),
+            (1,[1,2,3],3,9,1,{})
+        ]
+
+        expected_results = [
+            dict(reward=1,feedback=4,userid=0,isnormal=False,n_predict=1),
+            dict(reward=0,feedback=9,userid=1,isnormal=True ,n_predict=2)
+        ]
+
+        actual_results = list(task.process(learner,interactions))
+
+        self.assertEqual(expected_results, actual_results)
+        self.assertEqual(expected_predict_calls, learner._predict_calls)
+        self.assertEqual(expected_learn_calls, learner._learn_calls)
+
+    def test_time(self):
+        task         = OnPolicyEvaluation(['time'])
+        learner      = RecordingLearner()
+        interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
+
+        task_results = list(task.process(learner, interactions))
+
+        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
+        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
+
+    def test_context_logging(self):
+        task                 = OnPolicyEvaluation(['reward','probability','context'])
+        task_without_context = OnPolicyEvaluation(['reward','probability'])
+        learner              = RecordingLearner()
+        interactions         = [
+            SimulatedInteraction(None ,[1,2,3],[7,8,9]),
+            SimulatedInteraction(1    ,[4,5,6],[4,5,6]),
+            SimulatedInteraction([1,2],[7,8,9],[1,2,3]),
+        ]
+        # without recording context
+        task_results = list(task_without_context.process(learner, interactions))
+        self.assertNotIn('context', task_results[0])
+
+        # recording context
+        task_results = list(task.process(learner, interactions))
+        result_contexts = [result['context'] for result in task_results]
+        self.assertListEqual(result_contexts, [None, 1, [1,2]])
+
+    def test_rewards_logging(self):
+        task         = OnPolicyEvaluation(['reward','rewards'])
+        learner      = FixedActionProbLearner(["action_1","action_2"])
+        interactions = [
+            SimulatedInteraction(1, ["action_1", "action_2", "action_3"], [1,0,0]),
+            SimulatedInteraction(2, ["action_1", "action_2", "action_3"], [0,2,0]),
+        ]
+
+        results = list(task.process(learner, interactions))
+        self.assertListEqual([[1,0,0],[0,2,0]], [result['rewards'] for result in results])
+        self.assertListEqual([1,2], [result['reward'] for result in results])
+
+    def test_rewards_logging_batched(self):
+        task         = OnPolicyEvaluation(['reward','rewards'])
+        learner      = BatchFixedLearner()
+        interactions = [
+            SimulatedInteraction(1, ["action_1", "action_2", "action_3"], [1,0,0]),
+            SimulatedInteraction(2, ["action_1", "action_2", "action_3"], [0,0,2]),
+        ]
+        
+        results = list(task.process(learner, Batch(2).filter(interactions)))
+        
+        self.assertEqual(2, len(results))
+        self.assertEqual(1,results[0]['reward'])
+        self.assertEqual(2,results[1]['reward'])
+        self.assertEqual([1, 0, 0],results[0]['rewards'])
+        self.assertEqual([0, 0, 2],results[1]['rewards'])
+
+    def test_batched(self):
+
+        class SimpleLearner:
+            def __init__(self) -> None:
+                self.predict_call = []
+            def predict(self,*args):
+                self.predict_call.append(args)
+                return [[1,0,0],[0,1,0],[0,0,1]][:len(args[0])]
+            def learn(self,*args):
+                self.learn_call = args
+
+        task         = OnPolicyEvaluation()
         learner      = SimpleLearner()
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),

@@ -213,10 +213,10 @@ class SafeLearner(Learner):
                     all_failed = True
                 if all_failed: raise
 
-    def _determine_pred_type(self,pred,is_discrete) -> Optional[int]:
+    def _determine_pred_type(self,pred,actions,is_discrete) -> Optional[int]:
         if self._is_type_1(pred): raise CobaException("PDF predictions are currently not supported.")
-        if self._is_type_2(pred,is_discrete): return 2
-        if self._is_type_3(pred,is_discrete): return 3
+        if self._is_type_2(pred,actions,is_discrete): return 2
+        if self._is_type_3(pred,actions,is_discrete): return 3
         return None
 
     def _determine_has_info(self,pred,pred_type) -> Mapping[Any,Any]:
@@ -228,7 +228,7 @@ class SafeLearner(Learner):
     def _determine_pred_format(self, pred, actions):
 
         is_discrete = 0 < len(actions) and len(actions) < float('inf')
-        pred_type = self._determine_pred_type(pred, is_discrete) or self.get_inferred_type(pred, actions)
+        pred_type = self._determine_pred_type(pred, actions, is_discrete) or self.get_inferred_type(pred, actions)
         with_info = self._determine_has_info(pred,pred_type)
 
         self._pred_type = pred_type
@@ -308,20 +308,20 @@ class SafeLearner(Learner):
         #PDF
         return callable(pred) or callable(pred[0])
 
-    def _is_type_2(self, pred, is_discrete:bool):
+    def _is_type_2(self, pred, actions, is_discrete:bool):
         #PMF
-
         explicit = isinstance(pred,PMF) or isinstance(pred[0],PMF)
-        pmf_sans_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) > 3 or len(pred) == 3 and not isinstance(pred[2],dict)
-        pmf_with_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) == 2 and isinstance(pred[0],abc.Sequence)
+        pmf_sans_info = is_discrete and isinstance(pred,abc.Sequence) and not isinstance(pred,str) and len(pred) > 3 or len(pred) == 3 and not isinstance(pred[2],dict)
+        pmf_with_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) == 2 and isinstance(pred[0],abc.Sequence) and not isinstance(pred[0],str)
         
         return (explicit or pmf_sans_info or pmf_with_info) and not (isinstance(pred,ActionProb) or isinstance(pred[0],ActionProb))
 
-    def _is_type_3(self, pred, is_discrete:bool):
+    def _is_type_3(self, pred, actions, is_discrete:bool):
         #Action Score
         explicit = isinstance(pred,ActionProb) or isinstance(pred[0],ActionProb)
+        sans_info = is_discrete and len(pred) == 2 and pred[0] in actions and not isinstance(pred[0],(int,float))
         with_info = is_discrete and len(pred) == 3 and not isinstance(pred[2],(float,int))
-        return explicit or with_info or not is_discrete
+        return explicit or sans_info or with_info or not is_discrete
 
     def get_inferred_type(self,pred,actions) -> int:
         possible_types = []

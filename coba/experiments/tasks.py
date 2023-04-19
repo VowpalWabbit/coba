@@ -236,6 +236,113 @@ class SimpleEvaluation(EvaluationTask):
                 else:
                     yield out
 
+class OnPolicyEvaluation(EvaluationTask):
+
+    IMPLICIT_EXCLUDE = {"actions", "rewards", "action", "reward", "probability",}
+    ONLY_DISCRETE    = {'rank', 'rewards'}
+
+    def __init__(self, 
+        record: Sequence[Literal['reward','rank','regret','time','probability','action','context','actions','rewards']] = ['reward'],
+        learn: bool = True,
+        seed: float = None) -> None:
+        """
+        Args:
+            record: The datapoints to record for each interaction.
+            learn: Indicates if learning should occur during the evaluation process.
+            seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
+        """
+
+        self._record = [record] if isinstance(record,str) else record
+        self._learn  = learn
+        self._seed   = seed
+
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
+
+        learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
+
+        first, interactions = peek_first(interactions)        
+        batched  = first and isinstance(first['context'], Batch)
+        discrete = len(first['actions'][0] if batched else first['actions']) > 0
+
+        if not discrete:
+            for metric in set(self._record).intersection(OnPolicyEvaluation.ONLY_DISCRETE):
+                warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
+
+        record_prob    = 'probability' in self._record
+        record_time    = 'time'        in self._record
+        record_action  = 'action'      in self._record
+        record_context = 'context'     in self._record
+        record_actions = 'actions'     in self._record
+        record_rewards = 'rewards'     in self._record and discrete
+        record_rank    = 'rank'        in self._record and discrete
+        record_reward  = 'reward'      in self._record
+        record_regret  = 'regret'      in self._record
+
+        get_reward = lambda reward                    : reward
+        get_regret = lambda reward, rewards           : rewards.max()-reward
+        get_rank   = lambda reward, rewards, n_actions: sorted(map(rewards.eval,range(n_actions))).index(reward)/(n_actions-1)
+
+        get_reward_list  = lambda rewards,actions: list(map(rewards.eval, range(len(actions))))
+        get_action_index = lambda actions,action : actions.index(action)
+
+        predict = learner.predict
+        learn   = learner.learn
+        info    = CobaContext.learning_info
+
+        info.clear()
+
+        for interaction in interactions:
+
+            out = {}
+            interaction = interaction.copy()
+
+            context   = interaction.pop('context')
+            actions   = interaction.pop('actions')
+            rewards   = interaction.pop('rewards')
+            feedbacks = interaction.pop('feedbacks',None)
+
+            batched  = isinstance(context, Batch)
+            discrete = len(actions[0] if batched else actions) > 0
+
+            if record_context: out['context'] = context
+            if record_actions: out['actions'] = actions
+            if record_rewards: out['rewards'] = list(map(get_reward_list,rewards,actions)) if batched else get_reward_list(rewards,actions)
+
+            start_time         = time.time()
+            action,prob,kwargs = predict(context, actions)
+            predict_time       = time.time()-start_time
+
+            _action  = action if not discrete else list(map(get_action_index,actions,action)) if batched else get_action_index(actions,action)
+            reward   = rewards.eval(_action)
+            feedback = feedbacks.eval(_action) if feedbacks else None
+
+            start_time = time.time()
+            if self._learn: learn(context, actions, action, feedback if feedbacks else reward, prob, **kwargs)
+            learn_time = time.time() - start_time
+
+            if record_time   : out['predict_time'] = predict_time
+            if record_time   : out['learn_time']   = learn_time
+            if record_prob   : out['probability']  = prob
+            if record_action : out['action']       = action
+            if feedbacks     : out['feedback']     = feedback
+            if record_reward : out['reward']       = list(map(get_reward,reward)) if batched else get_reward(reward)
+            if record_regret : out['regret']       = list(map(get_regret,reward,rewards)) if batched else get_regret(reward, rewards)
+            if record_rank   : out['rank'  ]       = list(map(get_rank,reward,rewards,len(actions))) if batched else get_rank(reward, rewards, len(actions))
+
+            if interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE:
+                out.update({k: interaction[k] for k in interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE})
+
+            if info:
+                out.update(info)
+                info.clear()
+
+            if out:
+                if batched:
+                    #we flatten batched items so output works seamlessly with Result
+                    yield from ({k:v[i] for k,v in out.items()} for i in range(len(context)))
+                else:
+                    yield out
+
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""
 
