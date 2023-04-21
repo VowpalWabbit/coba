@@ -623,8 +623,8 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments(TestEnvironment1('A')).repr()
 
         self.assertEqual(1, len(envs))
-        self.assertEqual('onehot' , envs[0].params['cat_actions'])
-        self.assertEqual('onehot', envs[0].params['cat_context'])
+        self.assertEqual('onehot' , envs[0].params['categoricals_in_actions'])
+        self.assertEqual('onehot', envs[0].params['categoricals_in_context'])
 
     def test_materialize(self):
         envs  = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)

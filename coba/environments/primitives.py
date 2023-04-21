@@ -47,12 +47,7 @@ class SimulatedInteraction(Interaction):
 
         self['context'] = context
         self['actions'] = actions
-        if isinstance(rewards,(list,tuple)):
-            if len(rewards) != len(actions): 
-                raise CobaException("The given actions and rewards did not line up.")
-            self['rewards'] = SequenceReward(rewards)
-        else:
-            self['rewards'] = rewards
+        self['rewards'] = rewards if not isinstance(rewards,(list,tuple)) else SequenceReward(actions,rewards)
 
         if kwargs: self.update(kwargs)
 
@@ -79,8 +74,8 @@ class GroundedInteraction(Interaction):
 
         self['context'] = context
         self['actions'] = actions
-        self['rewards'] = SequenceReward(rewards) if isinstance(rewards,(list,tuple)) else rewards
-        self['feedbacks'] = SequenceFeedback(feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
+        self['rewards'] = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
+        self['feedbacks'] = SequenceFeedback(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
 
         if kwargs: self.update(kwargs)
 
@@ -121,10 +116,7 @@ class LoggedInteraction(Interaction):
         """
 
         if isinstance(kwargs.get('rewards'),(list,tuple)):
-            self['rewards'] = SequenceReward(kwargs.pop('rewards'))
-        elif kwargs.get('rewards') is None and kwargs.get('actions') is not None:
-            ips_action = kwargs['actions'].index(action) if isinstance(kwargs['actions'],(list,tuple)) else action
-            self['rewards'] = IPSReward(reward,ips_action,kwargs.get('probability'))
+            self['rewards'] = SequenceReward(kwargs['actions'],kwargs.pop('rewards'))
 
         self['context'] = context
         self['action']  = action

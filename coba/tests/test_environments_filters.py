@@ -653,9 +653,9 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[1]['context'])
         self.assertEqual(None, scl_interactions[2]['context'])
 
-        self.assertEqual([-1/2,1/2], [scl_interactions[0]['rewards'].eval(a) for a in [0,1]])
-        self.assertEqual([-1/2,1/2], [scl_interactions[1]['rewards'].eval(a) for a in [0,1]])
-        self.assertEqual([-1/2,1/2], [scl_interactions[2]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([-1/2,1/2], [scl_interactions[0]['rewards'].eval(a) for a in [1,2]])
+        self.assertEqual([-1/2,1/2], [scl_interactions[1]['rewards'].eval(a) for a in [1,2]])
+        self.assertEqual([-1/2,1/2], [scl_interactions[2]['rewards'].eval(a) for a in [1,2]])
 
     def test_scale_mean_and_minmax_target_rewards_continuous(self):
 
@@ -690,9 +690,9 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[1]['context'])
         self.assertEqual(None, scl_interactions[2]['context'])
 
-        self.assertEqual([-1,0], [scl_interactions[0]['rewards'].eval(a) for a in [0,1]])
-        self.assertEqual([0,-1], [scl_interactions[1]['rewards'].eval(a) for a in [0,1]])
-        self.assertEqual([-1,0], [scl_interactions[2]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([-1,0], [scl_interactions[0]['rewards'].eval(a) for a in [1,3]])
+        self.assertEqual([0,-1], [scl_interactions[1]['rewards'].eval(a) for a in [1,3]])
+        self.assertEqual([-1,0], [scl_interactions[2]['rewards'].eval(a) for a in [1,3]])
 
     def test_scale_min_and_minmax_target_argmax(self):
 
@@ -1240,9 +1240,9 @@ class Binary_Tests(unittest.TestCase):
 
         binary_interactions = list(Binary().filter(interactions))
 
-        self.assertEqual([0,1], [binary_interactions[0]['rewards'].eval(a) for a in [0,1]])
-        self.assertEqual([0,1], [binary_interactions[1]['rewards'].eval(a) for a in [0,1]])
-        self.assertEqual([1,0], [binary_interactions[2]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([0,1], [binary_interactions[0]['rewards'].eval(a) for a in [1,2]])
+        self.assertEqual([0,1], [binary_interactions[1]['rewards'].eval(a) for a in [1,2]])
+        self.assertEqual([1,0], [binary_interactions[2]['rewards'].eval(a) for a in [1,2]])
 
     def test_params(self):
         self.assertEqual({'binary':True}, Binary().params)
@@ -1659,13 +1659,13 @@ class Grounded_Tests(unittest.TestCase):
         to_igl_filter    = Grounded(10,5,4,2,4)
         igl_interactions = list(to_igl_filter.filter(interactions))
 
-        feedbacks_0 = [igl_interactions[0]['feedbacks'].eval(a) for a in [0,1,2] ]
+        feedbacks_0 = [igl_interactions[0]['feedbacks'].eval(a) for a in [1,2,3]]
 
         self.assertEqual(True,igl_interactions[0]['isnormal'])
         self.assertEqual(4, igl_interactions[0]['userid'])
         self.assertEqual([(0,), (2,), (3,)], feedbacks_0)
 
-        feedbacks_1 = [igl_interactions[1]['feedbacks'].eval(a) for a in [0,1,2] ]
+        feedbacks_1 = [igl_interactions[1]['feedbacks'].eval(a) for a in [1,2,3]]
 
         self.assertEqual(True,igl_interactions[1]['isnormal'])
         self.assertEqual(2, igl_interactions[1]['userid'])
@@ -1694,9 +1694,9 @@ class Grounded_Tests(unittest.TestCase):
     def test_not_01_reward(self):
         sim_interactions = [ SimulatedInteraction(0,[1,2,3],[0,.2,.5]) ]
         igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
-        self.assertEqual(igl_interactions[0]['rewards'].eval(0), 0)
         self.assertEqual(igl_interactions[0]['rewards'].eval(1), 0)
-        self.assertEqual(igl_interactions[0]['rewards'].eval(2), 1)
+        self.assertEqual(igl_interactions[0]['rewards'].eval(2), 0)
+        self.assertEqual(igl_interactions[0]['rewards'].eval(3), 1)
 
     def test_normal_bizzaro_users(self):
         to_igl           = Grounded(10,5,4,2,1)
@@ -1773,20 +1773,20 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].argmax(), 1)
-        self.assertEqual(out['rewards'].eval(0), 1)
-        self.assertEqual(out['rewards'].eval(1), 2)
+        self.assertEqual(out['rewards'].argmax(), (0,1))
+        self.assertEqual(out['rewards'].eval((1,0)), 1)
+        self.assertEqual(out['rewards'].eval((0,1)), 2)
 
     def test_actions_categorical_with_feedbacks(self):
         out = next(Repr('onehot','onehot').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].argmax(), 1)
-        self.assertEqual(out['rewards'].eval(0), 1)
-        self.assertEqual(out['rewards'].eval(1), 2)
-        self.assertEqual(out['feedbacks'].eval(0), 3)
-        self.assertEqual(out['feedbacks'].eval(1), 4)
+        self.assertEqual(out['rewards'].argmax(), (0,1))
+        self.assertEqual(out['rewards'].eval((1,0)), 1)
+        self.assertEqual(out['rewards'].eval((0,1)), 2)
+        self.assertEqual(out['feedbacks'].eval((1,0)), 3)
+        self.assertEqual(out['feedbacks'].eval((0,1)), 4)
 
 class Finalize_Tests(unittest.TestCase):
 
@@ -1889,7 +1889,7 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
         
     def test_logged_with_action_int(self):
-        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[1,2,3], rewards=[1,2])]
+        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[1,2,3], rewards=[1,2,3])]
 
         actual = list(Finalize().filter(interactions))
 
@@ -1899,7 +1899,7 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['actions'], [1,2,3])
 
     def test_logged_tuple_actions_with_action_int(self):
-        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[(1,0,0),(0,1,0),(0,0,1)], rewards=[1,2])]
+        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[(1,0,0),(0,1,0),(0,0,1)], rewards=[1,2,3])]
 
         actual = list(Finalize().filter(interactions))
 
@@ -1971,7 +1971,7 @@ class Batch_Tests(unittest.TestCase):
         self.assertEqual(batch['rewards'].eval([1,2]), [-1,0])
 
     def test_batch_feedbacks(self):
-        batch = list(Batch(2).filter([{'feedbacks':SequenceFeedback([1,2,3]),'b':2}]*2))[0]
+        batch = list(Batch(2).filter([{'feedbacks':SequenceFeedback([0,1,2],[1,2,3]),'b':2}]*2))[0]
 
         self.assertEqual(batch['feedbacks'].eval([1,2]), [2,3])
 
@@ -2280,26 +2280,26 @@ class Rewards_Tests(unittest.TestCase):
 
         new_interactions = list(Rewards("IPS").filter(interactions))
 
-        self.assertEqual(new_interactions[0]['rewards'].eval(0),2)
-        self.assertEqual(new_interactions[0]['rewards'].eval(1),0)
+        self.assertEqual(new_interactions[0]['rewards'].eval(1),2)
+        self.assertEqual(new_interactions[0]['rewards'].eval(2),0)
 
-        self.assertEqual(new_interactions[1]['rewards'].eval(0),0)
-        self.assertEqual(new_interactions[1]['rewards'].eval(1),1)
+        self.assertEqual(new_interactions[1]['rewards'].eval(1),0)
+        self.assertEqual(new_interactions[1]['rewards'].eval(2),1)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
     def test_DM(self):
         interactions = [
-            {'action':1,'context':'a','actions':['c','d'],'reward':1  ,'probability':.5 },
-            {'action':2,'context':'b','actions':['e','f'],'reward':.25,'probability':.25},
+            {'action':'c','context':'a','actions':['c','d'],'reward':1  ,'probability':.5 },
+            {'action':'f','context':'b','actions':['e','f'],'reward':.25,'probability':.25},
         ]
 
         new_interactions = list(Rewards("DM").filter(interactions))
         
-        self.assertEqual(new_interactions[0]['rewards'].eval(0),0)
-        self.assertEqual(new_interactions[0]['rewards'].eval(1),0)
+        self.assertEqual(new_interactions[0]['rewards'].eval('c'),0)
+        self.assertEqual(new_interactions[0]['rewards'].eval('d'),0)
 
         #this is the constant value...
-        self.assertEqual(new_interactions[1]['rewards'].eval(0),new_interactions[1]['rewards'].eval(1))
+        self.assertEqual(new_interactions[1]['rewards'].eval('e'),new_interactions[1]['rewards'].eval('f'))
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
     def test_DR(self):
@@ -2310,12 +2310,12 @@ class Rewards_Tests(unittest.TestCase):
 
         new_interactions = list(Rewards("DR").filter(interactions))
         
-        r0 = new_interactions[1]['rewards'].eval(0)
+        r0 = new_interactions[1]['rewards'].eval('e')
 
-        self.assertEqual(new_interactions[0]['rewards'].eval(0),2)
-        self.assertEqual(new_interactions[0]['rewards'].eval(1),0)
+        self.assertEqual(new_interactions[0]['rewards'].eval('c'),2)
+        self.assertEqual(new_interactions[0]['rewards'].eval('d'),0)
         #this works because VW uses the constant value for both values
-        self.assertEqual(new_interactions[1]['rewards'].eval(1),(.25-r0)/.25 + r0)
+        self.assertEqual(new_interactions[1]['rewards'].eval('f'),(.25-r0)/.25 + r0)
 
     def test_params(self):
         self.assertEqual(Rewards().params,{})

@@ -77,7 +77,7 @@ class LambdaSimulation(SimulatedEnvironment):
             actions  = _actions(i, context)
             rewards  = [ _reward(i, context, action) for action in actions]
 
-            yield {'context':context,'actions':actions,'rewards': SequenceReward(rewards) }
+            yield {'context':context,'actions':actions,'rewards': SequenceReward(actions,rewards) }
 
     def __str__(self) -> str:
         return "LambdaSimulation"
@@ -348,7 +348,6 @@ class KernelSyntheticSimulation(LambdaSimulation):
             return [ tuple(rng.randoms(n_action_features,-1.5,1.5)) for _ in range(n_actions) ] if n_action_features else one_hot_acts
 
         def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
-
             part_index = action.index(1) if exemplar_parts > 1                           else 0
             context    = context         if n_context_features                           else []
             action     = action          if n_action_features or not n_context_features  else []

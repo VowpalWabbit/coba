@@ -18,7 +18,7 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
-from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward, IPSReward
+from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward, IPSReward, SequenceFeedback, MappingReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Filter
@@ -149,7 +149,7 @@ class Scale(EnvironmentFilter):
             unscaled = [interaction['context'] for interaction in fitting_interactions]
 
         elif self._target == "rewards" and is_discrete:
-            rwd_vals = lambda i: list(map(i['rewards'].eval,range(len(i['actions']))))
+            rwd_vals = lambda i: list(map(i['rewards'].eval,i['actions']))
             unscaled = sum(list(map(rwd_vals,fitting_interactions)),[])
 
         elif self._target == "rewards" and not is_discrete:
@@ -521,16 +521,18 @@ class Cycle(EnvironmentFilter):
             is_onehots      = action_set == onehot_actions
             is_categoricals = all([isinstance(a,str) for a in action_set])
 
-            if not is_discrete or (not is_onehots and not is_categoricals):
+            is_cyclable = is_discrete and (is_onehots or is_categoricals)
+
+            if not is_cyclable:
                 warnings.warn("Cycle only works for discrete environments without action features. It will be ignored in this case.")
                 yield from with_cycle_interactions
             else:
                 for interaction in with_cycle_interactions:
-                    rewards = deque(interaction['rewards'])
+                    rewards = deque(map(interaction['rewards'].eval,interaction['actions']))
                     rewards.rotate(1)
 
                     new = interaction.copy()
-                    new['rewards'] = SequenceReward(list(rewards))
+                    new['rewards'] = SequenceReward(interaction['actions'],list(rewards))
 
                     yield new
 
@@ -734,12 +736,17 @@ class Noise(EnvironmentFilter):
         rng = CobaRandom(self._seed)
 
         for interaction in interactions:
+            
             new = interaction.copy()
 
-            noisy_context = self._noises(interaction['context'], rng, self._context_noise)
-            noisy_actions = [self._noises(a, rng, self._action_noise) for a in interaction['actions'] ]
-            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in interaction['rewards'] ]
-            noisy_rewards = SequenceReward(noisy_rewards)
+            context = new['context']
+            actions = new['actions']
+            rewards = new['rewards']
+
+            noisy_context = self._noises(context, rng, self._context_noise)
+            noisy_actions = [ self._noises(a, rng, self._action_noise) for a in actions ]
+            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in map(rewards.eval,actions) ]
+            noisy_rewards = SequenceReward(noisy_actions, noisy_rewards)
 
             new['context'] = noisy_context
             new['actions'] = noisy_actions
@@ -748,18 +755,14 @@ class Noise(EnvironmentFilter):
             yield new
 
     def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
-
         if isinstance(value, primitives.Sparse):
             #we sort so that noise generation is deterministic with respect to seed
             return { k:self._noise(v, rng, noiser) for k,v in sorted(value.items()) }
-
         if isinstance(value, primitives.Dense):
             return [ self._noise(v, rng, noiser) for v in value ]
-
         return self._noise(value, rng, noiser)
 
     def _noise(self, value:Union[None,float,str], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]) -> float:
-
         return value if not isinstance(value,(int,float)) else noiser(value, rng)
 
 class Params(EnvironmentFilter):
@@ -833,7 +836,7 @@ class Grounded(EnvironmentFilter):
 
         if not interactions: return []
 
-        is_binary_rwd = {0,1} == set(first['rewards'])
+        is_binary_rwd = set(map(first['rewards'].eval, first['actions'])) == {0,1}
         first_context = first['context']
 
         is_sparse = isinstance(first_context,primitives.Sparse)
@@ -876,14 +879,14 @@ class Grounded(EnvironmentFilter):
 
 class Repr(EnvironmentFilter):
     def __init__(self, 
-        cat_context:Literal["onehot","onehot_tuple","string"] = None,
-        cat_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
-        self._cat_context = cat_context
-        self._cat_actions = cat_actions
+        categorical_context:Literal["onehot","onehot_tuple","string"] = None,
+        categorical_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
+        self._cat_context = categorical_context
+        self._cat_actions = categorical_actions
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"cat_context": self._cat_context, "cat_actions": self._cat_actions}
+        return {"categoricals_in_context": self._cat_context, "categoricals_in_actions": self._cat_actions}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -892,6 +895,8 @@ class Repr(EnvironmentFilter):
         if not interactions: return []
 
         has_actions = 'actions' in first
+        has_rewards = 'rewards' in first
+        has_feedbacks = 'feedbacks' in first
 
         I = tee(interactions, 3 if has_actions else 2)
 
@@ -906,12 +911,18 @@ class Repr(EnvironmentFilter):
             new['context'] = next(cat_context_iter)
 
             if has_actions:
-                new['actions'] = list(islice(cat_actions_iter,len(interaction['actions'])))
+                new_actions = list(islice(cat_actions_iter,len(interaction['actions'])))
+                old_actions = new['actions']
+                if new_actions != old_actions:
+                    new['actions'] = new_actions
+                    if has_rewards:
+                        new['rewards'] = MappingReward(dict(zip(new_actions,list(map(new['rewards'].eval,old_actions)))))
+                    if has_feedbacks:
+                        new['feedbacks'] = SequenceFeedback(new_actions,list(map(new['feedbacks'].eval,old_actions)))
 
             yield new
 
 class Batch(EnvironmentFilter):
-
     def __init__(self, batch_size: int) -> None:
         self._batch_size = batch_size
 
@@ -1123,9 +1134,7 @@ class Rewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
 
         elif self._rwds_type == "IPS":
             for log in interactions:
-                log_actions    = log.get('actions',[])
-                log_action     = log_actions.index(log['action']) if len(log_actions) > 0 else log['action']
-                log['rewards'] = IPSReward(log['reward'], log_action, log['probability'])
+                log['rewards'] = IPSReward(log['reward'], log['action'], log.get('probability'))
                 yield log
         
         elif self._rwds_type in ["DM","DR"]:
@@ -1152,7 +1161,7 @@ class Rewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
                     correction = (log_reward-estimate)/log_prob if a == log_action and self._rwds_type=="DR" else 0
                     rewards.append(estimate+correction)
 
-                log['rewards'] = SequenceReward(rewards)
+                log['rewards'] = SequenceReward(log['actions'],rewards)
                 
                 vw.learn(vw.make_example({"x":log_context,"a":log_action}, f"{log_reward} {log_prob}"))
                 

@@ -61,7 +61,7 @@ class Interaction_Tests(unittest.TestCase):
 
     def test_logged_dict(self):
         given    = {'context':1,'actions':[1,2],'action':1,'reward':4,'probability':.1}
-        expected = {'context':1,'actions':[1,2],'action':1,'reward':4,'probability':.1,'rewards':IPSReward(4,0,.1)}
+        expected = {'context':1,'actions':[1,2],'action':1,'reward':4,'probability':.1}
         self.assertEqual(Interaction.from_dict(given),expected)
 
     def test_grounded_dict(self):
@@ -70,9 +70,6 @@ class Interaction_Tests(unittest.TestCase):
         self.assertEqual(Interaction.from_dict(given),expected)
 
 class LoggedInteraction_Tests(unittest.TestCase):
-    def test_IPS_sequence(self):
-        interaction = LoggedInteraction(1,2,3,probability=1/2, actions=[1,2,3])
-        self.assertEqual(IPSReward(3,1,.5), interaction['rewards'])
 
     def test_simple_with_actions(self):
         interaction = LoggedInteraction(1, 2, 3, probability=.2, actions=[1,2,3])

@@ -131,8 +131,8 @@ class ExceptionEnvironment(Environment):
 class CategoricalActionEnv(Environment):
     def read(self):
         actions = [Categorical("a",["a","b"]),Categorical("b",["a","b"])]
-        yield SimulatedInteraction(1, actions, MulticlassReward(actions,0))
-        yield SimulatedInteraction(2, actions, MulticlassReward(actions,0))
+        yield SimulatedInteraction(1, actions, MulticlassReward("a"))
+        yield SimulatedInteraction(2, actions, MulticlassReward("a"))
 
 class Experiment_Single_Tests(unittest.TestCase):
 
@@ -249,7 +249,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         learner    = ModuloLearner()
         experiment = Experiment(env1, learner)
 
-        result              = experiment.evaluate()
+        result              = experiment.run()
         actual_learners     = result.learners.to_dicts()
         actual_environments = result.environments.to_dicts()
         actual_interactions = result.interactions.to_dicts()

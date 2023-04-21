@@ -524,7 +524,7 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         elif self._tipe == "string":
             yield from map(str,rows)
         elif "onehot" in self._tipe:
-            for row in rows: yield row.as_onehot
+            yield from (row.as_onehot for row in rows)
 
     def _encode_dense_generator(self, rows, first):
         is_mutable = isinstance(first, list)

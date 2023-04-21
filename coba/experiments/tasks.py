@@ -3,14 +3,13 @@ import collections.abc
 import time
 import warnings
 from abc import ABC, abstractmethod
-from itertools import combinations, count
+from itertools import combinations
 from statistics import mean
 from typing import Iterable, Any, Sequence, Mapping, Hashable
 
 import math
 
 from coba.backports import Literal
-from coba.exceptions import CobaException
 from coba.contexts import CobaContext
 from coba.encodings import InteractionsEncoder
 from coba.environments import Environment, SafeEnvironment, Interaction
@@ -124,18 +123,14 @@ class SimpleEvaluation(EvaluationTask):
         calc_reward = 'reward' in self._record
         calc_regret = 'regret' in self._record
 
-        get_reward = lambda reward                    : reward
-        get_regret = lambda reward, rewards           : rewards.max()-reward
-        get_rank   = lambda reward, rewards, n_actions: sorted(map(rewards.eval,range(n_actions))).index(reward)/(n_actions-1)
+        get_reward = lambda reward                  : reward
+        get_regret = lambda reward, rewards         : rewards.max()-reward
+        get_rank   = lambda reward, rewards, actions: sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
 
         learning_info.clear()
 
         should_pred  = self._predict
         should_learn = self._learn
-
-        def indexify(action,actions,discrete,batched):
-            if not discrete: return action
-            return [ A.index(a) for a,A in zip(action,actions) ] if batched else actions.index(action)
 
         for interaction in interactions:
 
@@ -164,9 +159,8 @@ class SimpleEvaluation(EvaluationTask):
                 action,prob,info = predict(context, actions)
                 predict_time     = time.time()-start_time
 
-                _action  = indexify(action,actions,discrete,batched)
-                reward   = rewards.eval(_action)
-                feedback = feedbacks.eval(_action) if feedbacks else reward
+                reward   = rewards.eval(action)
+                feedback = feedbacks.eval(action) if feedbacks else reward
 
                 if record_time   : out['predict_time'] = predict_time
                 if record_prob   : out['probability']  = prob
@@ -175,18 +169,18 @@ class SimpleEvaluation(EvaluationTask):
                 if feedbacks     : out['feedback']     = feedback
 
                 if not batched:
-                    if record_rewards: out['rewards'] = list(map(rewards.eval, range(len(actions))))
+                    if record_rewards: out['rewards'] = list(map(rewards.eval,actions))
                 else:
-                    if record_rewards: out['rewards'] = list(zip(*[rewards.eval([a]*len(context)) for a in range(len(actions[0]))]))
+                    if record_rewards: out['rewards'] = list(zip(*[rewards.eval([a]*len(context)) for a in actions[0]]))
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)
                     if calc_regret : out['regret'] = get_regret(reward, rewards)
-                    if calc_rank   : out['rank'  ] = get_rank  (reward, rewards, len(actions))
+                    if calc_rank   : out['rank'  ] = get_rank  (reward, rewards, actions)
                 elif batched:
                     if calc_reward : out['reward'] = list(map(get_reward,reward))
                     if calc_regret : out['regret'] = list(map(get_regret,reward,rewards))
-                    if calc_rank   : out['rank'  ] = list(map(get_rank  ,reward,rewards,len(actions)))
+                    if calc_rank   : out['rank'  ] = list(map(get_rank  ,reward,rewards,actions))
 
             if is_learn:
                 if is_off_policy_learn:
@@ -279,12 +273,11 @@ class OnPolicyEvaluation(EvaluationTask):
         record_reward  = 'reward'      in self._record
         record_regret  = 'regret'      in self._record
 
-        get_reward = lambda reward                    : reward
-        get_regret = lambda reward, rewards           : rewards.max()-reward
-        get_rank   = lambda reward, rewards, n_actions: sorted(map(rewards.eval,range(n_actions))).index(reward)/(n_actions-1)
+        get_reward = lambda reward                  : reward
+        get_regret = lambda reward, rewards         : rewards.max()-reward
+        get_rank   = lambda reward, rewards, actions: sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
 
-        get_reward_list  = lambda rewards,actions: list(map(rewards.eval, range(len(actions))))
-        get_action_index = lambda actions,action : actions.index(action)
+        get_reward_list  = lambda rewards,actions: list(map(rewards.eval, actions))
 
         predict = learner.predict
         learn   = learner.learn
@@ -313,9 +306,8 @@ class OnPolicyEvaluation(EvaluationTask):
             action,prob,kwargs = predict(context, actions)
             predict_time       = time.time()-start_time
 
-            _action  = action if not discrete else list(map(get_action_index,actions,action)) if batched else get_action_index(actions,action)
-            reward   = rewards.eval(_action)
-            feedback = feedbacks.eval(_action) if feedbacks else None
+            reward   = rewards.eval(action)
+            feedback = feedbacks.eval(action) if feedbacks else None
 
             start_time = time.time()
             if self._learn: learn(context, actions, action, feedback if feedbacks else reward, prob, **kwargs)
@@ -328,7 +320,7 @@ class OnPolicyEvaluation(EvaluationTask):
             if feedbacks     : out['feedback']     = feedback
             if record_reward : out['reward']       = list(map(get_reward,reward)) if batched else get_reward(reward)
             if record_regret : out['regret']       = list(map(get_regret,reward,rewards)) if batched else get_regret(reward, rewards)
-            if record_rank   : out['rank'  ]       = list(map(get_rank,reward,rewards,len(actions))) if batched else get_rank(reward, rewards, len(actions))
+            if record_rank   : out['rank'  ]       = list(map(get_rank,reward,rewards,actions)) if batched else get_rank(reward, rewards, actions)
 
             if interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE:
                 out.update({k: interaction[k] for k in interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE})
@@ -392,8 +384,6 @@ class OffPolicyEvaluation(EvaluationTask):
         record_reward   = 'reward'   in self._record and self._predict and 'actions' in first
         record_ope_loss = 'ope_loss' in self._record and self._predict and 'actions' in first
 
-        get_action_index = lambda actions,action : actions.index(action)
-
         request = learner.request
         predict = learner.predict
         learn   = learner.learn
@@ -426,7 +416,7 @@ class OffPolicyEvaluation(EvaluationTask):
                         start_time   = time.time()
                         on_probs     = request(log_context,log_actions,log_actions)
                         predict_time = time.time()-start_time
-                        on_reward    = sum(on_p*log_rewards.eval(a) for on_p,a in zip(on_probs,count()))
+                        on_reward    = sum(on_p*log_rewards.eval(a) for on_p,a in zip(on_probs,log_actions))
                     else:
                         start_time   = time.time()
                         on_prob      = request(log_context,log_actions,[log_action])
@@ -437,8 +427,7 @@ class OffPolicyEvaluation(EvaluationTask):
                     on_action,on_prob = predict(log_context, log_actions)[:2]
                     predict_time      = time.time()-start_time
 
-                    _action   = on_action if not discrete else list(map(get_action_index,log_actions,on_action)) if batched else get_action_index(log_actions,on_action)
-                    on_reward = on_prob*log_rewards.eval(_action)
+                    on_reward = on_prob*log_rewards.eval(on_action)
 
             if self._learn:
                 start_time = time.time()

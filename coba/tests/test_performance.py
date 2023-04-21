@@ -415,7 +415,6 @@ class Performance_Tests(unittest.TestCase):
     def test_to_grounded_interaction(self):
         items    = [SimulatedInteraction(1, [1,2,3,4], [0,0,0,1])]*10
         grounded = Grounded(10,5,10,5,1)
-
         self._assert_scale_time(items,lambda x:list(grounded.filter(x)), .03, print_time, number=1000)
 
     def test_simple_evaluation(self):
