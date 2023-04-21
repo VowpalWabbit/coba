@@ -3,7 +3,7 @@ import importlib
 
 from itertools import chain
 from collections import defaultdict
-from typing import TypeVar, Iterable, Tuple, Sequence
+from typing import TypeVar, Iterable, Tuple
 
 from coba.exceptions import CobaExit
 

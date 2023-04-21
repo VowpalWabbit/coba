@@ -87,149 +87,14 @@ class SimpleEvaluation(EvaluationTask):
         self._predict = predict
         self._seed    = seed
 
-        if 'ope_loss' in self._record:
-            # OPE loss metric is only available for VW models
-            # Divide by the number of samples for the average loss metric and see this article for more info
-            # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
-            PackageChecker.vowpalwabbit('SimpleEvaluation.__init__')
-
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
-
-        learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
 
         first, interactions = peek_first(interactions)
 
-        predict  = learner.predict
-        learn    = learner.learn
-
-        discrete = first and len(first.get('actions',[])) > 0
-
-        if not discrete:
-            DISCRETE_ONLY_METRICS = {'rank', 'rewards'}
-            for metric in set(self._record).intersection(DISCRETE_ONLY_METRICS):
-                warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
-
-        learning_info = CobaContext.learning_info
-
-        record_prob     = 'probability' in self._record
-        record_time     = 'time'        in self._record
-        record_action   = 'action'      in self._record
-        record_context  = 'context'     in self._record
-        record_ope_loss = 'ope_loss'    in self._record
-        record_rewards  = 'rewards'     in self._record and discrete
-        record_actions  = 'actions'     in self._record
-
-        calc_rank   = 'rank'   in self._record and discrete
-        calc_reward = 'reward' in self._record
-        calc_regret = 'regret' in self._record
-
-        get_reward = lambda reward                  : reward
-        get_regret = lambda reward, rewards         : rewards.max()-reward
-        get_rank   = lambda reward, rewards, actions: sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
-
-        learning_info.clear()
-
-        should_pred  = self._predict
-        should_learn = self._learn
-
-        for interaction in interactions:
-
-            interaction = interaction.copy()
-
-            is_on_policy_eval   = 'actions' in interaction and 'rewards' in interaction
-            is_off_policy_learn = 'action'  in interaction and ('reward' in interaction or 'feedback' in interaction)
-            is_on_policy_learn  = is_on_policy_eval and not is_off_policy_learn
-
-            is_predict = should_pred and is_on_policy_eval
-            is_learn   = should_learn and (is_off_policy_learn or is_on_policy_learn)
-
-            out     = {}
-            context = interaction.pop('context')
-            batched = isinstance(context, Batch)
-            discrete = len(interaction.get('actions',[])) > 0
-
-            if record_context: out['context'] = context
-
-            if is_predict:
-                actions   = interaction.pop('actions')
-                rewards   = interaction.pop('rewards')
-                feedbacks = interaction.pop('feedbacks',None)
-
-                start_time       = time.time()
-                action,prob,info = predict(context, actions)
-                predict_time     = time.time()-start_time
-
-                reward   = rewards.eval(action)
-                feedback = feedbacks.eval(action) if feedbacks else reward
-
-                if record_time   : out['predict_time'] = predict_time
-                if record_prob   : out['probability']  = prob
-                if record_action : out['action']       = action
-                if record_actions: out['actions']      = actions
-                if feedbacks     : out['feedback']     = feedback
-
-                if not batched:
-                    if record_rewards: out['rewards'] = list(map(rewards.eval,actions))
-                else:
-                    if record_rewards: out['rewards'] = list(zip(*[rewards.eval([a]*len(context)) for a in actions[0]]))
-
-                if not batched:
-                    if calc_reward : out['reward'] = get_reward(reward)
-                    if calc_regret : out['regret'] = get_regret(reward, rewards)
-                    if calc_rank   : out['rank'  ] = get_rank  (reward, rewards, actions)
-                elif batched:
-                    if calc_reward : out['reward'] = list(map(get_reward,reward))
-                    if calc_regret : out['regret'] = list(map(get_regret,reward,rewards))
-                    if calc_rank   : out['rank'  ] = list(map(get_rank  ,reward,rewards,actions))
-
-            if is_learn:
-                if is_off_policy_learn:
-                    actions  = interaction.pop('actions',actions if is_predict else None)
-                    action   = interaction.pop('action')
-                    reward   = interaction.pop('reward')
-                    feedback = reward if 'feedback' not in interaction else interaction.pop('feedback')
-                    prob     = interaction.pop('probability',None)
-                    info     = {}
-
-                start_time = time.time()
-                learn(context, actions, action, feedback, prob, **info)
-                learn_time = time.time() - start_time
-
-                if record_time: out['learn_time'] = learn_time
-                if record_ope_loss:
-                    # OPE loss metric is only available for VW models
-                    try:
-                        out['ope_loss'] = learner._learner._vw._vw.get_sum_loss()
-                    except AttributeError:
-                        out['ope_loss'] = float("nan")
-
-            if interaction:
-                METRICS_EXCLUDED_FROM_OUT_UPDATE = {
-                    "actions",
-                    "rewards",
-                    "action",
-                    "reward",
-                    "probability",
-                    "ope_loss"
-                }
-                out.update({k: v for k, v in interaction.items() if k not in METRICS_EXCLUDED_FROM_OUT_UPDATE})
-
-            if learning_info:
-                out.update(learning_info)
-                learning_info.clear()
-
-            if out:
-                # for off-policy evaluation purposes we need to log each reward even when batching.
-                # Therefore, we have two options:
-                #   (1) store a batched version of reward and keep out batched. With this option we
-                #       also need to modify Results so that it can plut batched versions of "reward".
-                #   (2) we flatten out and store a normal version of reward. We lose some information
-                #       downstream this way but we gain "reward" now playing nicely with all plots.
-                # Here we went with option (2). If changing to (1) be sure to update Result.
-                if batched:
-                    yield from ({k:v[i] for k,v in out.items()} for i in range(len(context)))
-                else:
-                    yield out
+        if 'reward' in first and 'action' in first:
+            yield from OffPolicyEvaluation(self._record, self._learn, self._predict, self._seed).process(learner, interactions)
+        else:
+            yield from OnPolicyEvaluation(self._record, self._learn, self._seed).process(learner, interactions)
 
 class OnPolicyEvaluation(EvaluationTask):
 
@@ -239,7 +104,7 @@ class OnPolicyEvaluation(EvaluationTask):
     def __init__(self, 
         record: Sequence[Literal['reward','rank','regret','time','probability','action','context','actions','rewards']] = ['reward'],
         learn: bool = True,
-        seed: float = None) -> None:
+        seed: float = None) -> None: 
         """
         Args:
             record: The datapoints to record for each interaction.
@@ -362,7 +227,7 @@ class OffPolicyEvaluation(EvaluationTask):
             # OPE loss metric is only available for VW models
             # Divide by the number of samples for the average loss metric and see this article for more info
             # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
-            PackageChecker.vowpalwabbit('SimpleEvaluation.__init__')
+            PackageChecker.vowpalwabbit('OffPolicyEvaluation.__init__')
 
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
@@ -426,8 +291,11 @@ class OffPolicyEvaluation(EvaluationTask):
                     start_time        = time.time()
                     on_action,on_prob = predict(log_context, log_actions)[:2]
                     predict_time      = time.time()-start_time
-
-                    on_reward = on_prob*log_rewards.eval(on_action)
+                    
+                    if batched:
+                        on_reward = [p*r for p,r in zip(on_prob,log_rewards.eval(on_action))]
+                    else:
+                        on_reward = on_prob*log_rewards.eval(on_action)
 
             if self._learn:
                 start_time = time.time()
