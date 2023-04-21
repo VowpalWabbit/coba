@@ -1117,7 +1117,7 @@ class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
     def filter(self, items: Iterable[Mapping]) -> Iterable[Interaction]:
         yield from map(Interaction.from_dict,items)
 
-class Rewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
+class OpeRewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
     
     def __init__(self, rwds_type:Literal['IPS','DM','DR']=None):
         if rwds_type in ['DM','DR']:

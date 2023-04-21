@@ -27,7 +27,7 @@ from coba.environments.supervised import SupervisedSimulation
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch, Slice
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
-from coba.environments.filters   import MappingToInteraction, Rewards
+from coba.environments.filters   import MappingToInteraction, OpeRewards
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
@@ -333,7 +333,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def scale(self,
         shift: Union[float,Literal["min","mean","med"]] = "min",
         scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax",
-        targets: Union[Literal["context","rewards","argmax"], Sequence[Literal["context","rewards","argmax"]]] = "context",
+        targets: Union[Literal["context","ope_rewards","argmax"], Sequence[Literal["context","ope_rewards","argmax"]]] = "context",
         using: Optional[int] = None) -> 'Environments':
         """Apply an affine shift and scaling factor to precondition environments."""
         if isinstance(targets,str): targets = [targets]
@@ -402,9 +402,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Unbatch interactions in the environments."""
         return self.filter(Unbatch())
     
-    def rewards(self, rewards_type:Literal['IPS','DM','DR'] = None):
-        """Estimate rewards for off-policy evaluation."""
-        return self.filter(Rewards(rewards_type))
+    def ope_rewards(self, rewards_type:Literal['IPS','DM','DR'] = None):
+        """Reward estimates for off-policy evaluation."""
+        return self.filter(OpeRewards(rewards_type))
 
     def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
 

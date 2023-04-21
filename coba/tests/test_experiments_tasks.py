@@ -7,7 +7,7 @@ import warnings
 
 from coba import VowpalSoftmaxLearner
 from coba.contexts import CobaContext
-from coba.environments import Shuffle, Noise, Batch, Rewards
+from coba.environments import Shuffle, Noise, Batch, OpeRewards
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
 from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo
 from coba.experiments import SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation
@@ -562,7 +562,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(3, 4, 5, actions=[4,7,0])
         ]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
@@ -583,7 +583,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0])
         ]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
@@ -604,7 +604,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0], L='c')
         ]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
@@ -689,7 +689,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         learner      = RecordingLearner()
         interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
         self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
@@ -727,7 +727,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(3, "action_3", 3, probability=1.0, actions=["action_1", "action_2", "action_3"]),
         ]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
         self.assertListEqual([[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]],
                              [result['rewards'] for result in task_results])
 
@@ -739,7 +739,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(2, "action_2", 2, probability=1.0, actions=["action_1", "action_2", "action_3"])
         ]
         
-        task_results = list(task.process(learner, Batch(2).filter(Rewards("IPS").filter(interactions))))
+        task_results = list(task.process(learner, Batch(2).filter(OpeRewards("IPS").filter(interactions))))
         
         self.assertEqual(2, len(task_results))
         self.assertEqual(1,task_results[0]['reward'])
@@ -1163,7 +1163,7 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(3, 4, 5, actions=[4,7,0])
         ]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
@@ -1184,7 +1184,7 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0])
         ]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
@@ -1205,7 +1205,7 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0], L='c')
         ]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
@@ -1226,7 +1226,7 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
         learner      = RecordingLearner()
         interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
 
-        task_results = list(task.process(learner, Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
         self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
@@ -1241,7 +1241,7 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
         ]
 
         #VW learner
-        task_results = list(task.process(VowpalSoftmaxLearner(), Rewards("IPS").filter(interactions)))
+        task_results = list(task.process(VowpalSoftmaxLearner(), OpeRewards("IPS").filter(interactions)))
         ope_losses = [result['ope_loss'] for result in task_results]
         self.assertListEqual(ope_losses, [0.0, -0.5, -0.5])
 

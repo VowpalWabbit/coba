@@ -16,7 +16,7 @@ from coba.utilities    import peek_first
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments.filters    import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice
-from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable, Rewards
+from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable, OpeRewards
 
 class TestEnvironment:
 
@@ -2270,7 +2270,7 @@ class Rewards_Tests(unittest.TestCase):
 
     def test_simple(self):
         interactions = [{'a':1},{'b':2}]
-        self.assertEqual(interactions,list(Rewards().filter(interactions)))
+        self.assertEqual(interactions,list(OpeRewards().filter(interactions)))
 
     def test_IPS(self):
         interactions = [
@@ -2278,7 +2278,7 @@ class Rewards_Tests(unittest.TestCase):
             {'action':2,'actions':[1,2],'reward':.25,'probability':.25},
         ]
 
-        new_interactions = list(Rewards("IPS").filter(interactions))
+        new_interactions = list(OpeRewards("IPS").filter(interactions))
 
         self.assertEqual(new_interactions[0]['rewards'].eval(1),2)
         self.assertEqual(new_interactions[0]['rewards'].eval(2),0)
@@ -2293,7 +2293,7 @@ class Rewards_Tests(unittest.TestCase):
             {'action':'f','context':'b','actions':['e','f'],'reward':.25,'probability':.25},
         ]
 
-        new_interactions = list(Rewards("DM").filter(interactions))
+        new_interactions = list(OpeRewards("DM").filter(interactions))
         
         self.assertEqual(new_interactions[0]['rewards'].eval('c'),0)
         self.assertEqual(new_interactions[0]['rewards'].eval('d'),0)
@@ -2308,7 +2308,7 @@ class Rewards_Tests(unittest.TestCase):
             {'action':'f','context':'b','actions':['e','f'],'reward':.25,'probability':.25},
         ]
 
-        new_interactions = list(Rewards("DR").filter(interactions))
+        new_interactions = list(OpeRewards("DR").filter(interactions))
         
         r0 = new_interactions[1]['rewards'].eval('e')
 
@@ -2318,8 +2318,8 @@ class Rewards_Tests(unittest.TestCase):
         self.assertEqual(new_interactions[1]['rewards'].eval('f'),(.25-r0)/.25 + r0)
 
     def test_params(self):
-        self.assertEqual(Rewards().params,{})
-        self.assertEqual(Rewards("IPS").params,{"rewards_type":"IPS"})
+        self.assertEqual(OpeRewards().params,{})
+        self.assertEqual(OpeRewards("IPS").params,{"rewards_type":"IPS"})
 
 if __name__ == '__main__':
     unittest.main()

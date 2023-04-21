@@ -754,7 +754,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual({'id':'A','a':123}, envs2[0].params)
 
     def test_rewards(self):
-        envs = Environments(TestEnvironment1('A')).rewards("IPS")
+        envs = Environments(TestEnvironment1('A')).ope_rewards("IPS")
         self.assertEqual(1  , len(envs))
         self.assertEqual('IPS', envs[0].params['rewards_type'])
 
