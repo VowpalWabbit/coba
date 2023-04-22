@@ -1163,6 +1163,6 @@ class OpeRewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
 
                 log['rewards'] = SequenceReward(log['actions'],rewards)
                 
-                vw.learn(vw.make_example({"x":log_context,"a":log_action}, f"{log_reward} {log_prob}"))
+                vw.learn(vw.make_example({"x":log_context,"a":log_action}, f"{log_reward} {1/log_prob}"))
                 
                 yield log

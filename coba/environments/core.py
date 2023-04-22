@@ -41,11 +41,11 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @overload
     @staticmethod
-    def from_template(filesource:Source[Iterable[str]]) -> 'Environments': ...
+    def from_template(filesource:Source[Iterable[str]], **user_vars) -> 'Environments': ...
 
     @overload
     @staticmethod
-    def from_template(fileurl:str) -> 'Environments': ...
+    def from_template(fileurl:str, **user_vars) -> 'Environments': ...
 
     @staticmethod
     def from_template(arg, **user_vars) -> 'Environments':

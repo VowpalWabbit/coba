@@ -216,7 +216,6 @@ class MulticlassReward(Reward):
     def __eq__(self, o: object) -> bool:
         return o == self._label or (isinstance(o,MulticlassReward) and o._label == self._label)
 
-
 class BatchReward(Batch):
     def eval(self, actions: Sequence[Action]) -> Sequence[float]:
         return list(map(lambda r,a: r.eval(a), self, actions))

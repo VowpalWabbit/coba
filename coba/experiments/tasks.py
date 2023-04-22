@@ -245,6 +245,8 @@ class OffPolicyEvaluation(EvaluationTask):
         else:
             implements_request = True
 
+        #implements_request = False
+
         record_time     = 'time'     in self._record
         record_reward   = 'reward'   in self._record and self._predict and 'actions' in first
         record_ope_loss = 'ope_loss' in self._record and self._predict and 'actions' in first
@@ -292,10 +294,10 @@ class OffPolicyEvaluation(EvaluationTask):
                     on_action,on_prob = predict(log_context, log_actions)[:2]
                     predict_time      = time.time()-start_time
                     
-                    if batched:
-                        on_reward = [p*r for p,r in zip(on_prob,log_rewards.eval(on_action))]
-                    else:
-                        on_reward = on_prob*log_rewards.eval(on_action)
+                    #in theory we could use a ratio average in this case
+                    #this would give us a lower variance estimate but we'd have
+                    #to add a "weight" column to our output and handle this in Result
+                    on_reward = log_rewards.eval(on_action)
 
             if self._learn:
                 start_time = time.time()
