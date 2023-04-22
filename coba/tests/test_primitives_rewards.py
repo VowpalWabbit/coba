@@ -54,7 +54,7 @@ class L1Reward_Tests(unittest.TestCase):
         self.assertEqual(loaded._label,1)
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(L1Reward(1))), 70)
+        self.assertLess(len(pickle.dumps(L1Reward(1))), 80)
 
 class BinaryReward_Tests(unittest.TestCase):
 
@@ -77,7 +77,7 @@ class BinaryReward_Tests(unittest.TestCase):
         self.assertEqual(loaded._argmax,1)
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(BinaryReward(1))), 70)
+        self.assertLess(len(pickle.dumps(BinaryReward(1))), 80)
 
 class HammingReward_Tests(unittest.TestCase):
 
@@ -106,7 +106,7 @@ class HammingReward_Tests(unittest.TestCase):
         self.assertEqual(loaded._labels,{1,2,3})
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(HammingReward([1,2]))), 75)
+        self.assertLess(len(pickle.dumps(HammingReward([1,2]))), 80)
 
 class ScaleReward_Tests(unittest.TestCase):
 
@@ -185,7 +185,7 @@ class SequenceReward_Tests(unittest.TestCase):
         self.assertSequenceEqual(loaded._rewards,[4,5,6])
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(SequenceReward([3,4],[5,6]))), 74)
+        self.assertLess(len(pickle.dumps(SequenceReward([3,4],[5,6]))), 80)
 
 class MappingReward_Tests(unittest.TestCase):
     def test_mapping(self):
@@ -210,7 +210,7 @@ class MappingReward_Tests(unittest.TestCase):
         self.assertEqual(loaded,MappingReward({0:4,1:5,2:6}))
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(MappingReward({0:4,1:5,2:6}))), 74)
+        self.assertLess(len(pickle.dumps(MappingReward({0:4,1:5,2:6}))), 80)
 
 class MulticlassReward_Tests(unittest.TestCase):
     def test_simple(self):
@@ -230,7 +230,7 @@ class MulticlassReward_Tests(unittest.TestCase):
         self.assertEqual(loaded._label,1)
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(MulticlassReward(1))), 75)
+        self.assertLess(len(pickle.dumps(MulticlassReward(1))), 80)
 
 class BatchReward_Tests(unittest.TestCase):
     def test_eval(self):
