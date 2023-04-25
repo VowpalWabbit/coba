@@ -20,19 +20,22 @@ def iqr(values: Sequence[float]) -> float:
 
     return p75-p25
 
-def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]]) -> Union[float, Tuple[float,...]]:
+def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]], sort: bool = True) -> Union[float, Tuple[float,...]]:
 
     def _percentile(values: Sequence[float], percentile: float) -> float:
         assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
 
         i = percentile*(len(values)-1)
-
-        if i == int(i):
-            return values[int(i)]
+        I = int(i)
+        
+        if i == I:
+            return values[I]
         else:
-            return values[int(i)] * (1-(i-int(i))) + values[int(i)+1] * (i-int(i))
+            w = (i-I)
+            return (1-w)*values[I] + w*values[I+1]
 
-    values = sorted(values)
+    if sort:
+        values = sorted(values)
 
     if isinstance(percentiles,(float,int)):
         return _percentile(values, percentiles)
@@ -82,7 +85,8 @@ class StandardErrorOfMean(PointAndInterval):
 
     def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
         mu = mean(sample)
-        se = stdev(sample)/(len(sample)**(.5))
+        se = 0 if len(sample) == 1 else stdev(sample)/(len(sample)**(.5))
+        
         return (mu, (self._z_score*se,self._z_score*se))
 
 class BootstrapConfidenceInterval(PointAndInterval):

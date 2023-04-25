@@ -36,11 +36,17 @@ class StandardDeviation_Tests(unittest.TestCase):
         self.assertTrue(isnan(stdev([1])))
 
 class StandardErrorOfMean_Tests(unittest.TestCase):
-    def test(self):
+    def test_two_items(self):
         mu,(lo,hi) = StandardErrorOfMean().calculate([1,3])
         self.assertEqual(2,mu)
         self.assertAlmostEqual(1.96,lo)
         self.assertAlmostEqual(1.96,hi)
+
+    def test_one_item(self):
+        mu,(lo,hi) = StandardErrorOfMean().calculate([1])
+        self.assertEqual(1,mu)
+        self.assertAlmostEqual(0,lo)
+        self.assertAlmostEqual(0,hi)
 
 class BootstrapConfidenceInterval_Tests(unittest.TestCase):
     

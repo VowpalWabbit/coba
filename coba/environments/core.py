@@ -23,7 +23,6 @@ from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyn
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
 from coba.environments.supervised import SupervisedSimulation
 
-
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch, Slice
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
@@ -325,7 +324,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Take a slice of interactions from an Environment."""
         return self.filter(Slice(start,stop,step))
 
-    def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]) -> 'Environments':
+    def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]=1) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""
         if isinstance(seeds,int): seeds = [seeds]
         return self.filter([Reservoir(n_interactions,seed) for seed in seeds])
@@ -370,8 +369,16 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Materialize the environments in memory. Ideal for stateful environments such as Jupyter Notebook."""
         #we use pipes.cache directly because the environment cache will copy 
         #which we don't need when we materialize an environment in memory
-        envs = Environments([Pipes.join(env, pipes.Cache(25)) for env in self])
+        envs = Environments([Pipes.join(env, Finalize(apply_repr=False), pipes.Cache(25,True)) for env in self])
+        
         for env in envs: list(env.read()) #force read to pre-load cache
+            
+        for env in envs:
+            for i in range(len(env)-1):
+                pipe = env[i]
+                if isinstance(pipe, pipes.Cache) and not pipe._protected:
+                    pipe._cache = None
+
         return envs
 
     def grounded(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int=1) -> 'Environments':
@@ -393,7 +400,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
 
-    def logged(self, learners: Union[Learner,Sequence[Learner]], seed:float = 1.23) -> 'Environments':
+    def logged(self, learners: Union[Learner,Sequence[Learner]], seed:Optional[float] = 1.23) -> 'Environments':
         """Create a logged environment using the given learner for the logging policy."""
         if not isinstance(learners, collections.abc.Sequence): learners = [learners]
         return self.filter(BatchSafe(Finalize())).filter([Logged(learner, seed) for learner in learners ])
@@ -401,8 +408,8 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def unbatch(self):
         """Unbatch interactions in the environments."""
         return self.filter(Unbatch())
-    
-    def ope_rewards(self, rewards_type:Literal['IPS','DM','DR'] = None):
+
+    def ope_rewards(self, rewards_type:Literal['IPS','DM','DR','NO'] = None):
         """Reward estimates for off-policy evaluation."""
         return self.filter(OpeRewards(rewards_type))
 
@@ -433,7 +440,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
                     Path(path).unlink()
                 if not is_equal and not overwrite:
                     raise CobaException("The Environments save file does not match the actual Environments and overwite is False.")
-            
+
             except BadZipFile:
                 if overwrite:
                     Path(path).unlink()
@@ -443,7 +450,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()] if processes ==1 else [NameLog(), StampLog()])
         Pipes.join(IterableSource(self_envs),CobaMultiprocessor(EnvironmentsToObjects(),processes),ObjectsToZipMember(path)).run()
         CobaContext.logger = CobaContext.logger.undecorate()
-        
+
         return Environments.from_save(path)
 
     def cache(self) -> 'Environments':

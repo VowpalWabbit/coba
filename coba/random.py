@@ -83,11 +83,12 @@ class CobaRandom:
         """
         return min+(max-min)*next(self._randu)        
 
-    def shuffle(self, sequence: Sequence[Any]) -> Sequence[Any]:
+    def shuffle(self, sequence: Sequence[Any], inplace: bool = False) -> Sequence[Any]:
         """Shuffle the order of items in a sequence.
 
         Args:
             sequence: The sequence of items that are to be shuffled.
+            inplace: The sequence of items should be shuffled within the given sequence
 
         Returns:
             A new sequence with the order of items shuffled.
@@ -98,14 +99,16 @@ class CobaRandom:
         """
 
         n = len(sequence)
-        if n < 2: return sequence
-        l = list(sequence)
+        if n < 2: return sequence        
+        
+        l = sequence if inplace else list(sequence)
 
         #i goes from 0 to n-2
         #j is always i <= j < n
         for i,r in islice(enumerate(self._randu),n-1):
             j = i+int(r*(n-i)) 
             l[i], l[j] = l[j], l[i]
+        
         return l
 
     def randint(self, a:int, b:int) -> int:

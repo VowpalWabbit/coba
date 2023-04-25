@@ -52,12 +52,17 @@ class Shuffle_Tests(unittest.TestCase):
         self.assertEqual("{'shuffle': 1}", str(Shuffle(1)))
 
     def test_logged(self):
-        logged_interactions = [{'context':0,'action':1, 'reward':2},{'context':1,'action':1, 'reward':2},{'context':2,'action':1, 'reward':2}]
+        logged_interactions = [{'context':0,'action':1,'reward':2},{'context':1,'action':1,'reward':2},{'context':2,'action':1,'reward':2}]
         normal_interactions = [{'context':0},{'context':1},{'context':2}]
 
         logged_order = [i['context'] for i in Shuffle(1).filter(logged_interactions)]
         normal_order = [i['context'] for i in Shuffle(1).filter(normal_interactions)]
 
+        self.assertEqual(normal_interactions,[{'context':0},{'context':1},{'context':2}])
+        self.assertEqual(logged_interactions,[{'context':0,'action':1,'reward':2},{'context':1,'action':1,'reward':2},{'context':2,'action':1,'reward':2}])
+
+        self.assertNotEqual(normal_order,normal_interactions)
+        self.assertNotEqual(logged_order,logged_interactions)
         self.assertNotEqual(logged_order,normal_order)
 
 class Sort_Tests(unittest.TestCase):
@@ -2266,11 +2271,23 @@ class Slice_Tests(unittest.TestCase):
         self.assertEqual(Slice(1,2).params, {"slice_start":1, "slice_stop":2})
         self.assertEqual(Slice(1,2,2).params, {"slice_start":1, "slice_stop":2, "slice_step":2})
 
-class Rewards_Tests(unittest.TestCase):
+class OpeRewards_Tests(unittest.TestCase):
 
     def test_simple(self):
         interactions = [{'a':1},{'b':2}]
         self.assertEqual(interactions,list(OpeRewards().filter(interactions)))
+
+    def test_NO(self):
+        interactions = [
+            {'action':1,'actions':[1,2],'reward':1  ,'probability':.5 ,"rewards":[1,2]},
+            {'action':2,'actions':[1,2],'reward':.25,'probability':.25},
+        ]
+
+        new_interactions = list(OpeRewards("NO").filter(interactions))
+
+        self.assertEqual(len(new_interactions),2)
+        self.assertEqual(new_interactions[0],{'action':1,'actions':[1,2],'reward':1  ,'probability':.5})
+        self.assertEqual(new_interactions[1],{'action':2,'actions':[1,2],'reward':.25  ,'probability':.25})
 
     def test_IPS(self):
         interactions = [
@@ -2300,6 +2317,22 @@ class Rewards_Tests(unittest.TestCase):
 
         #this is the constant value...
         self.assertEqual(new_interactions[1]['rewards'].eval('e'),new_interactions[1]['rewards'].eval('f'))
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
+    def test_DM_action_not_hashable(self):
+        interactions = [
+            {'action':['c'],'context':'a','actions':[['c'],['d']],'reward':1  ,'probability':.5 },
+            {'action':['f'],'context':'b','actions':[['e'],['f']],'reward':.25,'probability':.25},
+        ]
+
+        new_interactions = list(OpeRewards("DM").filter(interactions))
+        
+        self.assertEqual(new_interactions[0]['rewards'].eval(['c']),0)
+        self.assertEqual(new_interactions[0]['rewards'].eval(['d']),0)
+
+        #this is the constant value...
+        self.assertEqual(new_interactions[1]['rewards'].eval(['e']),new_interactions[1]['rewards'].eval(['f']))
+
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
     def test_DR(self):

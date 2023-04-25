@@ -5,11 +5,12 @@ import unittest
 import unittest.mock
 import warnings
 
+from coba.exceptions import CobaException
 from coba.contexts import CobaContext
 from coba.environments import Shuffle, Noise, Batch, OpeRewards
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
 from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo
-from coba.experiments import SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation
+from coba.experiments import SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation, ExplorationEvaluation
 from coba.learners import Learner, VowpalSoftmaxLearner
 from coba.pipes import Pipes
 from coba.primitives import SequenceReward
@@ -314,7 +315,6 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         with unittest.mock.patch('coba.experiments.tasks.OffPolicyEvaluation') as mock_class:
             list(SimpleEvaluation(['reward','a'],learn=False,predict=True,seed=1).process(RecordingLearner(),[LoggedInteraction(1,1,3)]))
         mock_class.assert_called_once_with(['reward','a'],False,True,1)
-
 
 class OnPolicyEvaluation_Tests(unittest.TestCase):
 
@@ -766,7 +766,7 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
         self.assertListEqual(ope_losses, [0.0, -0.5, -0.5])
 
         # Non-VW learner
-        task_results = list(task.process(RecordingLearner(), interactions))
+        task_results = list(task.process(RecordingLearner(), OpeRewards("IPS").filter(interactions)))
         self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
 
     def test_batched(self):
@@ -777,11 +777,12 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(2, "action_2", 2, probability=1.0, actions=["action_1", "action_2", "action_3"])
         ]
         
-        task_results = list(task.process(learner, Batch(2).filter(OpeRewards("IPS").filter(interactions))))
+        with self.assertRaises(CobaException):
+            task_results = list(task.process(learner, Batch(2).filter(OpeRewards("IPS").filter(interactions))))
         
-        self.assertEqual(2, len(task_results))
-        self.assertEqual(1,task_results[0]['reward'])
-        self.assertEqual(0,task_results[1]['reward'])
+        #self.assertEqual(2, len(task_results))
+        #self.assertEqual(1,task_results[0]['reward'])
+        #self.assertEqual(0,task_results[1]['reward'])
 
     def test_with_request_continuous(self):
         class MyLearner:
@@ -799,6 +800,117 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
 
         self.assertEqual(1.5,task_results[0]['reward'])
         self.assertEqual(2.0,task_results[1]['reward'])
+
+class ExploreEvaluation_Tests(unittest.TestCase):
+
+    def test_partial_interactions(self):
+        task         = ExplorationEvaluation()
+        learner      = RecordingLearner(with_info=False,with_log=False)
+        interactions = [LoggedInteraction(1, 2, 3)]
+
+        with self.assertRaises(CobaException) as r:
+            task_results = list(task.process(learner, interactions))
+
+        self.assertIn("`['context', 'action', 'reward', 'actions', 'probability']`",str(r.exception))
+
+    def test_continuous_interactions(self):
+        task         = ExplorationEvaluation()
+        learner      = RecordingLearner(with_info=False,with_log=False)
+        interactions = [LoggedInteraction(1, 2, 3, probability=1, actions=[])]
+
+        with self.assertRaises(CobaException) as r:
+            task_results = list(task.process(learner, interactions))
+
+        self.assertIn("ExplorationEvaluation does not currently support continuous simulations",str(r.exception))
+
+    def test_batched_interactions(self):
+        task         = ExplorationEvaluation()
+        learner      = RecordingLearner(with_info=False,with_log=False)
+        interactions = list(Batch(2).filter([LoggedInteraction(1, 2, 3, probability=1, actions=[1,2])]*2))
+
+        with self.assertRaises(CobaException) as r:
+            task_results = list(task.process(learner, interactions))
+
+        self.assertIn("ExplorationEvaluation does not currently support batching",str(r.exception))
+
+    def test_no_request_learner(self):
+        task         = ExplorationEvaluation()
+        learner      = RecordingLearner(with_info=False,with_log=False)
+        interactions = [LoggedInteraction(1, 2, 3, probability=1, actions=[1,2])]
+
+        with self.assertRaises(CobaException) as r:
+            task_results = list(task.process(learner, interactions))
+
+        self.assertIn("ExplorationEvaluation requires Learners to implement a `request` method",str(r.exception))
+
+    def test_learner_no_ope(self):
+
+        request_calls = []
+        learn_calls   = []
+
+        class FixedRequestLearner:
+            def request(self,*args):
+                if args[1] != []:
+                    request_calls.append(args)
+                return [.25,.25,.5]
+            def learn(self,*args):
+                learn_calls.append(args)
+                pass
+
+        task    = ExplorationEvaluation(qpct=1)
+        learner = FixedRequestLearner()
+        
+        interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ] * 6
+        task_results = list(task.process(learner, interactions))
+
+        expected_request_call    = [(1,[2,5,8],[2,5,8])] * 6
+        expected_learn_calls     = [(1,[2,5,8],2,3,.25)] * 6
+        expected_task_results    = [{'reward': 3.0}] * 6
+
+        self.assertEqual(expected_request_call, request_calls)
+        self.assertEqual(expected_learn_calls, learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+    
+    def test_record_time(self):
+
+        class FixedRequestLearner:
+            def request(self,*args):
+                return [.25,.25,.5]
+            def learn(self,*args):
+                pass
+
+        task    = ExplorationEvaluation(qpct=1,record=['reward','time'])
+        learner = FixedRequestLearner()
+        
+        interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ]
+        task_results = list(task.process(learner, interactions))
+
+        self.assertIn('predict_time', task_results[0])
+        self.assertIn('learn_time', task_results[0])
+
+    def test_with_ope(self):
+
+        class FixedRequestLearner:
+            t = 0
+            def request(self,*args):
+                FixedRequestLearner.t +=1
+                if FixedRequestLearner.t == 1:
+                    return [.25,.25,.5]
+                if FixedRequestLearner.t == 2:
+                    return [.05,.25,.7]
+                if FixedRequestLearner.t == 3:
+                    return [.25,.25,.5]
+                return [.05,.25,.7]
+            def learn(self,*args):
+                pass
+
+        task    = ExplorationEvaluation(qpct=1,record=['reward'],seed=2)
+        learner = FixedRequestLearner()
+        
+        interactions = [ LoggedInteraction(1, 2, 5, actions=[2,5,8], probability=.25) ] * 3
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
+
+        self.assertEqual(task_results,[{"reward":3},{"reward":1}])
 
 if __name__ == '__main__':
     unittest.main()

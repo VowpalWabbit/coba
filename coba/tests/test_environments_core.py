@@ -6,9 +6,9 @@ import importlib.util
 from pathlib import Path
 
 from coba.contexts import CobaContext, DiskCacher, NullLogger
-from coba.pipes import DiskSource
+from coba.pipes import DiskSource, LazyDense
 from coba.exceptions import CobaException
-from coba.primitives import L1Reward, Batch
+from coba.primitives import L1Reward, Batch, Categorical
 from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
@@ -632,6 +632,9 @@ class Environments_Tests(unittest.TestCase):
 
         envs = envs.materialize()
 
+        self.assertTrue(envs[0][-1]._protected)
+        self.assertTrue(envs[1][-1]._protected)
+
         self.assertEqual(100,len(envs[0][-1]._cache))
         self.assertEqual(10 ,len(envs[1][-1]._cache))
 
@@ -646,6 +649,53 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(5     , envs[0].params['seed'])
         self.assertEqual(6     , envs[1].params['seed'])
+
+    def test_materialize_lazy(self):
+        class TestEnv:
+            def read(self):
+                yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
+
+        envs = Environments(TestEnv()).materialize()
+        ints = envs[0][-1]._cache
+
+        self.assertTrue(envs[0][-1]._protected)
+        self.assertEqual(1,len(ints))
+
+        self.assertIsInstance(ints[0]['context'],list)
+        self.assertIsInstance(ints[0]['actions'][0],Categorical)
+
+    def test_materialize_cached(self):
+        class TestEnv:
+            def read(self):
+                yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
+
+        envs = Environments(TestEnv()).cache().materialize()
+        
+        last_cache  = envs[0][-1]._cache
+        first_cache = envs[0][-3]._cache
+
+        self.assertEqual(1,len(last_cache))
+        self.assertIsNone(first_cache)
+
+        self.assertIsInstance(last_cache[0]['context'],list)
+        self.assertIsInstance(last_cache[0]['actions'][0],Categorical)
+
+    def test_materialize_after_protected_cached(self):
+        class TestEnv:
+            def read(self):
+                yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
+
+        envs = Environments(TestEnv()).materialize().materialize()
+        
+        last_cache  = envs[0][-1]._cache
+        first_cache = envs[0][-3]._cache
+
+        self.assertEqual(1,len(last_cache))
+        self.assertEqual(1,len(first_cache))
+
+        self.assertIsInstance(last_cache[0]['context'],list)
+        self.assertIsInstance(last_cache[0]['actions'][0],Categorical)
+
 
     def test_grounded(self):
         envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)        

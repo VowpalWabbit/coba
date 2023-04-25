@@ -15,3 +15,6 @@ class Categorical(str):
 
     def __repr__(self) -> str:
         return f"Categorical('{self}',{self.levels})"
+    
+    def __reduce__(self):
+        return Categorical, (str(self),list(map(str,self.levels)))

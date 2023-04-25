@@ -8,7 +8,7 @@ from coba.experiments.core    import Experiment
 from coba.experiments.results import Result, Table
 from coba.experiments.tasks   import LearnerTask, SimpleLearnerInfo
 from coba.experiments.tasks   import EnvironmentTask, SimpleEnvironmentInfo, ClassEnvironmentInfo
-from coba.experiments.tasks   import EvaluationTask, SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation
+from coba.experiments.tasks   import EvaluationTask, SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation, ExplorationEvaluation
 
 __all__ = [
     'Result',
@@ -22,5 +22,6 @@ __all__ = [
     'SimpleEvaluation',
     'SimpleEnvironmentInfo',
     'OnPolicyEvaluation',
-    'OffPolicyEvaluation'
+    'OffPolicyEvaluation',
+    'ExplorationEvaluation'
 ]

@@ -44,7 +44,7 @@ class Shuffle(pipes.Shuffle, EnvironmentFilter):
         first, interactions = peek_first(interactions)
 
         if 'action' in first and 'reward' in first:
-            #this is here because otherwise offpolicy evaluation can give a
+            #this is here because if it is not offpolicy evaluation can give a
             #very biased estimate when seeds are the same. To see this run.
                 # import numpy as np
                 # from coba import CobaRandom
@@ -56,7 +56,13 @@ class Shuffle(pipes.Shuffle, EnvironmentFilter):
                 # R2 = CobaRandom(seed).shuffle(R1)
 
                 # np.corrcoef(R1,R2)
-            yield from CobaRandom("AB").shuffle(list(super().filter(interactions)))
+
+                old_seed = self._seed
+                new_seed = self._seed * 3.21 if self._seed is not None else self._seed
+
+                self._seed = new_seed
+                yield from super().filter(interactions)
+                self._seed = old_seed
         else:
             yield from super().filter(interactions)
 
@@ -996,6 +1002,9 @@ class BatchSafe(EnvironmentFilter):
 
 class Finalize(EnvironmentFilter):
 
+    def __init__(self, apply_repr: bool = True):
+        self._apply_repr = apply_repr
+
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         first, interactions = peek_first(interactions)
@@ -1020,7 +1029,10 @@ class Finalize(EnvironmentFilter):
         actions_materialized = not first_has_actions or (not is_dense_actions and not is_sparse_actions or isinstance(first['actions'][0],(list,tuple,dict)))
         action_materialized  = not first_has_action  or (not is_dense_action  and not is_sparse_action  or isinstance(first['action']    ,(list,tuple,dict)))
 
-        for interaction in Repr("onehot","onehot").filter(interactions):
+        if self._apply_repr:
+            interactions = Repr("onehot","onehot").filter(interactions)
+
+        for interaction in interactions:
 
             new = interaction.copy()
 
@@ -1048,7 +1060,7 @@ class Chunk(EnvironmentFilter):
 
 class Logged(EnvironmentFilter):
 
-    def __init__(self, learner: Learner, seed: float = 1.23) -> None:
+    def __init__(self, learner: Learner, seed: Optional[float] = 1.23) -> None:
         self._learner = learner
         self._seed    = seed
 
@@ -1119,7 +1131,7 @@ class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
 
 class OpeRewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
     
-    def __init__(self, rwds_type:Literal['IPS','DM','DR']=None):
+    def __init__(self, rwds_type:Literal['IPS','DM','DR','NO']=None):
         if rwds_type in ['DM','DR']:
             PackageChecker.vowpalwabbit("Rewards.__init__")
         self._rwds_type = rwds_type
@@ -1132,37 +1144,54 @@ class OpeRewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
         if self._rwds_type is None:
             yield from interactions
 
+        elif self._rwds_type == "NO":
+            for log in interactions:
+                log = log.copy()
+                log.pop('rewards',None)
+                yield log
+
         elif self._rwds_type == "IPS":
             for log in interactions:
+                log = log.copy()
                 log['rewards'] = IPSReward(log['reward'], log['action'], log.get('probability'))
                 yield log
-        
+
         elif self._rwds_type in ["DM","DR"]:
             from coba.learners.vowpal import VowpalMediator
 
-            args = [
-                "--interactions xa",
-                "--interactions xxa",
-                "--quiet"
-            ]
-
             vw = VowpalMediator()
-            vw.init_learner(" ".join(args), label_type=1)
+            vw.init_learner("--cb_adf --interactions xa --interactions xxa --quiet", label_type=4)
 
             for log in interactions:
+                log = log.copy()
+
                 log_context = log['context']
+                log_actions = log['actions']
                 log_action  = log['action']
                 log_reward  = log['reward']
                 log_prob    = log['probability']
 
-                rewards = []
-                for a in log['actions']:
-                    estimate   = vw.predict(vw.make_example({"x":log_context,"a":a}, None))
-                    correction = (log_reward-estimate)/log_prob if a == log_action and self._rwds_type=="DR" else 0
-                    rewards.append(estimate+correction)
+                action_index = log_actions.index(log_action)
 
-                log['rewards'] = SequenceReward(log['actions'],rewards)
-                
-                vw.learn(vw.make_example({"x":log_context,"a":log_action}, f"{log_reward} {1/log_prob}"))
-                
+                labels = [None]*len(log_actions)
+                labels[action_index] = f"{action_index+1}:{log_reward}:{log_prob}"
+
+                examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions], labels)
+
+                #vw also predicts when learn is called so we can cut the calls to vw in half by
+                #simpling calling learn and then manually getting the rewards from the examples 
+                #the alternative is here:
+                #   rewards = vw.predict(examples)
+                #   vw.learn(examples)
+                vw.learn(examples)
+                rewards = examples[0].get_prediction()
+
+                if self._rwds_type=="DR":
+                    rewards[action_index] += (log_reward-rewards[action_index])/log_prob
+
+                try:
+                    log['rewards'] = MappingReward(dict(zip(log['actions'],rewards)))
+                except:
+                    log['rewards'] = SequenceReward(log['actions'],rewards)
+
                 yield log

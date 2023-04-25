@@ -2,13 +2,18 @@ import collections
 import collections.abc
 import time
 import warnings
+
 from abc import ABC, abstractmethod
 from itertools import combinations
+from operator import __mul__
 from statistics import mean
 from typing import Iterable, Any, Sequence, Mapping, Hashable
+from bisect import insort
 
 import math
 
+from coba.exceptions import CobaException
+from coba.random import CobaRandom
 from coba.backports import Literal
 from coba.contexts import CobaContext
 from coba.encodings import InteractionsEncoder
@@ -229,7 +234,6 @@ class OffPolicyEvaluation(EvaluationTask):
             # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
             PackageChecker.vowpalwabbit('OffPolicyEvaluation.__init__')
 
-
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
 
         learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
@@ -238,14 +242,15 @@ class OffPolicyEvaluation(EvaluationTask):
         batched  = first and isinstance(first['context'], Batch)
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
+        if batched:
+            raise CobaException("ExplorationEvaluation does not currently support batching.")
+
         try:
             learner.request(first['context'],[],[])
         except Exception as ex:            
-            implements_request = '`request`' not in str(ex)            
+            implements_request = '`request`' not in str(ex)
         else:
             implements_request = True
-
-        #implements_request = False
 
         record_time     = 'time'     in self._record
         record_reward   = 'reward'   in self._record and self._predict and 'actions' in first
@@ -283,21 +288,21 @@ class OffPolicyEvaluation(EvaluationTask):
                         start_time   = time.time()
                         on_probs     = request(log_context,log_actions,log_actions)
                         predict_time = time.time()-start_time
-                        on_reward    = sum(on_p*log_rewards.eval(a) for on_p,a in zip(on_probs,log_actions))
+                        ope_reward   = sum(on_p*log_rewards.eval(a) for on_p,a in zip(on_probs,log_actions))
                     else:
                         start_time   = time.time()
                         on_prob      = request(log_context,log_actions,[log_action])
                         predict_time = time.time()-start_time
-                        on_reward    = on_prob*log_rewards.eval(log_action)
+                        ope_reward   = on_prob*log_rewards.eval(log_action)
                 else:
                     start_time        = time.time()
                     on_action,on_prob = predict(log_context, log_actions)[:2]
                     predict_time      = time.time()-start_time
-                    
+
                     #in theory we could use a ratio average in this case
                     #this would give us a lower variance estimate but we'd have
                     #to add a "weight" column to our output and handle this in Result
-                    on_reward = log_rewards.eval(on_action)
+                    ope_reward = log_rewards.eval(on_action)
 
             if self._learn:
                 start_time = time.time()
@@ -306,7 +311,7 @@ class OffPolicyEvaluation(EvaluationTask):
 
             if record_time  : out['predict_time'] = predict_time
             if record_time  : out['learn_time']   = learn_time
-            if record_reward: out['reward']       = on_reward
+            if record_reward: out['reward']       = ope_reward
 
             if interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE:
                 out.update({k: interaction[k] for k in interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE})
@@ -323,11 +328,152 @@ class OffPolicyEvaluation(EvaluationTask):
                 info.clear()
 
             if out:
-                if batched:
-                    #we flatten batched items so output works seamlessly with Result
-                    yield from ({k:v[i] for k,v in out.items()} for i in range(len(log_context)))
+                yield out
+
+class ExplorationEvaluation(EvaluationTask):
+
+    def __init__(self, 
+        record: Sequence[Literal['context','actions','action','reward','probability','time']] = ['reward'],
+        with_ope: bool = True, 
+        qpct: float = .05,
+        cmax: float = 1.0,
+        seed: float = None) -> None:
+        """
+        Args:
+            record: The datapoints to record for each interaction.
+            q: The unbiased case is q = 0
+            c: The unbiased case is c = min_p E[rejected] = c (i.e, c=1/M)
+            seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
+        """
+
+        #An implementation of https://arxiv.org/ftp/arxiv/papers/1210/1210.4862.pdf
+
+        self._record = [record] if isinstance(record,str) else record
+        self._ope    = with_ope
+        self._qpct   = qpct
+        self._cmax   = cmax
+        self._seed   = seed
+
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
+
+        rng     = CobaRandom(self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
+        learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
+
+        first, interactions = peek_first(interactions)        
+        batched  = first and isinstance(first['context'], Batch)
+        discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
+
+        if not all(k in first.keys() for k in ['context', 'action', 'reward', 'actions', 'probability']):
+            raise CobaException("ExplorationEvaluation requires interactions with `['context', 'action', 'reward', 'actions', 'probability']`")
+
+        if not discrete:
+            raise CobaException("ExplorationEvaluation does not currently support continuous simulations")
+
+        if batched:
+            raise CobaException("ExplorationEvaluation does not currently support batching")
+
+        try:
+            learner.request(first['context'],[],[])
+        except Exception as ex:
+            if '`request`' in str(ex):
+                raise CobaException("ExplorationEvaluation requires Learners to implement a `request` method")
+
+        record_time    = 'time'        in self._record
+        record_reward  = 'reward'      in self._record
+        record_action  = 'action'      in self._record
+        record_actions = 'actions'     in self._record
+        record_context = 'context'     in self._record
+        record_prob    = 'probability' in self._record
+
+        request = learner.request
+        learn   = learner.learn
+        info    = CobaContext.learning_info
+
+        info.clear()
+
+        ope_rewards = []
+        Q           = []
+        c           = self._cmax
+        t           = 0
+
+        for interaction in interactions:
+
+            t += 1
+
+            info.clear()
+            interaction = interaction.copy()
+
+            log_context      = interaction.pop('context')
+            log_actions      = interaction.pop('actions')
+            log_action       = interaction.pop('action')
+            log_reward       = interaction.pop('reward') 
+            log_prob         = interaction.pop('probability',None)
+            log_rewards      = interaction.pop('rewards',None)
+            log_action_index = log_actions.index(log_action)
+
+            batched  = isinstance(log_context, Batch)
+            discrete = log_actions and len(log_actions[0] if batched else log_actions) > 0
+
+            if record_time:
+                predict_time = 0
+                learn_time   = 0
+
+            start_time = time.time()
+            on_probs = request(log_context,log_actions,log_actions)
+            on_prob = on_probs[log_action_index]
+            predict_time = time.time()-start_time
+
+            if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(log_rewards.eval,log_actions))))
+
+            #I tried many techniques for managing Q and q_pct... 
+            #Here I chose to use insort because it provided the best runtime by far.
+            #Unfortunately, with insort the computational complexity is T (due to insert).
+            #Even so, T has to become incredibly large (many millions?) before it is slower.
+            #Alternatively, I also played with dequeue in order to have fixed complexity.
+            #However, the time it takes to sort the dequeue on accepted actions is awful.
+            if on_prob != 0:
+                insort(Q,log_prob/on_prob)
+                if t < 10:
+                    #Out of the gate we don't have a good estimate of the distribution of Q.
+                    #This can lead us to way under-reject initially if actions were logged in
+                    #a very biased manner. Therefore, we use the heuristic below to be slightly
+                    #more conservative until we have a better estimate of Qs and can trust q_pct.
+                    #we know the minimum probability for the other actions is <= to this...
+                    max_min_other_log_prob = (1-log_prob)/(len(log_actions)-1)
+                    max_min_other_on_prob  = max(on_probs[:log_action_index] + on_probs[log_action_index+1:]) or float('nan')
+                    insort(Q,max_min_other_log_prob/max_min_other_on_prob)
+
+            if rng.random() <= c*on_prob/log_prob:
+
+                out = {}
+                if ope_rewards:
+                    ope_rewards[-1] = log_reward
                 else:
-                    yield out
+                    ope_rewards.append(log_reward)
+
+                start_time = time.time()
+                learn(log_context, log_actions, log_action, log_reward, on_prob)
+                learn_time = time.time() - start_time
+
+                if record_time   : out['predict_time'] = predict_time
+                if record_time   : out['learn_time']   = learn_time
+                if record_context: out['context']      = log_context
+                if record_actions: out['actions']      = log_actions
+                if record_action : out['action']       = log_action
+                if record_reward : out['reward']       = mean(ope_rewards)
+                if record_prob   : out['probability']  = on_prob
+
+                if info:out.update(info)
+                if out: yield out
+
+                ope_rewards.clear()
+                c = min(percentile(Q,self._qpct,sort=False), self._cmax)
+
+        if ope_rewards:
+            out = {}
+            if record_time   : out['predict_time'] = predict_time
+            if record_reward : out['reward']       = mean(ope_rewards)
+            if out: yield out
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""
@@ -339,7 +485,6 @@ class SimpleEnvironmentInfo(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""
 
     def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Mapping[Any,Any]:
-
         return { k:v for k,v in SafeEnvironment(environment).params.items() if v is not None }
 
 class ClassEnvironmentInfo(EnvironmentTask):

@@ -38,7 +38,8 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
         self._seed = seed
 
     def filter(self, items: Iterable[Any]) -> Sequence[Any]:
-        yield from CobaRandom(self._seed).shuffle(list(items))
+        items = items.copy() if isinstance(items,list) else list(items)
+        yield from CobaRandom(self._seed).shuffle(items,inplace=True)
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -135,25 +136,26 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         rng = CobaRandom(self._seed)
 
         if self._count == 0:
-            return []
+            yield from []
 
-        if self._count is None:
-            return rng.shuffle(items)
+        elif self._count is None:
+            yield from rng.shuffle(items)
+        
+        else:
+            W         = 1
+            items     = iter(items)
+            reservoir = rng.shuffle(list(islice(items,self._count)))
 
-        W         = 1
-        items     = iter(items)
-        reservoir = rng.shuffle(list(islice(items,self._count)))
+            try:
+                while True:
+                    [r1,r2,r3] = rng.randoms(3)
+                    W = W * math.exp(math.log(r1)/ (self._count or 1) )
+                    S = math.floor(math.log(r2)/math.log(1-W))
+                    reservoir[int(r3*self._count-.001)] = next(islice(items,S,S+1))
+            except StopIteration:
+                pass
 
-        try:
-            while True:
-                [r1,r2,r3] = rng.randoms(3)
-                W = W * math.exp(math.log(r1)/ (self._count or 1) )
-                S = math.floor(math.log(r2)/math.log(1-W))
-                reservoir[int(r3*self._count-.001)] = next(islice(items,S,S+1))
-        except StopIteration:
-            pass
-
-        return reservoir
+            yield from reservoir
 
 class JsonEncode(Filter[Any, str]):
     """A filter which turn a Python object into JSON strings."""
@@ -398,9 +400,10 @@ class Default(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,
 
 class Cache(Filter[Iterable[Any], Iterable[Any]]):
 
-    def __init__(self,n_slice:int=25) -> None:
-        self._cache = None
-        self._n_slice = n_slice
+    def __init__(self,n_slice:int=25,protected:bool=False) -> None:
+        self._cache     = None
+        self._n_slice   = n_slice
+        self._protected = protected
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         n_slice = self._n_slice

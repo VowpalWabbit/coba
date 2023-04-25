@@ -279,7 +279,7 @@ class VowpalLearner(Learner):
 
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
         probs = self.predict(context,actions)
-        return [probs[actions.index(a)] for a in request]
+        return probs if actions == request else list(map(probs.__getitem__,map(actions.index,request)))
 
     def predict(self, context: Context, actions: Sequence[Action]) -> PMF:
 
@@ -353,7 +353,9 @@ class VowpalLearner(Learner):
             self._vw.learn(self._vw.make_example(context, label))
 
     def _labels(self,actions,index,reward:float,prob:float) -> Sequence[Optional[str]]:
-        return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if i == index else None for i in range(len(actions))]
+        labels = [None]*len(actions)
+        labels[index] = f"{index+1}:{round(-reward,5)}:{round(prob,5)}"
+        return labels
 
     def _finish(self):
         try:

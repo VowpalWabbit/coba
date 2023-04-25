@@ -122,7 +122,7 @@ class Experiment:
         """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
         return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
-    def run(self, result_file:str = None, quiet:bool = False, processes:int = None, seed: int = 1) -> Result:
+    def run(self, result_file:str = None, quiet:bool = False, processes:int = None, seed: Optional[int] = 1) -> Result:
         """Run the experiment and return the results.
 
         Args:

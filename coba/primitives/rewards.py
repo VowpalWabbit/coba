@@ -168,13 +168,11 @@ class SequenceReward(Reward):
         return o == self._rewards or (isinstance(o,SequenceReward) and o._actions == self._actions and o._rewards == self._rewards)
 
 class MappingReward(Reward):
-    __slots__ = ('_mapping')
+    __slots__ = ('_mapping','eval')
 
     def __init__(self, mapping: Mapping[Action,float]) -> None:
         self._mapping = mapping
-
-    def eval(self, arg: Action) -> float:
-        return self._mapping[arg]
+        self.eval     = mapping.__getitem__
 
     def argmax(self) -> Action:
         max_r = -float('inf')

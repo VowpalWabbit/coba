@@ -1,4 +1,5 @@
 import unittest
+import pickle
 
 from coba.primitives import Categorical
 
@@ -20,6 +21,12 @@ class Categorical_Tests(unittest.TestCase):
 
     def test_repr(self):
         self.assertEqual("Categorical('A',['A', 'B'])", repr(Categorical("A",["A","B"])))
+
+    def test_pickle(self):
+        out = pickle.loads(pickle.dumps(Categorical("A",["A","B"])))
+
+        self.assertIsInstance(out,Categorical)
+        self.assertEqual(out.levels, ['A',"B"])
 
 if __name__ == '__main__':
     unittest.main()

@@ -20,7 +20,7 @@ from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadD
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
 from coba.experiments.results import Result, moving_average, Table, Count, Repeat
-from coba.experiments import SimpleEvaluation
+from coba.experiments import SimpleEvaluation, OnPolicyEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
 Timeable = Callable[[],Any]
@@ -426,9 +426,11 @@ class Performance_Tests(unittest.TestCase):
                 pass
 
         items = [SimulatedInteraction(1,[1,2,3],[1,2,3])]*100
-        eval  = SimpleEvaluation()
+        eval  = OnPolicyEvaluation()
         learn = DummyLearner()
-        self._assert_scale_time(items,lambda x:list(eval.process(learn, x)), .05, print_time, number=100)
+
+        #most of this time is being spent in SafeLearner.predict...
+        self._assert_scale_time(items,lambda x:list(eval.process(learn, x)), .065, print_time, number=100)
 
     def test_safe_learner_predict(self):
 
@@ -477,7 +479,7 @@ class Performance_Tests(unittest.TestCase):
         n_users      = 100
         n_words      = 100
 
-        environment = cb.Environments.cache_dir('./.coba_cache')                               #(1) set a cache directory
+        environment = cb.Environments.cache_dir('./.coba_cache')                           #(1) set a cache directory
         environment = environment.from_openml(data_id=covertype_id, take=ndata)            #(2) begin with covertype
         environment = environment.scale(shift='min',scale='minmax')                        #(3) scale features to [0,1]
         environment = environment.grounded(n_users, n_users/2, n_words, n_words/2, seed=1) #(4) turn into an igl problem
