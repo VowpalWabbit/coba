@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from multiprocessing import current_process
+from multiprocessing import current_process, Semaphore
 from typing import Iterable, Any
 
 from coba.contexts        import CobaContext, NullLogger
@@ -9,6 +9,11 @@ from coba.contexts        import NullCacher, MemoryCacher
 from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
 from coba.pipes           import Filter, ListSink, Identity
 from coba.multiprocessing import CobaMultiprocessor
+
+class StoreFilter:
+    def filter(self,items):
+        CobaContext.store.get('test')
+        yield from items
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -44,6 +49,15 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
     def setUp(self) -> None:
         CobaContext.logger = NullLogger()
         CobaContext.store = {}
+
+    def test_store_semaphore(self):
+        CobaContext.store['test'] = Semaphore(3)
+        CobaContext.logger = NullLogger()
+        CobaContext.cacher = NullCacher()
+
+        items = list(CobaMultiprocessor(StoreFilter(), 2, 1, False).filter(range(4)))
+
+        self.assertEqual(items, [0,1,2,3])
 
     def test_logging(self):
         logger_sink = ListSink()

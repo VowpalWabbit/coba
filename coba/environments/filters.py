@@ -742,7 +742,7 @@ class Noise(EnvironmentFilter):
         rng = CobaRandom(self._seed)
 
         for interaction in interactions:
-            
+
             new = interaction.copy()
 
             context = new['context']
@@ -1078,13 +1078,13 @@ class Logged(EnvironmentFilter):
             raise CobaException("We were unable to create a logged representation of the interaction.")
 
         #Avoid circular dependency
-        from coba.experiments.tasks import SimpleEvaluation
+        from coba.experiments.tasks import OnPolicyEvaluation
 
         seed = self._seed if self._seed is not None else CobaRandom().random()
 
         I1,I2 = tee(interactions,2)
         flat_int = Unbatch().filter(I1)
-        eval_log = SimpleEvaluation(record=['action','reward','probability'],seed=seed).process(copy.deepcopy(self._learner),I2)
+        eval_log = OnPolicyEvaluation(record=['action','reward','probability'],seed=seed).process(copy.deepcopy(self._learner),I2)
         for interaction, log in zip(flat_int,eval_log):
             out = interaction.copy()
             out.update(log)
