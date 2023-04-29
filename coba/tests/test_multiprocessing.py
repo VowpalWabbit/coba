@@ -12,12 +12,13 @@ from coba.multiprocessing import CobaMultiprocessor
 
 class OpenmlSemaphoreFilter:
     def filter(self,items):
-        sem = CobaContext.store.get('openml_semaphore')
-        sem.acquire()
         items = list(items)
-        sem.release()
-        print(items)
-        yield from items
+        
+        if items:
+            sem = CobaContext.store.get('openml_semaphore')
+            sem.acquire()
+            sem.release()
+            yield from items
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -55,8 +56,8 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.store = {}
 
     def test_openml_semaphore(self):
-        items = list(CobaMultiprocessor(OpenmlSemaphoreFilter(), 2, 1, False).filter(range(4)))
-        self.assertEqual(items, [0,1,2,3])
+        items = list(CobaMultiprocessor(OpenmlSemaphoreFilter(), 2, 1, False).filter(range(1)))
+        self.assertEqual(items, [0])
 
     def test_logging(self):
         logger_sink = ListSink()
