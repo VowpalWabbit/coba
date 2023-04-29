@@ -1,4 +1,3 @@
-import datetime
 import re
 import collections
 import collections.abc
@@ -11,11 +10,12 @@ from itertools import chain, repeat, accumulate, groupby, count, compress
 from typing import Any, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, NamedTuple, overload
 from coba.backports import Literal
 
+from coba.primitives import Batch
 from coba.environments import Environment
 from coba.statistics import mean, stdev, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval, PointAndInterval
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker
+from coba.utilities import PackageChecker, peek_first
 from coba.pipes import Pipes, Sink, Source, JsonEncode, JsonDecode, DiskSource, DiskSink, IterableSource, ListSink, Foreach
 
 def exponential_moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
@@ -847,7 +847,7 @@ class Result:
 
         for env in environments:
 
-            is_batched = 'batched' in env.params
+            is_batched = isinstance(peek_first(env.read())[0]['reward'],(Batch,list,tuple))
             env_params  = dict(env.params)
             lrn_params  = env_params.pop('learner')
 

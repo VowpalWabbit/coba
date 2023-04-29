@@ -1005,6 +1005,15 @@ class Result_Tests(unittest.TestCase):
                 yield {"reward": 5}
                 yield {"reward": 6}
 
+        class Logged4:
+            @property
+            def params(self):
+                return {"learner":{"family":"lrn2", "a":2}, "source":2, "logged":True, "scale":True, "batched": 2}
+            def read(self):
+                yield {"reward": 1}
+                yield {"reward": 2}
+
+
         expected_envs = [
             {"environment_id":0, "source":1, "logged":True, "scale":True, "batched": None},
             {"environment_id":1, "source":2, "logged":True, "scale":True, "batched": 2   },
@@ -1022,9 +1031,11 @@ class Result_Tests(unittest.TestCase):
             {'environment_id': 0, 'learner_id': 1, 'index':2, 'reward': 6 },
             {'environment_id': 1, 'learner_id': 0, 'index':1, 'reward': 3 },
             {'environment_id': 1, 'learner_id': 0, 'index':2, 'reward': 4 },
+            {'environment_id': 1, 'learner_id': 1, 'index':1, 'reward': 1 },
+            {'environment_id': 1, 'learner_id': 1, 'index':2, 'reward': 2 },
         ]
 
-        res = Result.from_logged_envs([Logged1(),Logged2(),Logged3()])
+        res = Result.from_logged_envs([Logged1(),Logged2(),Logged3(),Logged4()])
         self.assertCountEqual(res.environments.to_dicts(), expected_envs)
         self.assertCountEqual(res.learners.to_dicts()    , expected_lrns)
         self.assertCountEqual(res.interactions.to_dicts(), expected_ints)
