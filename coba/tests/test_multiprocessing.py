@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from multiprocessing import current_process, Semaphore
+from multiprocessing import current_process, Semaphore, get_context
 from typing import Iterable, Any
 
 from coba.contexts        import CobaContext, NullLogger
@@ -10,9 +10,13 @@ from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog,
 from coba.pipes           import Filter, ListSink, Identity
 from coba.multiprocessing import CobaMultiprocessor
 
-class StoreFilter:
+class OpenmlSemaphoreFilter:
     def filter(self,items):
-        CobaContext.store.get('test')
+        sem = CobaContext.store.get('openml_semaphore')
+        sem.acquire()
+        items = list(items)
+        sem.release()
+        print(items)
         yield from items
 
 class NotPicklableFilter(Filter):
@@ -40,7 +44,7 @@ class ExceptionFilter(Filter):
         self._exc = exc
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        for item in items:
+        for _ in items:
             raise self._exc
             yield None
 
@@ -50,13 +54,8 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.logger = NullLogger()
         CobaContext.store = {}
 
-    def test_store_semaphore(self):
-        CobaContext.store['test'] = Semaphore(3)
-        CobaContext.logger = NullLogger()
-        CobaContext.cacher = NullCacher()
-
-        items = list(CobaMultiprocessor(StoreFilter(), 2, 1, False).filter(range(4)))
-
+    def test_openml_semaphore(self):
+        items = list(CobaMultiprocessor(OpenmlSemaphoreFilter(), 2, 1, False).filter(range(4)))
         self.assertEqual(items, [0,1,2,3])
 
     def test_logging(self):

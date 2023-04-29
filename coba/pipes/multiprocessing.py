@@ -263,8 +263,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         if self._max_processes == 1 and self._maxtasksperchild is None:
             yield from self._filter.filter(Unchunker(self._chunked).filter(items))
         else:
-
-            event     = spawn_context.Event()
+            event = spawn_context.Event()
 
             #for some reason if this mp queue get too big we can't keyboradinterrupt
             #therefore, we slightly limit its size and then empty it before closing.
@@ -300,6 +299,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
                 #only known cause of exitcode != 0 is a missing `if __name__ == '__main__'``.
                 if worker.exitcode != 0: #pragma: no cover
+                    print(worker.exitcode)
                     self._main_err = True
                     event.set()
 
