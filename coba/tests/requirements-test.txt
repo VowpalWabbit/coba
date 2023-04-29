@@ -1,5 +1,6 @@
 # requirements needed for github action tests
-# all versions are selected for compatability with python 3.6
+# all versions are selected for compatability with python 3.7
 
 coverage~=6.2.0
+ipython~=7.34
 jupyterlab~=3.2.0
