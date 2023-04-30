@@ -910,7 +910,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
         interactions = [ LoggedInteraction(1, 2, 5, actions=[2,5,8], probability=.25) ] * 3
         task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
-        self.assertEqual(task_results,[{"reward":3},{"reward":1}])
+        self.assertEqual(task_results,[{"reward":3}])
 
 if __name__ == '__main__':
     unittest.main()

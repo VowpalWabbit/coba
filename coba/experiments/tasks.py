@@ -109,7 +109,7 @@ class OnPolicyEvaluation(EvaluationTask):
     def __init__(self, 
         record: Sequence[Literal['reward','rank','regret','time','probability','action','context','actions','rewards']] = ['reward'],
         learn: bool = True,
-        seed: float = None) -> None: 
+        seed: float = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
@@ -247,7 +247,7 @@ class OffPolicyEvaluation(EvaluationTask):
 
         try:
             learner.request(first['context'],[],[])
-        except Exception as ex:            
+        except Exception as ex:
             implements_request = '`request`' not in str(ex)
         else:
             implements_request = True
@@ -470,10 +470,16 @@ class ExplorationEvaluation(EvaluationTask):
                 c = min(percentile(Q,self._qpct,sort=False), self._cmax)
 
         if ope_rewards:
-            out = {}
-            if record_time   : out['predict_time'] = predict_time
-            if record_reward : out['reward']       = mean(ope_rewards)
-            if out: yield out
+            pass
+            #If we hit this it means that there was rejected data at the end of the
+            #simulation. I haven't found a good way of dealing with this case. In
+            #general I don't think it should be a problem unless we are working with
+            #very small datasets. Commented out below is the previous functionality:
+            #out = {}
+            #if record_time   : out['predict_time'] = predict_time
+            #if record_reward : out['reward']       = mean(ope_rewards)
+            #if out: yield out
+
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""

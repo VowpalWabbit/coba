@@ -389,73 +389,6 @@ class Table:
         #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
         print(str(self))
 
-class TransactionIO_V4(Source['Result'], Sink[Any]):
-
-    def __init__(self, log_file: Optional[str] = None, minify:bool=True) -> None:
-
-        self._log_file = log_file
-        self._minify   = minify
-        self._source   = DiskSource(log_file) if log_file else IterableSource()
-        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.iterable)
-
-    def write(self, item: Any) -> None:
-        if isinstance(self._sink, ListSink):
-            self._sink.write(self._encode(item))
-        else:
-            if not Path(self._sink._filename).exists():self._sink.write('["version",4]')
-            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
-
-    def read(self) -> 'Result':
-
-        exp_dict = {}
-        lrn_rows = {}
-        env_rows = {}
-        int_rows = {}
-
-        if isinstance(self._source, IterableSource):
-            decoded_source = self._source
-        else:
-            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
-
-        for trx in decoded_source.read():
-
-            if not trx: continue
-
-            if trx[0] == "experiment":
-                exp_dict = trx[1]
-
-            if trx[0] == "E":
-                env_rows[trx[1]] = trx[2]
-
-            if trx[0] == "L":
-                lrn_rows[trx[1]] = trx[2]
-
-            if trx[0] == "I":
-                int_rows[tuple(trx[1])] = trx[2]
-
-        return Result(*old_to_new(env_rows, lrn_rows, int_rows), exp_dict)
-
-    def _encode(self,item):
-        if item[0] == "T0":
-            return ['experiment', {"n_learners":item[1], "n_environments":item[2], "description":None} if len(item)==3 else item[1] ]
-
-        if item[0] == "T1":
-            return ["L", item[1], item[2]]
-
-        if item[0] == "T2":
-            return ["E", item[1], item[2]]
-
-        if item[0] == "T3":
-            rows_T = collections.defaultdict(list)
-
-            for row in item[2]:
-                for col,val in row.items():
-                    rows_T[col].append(val)
-
-            return ["I", item[1], { "_packed": rows_T }]
-
-        return None
-
 class TransactionIO_V3(Source['Result'], Sink[Any]):
 
     def __init__(self, log_file: Optional[str] = None, minify:bool = True) -> None:
@@ -519,6 +452,75 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
             for row in item[2]:
                 for col,val in row.items():
                     rows_T[col].append(val)
+
+            return ["I", item[1], { "_packed": rows_T }]
+
+        return None
+
+class TransactionIO_V4(Source['Result'], Sink[Any]):
+
+    def __init__(self, log_file: Optional[str] = None, minify:bool=True) -> None:
+
+        self._log_file = log_file
+        self._minify   = minify
+        self._source   = DiskSource(log_file) if log_file else IterableSource()
+        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.iterable)
+
+    def write(self, item: Any) -> None:
+        if isinstance(self._sink, ListSink):
+            self._sink.write(self._encode(item))
+        else:
+            if not Path(self._sink._filename).exists():self._sink.write('["version",4]')
+            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
+
+    def read(self) -> 'Result':
+
+        exp_dict = {}
+        lrn_rows = {}
+        env_rows = {}
+        int_rows = {}
+
+        if isinstance(self._source, IterableSource):
+            decoded_source = self._source
+        else:
+            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
+
+        for trx in decoded_source.read():
+
+            if not trx: continue
+
+            if trx[0] == "experiment":
+                exp_dict = trx[1]
+
+            if trx[0] == "E":
+                env_rows[trx[1]] = trx[2]
+
+            if trx[0] == "L":
+                lrn_rows[trx[1]] = trx[2]
+
+            if trx[0] == "I":
+                int_rows[tuple(trx[1])] = trx[2]
+
+        return Result(*old_to_new(env_rows, lrn_rows, int_rows), exp_dict)
+
+    def _encode(self,item):
+        if item[0] == "T0":
+            return ['experiment', {"n_learners":item[1], "n_environments":item[2], "description":None} if len(item)==3 else item[1] ]
+
+        if item[0] == "T1":
+            return ["L", item[1], item[2]]
+
+        if item[0] == "T2":
+            return ["E", item[1], item[2]]
+
+        if item[0] == "T3":
+            rows_T = collections.defaultdict(list)
+
+            keys = set().union(*[r.keys() for r in item[2]])
+
+            for row in item[2]:
+                for key in keys:
+                    rows_T[key].append(row.get(key,None))
 
             return ["I", item[1], { "_packed": rows_T }]
 

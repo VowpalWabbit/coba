@@ -813,6 +813,21 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         if Path("coba/tests/.temp/transaction_v4.log").exists():
             Path("coba/tests/.temp/transaction_v4.log").unlink()
 
+    def test_uneven_dictionaries(self):
+        io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
+
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[1,0], [{"R1":3},{"R2":4}]])
+
+        result = io.read()
+
+        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'R1':3,"R2":None},{'learner_id':0,'environment_id':1,'index':2,"R1":None,'R2':4}], result.interactions.to_dicts())
+
     def test_simple_to_and_from_file(self):
         io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
 
