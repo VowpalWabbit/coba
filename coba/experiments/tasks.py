@@ -17,7 +17,7 @@ from coba.random import CobaRandom
 from coba.backports import Literal
 from coba.contexts import CobaContext
 from coba.encodings import InteractionsEncoder
-from coba.environments import Environment, SafeEnvironment, Interaction
+from coba.environments import Environment, SafeEnvironment, Interaction, OpeRewards
 from coba.exceptions import CobaExit
 from coba.learners import Learner, SafeLearner
 from coba.primitives import Batch
@@ -77,27 +77,27 @@ class SimpleEvaluation(EvaluationTask):
     def __init__(self, 
         record: Sequence[Literal['reward','rank','regret','time','probability','action','actions', 'context', 'ope_loss', 'rewards']] = ['reward'],
         learn: bool = True,
-        predict: bool = True,
+        evals: bool = True,
         seed: float = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
-            learn: Indicates if learning should occur during the evaluation process.
-            predict: Indicates if predictions should occur during the evaluation process.
+            learn: Indicates whether learning should occur as part of the evaluation task.
+            evals: Indicates whether evaluation should occur as part of the evaluation task.
             seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """
 
-        self._record  = [record] if isinstance(record,str) else record
-        self._learn   = learn
-        self._predict = predict
-        self._seed    = seed
+        self._record = [record] if isinstance(record,str) else record
+        self._learn  = learn
+        self._evals  = evals
+        self._seed   = seed
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
 
         first, interactions = peek_first(interactions)
 
         if 'reward' in first and 'action' in first:
-            yield from OffPolicyEvaluation(self._record, self._learn, self._predict, self._seed).process(learner, interactions)
+            yield from OffPolicyEvaluation(self._record, self._learn, self._evals, self._seed).process(learner, interactions)
         else:
             yield from OnPolicyEvaluation(self._record, self._learn, self._seed).process(learner, interactions)
 
@@ -127,8 +127,16 @@ class OnPolicyEvaluation(EvaluationTask):
 
         first, interactions = peek_first(interactions)        
         batched  = first and isinstance(first['context'], Batch)
-        discrete = len(first['actions'][0] if batched else first['actions']) > 0
 
+        for key in ['rewards','context','actions']:
+            if key not in first:
+                raise CobaException(f"OnPolicyEvaluation requires every interaction to have '{key}'")
+
+        for key in ['rewards','actions']:
+            if (first[key][0] if batched else first[key]) is None:
+                raise CobaException(f"OnPolicyEvaluation requires every interaction to have a not None '{key}'")
+
+        discrete = len(first['actions'][0] if batched else first['actions']) > 0
         if not discrete:
             for metric in set(self._record).intersection(OnPolicyEvaluation.ONLY_DISCRETE):
                 warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
@@ -213,20 +221,20 @@ class OffPolicyEvaluation(EvaluationTask):
     def __init__(self, 
         record: Sequence[Literal['reward','time','ope_loss']] = ['reward'],
         learn: bool = True,
-        predict: bool = True,
+        evals: bool = True,
         seed: float = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
-            learn: Indicates if learning should occur during the evaluation process.
-            predict: Indicates if prediction should occur during the evaluation process.
+            learn: Indicates that off-policy learning should occur as parrt of the off-policy task.
+            evals: Indicates that off-policy evaluation should occur as part of the off-policy task.
             seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """
 
-        self._record  = [record] if isinstance(record,str) else record
-        self._learn   = learn
-        self._predict = predict
-        self._seed    = seed
+        self._record = [record] if isinstance(record,str) else record
+        self._learn  = learn
+        self._evals  = evals
+        self._seed   = seed
 
         if 'ope_loss' in self._record:
             # OPE loss metric is only available for VW models
@@ -242,8 +250,17 @@ class OffPolicyEvaluation(EvaluationTask):
         batched  = first and isinstance(first['context'], Batch)
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
+        first_rewards = first.get('rewards',[None])[0] if batched else first.get('rewards',None)
+        first_actions = first.get('actions',[None])[0] if batched else first.get('actions',None)
+
         if batched:
-            raise CobaException("ExplorationEvaluation does not currently support batching.")
+            raise CobaException("OffPolicyEvaluation does not currently support batching.")
+
+        if self._evals and first_actions is None:
+            raise CobaException("Interactions need to have 'actions' defined for OPE.")
+
+        if self._evals and (first_rewards is None or first_actions is None):
+            raise CobaException("Interactions need to have 'rewards' defined for OPE. This can be done using `Environments.ope_rewards`.")
 
         try:
             learner.request(first['context'],[],[])
@@ -253,8 +270,8 @@ class OffPolicyEvaluation(EvaluationTask):
             implements_request = True
 
         record_time     = 'time'     in self._record
-        record_reward   = 'reward'   in self._record and self._predict and 'actions' in first
-        record_ope_loss = 'ope_loss' in self._record and self._predict and 'actions' in first
+        record_reward   = 'reward'   in self._record and self._evals and 'actions' in first
+        record_ope_loss = 'ope_loss' in self._record and self._evals and 'actions' in first
 
         request = learner.request
         predict = learner.predict
@@ -282,7 +299,7 @@ class OffPolicyEvaluation(EvaluationTask):
                 predict_time = 0
                 learn_time   = 0
 
-            if self._predict and log_actions is not None:
+            if self._evals and log_actions is not None and log_rewards is not None:
                 if implements_request:
                     if discrete:
                         start_time   = time.time()

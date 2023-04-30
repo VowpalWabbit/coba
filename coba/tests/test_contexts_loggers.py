@@ -456,7 +456,7 @@ class ExceptionLogger_Tests(unittest.TestCase):
 
     def test_exception_logged(self):
         logger = ExceptionLogger(ListSink())
-        exception = Exception("Test Exception")
+        exception = Exception("EXCEPTION: Test Exception")
         logger.log(exception)
         self.assertEqual([ExceptLog().filter(exception)],logger.sink.items)
 
@@ -634,7 +634,7 @@ class ExceptLog_Tests(unittest.TestCase):
 
         log = decorator.filter(exception)
 
-        self.assertEqual(log, "Test Exception")
+        self.assertEqual(log, "EXCEPTION: Test Exception")
 
 class NameLog_Tests(unittest.TestCase):
 

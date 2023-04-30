@@ -313,10 +313,50 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
     def test_off_policy_eval(self):
         with unittest.mock.patch('coba.experiments.tasks.OffPolicyEvaluation') as mock_class:
-            list(SimpleEvaluation(['reward','a'],learn=False,predict=True,seed=1).process(RecordingLearner(),[LoggedInteraction(1,1,3)]))
+            list(SimpleEvaluation(['reward','a'],learn=False,evals=True,seed=1).process(RecordingLearner(),[LoggedInteraction(1,1,3)]))
         mock_class.assert_called_once_with(['reward','a'],False,True,1)
 
 class OnPolicyEvaluation_Tests(unittest.TestCase):
+
+    def test_no_actions(self):
+        task         = OnPolicyEvaluation("reward")
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            {'context':[1,2,3], "rewards":[1,2,3]}
+        ]
+
+        with self.assertRaises(CobaException):
+            task_results = list(task.process(learner, interactions))
+
+    def test_none_actions(self):
+        task         = OnPolicyEvaluation("reward")
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            {'context':[1,2,3], "rewards":[1,2,3], "actions":None}
+        ]
+
+        with self.assertRaises(CobaException):
+            task_results = list(task.process(learner, interactions))
+
+    def test_no_rewards(self):
+        task         = OnPolicyEvaluation("reward")
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            {'context':[1,2,3], "actions":[1,2,3]}
+        ]
+
+        with self.assertRaises(CobaException):
+            task_results = list(task.process(learner, interactions))
+
+    def test_none_rewards(self):
+        task         = OnPolicyEvaluation("reward")
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            {'context':[1,2,3], "actions":[1,2,3], "rewards":None}
+        ]
+
+        with self.assertRaises(CobaException):
+            task_results = list(task.process(learner, interactions))
 
     def test_one_metric(self):
         task         = OnPolicyEvaluation("reward")
@@ -653,8 +693,38 @@ class OnPolicyEvaluation_Tests(unittest.TestCase):
 
 class OffPolicyEvaluation_Tests(unittest.TestCase):
 
-    def test_no_actions_no_probability_no_info_no_logs(self):
+    def test_no_rewards(self):
         task    = OffPolicyEvaluation()
+        learner = RecordingLearner(with_info=False,with_log=False)
+        interactions = [
+            LoggedInteraction(1, 2, 3),
+        ]
+
+        with self.assertRaises(CobaException):
+            task_results = list(task.process(learner, interactions))
+
+    def test_none_rewards(self):
+        task    = OffPolicyEvaluation()
+        learner = RecordingLearner(with_info=False,with_log=False)
+        interactions = [
+            LoggedInteraction(1, 2, 3,rewards=None,actions=[1,2,3]),
+        ]
+
+        with self.assertRaises(CobaException):
+            task_results = list(task.process(learner, interactions))
+
+    def test_no_actions(self):
+        task    = OffPolicyEvaluation()
+        learner = RecordingLearner(with_info=False,with_log=False)
+        interactions = [
+            LoggedInteraction(1, 2, 3),
+        ]
+
+        with self.assertRaises(CobaException):
+            task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
+
+    def test_no_actions_no_rewards_no_eval(self):
+        task    = OffPolicyEvaluation(evals=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3),

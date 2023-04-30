@@ -295,7 +295,7 @@ class ExceptLog(Filter[Union[str,Exception],str]):
         if isinstance(log, str):
             return log
         elif isinstance(log, CobaException):
-            return str(log)
+            return f"EXCEPTION: {log}"
         else:
             tb  = ''.join(traceback.format_tb(log.__traceback__))
             msg = ''.join(traceback.TracebackException.from_exception(log).format_exception_only())
