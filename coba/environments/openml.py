@@ -264,7 +264,7 @@ class OpenmlSimulation(SupervisedSimulation):
     """
 
     @overload
-    def __init__(self, data_id: int, drop_missing: bool = True, take: int = None, *, target:str = None):
+    def __init__(self, data_id: int, drop_missing: bool = True, take: int = None, *, target:str = None, ):
         """Instantiate an OpenmlSimulation.
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
@@ -288,7 +288,7 @@ class OpenmlSimulation(SupervisedSimulation):
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate an OpenmlSimulation."""
         kwargs.update(zip(['data_id','drop_missing','take'], args))
-        super().__init__(OpenmlSource(**kwargs), None, None, kwargs.get('take',None))
+        super().__init__(OpenmlSource(**kwargs), None, kwargs.get('label_type',None), kwargs.get('take',None))
 
     @property
     def params(self) -> Dict[str, Any]:

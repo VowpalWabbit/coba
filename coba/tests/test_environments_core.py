@@ -346,8 +346,19 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , len(env))
         self.assertEqual(100 , env[0].params['openml_task'])
         self.assertEqual(100 , env[0].params['reservoir_count'])
+        self.assertEqual(None, env[0].params['label_type'])
         self.assertEqual(200 , env[1].params['openml_task'])
         self.assertEqual(100 , env[1].params['reservoir_count'])
+        self.assertEqual(None, env[1].params['label_type'])
+
+    def test_from_openml_label_type(self):
+        env = Environments.from_openml(task_id=[100,200],label_type='c')
+
+        self.assertEqual(2   , len(env))
+        self.assertEqual(100 , env[0].params['openml_task'])
+        self.assertEqual('c' , env[0].params['label_type'])
+        self.assertEqual(200 , env[1].params['openml_task'])
+        self.assertEqual('c' , env[1].params['label_type'])
 
     def test_from_lambda(self):
         context = lambda index,rng               : [ round(r,2) for r in rng.randoms(5) ]

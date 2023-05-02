@@ -162,7 +162,8 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         drop_missing: bool = True,
         take: int = None,
         *,
-        target:str = None) -> 'Environments':
+        target:str = None,
+        label_type:Literal['c','r','m'] = None) -> 'Environments':
         ...
 
     @overload
@@ -170,7 +171,8 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def from_openml(*,task_id: Union[int,Sequence[int]],
         drop_missing: bool = True,
         take: int = None,
-        target:str = None) -> 'Environments':
+        target:str = None,
+        label_type:Literal['m','c','r'] = None) -> 'Environments':
         ...
 
     @staticmethod
