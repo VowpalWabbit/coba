@@ -17,11 +17,11 @@ from coba.random import CobaRandom
 from coba.backports import Literal
 from coba.contexts import CobaContext
 from coba.encodings import InteractionsEncoder
-from coba.environments import Environment, SafeEnvironment, Interaction, OpeRewards
+from coba.environments import Environment, SafeEnvironment, Interaction
 from coba.exceptions import CobaExit
 from coba.learners import Learner, SafeLearner
 from coba.primitives import Batch
-from coba.statistics import percentile
+from coba.statistics import percentile, weighted_percentile
 from coba.utilities import PackageChecker, peek_first
 
 class LearnerTask(ABC):
@@ -352,14 +352,16 @@ class ExplorationEvaluation(EvaluationTask):
     def __init__(self, 
         record: Sequence[Literal['context','actions','action','reward','probability','time']] = ['reward'],
         with_ope: bool = True, 
-        qpct: float = .05,
+        qpct: float = .02,
         cmax: float = 1.0,
+        cinit: float = None,
         seed: float = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
-            q: The unbiased case is q = 0
-            c: The unbiased case is c = min_p E[rejected] = c (i.e, c=1/M)
+            qpct: The unbiased case is q = 0
+            cmax: The unbiased case is c = min_p E[rejected] = c (i.e, c=1/M)
+            cinit: The initial value to use for c (the rejection sampling multiplier). By default a conservative estimate is used.
             seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """
 
@@ -369,6 +371,7 @@ class ExplorationEvaluation(EvaluationTask):
         self._ope    = with_ope
         self._qpct   = qpct
         self._cmax   = cmax
+        self._cinit  = cinit
         self._seed   = seed
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
@@ -376,8 +379,11 @@ class ExplorationEvaluation(EvaluationTask):
         rng     = CobaRandom(self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
         learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
 
-        first, interactions = peek_first(interactions)        
-        batched  = first and isinstance(first['context'], Batch)
+        first_100, interactions = peek_first(interactions,n=100)
+        if first_100 is None: return []
+
+        first = first_100[0]
+        batched = first and isinstance(first['context'], Batch)
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
         if not all(k in first.keys() for k in ['context', 'action', 'reward', 'actions', 'probability']):
@@ -408,9 +414,10 @@ class ExplorationEvaluation(EvaluationTask):
 
         info.clear()
 
+        first_probs = [i['probability'] for i in first_100] + [(1-i['probability'])/(len(i['actions'])-1) for i in first_100]
         ope_rewards = []
         Q           = []
-        c           = self._cmax
+        c           = self._cinit or min(first_probs+[self._cmax])
         t           = 0
 
         for interaction in interactions:
@@ -424,7 +431,7 @@ class ExplorationEvaluation(EvaluationTask):
             log_actions      = interaction.pop('actions')
             log_action       = interaction.pop('action')
             log_reward       = interaction.pop('reward') 
-            log_prob         = interaction.pop('probability',None)
+            log_prob         = interaction.pop('probability')
             log_rewards      = interaction.pop('rewards',None)
             log_action_index = log_actions.index(log_action)
 
@@ -442,24 +449,22 @@ class ExplorationEvaluation(EvaluationTask):
 
             if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(log_rewards.eval,log_actions))))
 
-            #I tried many techniques for managing Q and q_pct... 
-            #Here I chose to use insort because it provided the best runtime by far.
-            #Unfortunately, with insort the computational complexity is T (due to insert).
-            #Even so, T has to become incredibly large (many millions?) before it is slower.
-            #Alternatively, I also played with dequeue in order to have fixed complexity.
-            #However, the time it takes to sort the dequeue on accepted actions is awful.
+            #I tested many techniques for managing Q and estimating its qpct percentile... 
+            #Implemented here is the insort method because it provided the best runtime by far.
+            #The danger of this method is that the computational complexity is T (due to inserts).
+            #Even so, T has to become very large (many millions?) before it is slower than alternatives.
+            #The most obvious alternatively I also played with was dequeue with a fixed size/complexity.
+            #However, this requres sorting the dequeue for every accepted actions which is incredibly slow.
             if on_prob != 0:
                 insort(Q,log_prob/on_prob)
-                if t < 10:
-                    #Out of the gate we don't have a good estimate of the distribution of Q.
-                    #This can lead us to way under-reject initially if actions were logged in
-                    #a very biased manner. Therefore, we use the heuristic below to be slightly
-                    #more conservative until we have a better estimate of Qs and can trust q_pct.
-                    #we know the minimum probability for the other actions is <= to this...
-                    max_min_other_log_prob = (1-log_prob)/(len(log_actions)-1)
-                    max_min_other_on_prob  = max(on_probs[:log_action_index] + on_probs[log_action_index+1:]) or float('nan')
-                    insort(Q,max_min_other_log_prob/max_min_other_on_prob)
 
+            #we want c*on_prob/log_prob <= 1 approximately qpct of the time
+            #we know that if c <= min(log_prob) this condition will be met.
+            #This might be too conservative though because it doesn't consider
+            #the value of on_prob. For example if on_prob:=log_prob then the
+            #above condition will be met if c = 1 >= min(log_prob). With
+            #every interaction if we can answer what is the greatest value of
+            #c such that c*on_prob/log_prob > 1
             if rng.random() <= c*on_prob/log_prob:
 
                 out = {}
@@ -480,11 +485,15 @@ class ExplorationEvaluation(EvaluationTask):
                 if record_reward : out['reward']       = mean(ope_rewards)
                 if record_prob   : out['probability']  = on_prob
 
-                if info:out.update(info)
+                if info: out.update(info)
                 if out: yield out
 
                 ope_rewards.clear()
-                c = min(percentile(Q,self._qpct,sort=False), self._cmax)
+
+                #to make sure we have at least a decent estimate of the
+                #distribution of Q values and most appropriate value for c
+                if len(Q) > 200:
+                    c = min(percentile(Q,self._qpct,sort=False), self._cmax)# pragma: no cover
 
         if ope_rewards:
             pass
@@ -496,7 +505,6 @@ class ExplorationEvaluation(EvaluationTask):
             #if record_time   : out['predict_time'] = predict_time
             #if record_reward : out['reward']       = mean(ope_rewards)
             #if out: yield out
-
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""

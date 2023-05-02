@@ -4,7 +4,7 @@ import importlib.util
 from math import isnan
 
 from coba.exceptions import CobaException
-from coba.statistics import mean, stdev, var, iqr, percentile, phi
+from coba.statistics import mean, stdev, var, iqr, percentile, phi, weighted_percentile
 from coba.statistics import OnlineVariance, OnlineMean, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval
 
 class iqr_Tests(unittest.TestCase):
@@ -23,6 +23,22 @@ class percentile_Tests(unittest.TestCase):
 
     def test_simple_00_50_01(self):
         self.assertEqual((1,2,3), percentile([3,2,1], [0,.5,1]))
+
+class weighted_percentile_Tests(unittest.TestCase):
+    def test_simple_0_00(self):
+        self.assertEqual(1, weighted_percentile([3,2,1],[1,1,1], 0))
+
+    def test_simple_1_00(self):
+        self.assertEqual(3, weighted_percentile([3,2,1],[1,1,1], 1))
+
+    def test_simple_0_50(self):
+        self.assertEqual(2, weighted_percentile([3,2,1],[1,1,1], .5))
+
+    def test_simple_00_50_01(self):
+        self.assertEqual((1,2,3), weighted_percentile([3,2,1], [1,1,1], [0,.5,1]))
+
+    def test_simple_25(self):
+        self.assertEqual(1.5, weighted_percentile([3,2,1], [1,1,1], .25))
 
 class Mean_Tests(unittest.TestCase):
     def test(self):

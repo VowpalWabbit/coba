@@ -1,9 +1,9 @@
 import warnings
 import importlib
 
-from itertools import chain
+from itertools import chain, islice
 from collections import defaultdict
-from typing import TypeVar, Iterable, Tuple
+from typing import TypeVar, Iterable, Tuple, Union, Sequence
 
 from coba.exceptions import CobaExit
 
@@ -114,10 +114,11 @@ class KeyDefaultDict(defaultdict):
             return value
 
 _T = TypeVar("_T")
-def peek_first(items: Iterable[_T]) -> Tuple[_T, Iterable[_T]]:
+def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], Iterable[_T]]:
     items = iter(items)
-    try:
-        first = next(items)
-        return first, chain([first],items)
-    except StopIteration:
-        return None, []
+    first = list(islice(items,n))
+
+    items = [] if not first else chain(first,items)
+    first = None if not first else first[0] if n==1 else first
+
+    return first, items

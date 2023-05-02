@@ -3,7 +3,7 @@ import unittest
 import unittest.mock
 
 from coba.exceptions import CobaExit, sans_tb_sys_except_hook
-from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit
+from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit, peek_first
 
 class coba_exit_Tests(unittest.TestCase):
     def test_coba_exit(self):
@@ -78,6 +78,35 @@ class KeyDefaultDict_Tests(unittest.TestCase):
         a = KeyDefaultDict(None)
         with self.assertRaises(KeyError):
             a[1]
+
+class peek_first_Tests(unittest.TestCase):
+
+    def test_simple_empty(self):
+        first,items = peek_first([])
+
+        self.assertIsNone(first)
+        self.assertEqual(items,[])
+
+        first,items = peek_first([],n=3)
+
+        self.assertIsNone(first)
+        self.assertEqual(items,[])
+
+    def test_simple_peek_1(self):
+        init_items = iter([1,2,3])
+
+        first,items = peek_first(init_items)
+
+        self.assertEqual(first,1)
+        self.assertEqual(list(items),[1,2,3])
+
+    def test_simple_peek_n(self):
+        init_items = iter([1,2,3])
+
+        first,items = peek_first(init_items,n=3)
+
+        self.assertEqual(first,[1,2,3])
+        self.assertEqual(list(items),[1,2,3])
 
 if __name__ == '__main__':
     unittest.main()

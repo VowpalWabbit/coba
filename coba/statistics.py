@@ -1,7 +1,8 @@
 from math import hypot, isnan, erf, sqrt
 from sys import version_info
 from operator import mul, sub
-from itertools import repeat
+from bisect import bisect_left 
+from itertools import repeat, accumulate
 from abc import abstractmethod, ABC
 from typing import Sequence, Tuple, Union, Callable
 from coba.backports import Literal
@@ -19,6 +20,35 @@ def iqr(values: Sequence[float]) -> float:
     p25,p75 = percentile(values, [0.25,0.75])
 
     return p75-p25
+
+def weighted_percentile(values: Sequence[float], weights: Sequence[float], percentiles: Union[float,Sequence[float]], sort: bool = True) -> Union[float, Tuple[float,...]]:
+
+    def _percentile(values: Sequence[float], weights:Sequence[float], percentile: float) -> float:
+        assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
+
+        if percentile == 0:
+            return values[0]
+        
+        if percentile == 1:
+            return values[-1]
+
+        R = bisect_left(weights,percentile)
+        L = R-1
+        LP = (weights[R]-percentile)/(weights[R]-weights[L])
+
+        return LP*values[L] + (1-LP)*values[R]
+
+    if sort:
+        values, weights = zip(*sorted(zip(values,weights)))
+    
+    weights = (0,)+weights[1:]
+    weight_sum = sum(weights)
+    weights    = [w/weight_sum for w in accumulate(weights) ] 
+
+    if isinstance(percentiles,(float,int)):
+        return _percentile(values, weights, percentiles)
+    else:
+        return tuple([_percentile(values, weights, p) for p in percentiles ])
 
 def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]], sort: bool = True) -> Union[float, Tuple[float,...]]:
 

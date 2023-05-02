@@ -146,11 +146,11 @@ class Table:
 
     @overload
     def __init__(self, table: 'Table', keep:Sequence[bool]=None) -> None:
-        """Copy a Table and optionally indicate which entries to keep.
+        """Copy a Table and optionally indicate which rows to keep.
 
         Args:
             table: The table to copy.
-            keep: Which column rows to keep.
+            keep: Which rows to keep.
         """
 
     @overload
@@ -343,7 +343,6 @@ class Table:
                 keep = new_keep
 
             elif comparison == 'match':
-
                 is_sequence = isinstance(filter_val,collections.abc.Sequence) and not isinstance(filter_val,str)
                 filter_vals = filter_val if is_sequence else [filter_val]
                 values      = list(chain.from_iterable(chunks))
@@ -867,12 +866,21 @@ class Result:
                 lrns_params.append(lrn_params)
                 lrn_rows[lrn_id] = lrn_params
 
-            if is_batched:
-                results = {'_packed':{'reward': list(map(my_mean,map(itemgetter('reward'),env.read())))}}
-            else:
-                results = {'_packed':{'reward': list(map(itemgetter('reward'),env.read())) }}
+            first, interactions = peek_first(env.read())
+            
+            #It's not ideal loading the entire environment into memory...
+            #This can be fixed by building the "packed" dictionary below
+            #one row at a time instead of one column at a time...
+            interactions = list(interactions)
+            if interactions:
+                keys = first.keys() - {'context', 'actions', 'rewards'}
 
-            int_rows[(env_id,lrn_id)]= results
+                if is_batched:
+                    results = {'_packed':{k: list(map(my_mean,map(itemgetter(k),interactions))) for k in keys}}
+                else:
+                    results = {'_packed':{k: list(map(itemgetter(k),interactions)) for k in keys}}
+
+                int_rows[(env_id,lrn_id)]= results
 
         return Result(*old_to_new(env_rows,lrn_rows,int_rows))
 

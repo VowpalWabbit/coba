@@ -1130,7 +1130,7 @@ class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
         yield from map(Interaction.from_dict,items)
 
 class OpeRewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
-    
+
     def __init__(self, rwds_type:Literal['IPS','DM','DR','NO']=None):
         if rwds_type in ['DM','DR']:
             PackageChecker.vowpalwabbit("Rewards.__init__")
@@ -1159,39 +1159,51 @@ class OpeRewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
         elif self._rwds_type in ["DM","DR"]:
             from coba.learners.vowpal import VowpalMediator
 
+            rng = CobaRandom(1)
             vw = VowpalMediator()
-            vw.init_learner("--cb_adf --interactions xa --interactions xxa --quiet", label_type=4)
+            vw.init_learner("--cb_adf --interactions xa --interactions xxa --quiet ", label_type=4)
 
-            for log in interactions:
-                log = log.copy()
+            #so that we don't run forever
+            #when interactions is re-iterable
+            interactions = iter(interactions)
 
-                log_context = log['context']
-                log_actions = log['actions']
-                log_action  = log['action']
-                log_reward  = log['reward']
-                log_prob    = log['probability']
+            while True:
 
-                action_index = log_actions.index(log_action)
+                #Batch Shuffling reduces the correlation between
+                #the reward functions learned by this VW learner
+                #and potential downstream VW learners. When this
+                #correlation is strong we can over estimate the
+                #downstream VW learner's performance.
+                L = list(islice(interactions,4000))
+                R = [ [] for _ in range(len(L)) ]
 
-                labels = [None]*len(log_actions)
-                labels[action_index] = f"{action_index+1}:{log_reward}:{log_prob}"
+                if not L: break
 
-                examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions], labels)
+                for log, rewards in rng.shuffle(list(zip(L,R)), inplace=True):
+                    log_context = log['context']
+                    log_actions = log['actions']
+                    log_action  = log['action']
+                    log_reward  = log['reward']
+                    log_prob    = log['probability']
+                    log_index   = log_actions.index(log_action)
 
-                #vw also predicts when learn is called so we can cut the calls to vw in half by
-                #simpling calling learn and then manually getting the rewards from the examples 
-                #the alternative is here:
-                #   rewards = vw.predict(examples)
-                #   vw.learn(examples)
-                vw.learn(examples)
-                rewards = examples[0].get_prediction()
+                    labels            = [None]*len(log_actions)
+                    labels[log_index] = f"{log_index+1}:{log_reward}:{log_prob}"
 
-                if self._rwds_type=="DR":
-                    rewards[action_index] += (log_reward-rewards[action_index])/log_prob
+                    examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions], labels)
 
-                try:
-                    log['rewards'] = MappingReward(dict(zip(log['actions'],rewards)))
-                except:
-                    log['rewards'] = SequenceReward(log['actions'],rewards)
+                    vw.learn(examples)
+                    rewards.extend(examples[0].get_prediction())
 
-                yield log
+                    if self._rwds_type=="DR":
+                        rewards[log_index] += (log_reward-rewards[log_index])/log_prob
+
+                for log,rewards in zip(L,R):
+                    log = log.copy()
+
+                    try:
+                        log['rewards'] = MappingReward(dict(zip(log['actions'],rewards)))
+                    except:
+                        log['rewards'] = SequenceReward(log['actions'],rewards)
+
+                    yield log

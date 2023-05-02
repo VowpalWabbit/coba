@@ -927,7 +927,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
                 learn_calls.append(args)
                 pass
 
-        task    = ExplorationEvaluation(qpct=1)
+        task    = ExplorationEvaluation(qpct=1,cinit=1)
         learner = FixedRequestLearner()
         
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ] * 6
@@ -949,7 +949,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
             def learn(self,*args):
                 pass
 
-        task    = ExplorationEvaluation(qpct=1,record=['reward','time'])
+        task    = ExplorationEvaluation(cinit=1,qpct=1,record=['reward','time'])
         learner = FixedRequestLearner()
         
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ]
@@ -974,7 +974,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
             def learn(self,*args):
                 pass
 
-        task    = ExplorationEvaluation(qpct=1,record=['reward'],seed=2)
+        task    = ExplorationEvaluation(qpct=1,record=['reward'],cinit=1,seed=2)
         learner = FixedRequestLearner()
         
         interactions = [ LoggedInteraction(1, 2, 5, actions=[2,5,8], probability=.25) ] * 3
