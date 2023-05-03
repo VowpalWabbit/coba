@@ -39,11 +39,14 @@ class Slice(pipes.Slice, EnvironmentFilter):
 
 class Shuffle(pipes.Shuffle, EnvironmentFilter):
     """Shuffle a sequence of Interactions in an Environment."""
-    
+
     def filter(self, interactions: Iterable[Interaction]) -> Sequence[Any]:
         first, interactions = peek_first(interactions)
 
-        if 'action' in first and 'reward' in first:
+        if not interactions:
+            yield from []
+
+        elif 'action' in first and 'reward' in first:
             #this is here because if it is not offpolicy evaluation can give a
             #very biased estimate when seeds are the same. To see this run.
                 # import numpy as np
@@ -57,12 +60,13 @@ class Shuffle(pipes.Shuffle, EnvironmentFilter):
 
                 # np.corrcoef(R1,R2)
 
-                old_seed = self._seed
-                new_seed = self._seed * 3.21 if self._seed is not None else self._seed
+            old_seed = self._seed
+            new_seed = self._seed * 3.21 if self._seed is not None else self._seed
 
-                self._seed = new_seed
-                yield from super().filter(interactions)
-                self._seed = old_seed
+            self._seed = new_seed
+            yield from super().filter(interactions)
+            self._seed = old_seed
+
         else:
             yield from super().filter(interactions)
 

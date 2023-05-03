@@ -51,6 +51,9 @@ class Shuffle_Tests(unittest.TestCase):
     def test_str(self):
         self.assertEqual("{'shuffle': 1}", str(Shuffle(1)))
 
+    def test_empty(self):
+        self.assertEqual(list(Shuffle(1).filter([])),[])
+
     def test_logged(self):
         logged_interactions = [{'context':0,'action':1,'reward':2},{'context':1,'action':1,'reward':2},{'context':2,'action':1,'reward':2}]
         normal_interactions = [{'context':0},{'context':1},{'context':2}]

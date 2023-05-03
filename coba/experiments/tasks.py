@@ -77,7 +77,7 @@ class SimpleEvaluation(EvaluationTask):
     def __init__(self, 
         record: Sequence[Literal['reward','rank','regret','time','probability','action','actions', 'context', 'ope_loss', 'rewards']] = ['reward'],
         learn: bool = True,
-        evals: bool = True,
+        predict: bool = True,
         seed: float = None) -> None:
         """
         Args:
@@ -89,7 +89,7 @@ class SimpleEvaluation(EvaluationTask):
 
         self._record = [record] if isinstance(record,str) else record
         self._learn  = learn
-        self._evals  = evals
+        self._evals  = predict
         self._seed   = seed
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
@@ -221,7 +221,7 @@ class OffPolicyEvaluation(EvaluationTask):
     def __init__(self, 
         record: Sequence[Literal['reward','time','ope_loss']] = ['reward'],
         learn: bool = True,
-        evals: bool = True,
+        predict: bool = True,
         seed: float = None) -> None:
         """
         Args:
@@ -231,10 +231,10 @@ class OffPolicyEvaluation(EvaluationTask):
             seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """
 
-        self._record = [record] if isinstance(record,str) else record
-        self._learn  = learn
-        self._evals  = evals
-        self._seed   = seed
+        self._record  = [record] if isinstance(record,str) else record
+        self._learn   = learn
+        self._predict = predict
+        self._seed    = seed
 
         if 'ope_loss' in self._record:
             # OPE loss metric is only available for VW models
@@ -256,10 +256,10 @@ class OffPolicyEvaluation(EvaluationTask):
         if batched:
             raise CobaException("OffPolicyEvaluation does not currently support batching.")
 
-        if self._evals and first_actions is None:
+        if self._predict and first_actions is None:
             raise CobaException("Interactions need to have 'actions' defined for OPE.")
 
-        if self._evals and (first_rewards is None or first_actions is None):
+        if self._predict and (first_rewards is None or first_actions is None):
             raise CobaException("Interactions need to have 'rewards' defined for OPE. This can be done using `Environments.ope_rewards`.")
 
         try:
@@ -270,8 +270,8 @@ class OffPolicyEvaluation(EvaluationTask):
             implements_request = True
 
         record_time     = 'time'     in self._record
-        record_reward   = 'reward'   in self._record and self._evals and 'actions' in first
-        record_ope_loss = 'ope_loss' in self._record and self._evals and 'actions' in first
+        record_reward   = 'reward'   in self._record and self._predict and 'actions' in first
+        record_ope_loss = 'ope_loss' in self._record and self._predict and 'actions' in first
 
         request = learner.request
         predict = learner.predict
@@ -299,7 +299,7 @@ class OffPolicyEvaluation(EvaluationTask):
                 predict_time = 0
                 learn_time   = 0
 
-            if self._evals and log_actions is not None and log_rewards is not None:
+            if self._predict and log_actions is not None and log_rewards is not None:
                 if implements_request:
                     if discrete:
                         start_time   = time.time()
@@ -435,9 +435,6 @@ class ExplorationEvaluation(EvaluationTask):
             log_rewards      = interaction.pop('rewards',None)
             log_action_index = log_actions.index(log_action)
 
-            batched  = isinstance(log_context, Batch)
-            discrete = log_actions and len(log_actions[0] if batched else log_actions) > 0
-
             if record_time:
                 predict_time = 0
                 learn_time   = 0
@@ -458,13 +455,11 @@ class ExplorationEvaluation(EvaluationTask):
             if on_prob != 0:
                 insort(Q,log_prob/on_prob)
 
-            #we want c*on_prob/log_prob <= 1 approximately qpct of the time
-            #we know that if c <= min(log_prob) this condition will be met.
+            #we want c*on_prob/log_prob <= 1 approximately 1-qpct of the time.
+            #We know that if c <= min(log_prob) this condition will be met.
             #This might be too conservative though because it doesn't consider
             #the value of on_prob. For example if on_prob:=log_prob then the
-            #above condition will be met if c = 1 >= min(log_prob). With
-            #every interaction if we can answer what is the greatest value of
-            #c such that c*on_prob/log_prob > 1
+            #above condition will be met if c = 1 >= min(log_prob).
             if rng.random() <= c*on_prob/log_prob:
 
                 out = {}
@@ -490,10 +485,7 @@ class ExplorationEvaluation(EvaluationTask):
 
                 ope_rewards.clear()
 
-                #to make sure we have at least a decent estimate of the
-                #distribution of Q values and most appropriate value for c
-                if len(Q) > 200:
-                    c = min(percentile(Q,self._qpct,sort=False), self._cmax)# pragma: no cover
+                c = min(percentile(Q,self._qpct,sort=False), self._cmax)
 
         if ope_rewards:
             pass

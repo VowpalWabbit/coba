@@ -313,7 +313,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
     def test_off_policy_eval(self):
         with unittest.mock.patch('coba.experiments.tasks.OffPolicyEvaluation') as mock_class:
-            list(SimpleEvaluation(['reward','a'],learn=False,evals=True,seed=1).process(RecordingLearner(),[LoggedInteraction(1,1,3)]))
+            list(SimpleEvaluation(['reward','a'],learn=False,predict=True,seed=1).process(RecordingLearner(),[LoggedInteraction(1,1,3)]))
         mock_class.assert_called_once_with(['reward','a'],False,True,1)
 
 class OnPolicyEvaluation_Tests(unittest.TestCase):
@@ -724,7 +724,7 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
             task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
     def test_no_actions_no_rewards_no_eval(self):
-        task    = OffPolicyEvaluation(evals=False)
+        task    = OffPolicyEvaluation(predict=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3),

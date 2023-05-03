@@ -300,7 +300,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 #only known cause of exitcode != 0 is a missing `if __name__ == '__main__'``.
                 if worker.exitcode != 0: #pragma: no cover
                     #exitcode -15 is keyboard interrupt...
-                    if worker.exitcode != -15: 
+                    if worker.exitcode != -15:
                         print(worker.exitcode)
                     self._main_err = True
                     event.set()
