@@ -45,9 +45,13 @@ class old_to_new_Tests(unittest.TestCase):
         self.assertEqual(ints,Table(columns=['environment_id', 'learner_id', 'index', 'reward','z']).insert([(0,1,1,1,None),(0,1,2,3,None),(0,2,1,None,1),(0,2,2,None,4)]))
 
 class View_Tests(unittest.TestCase):
-    def test_getitem(self):
+    def test_getitem_seq(self):
         view = View({"a":[1,2,3]},[0,2])
         self.assertEqual(view['a'],(1,3))
+
+    def test_getitem_slice(self):
+        view = View({"a":[1,2,3]},slice(0,2))
+        self.assertEqual(view['a'],(1,2))
 
     def test_values(self):
         view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
@@ -89,7 +93,7 @@ class Table_Tests(unittest.TestCase):
         with self.assertRaises(KeyError):
             table[0]
 
-    def test_filter_kwarg_str(self):
+    def test_where_kwarg_str(self):
         table = Table(columns=['a','b']).insert({'a':['a','A'],'b':['b','B']})
 
         filtered_table = table.where(b="B")
@@ -100,7 +104,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A','B')], list(filtered_table))
 
-    def test_filter_kwarg_int_1(self):
+    def test_where_kwarg_int_1(self):
         table = Table(columns=['a','b']).insert([['1','b'],['11','B']])
 
         filtered_table = table.where(a=1,comparison='match')
@@ -111,7 +115,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('1','b')], list(filtered_table))
 
-    def test_filter_kwarg_int_2(self):
+    def test_where_kwarg_int_2(self):
         table = Table(columns=['a','b']).insert([[1,'b'],[2,'B']])
 
         filtered_table = table.where(a=1)
@@ -122,7 +126,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([(1,'b')], list(filtered_table))
 
-    def test_filter_kwarg_pred(self):
+    def test_where_kwarg_pred(self):
         table = Table(columns=['a','b']).insert([['1','b'],['12','B']])
 
         filtered_table = table.where(a=lambda v: v=='1')
@@ -133,7 +137,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('1','b')], list(filtered_table))
 
-    def test_filter_kwarg_multi(self):
+    def test_where_kwarg_multi(self):
         table = Table(columns=['a','b','c']).insert([
             ['1', 'b', 'c'],
             ['2', 'b', 'C'],
@@ -147,7 +151,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(3, len(filtered_table))
         self.assertEqual([('1','b','c'),('2','b','C'),('4','B','C')], list(filtered_table))
 
-    def test_filter_without_any(self):
+    def test_where_without_any(self):
         table = Table(columns=['a','b','c']).insert([
             ['1', 'b', 'c'],
             ['2', 'b', 'C'],
@@ -159,7 +163,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_table))
         self.assertEqual([('1','b','c'),('2','b','C')], list(filtered_table))
 
-    def test_filter_pred(self):
+    def test_where_pred(self):
         table = Table(columns=['a','b']).insert([['A','B'],['a','b']])
 
         filtered_table = table.where(lambda row: row[1]=="B")
@@ -170,7 +174,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A','B')], list(filtered_table))
 
-    def test_filter_sequence_1(self):
+    def test_where_sequence_1(self):
         table = Table(columns=['a','b']).insert([['a','b'], ['A','B'], ['1','C']])
 
         filtered_table = table.where(a=['a','1'])
@@ -181,7 +185,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_table))
         self.assertEqual([('a','b'),('1','C')], list(filtered_table))
 
-    def test_filter_sequence_3(self):
+    def test_where_sequence_3(self):
         table = Table(columns=['a']).insert([[['1']],[['2']],[['3']]])
 
         filtered_table = table.where(a=[['1']],comparison='in')
@@ -192,7 +196,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([(['1'],)], list(filtered_table))
 
-    def test_filter_le(self):
+    def test_where_le(self):
         table = Table(columns=['a']).insert([[1]]*10)
         table = table.insert([[2]]*10)
 
@@ -206,7 +210,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(20, len(table))
         self.assertEqual(10, len(filtered_table))
 
-    def test_filter_lt(self):
+    def test_where_lt(self):
         table = Table(columns=['a']).insert([[1]]*10)
         table = table.insert([[2]]*10)
 
@@ -220,7 +224,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(20, len(table))
         self.assertEqual(0, len(filtered_table))
 
-    def test_filter_gt(self):
+    def test_where_gt(self):
         table = Table(columns=['a']).insert([[1]]*10)
         table = table.insert([[2]]*10)
 
@@ -234,7 +238,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(20, len(table))
         self.assertEqual(10, len(filtered_table))
 
-    def test_filter_ge(self):
+    def test_where_ge(self):
         table = Table(columns=['a']).insert([[1]]*10)
         table = table.insert([[2]]*10)
 
@@ -248,7 +252,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(20, len(table))
         self.assertEqual(20, len(filtered_table))
 
-    def test_filter_eq(self):
+    def test_where_eq(self):
         table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
 
         filtered_table = table.where(a=1,comparison='=')
@@ -261,34 +265,31 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(4, len(table))
         self.assertEqual(2, len(filtered_table))
 
-    def test_filter_match_number_number(self):
+    def test_where_match_number_number(self):
         table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
 
         filtered_table = table.where(a=1,comparison='match')
 
         self.assertEqual(4, len(table))
-
         self.assertEqual(2, len(filtered_table))
 
-    def test_filter_match_number_str(self):
+    def test_where_match_number_str(self):
         table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
 
         filtered_table = table.where(a=1,comparison='match')
 
         self.assertEqual(4, len(table))
-
         self.assertEqual(2, len(filtered_table))
 
-    def test_filter_match_str_str(self):
+    def test_where_match_str_str(self):
         table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
 
         filtered_table = table.where(a='1',comparison='match')
 
         self.assertEqual(4, len(table))
-
         self.assertEqual(2, len(filtered_table))
 
-    def test_filter_match_str_str2(self):
+    def test_where_match_str_str2(self):
         table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
 
         filtered_table = table.where(a='1',comparison='match')
@@ -1044,7 +1045,7 @@ class Result_Tests(unittest.TestCase):
     def test_filter_fin_sans_n_interactions(self):
         envs = [['environment_id'             ],[1,],[2,]]
         lrns = [['learner_id'                 ],[1,],[2,]]
-        ints = [['environment_id','learner_id'],[1,1],[1,2],[2,1]]
+        ints = [['environment_id','learner_id','index'],[1,1,0],[1,2,0],[2,1,0]]
 
         original_result = Result(envs, lrns, ints)
         filtered_result = original_result.filter_fin()
@@ -1085,7 +1086,7 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[1,],[2,]]
         lrns = [['learner_id'    ],[1,],[2,]]
-        ints = [['environment_id','learner_id'],[1,1],[2,1]]
+        ints = [['environment_id','learner_id','index'],[1,1,0],[2,1,0]]
 
         original_result = Result(envs, lrns, ints)
         filtered_result = original_result.filter_fin()

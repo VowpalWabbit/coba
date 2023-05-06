@@ -67,19 +67,18 @@ def old_to_new(
 
     return env_table, lrn_table, int_table
 
-def env_len_lrn_counts(interactions: 'Table') -> Tuple[Mapping[int,int],Mapping[int,int]]:
-    ###WARNING, this logic has been highly optimized
-    env_lengths  = {}
-    env_lrn_cnts = collections.defaultdict(int)
-    for g, i in groupby(interactions[['environment_id','learner_id']]):
-        env_lrn_cnts[g[0]]+=1
-        if g[0] not in env_lengths:
-            env_lengths[g[0]] = sum(1 for _ in i)
+def env_len_and_cnt(interactions: 'Table') -> Tuple[Mapping[int,int],Mapping[int,int]]:
+    env_len = {}
+    env_cnt = {}
+    for table in interactions.groupby(2):
+        env_id = table['environment_id'][0]
+        env_cnt[env_id] = env_cnt.get(env_id,0)+1
+        env_len[env_id] = len(table)
 
-    return env_lengths, env_lrn_cnts
+    return env_len, env_cnt
 
 class View:
-    def __init__(self, data: Mapping[str,Sequence], selection: Sequence[int]) -> None:
+    def __init__(self, data: Mapping[str,Sequence], selection: Union[Sequence[int],slice]) -> None:
         self._data = data
         self._selection = selection
 
@@ -93,7 +92,10 @@ class View:
         return iter(self._data)
 
     def __getitem__(self,key):
-        return tuple(map(self._data[key].__getitem__,self._selection))
+        if isinstance(self._selection,slice):
+            return tuple(self._data[key][self._selection])
+        else:
+            return tuple(map(self._data[key].__getitem__,self._selection))
 
     def __setitem__(self,key,value):
         raise CobaException("A view of the data cannot be modified.")
@@ -204,7 +206,6 @@ class Table:
             return Table(View(self._data,selection), self._columns, self._index) 
  
         if kwargs:
-
             selection = []
             for kw,arg in kwargs.items():    
                 if kw in self._index and comparison != "match" and not callable(kwargs[kw]):
@@ -213,15 +214,15 @@ class Table:
                             selection.extend(range(l,h))
                 else:
                     selection.extend(self._compare(0,len(self),self._data[kw],arg,comparison,"foreach"))
-            
+
             if len(kwargs) > 1: selection=sorted(set(selection))
             return Table(View(self._data,selection), self._columns, self._index)
 
     def groupby(self, level:int) -> Iterable['Table']:
         for l,h in self._lohis[self._index[level]]:
-            yield Table(View(self._data,list(range(l,h))), self._columns, self._index)
+            yield Table(View(self._data, slice(l,h)), self._columns, self._index)
 
-    def copy(self) -> 'Table':        
+    def copy(self) -> 'Table':
         return Table(dict(self._data), tuple(self._columns), tuple(self._index))
 
     def to_pandas(self):
@@ -233,12 +234,12 @@ class Table:
 
     def to_dicts(self) -> Iterable[Mapping[str,Any]]:
         """Turn the Table into a sequence of tuples."""
-        
+
         for i in range(len(self)):
             yield {c:self._data[c][i] for c in self._columns}
 
     def __getitem__(self,idx1):
-        
+
         if isinstance(idx1,str):
             return self._data[idx1]
 
@@ -326,7 +327,7 @@ class Table:
                 return [ (bisect_right(col,arg,lo,hi), hi) ]
             else:
                 return [ i for i,c in enumerate(col,lo) if c > arg ]
-            
+
         if comparison == "match":
             if isinstance(arg,Number) and col and isinstance(col[0],Number):
                 return [ i for i,c in enumerate(col,lo) if c == arg ]
@@ -896,22 +897,22 @@ class Result:
         learners     = self.learners
         environments = self.environments
 
-        env_lengths, env_lrn_cnts = env_len_lrn_counts(interactions)
-        if n_interactions == 'min': n_interactions = min(env_lengths.values())
+        env_lens, env_cnts = env_len_and_cnt(interactions)
+        n_interactions = min(env_lens.values()) if n_interactions == "min" else n_interactions
 
         def has_all(env_id):
-            return env_lrn_cnts[env_id] == len(learners)
+            return env_cnts[env_id] == len(learners)
 
         def has_min(env_id):
-            return n_interactions == None or env_lengths[env_id] >= n_interactions
+            return n_interactions == None or env_lens[env_id] >= n_interactions
 
         complete_ids = set([env_id for env_id in environments["environment_id"] if has_all(env_id) and has_min(env_id)])
 
-        if complete_ids != set(env_lengths.keys()):
+        if complete_ids != set(env_lens.keys()):
             environments = environments.where(environment_id=complete_ids)
             interactions = interactions.where(environment_id=complete_ids)
 
-        if n_interactions and {n_interactions} != set(env_lengths.values()):
+        if n_interactions and {n_interactions} != set(env_lens.values()):
             interactions = interactions.where(index=n_interactions,comparison="<=")
 
         if len(environments) == 0:
