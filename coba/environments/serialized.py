@@ -51,7 +51,16 @@ class EnvironmentsToObjects(Filter[Environment, Iterable]):
         if not isinstance(envs,(abc.Iterable)): envs = [envs]
         for env in envs:
             with CobaContext.logger.time("Materializing environment..."):
-                yield list(chain([{"version":1,"coba_version":version("coba")},env.params], env.read()))
+                yield list(self._env_to_objects(env))
+
+    def _env_to_objects(self,env):
+        yield {"version":2,"coba_version":version("coba")}
+        yield env.params
+        I = iter(env.read())
+        batch = list(islice(I,1000))
+        while batch: 
+            yield batch
+            batch = list(islice(I,1000))
 
 class EnvironmentFromObjects(Environment):
     def __init__(self, source: Source[Iterable[object]]) -> None:
@@ -59,7 +68,11 @@ class EnvironmentFromObjects(Environment):
 
     @property
     def params(self) -> Mapping[str,Any]:
-        return next(islice(self._source.read(),1,None))
+        return next(islice(self._source.read(),1,2))
 
     def read(self) -> Iterable[Interaction]:
-        yield from islice(self._source.read(),2,None)
+        version_data = next(iter(self._source.read()))
+        if version_data['version'] == 1: #pragma: no cover
+            yield from islice(self._source.read(),2,None)
+        else:
+            yield from chain(*islice(self._source.read(),2,None))
