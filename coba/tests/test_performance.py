@@ -19,7 +19,7 @@ from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pip
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
-from coba.experiments.results import Result, moving_average, Table, Count, Repeat
+from coba.experiments.results import Result, moving_average, Table
 from coba.experiments import SimpleEvaluation, OnPolicyEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
@@ -250,105 +250,46 @@ class Performance_Tests(unittest.TestCase):
         flat  = coba.pipes.Flatten()
         self._assert_scale_time(items, lambda x:list(flat.filter(x)), .04, print_time, number=1000)
 
-    def test_table_keep(self):
+    def test_table_where_no_index(self):
         coba.random.seed(1)
-        table = Table(['environment_id','learner_id','index','reward'])
+        table = Table(columns=['environment_id','learner_id','index','reward'])
 
-        reward = coba.random.randoms(10) 
-        for environment_id in range(100):
-            for learner_id in range(10):
-                N = len(reward)
-                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
-
-        keep = list(map(bool,coba.random.randints(len(table),0,1)))
-        self._assert_call_time(lambda:Table(table,keep), .15, print_time, number=100)
-
-    def test_table_filter_less_of_count(self):
-        coba.random.seed(1)
-        table = Table(['environment_id','learner_id','index','reward'])
-
-        reward = coba.random.randoms(4000) 
+        N=4000
+        reward = coba.random.randoms(N)
         for environment_id in range(10):
             for learner_id in range(10):
-                N = len(reward)
-                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+                table.insert({"environment_id":[environment_id]*N,"learner_id":[learner_id]*N,"index":list(range(1,N+1)),"reward":reward})
 
-        self._assert_call_time(lambda:table.filter(index=10,comparison='<='), .15, print_time, number=10)
+        self._assert_call_time(lambda:table.where(index=10,comparison='<='), .15, print_time, number=10)
 
-    def test_table_filter_less_of_repeat(self):
+    def test_table_where_index(self):
         coba.random.seed(1)
-        table = Table(['environment_id','learner_id','index','reward'])
+        table = Table(columns=['environment_id','learner_id','index','reward'])
 
-        reward = coba.random.randoms(4000) 
+        N=4000
+        reward = coba.random.randoms(N)
         for environment_id in range(10):
             for learner_id in range(10):
-                N = len(reward)
-                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+                table.insert({"environment_id":[environment_id]*N,"learner_id":[learner_id]*N,"index":list(range(1,N+1)),"reward":reward})
 
-        self._assert_call_time(lambda:table.filter(learner_id=10,comparison='<='), .13, print_time, number=10)
-
-    def test_table_filter_less_of_reward(self):
-        coba.random.seed(1)
-        table = Table(['environment_id','learner_id','index','reward'])
-
-        reward = coba.random.randoms(4000) 
-        for environment_id in range(10):
-            for learner_id in range(10):
-                N = len(reward)
-                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
-
-        self._assert_call_time(lambda:table.filter(reward=10,comparison='<='), .42, print_time, number=10)
-
-    def test_table_filter_in_count(self):
-        coba.random.seed(1)
-        table = Table(['environment_id','learner_id','index','reward'])
-
-        reward = coba.random.randoms(4000) 
-        for environment_id in range(10):
-            for learner_id in range(10):
-                N = len(reward)
-                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
-
-        self._assert_call_time(lambda:table.filter(index=[9,10,11],comparison='in'), .41, print_time, number=10)
-
-    def test_table_filter_in_repeat(self):
-        coba.random.seed(1)
-        table = Table(['environment_id','learner_id','index','reward'])
-
-        reward = coba.random.randoms(4000) 
-        for environment_id in range(10):
-            for learner_id in range(10):
-                N = len(reward)
-                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
-
-        self._assert_call_time(lambda:table.filter(learner_id=[9,10,11],comparison='in'), .13, print_time, number=10)
-
-    def test_table_filter_in_reward(self):
-        coba.random.seed(1)
-        table = Table(['environment_id','learner_id','index','reward'])
-
-        reward = coba.random.randoms(4000) 
-        for environment_id in range(10):
-            for learner_id in range(10):
-                N = len(reward)
-                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
-
-        self._assert_call_time(lambda:table.filter(reward=[9,10,11],comparison='in'), .46, print_time, number=10)   
+        table.index("index")
+        
+        self._assert_call_time(lambda:table.where(index=10,comparison='<='), .15, print_time, number=10)
 
     def test_table_filter_number(self):
-        table = Table(['environment_id']).insert(rows=[ [k] for k in range(1000)])
-        self._assert_call_time(lambda:table.filter(environment_id=1), .04, print_time, number=500)
+        table = Table(columns=['environment_id']).insert([ [k] for k in range(1000)])
+        self._assert_call_time(lambda:table.where(environment_id=1), .04, print_time, number=500)
 
     @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
     def test_table_to_pandas(self):
-        table = Table(['environment_id']).insert(rows=[ [k] for k in range(1000)])
+        table = Table(columns=['environment_id']).insert([ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)
 
     def test_result_filter_env(self):
 
-        envs = Table(['environment_id','mod']).insert(rows=[[k,k%100] for k in range(5)])
-        lrns = Table(['learner_id']).insert(rows=[[0],[1],[2]])
-        ints = Table(['environment_id','learner_id']).insert(rows=[[e,l] for e in range(3) for l in range(5)])
+        envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
+        lrns = Table(columns=['learner_id']).insert([[0],[1],[2]])
+        ints = Table(columns=['environment_id','learner_id']).insert([[e,l] for e in range(3) for l in range(5)])
 
         res  = Result(envs, lrns, ints)
         self._assert_call_time(lambda:res.filter_env(mod=3), .02, print_time, number=1000)

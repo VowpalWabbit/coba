@@ -11,7 +11,7 @@ from coba.exceptions import CobaException, CobaExit
 from coba.statistics import BinomialConfidenceInterval
 
 from coba.experiments.results import TransactionIO, TransactionIO_V3, TransactionIO_V4
-from coba.experiments.results import Result, Table, Count, Repeat, Compress
+from coba.experiments.results import Result, Table, View
 from coba.experiments.results import MatplotlibPlotter
 from coba.experiments.results import moving_average, exponential_moving_average, old_to_new
 from coba.experiments.results import FilterPlottingData, SmoothPlottingData, ContrastPlottingData, TransformToXYE
@@ -24,90 +24,75 @@ class TestPlotter:
     def plot(self, *args) -> None:
         self.plot_calls.append(args)
 
-class Repeat_Tests(unittest.TestCase):
-
-    def test_iter(self):
-        repeat = Repeat(1,10)
-        self.assertEqual(list(repeat),[1]*10)
-
-    def test_len(self):
-        repeat = Repeat(1,10)
-        self.assertEqual(len(repeat),10)
-
-    def test_eq(self):
-        repeat = Repeat(1,10)
-        self.assertEqual(repeat,Repeat(1,10))
-
-class Count_Tests(unittest.TestCase):
-
-    def test_iter(self):
-        count = Count(1,10)
-        self.assertEqual(list(count),list(range(1,10)))
-
-    def test_len(self):
-        count = Count(1,10)
-        self.assertEqual(len(count),9)
-
-    def test_eq(self):
-        count = Count(1,10)
-        self.assertEqual(count,Count(1,10))
-
-class Compress_Tests(unittest.TestCase):
-
-    def test_iter(self):
-        compress = Compress([1,2,3],[True,False,True])
-        self.assertEqual(list(compress),[1,3])
-
-    def test_len(self):
-        compress = Compress([1,2,3],[True,False,True])
-        self.assertEqual(len(compress),2)
-    
-    def test_eq(self):
-        compress = Compress([1,2,3],[True,False,True])
-        self.assertEqual(compress,Compress([1,2,3],[True,False,True]))
-
 class old_to_new_Tests(unittest.TestCase):
 
     def test_simple(self):
         envs,lrns,ints = old_to_new({}, {}, {(0,1): {"_packed":{"reward":[1,3]}},(0,2):{"_packed":{"reward":[1,4]}}})
-        self.assertEqual(envs,Table(['environment_id']))
-        self.assertEqual(lrns,Table(['learner_id']))
-        self.assertEqual(ints,Table(['environment_id', 'learner_id', 'index', 'reward']).insert(rows=[(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)]))
+        self.assertEqual(envs,Table(columns=['environment_id']))
+        self.assertEqual(lrns,Table(columns=['learner_id']))
+        self.assertEqual(ints,Table(columns=['environment_id', 'learner_id', 'index', 'reward']).insert([(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)]))
 
     def test_simple2(self):
         envs,lrns,ints = old_to_new({}, {}, {})
-        self.assertEqual(envs,Table(['environment_id']))
-        self.assertEqual(lrns,Table(['learner_id']))
-        self.assertEqual(ints,Table(['environment_id', 'learner_id', 'index']))
+        self.assertEqual(envs,Table(columns=['environment_id']))
+        self.assertEqual(lrns,Table(columns=['learner_id']))
+        self.assertEqual(ints,Table(columns=['environment_id', 'learner_id', 'index']))
 
     def test_simple3(self):
         envs,lrns,ints = old_to_new({}, {}, {(0,1): {"_packed":{"reward":[1,3]}},(0,2):{"_packed":{"z":[1,4]}}})
-        self.assertEqual(envs,Table(['environment_id']))
-        self.assertEqual(lrns,Table(['learner_id']))
-        self.assertEqual(ints,Table(['environment_id', 'learner_id', 'index', 'reward','z']).insert(rows=[(0,1,1,1,None),(0,1,2,3,None),(0,2,1,None,1),(0,2,2,None,4)]))
+        self.assertEqual(envs,Table(columns=['environment_id']))
+        self.assertEqual(lrns,Table(columns=['learner_id']))
+        self.assertEqual(ints,Table(columns=['environment_id', 'learner_id', 'index', 'reward','z']).insert([(0,1,1,1,None),(0,1,2,3,None),(0,2,1,None,1),(0,2,2,None,4)]))
+
+class View_Tests(unittest.TestCase):
+    def test_getitem(self):
+        view = View({"a":[1,2,3]},[0,2])
+        self.assertEqual(view['a'],(1,3))
+
+    def test_values(self):
+        view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
+        self.assertCountEqual(view.values(),[(1,3),(4,6)])
+
+    def test_keys(self):
+        view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
+        self.assertCountEqual(view.keys(),['a','b'])
+
+    def test_readonly(self):
+        view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
+        with self.assertRaises(CobaException):
+            view['a'] = [3,4]
 
 class Table_Tests(unittest.TestCase):
 
     def test_table_str(self):
-        self.assertEqual("{'Columns': ['id', 'col'], 'Rows': 2}",str(Table(['id','col']).insert(rows=[[1,2],[2,3]])))
+        self.assertEqual("{'Columns': ('id', 'col'), 'Rows': 2}",str(Table(columns=['id','col']).insert([[1,2],[2,3]])))
 
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:
-            table = Table(['id','col']).insert(rows=[[1,2],[2,3]])
+            table = Table(columns=['id','col']).insert([[1,2],[2,3]])
             table._ipython_display_()
             mock.assert_called_once_with(str(table))
 
     def test_insert_item(self):
-        table = Table(['a','b']).insert(rows=[['a','B'],['A','B']])
+        table = Table(columns=['a','b']).insert({'a':['a','B'],'b':['A','B']})
 
-        self.assertEqual(list(table), [('a','B'),('A','B')])
-        self.assertEqual(table.col_names, ['a','b'])
+        self.assertEqual(list(table), [('a','A'),('B','B')])
+        self.assertSequenceEqual(table.columns, ['a','b'])
         self.assertEqual(2, len(table))
 
-    def test_filter_kwarg_str(self):
-        table = Table(['a','b']).insert(rows=[['a','b'],['A','B']])
+    def test_bad_index(self):
+        table = Table(columns=['a','b']).insert({'a':['a','B'],'b':['A','B']})
 
-        filtered_table = table.filter(b="B")
+        with self.assertRaises(KeyError):
+            table['c']
+
+        with self.assertRaises(KeyError):
+            table[0]
+
+    def test_filter_kwarg_str(self):
+        table = Table(columns=['a','b']).insert({'a':['a','A'],'b':['b','B']})
+
+        filtered_table = table.where(b="B")
 
         self.assertEqual(2, len(table))
         self.assertEqual([('a','b'),('A','B')],list(table))
@@ -116,31 +101,31 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual([('A','B')], list(filtered_table))
 
     def test_filter_kwarg_int_1(self):
-        table = Table(['a','b']).insert(rows=[['1','b'],['12','B']])
+        table = Table(columns=['a','b']).insert([['1','b'],['11','B']])
 
-        filtered_table = table.filter(a=1,comparison='match')
+        filtered_table = table.where(a=1,comparison='match')
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('1','b'),('12','B')], list(table))
+        self.assertEqual([('1','b'),('11','B')], list(table))
 
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('1','b')], list(filtered_table))
 
     def test_filter_kwarg_int_2(self):
-        table = Table(['a','b']).insert(rows=[[1,'b'],[12,'B']])
+        table = Table(columns=['a','b']).insert([[1,'b'],[2,'B']])
 
-        filtered_table = table.filter(a=1)
+        filtered_table = table.where(a=1)
 
         self.assertEqual(2, len(table))
-        self.assertEqual([(1,'b'),(12,'B')], list(table))
+        self.assertEqual([(1,'b'),(2,'B')], list(table))
 
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([(1,'b')], list(filtered_table))
 
     def test_filter_kwarg_pred(self):
-        table = Table(['a','b']).insert(rows=[['1','b'],['12','B']])
+        table = Table(columns=['a','b']).insert([['1','b'],['12','B']])
 
-        filtered_table = table.filter(a= lambda a: a =='1')
+        filtered_table = table.where(a=lambda v: v=='1')
 
         self.assertEqual(2, len(table))
         self.assertEqual([('1','b'),('12','B')], list(table))
@@ -149,35 +134,35 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual([('1','b')], list(filtered_table))
 
     def test_filter_kwarg_multi(self):
-        table = Table(['a','b','c']).insert(rows=[
+        table = Table(columns=['a','b','c']).insert([
             ['1', 'b', 'c'],
             ['2', 'b', 'C'],
             ['3', 'B', 'c'],
             ['4', 'B', 'C']
         ])
 
-        filtered_table = table.filter(b="b", c="C")
+        filtered_table = table.where(b="b", c="C")
 
         self.assertEqual(4, len(table))
         self.assertEqual(3, len(filtered_table))
         self.assertEqual([('1','b','c'),('2','b','C'),('4','B','C')], list(filtered_table))
 
     def test_filter_without_any(self):
-        table = Table(['a','b','c']).insert(rows=[
+        table = Table(columns=['a','b','c']).insert([
             ['1', 'b', 'c'],
             ['2', 'b', 'C'],
         ])
 
-        filtered_table = table.filter()
+        filtered_table = table.where()
 
         self.assertEqual(2, len(table))
         self.assertEqual(2, len(filtered_table))
         self.assertEqual([('1','b','c'),('2','b','C')], list(filtered_table))
 
     def test_filter_pred(self):
-        table = Table(['a','b']).insert(rows=[['A','B'],['a','b']])
+        table = Table(columns=['a','b']).insert([['A','B'],['a','b']])
 
-        filtered_table = table.filter(lambda row: row[1]=="B")
+        filtered_table = table.where(lambda row: row[1]=="B")
 
         self.assertEqual(2, len(table))
         self.assertEqual([('A','B'),('a','b')], list(table))
@@ -186,9 +171,9 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual([('A','B')], list(filtered_table))
 
     def test_filter_sequence_1(self):
-        table = Table(['a','b']).insert(rows=[['a','b'], ['A','B'], ['1','C']])
+        table = Table(columns=['a','b']).insert([['a','b'], ['A','B'], ['1','C']])
 
-        filtered_table = table.filter(a=['a','1'])
+        filtered_table = table.where(a=['a','1'])
 
         self.assertEqual(3, len(table))
         self.assertEqual([('a','b'),('A','B'),('1','C')], list(table))
@@ -196,21 +181,10 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_table))
         self.assertEqual([('a','b'),('1','C')], list(filtered_table))
 
-    def test_filter_sequence_2(self):
-        table = Table(['a','b']).insert(rows=[['1','b'], ['2','B'], ['3','C']])
-
-        filtered_table = table.filter(a=[1,2],comparison='match')
-
-        self.assertEqual(3, len(table))
-        self.assertEqual([('1','b'),('2','B'),('3','C')], list(table))
-
-        self.assertEqual(2, len(filtered_table))
-        self.assertEqual([('1','b'),('2','B')], list(filtered_table))
-
     def test_filter_sequence_3(self):
-        table = Table(['a']).insert(rows=[[ ['1']], [ ['2']], [ ['3']]])
+        table = Table(columns=['a']).insert([[['1']],[['2']],[['3']]])
 
-        filtered_table = table.filter(a=[['1']],comparison='in')
+        filtered_table = table.where(a=[['1']],comparison='in')
 
         self.assertEqual(3, len(table))
         self.assertEqual([(['1'],),(['2'],),(['3'],)], list(table))
@@ -218,112 +192,124 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([(['1'],)], list(filtered_table))
 
-    def test_filter_repeat_less(self):
-        table = Table(['a']).insert(cols=[Repeat(1,10)])
-        table = table.insert(cols=[Repeat(2,10)])
+    def test_filter_le(self):
+        table = Table(columns=['a']).insert([[1]]*10)
+        table = table.insert([[2]]*10)
 
-        filtered_table = table.filter(a=1,comparison='<=')
+        filtered_table = table.where(a=1,comparison='<=')
 
         self.assertEqual(20, len(table))
-
         self.assertEqual(10, len(filtered_table))
 
-    def test_filter_repeat_more(self):
-        table = Table(['a']).insert(cols=[Repeat(1,10)])
-        table = table.insert(cols=[Repeat(2,10)])
-
-        filtered_table = table.filter(a=1,comparison='>')
+        filtered_table = table.index('a').where(a=1,comparison='<=')
 
         self.assertEqual(20, len(table))
-
         self.assertEqual(10, len(filtered_table))
 
-    def test_filter_count_less(self):
-        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
-        table = table.insert(cols=[Count(1,11),Count(1,11)])
+    def test_filter_lt(self):
+        table = Table(columns=['a']).insert([[1]]*10)
+        table = table.insert([[2]]*10)
 
-        filtered_table = table.filter(a=5,comparison='<=')
-
-        self.assertEqual(20, len(table))
-
-        self.assertEqual(10, len(filtered_table))
-
-    def test_filter_count_more(self):
-        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
-        table = table.insert(cols=[Count(1,11),Count(1,11)])
-
-        filtered_table = table.filter(a=5,comparison='>')
+        filtered_table = table.where(a=1,comparison='<')
 
         self.assertEqual(20, len(table))
-
-        self.assertEqual(10, len(filtered_table))
-
-    def test_filter_count_much_less(self):
-        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
-        table = table.insert(cols=[Count(1,11),Count(1,11)])
-
-        filtered_table = table.filter(a=600,comparison='<=')
-
-        self.assertEqual(20, len(table))
-
-        self.assertEqual(20, len(filtered_table))
-
-    def test_filter_count_much_more_true(self):
-        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
-        table = table.insert(cols=[Count(1,11),Count(1,11)])
-
-        filtered_table = table.filter(a=-600,comparison='>=')
-
-        self.assertEqual(20, len(table))
-
-        self.assertEqual(20, len(filtered_table))
-
-    def test_filter_count_much_more_false(self):
-        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
-        table = table.insert(cols=[Count(1,11),Count(1,11)])
-
-        filtered_table = table.filter(a=600,comparison='>=')
-
-        self.assertEqual(20, len(table))
-
         self.assertEqual(0, len(filtered_table))
 
-    def test_filter_repeat_equals(self):
-        table = Table(['a']).insert(cols=[Repeat(1,2)]).insert(cols=[Repeat(2,2)])
+        filtered_table = table.index('a').where(a=1,comparison='<')
 
-        filtered_table = table.filter(a=1,comparison='=')
+        self.assertEqual(20, len(table))
+        self.assertEqual(0, len(filtered_table))
+
+    def test_filter_gt(self):
+        table = Table(columns=['a']).insert([[1]]*10)
+        table = table.insert([[2]]*10)
+
+        filtered_table = table.where(a=1,comparison='>')
+
+        self.assertEqual(20, len(table))
+        self.assertEqual(10, len(filtered_table))
+
+        filtered_table = table.index('a').where(a=1,comparison='>')
+
+        self.assertEqual(20, len(table))
+        self.assertEqual(10, len(filtered_table))
+
+    def test_filter_ge(self):
+        table = Table(columns=['a']).insert([[1]]*10)
+        table = table.insert([[2]]*10)
+
+        filtered_table = table.where(a=1,comparison='>=')
+
+        self.assertEqual(20, len(table))
+        self.assertEqual(20, len(filtered_table))
+
+        filtered_table = table.index('a').where(a=1,comparison='>=')
+
+        self.assertEqual(20, len(table))
+        self.assertEqual(20, len(filtered_table))
+
+    def test_filter_eq(self):
+        table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
+
+        filtered_table = table.where(a=1,comparison='=')
 
         self.assertEqual(4, len(table))
+        self.assertEqual(2, len(filtered_table))
 
+        filtered_table = table.index('a').where(a=1,comparison='=')
+
+        self.assertEqual(4, len(table))
         self.assertEqual(2, len(filtered_table))
 
     def test_filter_match_number_number(self):
-        table = Table(['a']).insert(cols=[Repeat(1,2)]).insert(cols=[Repeat(2,2)])
+        table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
 
-        filtered_table = table.filter(a=1,comparison='match')
+        filtered_table = table.where(a=1,comparison='match')
 
         self.assertEqual(4, len(table))
 
         self.assertEqual(2, len(filtered_table))
 
     def test_filter_match_number_str(self):
-        table = Table(['a']).insert(cols=[Repeat('1',2)]).insert(cols=[Repeat('2',2)])
+        table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
 
-        filtered_table = table.filter(a=1,comparison='match')
+        filtered_table = table.where(a=1,comparison='match')
 
         self.assertEqual(4, len(table))
 
         self.assertEqual(2, len(filtered_table))
 
     def test_filter_match_str_str(self):
-        table = Table(['a']).insert(cols=[Repeat('1',2)]).insert(cols=[Repeat('2',2)])
+        table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
 
-        filtered_table = table.filter(a='1',comparison='match')
+        filtered_table = table.where(a='1',comparison='match')
 
         self.assertEqual(4, len(table))
 
         self.assertEqual(2, len(filtered_table))
 
+    def test_filter_match_str_str2(self):
+        table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
+
+        filtered_table = table.where(a='1',comparison='match')
+
+        self.assertEqual(4, len(table))
+        self.assertEqual(2, len(filtered_table))
+
+    def test_multilevel_index(self):
+        table = Table(columns=['a','b','c','d']).insert([(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
+        table.index('a','b','c')
+        self.assertEqual(list(table), [(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
+
+    def test_multilevel_index2(self):
+        table = Table(columns=['a','b','c','d']).insert([(0,1,1,1),(0,1,2,3),(1,1,1,1),(1,1,2,4)])
+        table.index('a','b','c')
+        self.assertEqual(list(table), [(0,1,1,1),(0,1,2,3),(1,1,1,1),(1,1,2,4)])
+
+    def test_multilevel_groupby(self):
+        table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
+        table.index('a','b','c')
+        self.assertEqual(list(map(len,table.groupby(2))),[1,1,2,2])
 
 @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
 class Table_Pandas_Tests(unittest.TestCase):
@@ -333,7 +319,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         import pandas as pd
         import pandas.testing
 
-        table = Table(['a','b','c','d','e']).insert(rows=[['A','B',1,'d',None],['B',None,None,None,'E']])
+        table = Table(columns=['a','b','c','d','e']).insert([['A','B',1,'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=1,d='d'),
@@ -348,7 +334,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         import pandas as pd
         import pandas.testing
 
-        table = Table(['a','b','c','d','e']).insert(rows=[['A','B',[1,2],'d',None],['B',None,None,None,'E']])
+        table = Table(columns=['a','b','c','d','e']).insert([['A','B',[1,2],'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=[1,2],d='d'),
@@ -363,7 +349,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         import pandas as pd
         import pandas.testing
 
-        table = Table(['a','b','c','d','e']).insert(rows=[['A','B',{'z':10},'d',None],['B',None,None,None,'E']])
+        table = Table(columns=['a','b','c','d','e']).insert([['A','B',{'z':10},'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c={'z':10},d='d'),
@@ -768,9 +754,9 @@ class TransactionIO_V3_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
     def test_simple_to_and_from_memory(self):
         io = TransactionIO_V3()
@@ -783,9 +769,9 @@ class TransactionIO_V3_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
     def test_simple_to_and_from_memory_unknown_transaction(self):
         io = TransactionIO_V3()
@@ -799,9 +785,9 @@ class TransactionIO_V3_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
 class TransactionIO_V4_Tests(unittest.TestCase):
 
@@ -824,9 +810,9 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'R1':3,"R2":None},{'learner_id':0,'environment_id':1,'index':2,"R1":None,'R2':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'R1':3,"R2":None},{'learner_id':0,'environment_id':1,'index':2,"R1":None,'R2':4}], list(result.interactions.to_dicts()))
 
     def test_simple_to_and_from_file(self):
         io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
@@ -839,9 +825,9 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
     def test_simple_to_and_from_memory_1(self):
         io = TransactionIO_V4()
@@ -854,9 +840,9 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
     def test_simple_to_and_from_memory_2(self):
         io = TransactionIO_V4()
@@ -869,9 +855,9 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
     def test_simple_to_and_from_memory_unknown_transaction(self):
         io = TransactionIO_V4()
@@ -885,9 +871,9 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
 class TransactionIO_Tests(unittest.TestCase):
 
@@ -918,9 +904,9 @@ class TransactionIO_Tests(unittest.TestCase):
         result = TransactionIO("coba/tests/.temp/transaction.log").read()
 
         self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
     def test_simple_to_and_from_file_v4(self):
         io = TransactionIO_V4("coba/tests/.temp/transaction.log")
@@ -933,9 +919,9 @@ class TransactionIO_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
     def test_simple_to_and_from_memory(self):
         io = TransactionIO()
@@ -952,9 +938,9 @@ class TransactionIO_Tests(unittest.TestCase):
         result = io.read()
 
         self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
     def test_simple_resume(self):
         io = TransactionIO("coba/tests/.temp/transaction.log")
@@ -971,9 +957,9 @@ class TransactionIO_Tests(unittest.TestCase):
         result = TransactionIO("coba/tests/.temp/transaction.log").read()
 
         self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
-        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
+        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
 class Result_Tests(unittest.TestCase):
 
@@ -1940,7 +1926,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             FilterPlottingData().filter(result, ['index'], "reward")
 
-        self.assertEqual(str(e.exception),"This result does not contain an environment which has been finished for every learner. Plotting has been stopped.")
+        self.assertEqual(str(e.exception),"This result does not contain an environment that has been finished for every learner. Plotting has been stopped.")
 
     def test_no_data(self):
 
@@ -1976,10 +1962,10 @@ class SmoothPlottingData_Tests(unittest.TestCase):
 
     def test_full_span(self):
 
-        rows = Table(['environment_id','learner_id','index','reward']).insert(rows=[
+        rows = Table(columns=['environment_id','learner_id','index','reward']).insert([
             [0,0,1,0],[0,0,2,2],[0,0,3,4],
             [0,1,1,0],[0,1,2,4],[0,1,3,8],
-        ])
+        ]).index("environment_id",'learner_id','index')
 
         expected_rows = [
             {"environment_id":0, "learner_id":0, "reward":[0,1,2]},
@@ -1994,10 +1980,10 @@ class SmoothPlottingData_Tests(unittest.TestCase):
 
     def test_part_span(self):
 
-        rows = Table(['environment_id','learner_id','index','reward']).insert(rows=[
+        rows = Table(columns=['environment_id','learner_id','index','reward']).insert([
             [0,0,1,0],[0,0,2,2],[0,0,3,2],
             [0,1,1,0],[0,1,2,4],[0,1,3,4],
-        ])
+        ]).index("environment_id",'learner_id','index')
 
         expected_rows = [
             {"environment_id":0, "learner_id":0, "reward":[0,1,2]},
@@ -2012,10 +1998,10 @@ class SmoothPlottingData_Tests(unittest.TestCase):
 
     def test_no_span(self):
 
-        rows = Table(['environment_id','learner_id','index','reward']).insert(rows=[
+        rows = Table(columns=['environment_id','learner_id','index','reward']).insert([
             [0,0,1,0],[0,0,2,2],[0,0,3,4],
             [0,1,1,0],[0,1,2,4],[0,1,3,8],
-        ])
+        ]).index("environment_id",'learner_id','index')
 
         expected_rows = [
             {"environment_id":0, "learner_id":0, "reward":[0,2,4]},

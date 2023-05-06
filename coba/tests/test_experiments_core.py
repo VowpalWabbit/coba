@@ -291,9 +291,9 @@ class Experiment_Single_Tests(unittest.TestCase):
         ]
 
         result              = experiment.evaluate()
-        actual_learners     = result._learners.to_dicts()
-        actual_environments = result._environments.to_dicts()
-        actual_interactions = result.interactions.to_dicts()
+        actual_learners     = list(result._learners.to_dicts())
+        actual_environments = list(result._environments.to_dicts())
+        actual_interactions = list(result.interactions.to_dicts())
 
         self.assertDictEqual({"description":None, "n_learners":2, "n_environments":1, "seed":1}, result.experiment)
         self.assertEqual(actual_learners, expected_learners)
