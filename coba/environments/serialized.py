@@ -40,9 +40,9 @@ class ZipMemberToObjects(Source[Iterable[object]]):
 
     def read(self) -> Iterable[object]:
         try:
-            with ZipFile(self._zip) as zip:
-                with zip.open(self._member) as f:
-                    yield from map(pickle.load, repeat(f))
+            with ZipFile(self._zip) as z:
+                with z.open(self._member) as m:
+                    yield from map(pickle.load, repeat(m))
         except EOFError:
             pass
 
@@ -68,11 +68,14 @@ class EnvironmentFromObjects(Environment):
 
     @property
     def params(self) -> Mapping[str,Any]:
-        return next(islice(self._source.read(),1,2))
+        return list(islice(self._source.read(),1,2))[0]
 
     def read(self) -> Iterable[Interaction]:
-        version_data = next(iter(self._source.read()))
+
+        I = iter(self._source.read())
+        version_data = list(islice(I,2))[0]
+        
         if version_data['version'] == 1: #pragma: no cover
-            yield from islice(self._source.read(),2,None)
+            yield from I
         else:
-            yield from chain(*islice(self._source.read(),2,None))
+            yield from chain.from_iterable(I)

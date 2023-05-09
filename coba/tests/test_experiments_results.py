@@ -994,7 +994,7 @@ class Result_Tests(unittest.TestCase):
         class Logged2:
             @property
             def params(self):
-                return {"learner":{"family":"lrn1", "a":1}, "source":2, "logged":True, "scale":True, "batched": 2}
+                return {"learner":{"family":"lrn1", "a":1}, "source":[2], "logged":True, "scale":True, "batched": 2}
             def read(self):
                 yield {"reward": [1,5]}
                 yield {"reward": [2,6]}
@@ -1010,15 +1010,15 @@ class Result_Tests(unittest.TestCase):
         class Logged4:
             @property
             def params(self):
-                return {"learner":{"family":"lrn2", "a":2}, "source":2, "logged":True, "scale":True, "batched": 2}
+                return {"learner":{"family":"lrn2", "a":2}, "source":[2], "logged":True, "scale":True, "batched": 2}
             def read(self):
                 yield {"reward": 1}
                 yield {"reward": 2}
 
 
         expected_envs = [
-            {"environment_id":0, "source":1, "logged":True, "scale":True, "batched": None},
-            {"environment_id":1, "source":2, "logged":True, "scale":True, "batched": 2   },
+            {"environment_id":0, "source": 1 , "logged":True, "scale":True, "batched": None},
+            {"environment_id":1, "source":[2], "logged":True, "scale":True, "batched": 2   },
         ]
 
         expected_lrns = [

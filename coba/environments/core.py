@@ -218,8 +218,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @staticmethod
     def from_save(path:str) -> 'Environments':
-        make = lambda m: EnvironmentFromObjects(ZipMemberToObjects(path,m))
-        return Environments(list(map(make,ZipFile(path).namelist())))
+        envs = []
+        for name in ZipFile(path).namelist():
+            envs.append(EnvironmentFromObjects(ZipMemberToObjects(path,name)))
+        return Environments(envs)
 
     @overload
     def from_lambda(self,
@@ -464,8 +466,11 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
         return Environments([Pipes.join(e,f) for e in self._environments for f in filters])
 
-    def __getitem__(self, index:int) -> Environment:
-        return self._environments[index]
+    def __getitem__(self, index:Any) -> Union[Environment,'Environments']:
+        if isinstance(index,slice):
+            return Environments(self._environments[index])
+        else:
+            return self._environments[index]
 
     def __iter__(self) -> Iterator[Environment]:
         return iter(self._environments)

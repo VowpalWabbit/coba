@@ -681,7 +681,7 @@ class Environments_Tests(unittest.TestCase):
                 yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
 
         envs = Environments(TestEnv()).cache().materialize()
-        
+
         last_cache  = envs[0][-1]._cache
         first_cache = envs[0][-3]._cache
 
@@ -818,6 +818,14 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments(TestEnvironment1('A')).ope_rewards("IPS")
         self.assertEqual(1  , len(envs))
         self.assertEqual('IPS', envs[0].params['rewards_type'])
+
+    def test_getitem(self):
+        env = TestEnvironment1('A')
+        envs = Environments(env)
+
+        self.assertIs(envs[0],env)
+        self.assertIsInstance(envs[:1],Environments)
+        self.assertIs(envs[:1][0],env)
 
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:

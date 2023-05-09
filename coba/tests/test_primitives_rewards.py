@@ -1,8 +1,9 @@
+import timeit
 import unittest
 import pickle
+import pickletools
 
 from coba.primitives import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward, MulticlassReward, BatchReward, IPSReward, MappingReward
-from coba.exceptions import CobaException
 
 class IPSReward_Tests(unittest.TestCase):
     def test_eval(self):
@@ -140,10 +141,6 @@ class ScaleReward_Tests(unittest.TestCase):
         self.assertEqual(-1/2, rwd.eval( 0))
         self.assertEqual(   0, rwd.eval(-1/2))
 
-    def test_bad_target(self):
-        with self.assertRaises(CobaException) as e:
-            ScaleReward(2,2,'abc',L1Reward(1))
-
     def test_pickle(self):
         dumped = pickle.dumps(ScaleReward(L1Reward(1),-2,1/2,'argmax'))
         loaded = pickle.loads(dumped)
@@ -158,7 +155,7 @@ class ScaleReward_Tests(unittest.TestCase):
         self.assertEqual(loaded._reward._label,1)
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(ScaleReward(L1Reward(1),-2,1/2,'argmax'))),130)
+        self.assertLess(len(pickle.dumps(ScaleReward(None,-2,1/2,'argmax'))),85)
 
 class SequenceReward_Tests(unittest.TestCase):
     def test_sequence(self):

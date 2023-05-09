@@ -43,15 +43,14 @@ def old_to_new(
     lrn_rows: Mapping[int           ,Mapping[str,Any]] = {},
     int_rows: Mapping[Tuple[int,int],Mapping[str,Any]] = {}) -> Tuple[Sequence,Sequence,Sequence]:
 
-    int_hdrs = set().union(*[v['_packed'].keys() for v in int_rows.values()])
-    rwd_col  = ['reward'] if 'reward' in int_hdrs else []
+    rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
 
     env_table = Table(columns=['environment_id'                     ]          )
     lrn_table = Table(columns=[                 'learner_id'        ]          )
     int_table = Table(columns=['environment_id','learner_id','index'] + rwd_col)
 
-    env_table.insert([{"environment_id":e,                **v} for  e   ,v in env_rows.items()])
-    lrn_table.insert([{                   "learner_id":l, **v} for    l ,v in lrn_rows.items()])
+    env_table.insert([{"environment_id":e,                **v} for e,v in env_rows.items()])
+    lrn_table.insert([{                   "learner_id":l, **v} for l,v in lrn_rows.items()])
 
     for (env_id, lrn_id), results in int_rows.items():
         if results.get('_packed'):
@@ -59,9 +58,9 @@ def old_to_new(
             packed = results['_packed']
             N = len(packed[next(iter(packed))])
 
-            packed['environment_id'] = (env_id,)*N
-            packed['learner_id'    ] = (lrn_id,)*N
-            packed['index'         ] = tuple(range(1,N+1))
+            packed['environment_id'] = repeat(env_id,N)
+            packed['learner_id'    ] = repeat(lrn_id,N)
+            packed['index'         ] = range(1,N+1)
 
             int_table.insert(packed)
 
@@ -108,7 +107,7 @@ class Table:
     def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), index: Sequence[str]= ()):
 
         self._columns = tuple(columns)
-        self._data    = dict()        
+        self._data    = {c:[] for c in columns}
         self.insert(data)
         self._index   = tuple(index)
         self._lohis   = self._calc_lohis()
@@ -118,7 +117,6 @@ class Table:
         return self._columns
 
     def insert(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]]=()) -> 'Table':
-
         data_is_empty              = not data
         data_is_where_clause_view  = data and isinstance(data,View)
         data_is_sequence_of_dicts  = data and isinstance(data,collections.abc.Sequence) and isinstance(data[0],collections.abc.Mapping)
@@ -136,22 +134,29 @@ class Table:
             data_is_mapping_of_columns = True
 
         if data_is_mapping_of_columns:
-            new_hdrs = sorted(data.keys()-set(self._columns))
-            max_len  = max(map(len,data.values()))
+            old,new = set(self._columns), set(data.keys())
+            old_len = len(self)
+            new_len = 0
 
-            for hdr in new_hdrs: self._data[hdr] = (None,)*len(self)
+            for hdr in new-old:
+                self._data[hdr] = list(chain(repeat(None, old_len), data[hdr]))
+                new_len = len(self._data[hdr])
 
-            for hdr in chain(self._columns,new_hdrs):
-                self._data[hdr] = self._data.get(hdr,()) + tuple(data.get(hdr,[])) + (None,)*(max_len-len(data.get(hdr,[])))
+            for hdr in new&old:
+                self._data[hdr].extend(data[hdr])
+                new_len = len(self._data[hdr])
 
-            self._columns += tuple(new_hdrs)
+            for hdr in old-new:
+                self._data[hdr].extend(repeat(None,new_len-old_len))
 
-        else: #data_is_list_ofrows
+            self._columns += tuple(sorted(new-old))
+
+        else: #data_is_list_of_rows
             assert len(data[0]) == len(self._columns), "The given data rows don't align with the table's headers."
             max_len = len(data)
 
             for hdr,col in zip(self._columns,zip(*data)):
-                self._data[hdr] = self._data.get(hdr,()) + tuple(col) + (None,)*(max_len-len(col))
+                self._data[hdr].extend(col)  
 
         self._index = ()
         self._lohis = {}
@@ -169,16 +174,13 @@ class Table:
         indexes = list(range(len(self)))
 
         for col in indx:
-            coldata = []
-
             for lo,hi in lohis:
-                coldata[lo:hi],indexes[lo:hi] = zip(*sorted(zip(map(self._data[col].__getitem__,indexes[lo:hi]),indexes[lo:hi])))
-
-            self._data[col] = tuple(coldata)
-            if col != indx[-1]: lohis = [ lohi for lo,hi in lohis for lohi in self._sub_lohis(lo, hi, coldata) ]
+                indexes[lo:hi] = sorted(indexes[lo:hi],key=self._data[col].__getitem__)
+            self._data[col][:] = map(self._data[col].__getitem__,indexes)
+            if col != indx[-1]: lohis = list(chain.from_iterable(self._sub_lohis(lo, hi, self._data[col]) for lo, hi in lohis))
 
         for col in self._data.keys()-set(indx):
-            self._data[col] = tuple(map(self._data[col].__getitem__,indexes))
+            self._data[col][:] = map(self._data[col].__getitem__,indexes)
 
         self._index = tuple(indx)
         self._lohis = self._calc_lohis()
@@ -776,18 +778,32 @@ class Result:
     @staticmethod
     def from_logged_envs(environments: Iterable[Environment]):
 
-        envs_params = []
-        lrns_params = []
+        env_param_list = []
+        lrn_param_list = []
+        env_param_dict = {}
+        lrn_param_dict = {}
 
         env_rows = {}
         lrn_rows = {}
         int_rows = {}
 
+        def determine_id(param,param_list,param_dict):
+            try:
+                key = frozenset(param.items())
+                if key not in param_dict:
+                    param_dict[key] = len(param_list)
+                    param_list.append(param)
+                return param_dict[key]
+            except:
+                try:
+                    return param_list.index(param)
+                except:
+                    param_list.append(param)
+                    return len(param_list)-1
+
         my_mean = lambda x: sum(x)/len(x)
 
-        for i,env in enumerate(environments):
-
-            if i == 100: break
+        for env in environments:
 
             first, interactions = peek_first(env.read())
 
@@ -795,22 +811,14 @@ class Result:
             if not interactions: continue
 
             is_batched = isinstance(first['reward'],(Batch,list,tuple))
-            env_params = dict(env.params)
-            lrn_params = env_params.pop('learner')
+            env_param = dict(env.params)
+            lrn_param = env_param.pop('learner')
 
-            try:
-                env_id = envs_params.index(env_params)
-            except:
-                env_id = len(envs_params)
-                envs_params.append(env_params)
-                env_rows[env_id] = env_params
+            env_id = determine_id(env_param,env_param_list,env_param_dict)
+            lrn_id = determine_id(lrn_param,lrn_param_list,lrn_param_dict)
 
-            try:
-                lrn_id = lrns_params.index(lrn_params)
-            except:
-                lrn_id = len(lrns_params)
-                lrns_params.append(lrn_params)
-                lrn_rows[lrn_id] = lrn_params
+            if env_id not in env_rows: env_rows[env_id] = env_param
+            if lrn_id not in lrn_rows: lrn_rows[lrn_id] = lrn_param
 
             keys = first.keys() - {'context', 'actions', 'rewards'}
 
@@ -828,8 +836,7 @@ class Result:
 
             int_rows[(env_id,lrn_id)]= results
 
-        result = Result(*old_to_new(env_rows,lrn_rows,int_rows))
-        return result
+        return Result(*old_to_new(env_rows,lrn_rows,int_rows))
 
     def __init__(self,
         env_rows: Union[Sequence,Table] = Table(),

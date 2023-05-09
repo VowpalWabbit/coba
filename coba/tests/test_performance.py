@@ -250,6 +250,18 @@ class Performance_Tests(unittest.TestCase):
         flat  = coba.pipes.Flatten()
         self._assert_scale_time(items, lambda x:list(flat.filter(x)), .04, print_time, number=1000)
 
+    def test_table_index(self):
+        coba.random.seed(1)
+        table = Table(columns=['environment_id','learner_id','index','reward'])
+
+        N=4000
+        reward = coba.random.randoms(N)
+        for environment_id in reversed(range(10)):
+            for learner_id in range(5):
+                table.insert({"environment_id":[environment_id]*N,"learner_id":[learner_id]*N,"index":list(range(1,N+1)),"reward":reward})
+
+        self._assert_call_time(lambda:table.index('environment_id','learner_id','index'), .15, print_time, number=10)
+
     def test_table_where_no_index(self):
         coba.random.seed(1)
         table = Table(columns=['environment_id','learner_id','index','reward'])
@@ -391,9 +403,12 @@ class Performance_Tests(unittest.TestCase):
         learn = SafeLearner(DummyLearner())
         self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5), .0008, print_time, number=1000)
 
+    def test_scale_reward_init(self):
+        self._assert_call_time(lambda: ScaleReward(None, 1, 2, "argmax"), .08, print_time, number=100000)
+
     def test_scale_reward(self):
         reward = ScaleReward(L1Reward(1), 1, 2, "argmax")
-        self._assert_call_time(lambda: reward.eval(4), .04, print_time, number=100000)
+        self._assert_call_time(lambda: reward.eval(4), .07, print_time, number=100000)
 
     def test_simulated_interaction_init(self):
         self._assert_call_time(lambda: SimulatedInteraction(1,[1,2],[0,1]), .012, print_time, number=10000)

@@ -107,39 +107,31 @@ class BinaryReward(Reward):
         return o == self._argmax or (isinstance(o,BinaryReward) and o._argmax == self._argmax)
 
 class ScaleReward(Reward):
+    __slots__ = ('_reward', '_shift', '_scale', '_target')
     def __init__(self, reward: Reward, shift: float, scale: float, target: Literal["argmax","value"]) -> None:
-
-        if target not in ["argmax","value"]:
-            raise CobaException("An unrecognized scaling target was requested for a Reward.")
-
         self._reward = reward
         self._shift  = shift
         self._scale  = scale
-        self._target = target
+        self._target = 'argmax' if target == 0 else 'value' if target ==1 else target
 
-        old_argmax = reward.argmax()
-        new_argmax = (old_argmax+shift)*scale if target == "argmax" else old_argmax
-
-        self._old_argmax = old_argmax
-        self._new_argmax = new_argmax
-
-        self._old_eval = reward.eval
-
-    def eval(self, action: Any) -> float: #pragma: no cover
+    def eval(self, action: Any) -> float:
         if self._target == "argmax":
-            return self._old_eval(self._old_argmax + (action-self._new_argmax))
+            return self._reward.eval(action+(1-self._scale)*self._reward.argmax()-self._scale*self._shift)
         if self._target == "value":
-            return (self._old_eval(action)+self._shift)*self._scale
+            return (self._reward.eval(action)+self._shift)*self._scale
 
-    def argmax(self) -> float:
-        return self._new_argmax
+    def argmax(self) -> Action:
+        if self._target == "argmax":
+            return (self._reward.argmax()+self._shift)*self._scale
+        else:
+            return self._reward.argmax()
     
     def max(self) -> float:
-        return self.eval(self._new_argmax)
+        return self.eval(self.argmax())
 
     def __reduce__(self):
         #this makes the pickle smaller
-        return ScaleReward, (self._reward, self._shift, self._scale, self._target)
+        return ScaleReward, (self._reward, self._shift, self._scale, 0 if self._target == "argmax" else 1)
 
 class SequenceReward(Reward):
     __slots__ = ('_actions','_rewards')
