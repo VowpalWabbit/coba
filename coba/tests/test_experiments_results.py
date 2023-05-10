@@ -47,19 +47,23 @@ class old_to_new_Tests(unittest.TestCase):
 class View_Tests(unittest.TestCase):
     def test_getitem_seq(self):
         view = View({"a":[1,2,3]},[0,2])
-        self.assertEqual(view['a'],(1,3))
+        self.assertSequenceEqual(view['a'],(1,3))
 
     def test_getitem_slice(self):
         view = View({"a":[1,2,3]},slice(0,2))
-        self.assertEqual(view['a'],(1,2))
+        self.assertSequenceEqual(view['a'],(1,2))
 
     def test_values(self):
         view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
-        self.assertCountEqual(view.values(),[(1,3),(4,6)])
+        self.assertCountEqual([tuple(v) for v in view.values()],[(1,3),(4,6)])
 
     def test_keys(self):
         view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
         self.assertCountEqual(view.keys(),['a','b'])
+
+    def test_contains(self):
+        view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
+        self.assertIn('a',view)
 
     def test_readonly(self):
         view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
@@ -291,15 +295,23 @@ class Table_Tests(unittest.TestCase):
 
     def test_where_match_str_str2(self):
         table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
-
         filtered_table = table.where(a='1',comparison='match')
-
         self.assertEqual(4, len(table))
         self.assertEqual(2, len(filtered_table))
+
+    def test_where_preserves_order(self):
+        table = Table(columns=['a']).insert({'a':list(range(1000))})
+        
+        no_index_where = table.where(a=list(reversed([0,10,20,30,40,50,60])))
+        self.assertSequenceEqual(no_index_where['a'],[0,10,20,30,40,50,60])
+
+        index_where = table.index('a').where(a=list(reversed([0,10,20,30,40,50,60])))
+        self.assertSequenceEqual(index_where['a'],[0,10,20,30,40,50,60])
 
     def test_multilevel_index(self):
         table = Table(columns=['a','b','c','d']).insert([(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
         table.index('a','b','c')
+        self.assertSequenceEqual(['a','b','c'],table.indexes)
         self.assertEqual(list(table), [(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
 
     def test_multilevel_index2(self):
@@ -358,6 +370,20 @@ class Table_Pandas_Tests(unittest.TestCase):
         ])
 
         actual_df = table.to_pandas()
+
+        pandas.testing.assert_frame_equal(expected_df,actual_df)
+
+    def test_pandas_with_View(self):
+        import pandas as pd
+        import pandas.testing
+
+        table = Table(columns=['a','b','c','d','e']).insert([['A','B',1,'d',None],['B',None,None,None,'E']])
+
+        expected_df = pd.DataFrame([
+            dict(a='A',b='B',c=1,d='d',e=None),
+        ])
+
+        actual_df = table.where(a='A').to_pandas()
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
@@ -665,7 +691,7 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
 
                     self.assertEqual(1, show.call_count)
                     self.assertEqual(1, savefig.call_count)
-    
+
     def test_plot_none(self):
         with unittest.mock.patch('matplotlib.pyplot.show') as show:
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
@@ -710,7 +736,7 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 plt_get_figlabels.return_value = ['coba']
-                
+
                 lines = [
                     ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
                     ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)

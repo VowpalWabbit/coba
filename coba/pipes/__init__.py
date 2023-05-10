@@ -58,7 +58,6 @@ __all__ = [
     "ListSink",
     "QueueSink",
     "LambdaSink",
-    "QueueIO",
     "SourceFilters",
     "Cache",
     "LazyDense",

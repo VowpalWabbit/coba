@@ -71,12 +71,30 @@ def env_len_and_cnt(interactions: 'Table') -> Tuple[Mapping[int,int],Mapping[int
     env_cnt = {}
     for table in interactions.groupby(2):
         env_id = table['environment_id'][0]
-        env_cnt[env_id] = env_cnt.get(env_id,0)+1
         env_len[env_id] = len(table)
+        env_cnt[env_id] = env_cnt.get(env_id,0)+1
 
     return env_len, env_cnt
 
 class View:
+
+    class ListView:
+        def __init__(self, seq:Sequence, sel:Sequence):
+            self._seq = seq
+            self._sel = sel
+
+        def __len__(self):
+            return len(self._sel)
+
+        def __getitem__(self,key):
+            if isinstance(key,slice):
+                return View.ListView(self._seq,self._sel[key])
+            else:
+                return self._seq[self._sel[key]]
+
+        def __iter__(self):
+            return iter(map(self._seq.__getitem__,self._sel))
+
     def __init__(self, data: Mapping[str,Sequence], selection: Union[Sequence[int],slice]) -> None:
         self._data = data
         self._selection = selection
@@ -92,29 +110,36 @@ class View:
 
     def __getitem__(self,key):
         if isinstance(self._selection,slice):
-            return tuple(self._data[key][self._selection])
+            return self._data[key][self._selection]
         else:
-            return tuple(map(self._data[key].__getitem__,self._selection))
+            return View.ListView(self._data[key], self._selection)
 
     def __setitem__(self,key,value):
         raise CobaException("A view of the data cannot be modified.")
+
+    def __contains__(self,key) -> bool:
+        return key in self._data
 
 class Table:
     """A container class for storing tabular data."""
     #Potentially overkill, however, by having our own "simple" table implementation we can provide
     #several useful pieces of functionality out of the box. Additionally, when working with
     #very large experiments pandas can become quite slow while our Table works acceptably.
-    def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), index: Sequence[str]= ()):
+    def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), indexes: Sequence[str]= ()):
 
         self._columns = tuple(columns)
         self._data    = {c:[] for c in columns}
         self.insert(data)
-        self._index   = tuple(index)
+        self._indexes = tuple(indexes)
         self._lohis   = self._calc_lohis()
 
     @property
     def columns(self) -> Sequence[str]:
         return self._columns
+
+    @property
+    def indexes(self) -> Sequence[str]:
+        return self._indexes
 
     def insert(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]]=()) -> 'Table':
         data_is_empty              = not data
@@ -153,12 +178,10 @@ class Table:
 
         else: #data_is_list_of_rows
             assert len(data[0]) == len(self._columns), "The given data rows don't align with the table's headers."
-            max_len = len(data)
-
             for hdr,col in zip(self._columns,zip(*data)):
                 self._data[hdr].extend(col)  
 
-        self._index = ()
+        self._indexes = ()
         self._lohis = {}
 
         return self
@@ -168,7 +191,7 @@ class Table:
         if not indx: return self
         if not self._data: return self
         indx = [col for col in indx if col in self._columns]
-        if self._index == tuple(indx): return self
+        if self._indexes == tuple(indx): return self
 
         lohis   = [(0,len(self))]
         indexes = list(range(len(self)))
@@ -182,7 +205,7 @@ class Table:
         for col in self._data.keys()-set(indx):
             self._data[col][:] = map(self._data[col].__getitem__,indexes)
 
-        self._index = tuple(indx)
+        self._indexes = tuple(indx)
         self._lohis = self._calc_lohis()
 
         return self
@@ -205,34 +228,37 @@ class Table:
 
         if row_pred:
             selection = list(compress(count(),map(row_pred,self[:])))
-            return Table(View(self._data,selection), self._columns, self._index) 
+            return Table(View(self._data,selection), self._columns, self._indexes) 
  
         if kwargs:
             selection = []
             for kw,arg in kwargs.items():    
-                if kw in self._index and comparison != "match" and not callable(kwargs[kw]):
+                if kw in self._indexes and comparison != "match" and not callable(kwargs[kw]):
                     for lo,hi in self._lohis[kw]:
                         for l,h in self._compare(lo,hi,self._data[kw],arg,comparison,"bisect"):
                             selection.extend(range(l,h))
                 else:
                     selection.extend(self._compare(0,len(self),self._data[kw],arg,comparison,"foreach"))
 
-            if len(kwargs) > 1: selection=sorted(set(selection))
-            return Table(View(self._data,selection), self._columns, self._index)
+            selection=sorted(set(selection))
+            return Table(View(self._data,selection), self._columns, self._indexes)
 
     def groupby(self, level:int) -> Iterable['Table']:
-        for l,h in self._lohis[self._index[level]]:
-            yield Table(View(self._data, slice(l,h)), self._columns, self._index)
+        for l,h in self._lohis[self._indexes[level]]:
+            yield Table(View(self._data, slice(l,h)), self._columns, self._indexes)
 
     def copy(self) -> 'Table':
-        return Table(dict(self._data), tuple(self._columns), tuple(self._index))
+        return Table(dict(self._data), tuple(self._columns), tuple(self._indexes))
 
     def to_pandas(self):
         """Turn the Table into a Pandas data frame."""
 
         PackageChecker.pandas("Table.to_pandas")
         import pandas as pd
-        return pd.DataFrame(self._data, columns=self.columns)
+
+        #data must be dict instance to work as desired
+        data = {k:self._data[k] for k in self._data}
+        return pd.DataFrame(data, columns=self.columns)
 
     def to_dicts(self) -> Iterable[Mapping[str,Any]]:
         """Turn the Table into a sequence of tuples."""
@@ -271,14 +297,15 @@ class Table:
 
     def _calc_lohis(self):
 
-        if not self._index: return {}
+        if not self._indexes: return {}
 
         lohis = [[(0,len(self))]]
 
-        for k in self._index[:-1]:
-            lohis.append([lh for lo,hi in lohis[-1] for lh in self._sub_lohis(lo,hi,self._data[k])])
+        for k in self._indexes[:-1]:
+            indexcol = self._data[k]
+            lohis.append([lh for lo,hi in lohis[-1] for lh in self._sub_lohis(lo,hi,indexcol)])
 
-        return dict(zip(self._index,lohis))
+        return dict(zip(self._indexes,lohis))
 
     def _sub_lohis(self,lo,hi,col):
         while lo != hi:
@@ -287,7 +314,7 @@ class Table:
             lo = new_hi
 
     def _compare(self,lo,hi,col,arg,comparison,method):
-                
+
         if method != "bisect" or callable(arg): 
             col = col[lo:hi]
 
@@ -820,7 +847,7 @@ class Result:
             if env_id not in env_rows: env_rows[env_id] = env_param
             if lrn_id not in lrn_rows: lrn_rows[lrn_id] = lrn_param
 
-            keys = first.keys() - {'context', 'actions', 'rewards'}
+            keys = first.keys() - {'context', 'actions', 'rewards', 'probability'}
 
             _packed = {k:[] for k in keys}
             results = {"_packed": _packed}
