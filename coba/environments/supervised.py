@@ -52,8 +52,7 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
             source: The data source. Accepts either a string representing the source location or another Source.
         """
         source       = UrlSource(source) if isinstance(source,str) else source
-        reader       = ArffReader()
-        self._source = Pipes.join(source, reader)
+        self._source = Pipes.join(source, ArffReader())
 
     def read(self) -> Union[Iterable[MutableSequence], Iterable[MutableMapping]]:
         """Read and parse the arff source."""
@@ -79,9 +78,8 @@ class LibSvmSource(Source[Iterable[MutableMapping]]):
         Args:
             source: The data source. Accepts either a string representing the source location or another Source.
         """
-        source = UrlSource(source) if isinstance(source,str) else source
-        reader = LibsvmReader()
-        self._source = Pipes.join(source, reader)
+        source       = UrlSource(source) if isinstance(source,str) else source
+        self._source = Pipes.join(source, LibsvmReader())
 
     def read(self) -> Iterable[MutableMapping]:
         """Read and parse the libsvm source."""
@@ -107,9 +105,8 @@ class ManikSource(Source[Iterable[MutableMapping]]):
         Args:
             source: The data source. Accepts either a string representing the source location or another Source.
         """
-        source = UrlSource(source) if isinstance(source,str) else source
-        reader = ManikReader()
-        self._source = Pipes.join(source, reader)
+        source       = UrlSource(source) if isinstance(source,str) else source
+        self._source = Pipes.join(source, ManikReader())
 
     def read(self) -> Iterable[MutableMapping]:
         """Read and parse the manik source."""
@@ -194,7 +191,7 @@ class SupervisedSimulation(SimulatedEnvironment):
         if not rows: return []
 
         first_label      = first.label if first_row_type == 0 else first[1]
-        first_label_type = first.tipe if first_row_type == 0 else None
+        first_label_type = first.tipe  if first_row_type == 0 else None
 
         if first_label_type is None:
             label_type = self._label_type or ("r" if isinstance(first_label, (int,float)) else "c")
@@ -204,27 +201,27 @@ class SupervisedSimulation(SimulatedEnvironment):
         label_type = label_type.lower()
         self._params['label_type'] = label_type.upper()
 
-        #these are the cases where we need to know all labels in the dataset to determine actions
-        if label_type == "m" or (label_type == "c" and not isinstance(first_label, Categorical)):
-            rows = list(rows)
-            if first_row_type == 0: labels = [r.label for r in rows]
-            if first_row_type == 1: labels = [r[1]    for r in rows]
-
         if label_type == "r":
             actions = []
             reward  = L1Reward
-        elif label_type == "m":
-            actions = sorted(set(list(chain(*labels))))
-            reward = HammingReward
+        
+        elif label_type == "c" and isinstance(first_label, Categorical):
+            #Handling the categoricals separately allows for a performance optimization
+            #since we can use the Categorical's as_int property rather than action_indexes
+            actions = [ Categorical(l,first_label.levels) for l in first_label.levels ]
+            reward  = MulticlassReward
         else:
-            if isinstance(first_label,Categorical):
-                #Handling the categoricals separately allows for a performance optimization
-                #since we can use the Categorical's as_int property rather than action_indexes
-                actions = [ Categorical(l,first_label.levels) for l in first_label.levels ]
-                reward  = MulticlassReward
+            #we need to know all labels in the dataset to determine actions
+            rows = list(rows)
+            lbls = [r.label for r in rows] if first_row_type == 0 else [r[1] for r in rows]
+
+            if label_type == "m":
+                actions = sorted(set(list(chain(*lbls))))
+                reward = HammingReward
             else:
-                actions = sorted(set(labels))
-                reward  = MulticlassReward
+                delist  = lambda l: l[0] if isinstance(l,list) else l
+                actions = sorted(set(map(delist,lbls)))
+                reward  = lambda l: MulticlassReward(delist(l))
 
         if first_row_type == 0:
             for row in rows:

@@ -59,9 +59,9 @@ class DiskSource(Source[Iterable[str]]):
 
         if self._file is None:
             if ".gz" in self._filename:
-                self._file = gzip.open(self._filename, f"{self._mode}b", compresslevel=6)
+                self._file = gzip.open(self._filename, f"{self._mode}t")
             else:
-                self._file = open(self._filename, f"{self._mode}b")
+                self._file = open(self._filename, self._mode)
 
         return self
 
@@ -74,7 +74,7 @@ class DiskSource(Source[Iterable[str]]):
     def read(self) -> Iterable[str]:
         with self:
             for line in self._file:
-                yield line.decode('utf-8').rstrip('\r\n')
+                yield line.rstrip('\r\n')
 
 class QueueSource(Source[Iterable[Any]]):
     """A source which reads from a queue."""
