@@ -11,7 +11,7 @@ from coba.exceptions import CobaException
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByChunk, MaxChunkSize, ProcessWorkItems
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
-from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, SimpleEvaluation
+from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, SimpleEvaluation, LambdaEvaluation
 from coba.experiments.results import Result, TransactionIO
 
 class Experiment:
@@ -69,6 +69,9 @@ class Experiment:
         self._learner_task     = kwargs.get('learner_task', SimpleLearnerInfo())
         self._environment_task = kwargs.get('environment_task', SimpleEnvironmentInfo())
         self._evaluation_task  = kwargs.get('evaluation_task', SimpleEvaluation())
+
+        if callable(self._evaluation_task):
+            self._evaluation_task = LambdaEvaluation(self._evaluation_task)
 
         if any([lrn is None for lrn,_ in self._pairs]):
             raise CobaException("A Learner was given whose value was None, which can't be processed.")

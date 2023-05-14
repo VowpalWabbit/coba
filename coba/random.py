@@ -99,8 +99,8 @@ class CobaRandom:
         """
 
         n = len(sequence)
-        if n < 2: return sequence        
-        
+        if n < 2: return sequence
+
         l = sequence if inplace else list(sequence)
 
         #i goes from 0 to n-2

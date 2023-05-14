@@ -904,8 +904,8 @@ class Repr(EnvironmentFilter):
 
         if not interactions: return []
 
-        has_actions = 'actions' in first
-        has_rewards = 'rewards' in first
+        has_actions   = 'actions' in first and first['actions']
+        has_rewards   = 'rewards' in first
         has_feedbacks = 'feedbacks' in first
 
         I = tee(interactions, 3 if has_actions else 2)
@@ -923,7 +923,7 @@ class Repr(EnvironmentFilter):
             if has_actions:
                 new_actions = list(islice(cat_actions_iter,len(interaction['actions'])))
                 old_actions = new['actions']
-                if new_actions != old_actions:
+                if new_actions != old_actions or type(new_actions[0]) != type(old_actions[0]):
                     new['actions'] = new_actions
                     if has_rewards:
                         new['rewards'] = MappingReward(dict(zip(new_actions,list(map(new['rewards'].eval,old_actions)))))
@@ -1133,7 +1133,7 @@ class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
     def filter(self, items: Iterable[Mapping]) -> Iterable[Interaction]:
         yield from map(Interaction.from_dict,items)
 
-class OpeRewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
+class OpeRewards(EnvironmentFilter):
 
     def __init__(self, rwds_type:Literal['IPS','DM','DR','NO']=None):
         if rwds_type in ['DM','DR']:

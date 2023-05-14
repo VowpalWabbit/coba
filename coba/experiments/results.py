@@ -935,10 +935,10 @@ class Result:
         n_interactions = min(env_lens.values()) if n_interactions == "min" else n_interactions
 
         def has_all(env_id):
-            return env_cnts[env_id] == len(learners)
+            return env_cnts.get(env_id,-1) == len(learners)
 
         def has_min(env_id):
-            return n_interactions == None or env_lens[env_id] >= n_interactions
+            return n_interactions == None or env_lens.get(env_id,-1) >= n_interactions
 
         complete_ids = set([env_id for env_id in environments["environment_id"] if has_all(env_id) and has_min(env_id)])
 

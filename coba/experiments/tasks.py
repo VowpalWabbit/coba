@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from itertools import combinations
 from operator import __mul__
 from statistics import mean
-from typing import Iterable, Any, Sequence, Mapping, Hashable
+from typing import Iterable, Any, Sequence, Mapping, Hashable, Callable
 from bisect import insort
 
 import math
@@ -497,6 +497,14 @@ class ExplorationEvaluation(EvaluationTask):
             #if record_time   : out['predict_time'] = predict_time
             #if record_reward : out['reward']       = mean(ope_rewards)
             #if out: yield out
+
+class LambdaEvaluation(EvaluationTask):
+
+    def __init__(self, evaluator: Callable[[Learner,Iterable[Interaction]],Iterable[Mapping[Any,Any]]]):
+        self._evaluator = evaluator
+
+    def process(self, learner: Learner, interactions: Iterable[Interaction], seed:float = None) -> Iterable[Mapping[Any,Any]]:
+        yield from self._evaluator(learner,interactions)
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""

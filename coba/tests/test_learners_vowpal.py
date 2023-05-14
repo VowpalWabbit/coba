@@ -276,7 +276,6 @@ class VowpalLearner_Tests(unittest.TestCase):
             VowpalLearner('--epsilon .1')
 
     def test_init_learner_default(self):
-
         l = VowpalLearner(vw=VowpalMediatorMocked())
         l.predict(None, [1,2,3])
 
@@ -314,7 +313,6 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(("--cb 2", 4), vw._init_learner_calls[0])
 
     def test_predict_cb_explore_adf(self):
-
         vw = VowpalMediatorMocked([.25, .75])
         p  = VowpalLearner("--cb_explore_adf",vw).predict(None, ['yes','no'])
 
@@ -331,7 +329,6 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual([.25, .75], p)
 
     def test_predict_cb_adf(self):
-
         vw = VowpalMediatorMocked([.25, .75])
         p  = VowpalLearner("--cb_adf",vw).predict(None, ['yes','no'])
 
@@ -348,7 +345,6 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual([1,0], p)
 
     def test_request_cb_explore(self):
-
         vw = VowpalMediatorMocked([0.25, 0.75])
         p = VowpalLearner("--cb_explore 2", vw).request(None, ['yes','no'], ['yes','no'])
 
@@ -360,7 +356,6 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual([.25, .75], p)
 
     def test_predict_cb_explore(self):
-
         vw = VowpalMediatorMocked([0.25, 0.75])
         p = VowpalLearner("--cb_explore 2", vw).predict(None, ['yes','no'])
 
@@ -372,14 +367,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual([.25, .75], p)
 
     def test_predict_cb(self):
-
         vw = VowpalMediatorMocked(2)
         p = VowpalLearner("--cb 2", vw).predict(None, ['yes','no'])
 
         self.assertEqual([0,1], p)
 
     def test_learn_cb_adf(self):
-
         vw = VowpalMediatorMocked()
         learner = VowpalLearner("--cb_explore_adf",vw)
 
@@ -397,7 +390,6 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(None       , vw._learn_calls[0][1].label)
 
     def test_learn_cb(self):
-
         vw = VowpalMediatorMocked()
         learner = VowpalLearner("--cb_explore", vw)
 
@@ -423,7 +415,6 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertTrue("`adf`" in str(e.exception))
 
     def test_cb_predict_action_count_mismatch(self):
-
         learner = VowpalLearner("--cb 3", VowpalMediatorMocked())
 
         with self.assertRaises(CobaException):
@@ -517,8 +508,12 @@ class VowpalLearner_Tests(unittest.TestCase):
 @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
 class VowpalMediator_Tests(unittest.TestCase):
 
-    def test_make_example_setup_done(self):
+    def test_args_str(self):
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
+        self.assertEqual(str(vw),"--cb_explore_adf --noconstant --quiet")
 
+    def test_make_example_setup_done(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':'a'}, None)
@@ -526,7 +521,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertTrue(hasattr(ex, "setup_done"))
 
     def test_make_example_single_string_value(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':'a'}, None)
@@ -535,7 +529,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual([(ex.get_feature_id("x","0=a"),1)],list(ex.iter_features()))
 
     def test_make_example_single_numeric_value(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':5}, None)
@@ -543,7 +536,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual([(ex.get_feature_id("x",'0'),5)],list(ex.iter_features()))
 
     def test_make_example_dict_numeric_value(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':{'a':5}}, None)
@@ -551,7 +543,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual([(ex.get_feature_id("x","a"),5)],list(ex.iter_features()))
 
     def test_make_example_hashable_sparse_numeric_value(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':HashableSparse({'a':5})}, None)
@@ -559,7 +550,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual([(ex.get_feature_id("x","a"),5)],list(ex.iter_features()))
 
     def test_make_example_dict_string_value(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':{'a':'b'}}, None)
@@ -567,7 +557,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual([(ex.get_feature_id("x","a=b"),1)],list(ex.iter_features()))
 
     def test_make_example_list_numeric_value(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':[2]}, None)
@@ -575,7 +564,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual([(ex.get_feature_id("x",'0'),2)],list(ex.iter_features()))
 
     def test_make_example_empty_list(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':[2], 'y':[]}, None)
@@ -583,7 +571,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual([(ex.get_feature_id("x",'0'),2)],list(ex.iter_features()))
 
     def test_make_example_list_string_value(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':['a']}, None)
@@ -591,7 +578,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual([(ex.get_feature_id("x","0=a"),1)],list(ex.iter_features()))
 
     def test_make_example_list_mixed_value(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':['a',3.2,'c']}, None)
@@ -609,7 +595,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual(expected[2],actual[2])
 
     def test_make_example_label(self):
-
         from vowpalwabbit import pyvw, __version__
 
         vw = VowpalMediator()
@@ -631,7 +616,6 @@ class VowpalMediator_Tests(unittest.TestCase):
             self.assertTrue(hasattr(ex, "setup_done"))
 
     def test_make_examples_namespaces(self):
-
         from vowpalwabbit.pyvw import example
 
         vw = VowpalMediator()
@@ -684,7 +668,6 @@ class VowpalMediator_Tests(unittest.TestCase):
             vw.init_learner("--cb_explore_adf --epsilon .1 --quiet", 4)
 
     def test_predict(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --epsilon .1 --noconstant --quiet", 4)
         ex = vw.make_examples({}, [{'a':1}, {'a':2}], None)
@@ -692,7 +675,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual(2, len(vw.predict(ex)))
 
     def test_learn(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --epsilon .1 --noconstant --quiet", 4)
         ex = vw.make_examples({'x':2}, [{'a':1}, {'a':2}], ["0:.5:1", ""])
@@ -747,5 +729,6 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertFalse(vw._vw.finished)
         vw.finish()
         self.assertTrue(vw._vw.finished)
+
 if __name__ == '__main__':
     unittest.main()

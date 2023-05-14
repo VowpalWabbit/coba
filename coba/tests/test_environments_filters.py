@@ -1796,6 +1796,21 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual(out['feedbacks'].eval((1,0)), 3)
         self.assertEqual(out['feedbacks'].eval((0,1)), 4)
 
+    def test_actions_categorical_str(self):
+        out = next(Repr('onehot','string').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
+
+        self.assertEqual([1,2,3]  , out['context'])
+        self.assertEqual(['1','2'], out['actions'])
+        self.assertEqual(out['rewards'].argmax(), '2')
+        self.assertEqual(out['rewards'].eval('1'), 1)
+        self.assertEqual(out['rewards'].eval('2'), 2)
+        self.assertEqual(out['feedbacks'].eval('1'), 3)
+        self.assertEqual(out['feedbacks'].eval('2'), 4)
+
+        self.assertNotIsInstance(out['actions'][0],Categorical)
+        self.assertNotIsInstance(out['actions'][1],Categorical)
+        self.assertNotIsInstance(out['rewards'].argmax(),Categorical)
+
 class Finalize_Tests(unittest.TestCase):
 
     def test_dense_encodes(self):

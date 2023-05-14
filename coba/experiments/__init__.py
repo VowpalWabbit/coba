@@ -7,7 +7,7 @@ during an experiment evaluation, and the Result datastructures returned after ex
 from coba.experiments.core    import Experiment
 from coba.experiments.results import Result, Table
 from coba.experiments.tasks   import LearnerTask, SimpleLearnerInfo
-from coba.experiments.tasks   import EnvironmentTask, SimpleEnvironmentInfo, ClassEnvironmentInfo
+from coba.experiments.tasks   import EnvironmentTask, SimpleEnvironmentInfo, ClassEnvironmentInfo, LambdaEvaluation
 from coba.experiments.tasks   import EvaluationTask, SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation, ExplorationEvaluation
 
 __all__ = [
@@ -23,5 +23,6 @@ __all__ = [
     'SimpleEnvironmentInfo',
     'OnPolicyEvaluation',
     'OffPolicyEvaluation',
-    'ExplorationEvaluation'
+    'ExplorationEvaluation',
+    'LambdaEvaluation'
 ]

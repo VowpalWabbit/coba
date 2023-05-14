@@ -9,7 +9,7 @@ from coba.exceptions import CobaException
 from coba.contexts import CobaContext
 from coba.environments import Shuffle, Noise, Batch, OpeRewards
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
-from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo
+from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo, LambdaEvaluation
 from coba.experiments import SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation, ExplorationEvaluation
 from coba.learners import Learner, VowpalSoftmaxLearner
 from coba.pipes import Pipes
@@ -981,6 +981,16 @@ class ExploreEvaluation_Tests(unittest.TestCase):
         task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 
         self.assertEqual(task_results,[{"reward":3}])
+
+class LambdaEvaluation_Tests(unittest.TestCase):
+
+    def test_simple(self):
+
+        def test_eval(learner,interactions):
+            yield learner
+            yield interactions
+
+        self.assertEqual(list(LambdaEvaluation(test_eval).process(1,[1,2])), [1,[1,2]])
 
 if __name__ == '__main__':
     unittest.main()

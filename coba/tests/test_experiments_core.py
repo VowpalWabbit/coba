@@ -134,6 +134,9 @@ class CategoricalActionEnv(Environment):
         yield SimulatedInteraction(1, actions, MulticlassReward("a"))
         yield SimulatedInteraction(2, actions, MulticlassReward("a"))
 
+def test_eval(learner,interactions):
+    yield { "learner_type": str(type(learner)), "n_interactions": len(list(interactions))}
+
 class Experiment_Single_Tests(unittest.TestCase):
 
     @classmethod
@@ -141,6 +144,39 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.logger = NullLogger()
         CobaContext.experiment.processes = 1
         CobaContext.experiment.maxchunksperchild = 0
+
+    def test_func_eval(self):
+        env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
+        learner    = ModuloLearner()
+        experiment = Experiment(env1, [learner], evaluation_task=test_eval)
+
+        CobaContext.logger = IndentLogger(ListSink())
+
+        result              = experiment.run()
+        actual_learners     = list(result.learners.to_dicts())
+        actual_environments = list(result.environments.to_dicts())
+        actual_interactions = list(result.interactions.to_dicts())
+
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "p":'0'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'}
+        ]
+        expected_interactions = [
+            { 'environment_id':0, 'learner_id':0, 'index':1, "learner_type": str(type(learner)), "n_interactions": len(list(env1.read()))}
+        ]
+
+        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, 'seed':1}, result.experiment)
+        self.assertCountEqual(actual_learners, expected_learners)
+        self.assertCountEqual(actual_environments, expected_environments)
+        self.assertCountEqual(actual_interactions, expected_interactions)
+
+        if CobaContext.experiment.processes == 1:
+            self.assertEqual(0, learner._learn_calls)
+        else:
+            self.assertEqual(0, learner._learn_calls)
 
     def test_sim(self):
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))

@@ -6,12 +6,14 @@ from coba.experiments  import ExplorationEvaluation, OnPolicyEvaluation, OffPoli
 
 from coba.random import CobaRandom
 
-from coba.learners.primitives import Learner
+from coba.learners.primitives import Learner, SafeLearner
 from coba.learners.bandit import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral import CorralLearner
 from coba.learners.vowpal import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
 from coba.learners.vowpal import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
 from coba.learners.linucb import LinUCBLearner
+
+from coba.utilities import peek_first
 
 from coba.exceptions import CobaException
 
@@ -60,7 +62,9 @@ __all__ = [
     'SimpleEnvironmentInfo',
     'LambdaSimulation',
     'Learner',
+    'SafeLearner',
     'ExplorationEvaluation',
     'OnPolicyEvaluation',
-    'OffPolicyEvaluation'
+    'OffPolicyEvaluation',
+    'peek_first'
 ]

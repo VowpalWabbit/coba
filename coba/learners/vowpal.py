@@ -24,6 +24,7 @@ class VowpalMediator:
         self._vw = None
         self._namespace_keys = []
         self._namespace_keys_index: Dict[str,int] = {}
+        self._args = ""
  
         PackageChecker.vowpalwabbit('VowpalMediator.__init__')
 
@@ -64,6 +65,7 @@ class VowpalMediator:
         self._vw = pyvw.Workspace(args) if self._version[0] >= 9 else pyvw.vw(args)
         self._label_type = pyvw.LabelType(label_type) if self._version[0] >= 9 else label_type
         self._example_init = pyvw.Example if self._version[0] >= 9 else pyvw.example
+        self._args = args
 
         return self
 
@@ -193,6 +195,9 @@ class VowpalMediator:
             self._namespace_keys += keys
 
         return keys
+
+    def __str__(self) -> str:
+        return self._args
 
 class VowpalLearner(Learner):
     """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
