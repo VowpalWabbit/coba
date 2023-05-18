@@ -11,7 +11,7 @@ import coba.random
 from coba.statistics import mean,var
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
-from coba.environments import Scale, Flatten, Grounded, Chunk, Impute
+from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pipes
@@ -20,7 +20,7 @@ from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadD
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
 from coba.experiments.results import Result, moving_average, Table
-from coba.experiments import SimpleEvaluation, OnPolicyEvaluation
+from coba.experiments import OnPolicyEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
 Timeable = Callable[[],Any]
@@ -442,6 +442,36 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda: environment.materialize(), 48, print_time, number=1)
 
+    def test_repr_not_repeat(self):
+        levels1 = list(map(str,range(1000)))
+        levels2 = list(map(str,range(1,1001)))
+
+        interaction1 = { 'actions': [Categorical(l,levels1) for l in levels1] }
+        interaction2 = { 'actions': [Categorical(l,levels2) for l in levels2] }
+
+        interactions = [interaction1,interaction2]*5
+        my_filter    = Repr(categorical_actions='onehot_tuple').filter
+        filterer     = lambda x: list(my_filter(x))
+
+        self._assert_scale_time(interactions, filterer, .11, print_time, number=100)
+
+    def test_repr_repeat(self):
+        levels = list(map(str,range(1000)))
+
+        interaction = { 'actions': [Categorical(l,levels) for l in levels] }
+
+        interactions = [interaction]*10
+        my_filter    = Repr(categorical_actions='onehot_tuple').filter
+        filterer     = lambda x: list(my_filter(x))
+
+        self._assert_scale_time(interactions, filterer, .03, print_time, number=100)
+
+    def test_categorical_equality(self):
+        cat1 = Categorical('1',list(map(str,range(20))))
+        cat2 = Categorical('1',list(map(str,range(20))))
+
+        self._assert_call_time(lambda: cat1==cat2, .02, print_time, number=100000)
+
     def test_encode_cat_rows(self):
         rows = [[Categorical('1',list(map(str,range(20))))]*5]*5
         enc  = EncodeCatRows("onehot")
@@ -461,7 +491,6 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skip("Just for testing. There's not much we can do to speed up process creation.")
     def test_async_pipe(self):
-        
         #this takes about 2.5 with number=10
         def run_async1(): 
             from multiprocessing import Process

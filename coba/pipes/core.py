@@ -2,7 +2,7 @@ from typing import Union
 
 from coba.exceptions import CobaException
 
-from coba.pipes.primitives import Filter, Source, Sink, SourceFilters, FiltersFilter, FiltersSink, SourceSink, Foreach
+from coba.pipes.primitives import Filter, Source, Sink, SourceFilters, FiltersFilter, FiltersSink, Foreach
 from coba.pipes.multiprocessing import AsyncableLine
 
 class Pipes:

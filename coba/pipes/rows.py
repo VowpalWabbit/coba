@@ -33,7 +33,6 @@ class LazyDense(Dense_):
 
         if not enc:
             return val
-
         else:
             try:
                 return enc[key](val)
@@ -85,14 +84,14 @@ class LazySparse(Sparse_):
     def __getitem__(self, key: str):
         key = self._fwd.get(key,key)
         enc = self._enc
-        
+
         try:
             val = self._load_or_get()[key]
         except KeyError:
             if key not in self._nsp: raise
             val = "0"
 
-        if not enc: 
+        if not enc:
             return val
         else:
             try:
@@ -493,64 +492,60 @@ class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse
             return map(LabelSparse, rows, repeat(label), repeat(tipe))
 
 class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any,Dense,Sparse]]]):
-    def __init__(self, tipe=Literal["onehot","onehot_tuple","string"], value_rows:bool = False) -> None:
+    def __init__(self, tipe=Literal["onehot","onehot_unflat","string"], value_rows:bool = False) -> None:
         self._tipe = tipe
-        self._value_rows = value_rows
 
     def filter(self, rows: Iterable[Union[Any,Dense,Sparse]]) -> Iterable[Union[Any,Dense,Sparse]]:
-
         if self._tipe is None: return rows
         first, rows = peek_first(rows)
         if not rows: return []
-    
-        if self._value_rows:
-            rows = self._encode_value_generator(rows)
-        elif isinstance(first,Dense):
-            rows = self._encode_dense_generator(rows, first)
-        elif isinstance(first,Sparse):
-            rows = self._encode_sparse_generator(rows, first)
+
+        if isinstance(first,(Dense,Sparse)):
+            rows = self._encode_collection(rows, first)
         else:
-            rows = rows
+            rows = self._encode_values(rows, first)
 
         if self._tipe =='onehot':
             rows = Flatten().filter(rows)
 
         return rows
 
-    def _encode_value_generator(self, rows):
-        first,rows = peek_first(rows)
+    def _encode_values(self, rows, first):
         if not isinstance(first,Categorical):
             yield from rows
-        elif self._tipe == "string":
+        elif self._tipe == 'string':
             yield from map(str,rows)
-        elif "onehot" in self._tipe:
-            yield from (row.as_onehot for row in rows)
+        else:
+            yield from (r.as_onehot for r in rows)
 
-    def _encode_dense_generator(self, rows, first):
-        is_mutable = isinstance(first, list)
-        cat_cols =  [i for i,v in enumerate(first) if isinstance(v,Categorical) ]
-       
-        if self._tipe == "string":
-            for row in rows:
-                row = row.copy() if is_mutable else list(row)
-                for i in cat_cols: row[i] = str(row[i])
-                yield row
-        elif "onehot" in self._tipe:
-            for row in rows:
-                row = row.copy() if is_mutable else list(row)
-                for i in cat_cols: row[i] = row[i].as_onehot
-                yield row
+    def _encode_collection(self, rows, first):
 
-    def _encode_sparse_generator(self, rows, first):
-        cat_cols = [k for k,v in first.items() if isinstance(v,Categorical) ]
-        
-        if self._tipe == "string":
-            for row in rows:
-                row = row.copy()
-                for k in cat_cols: row[k] = str(row[k])
+        if isinstance(first,Sparse):
+            cat_cols = [k for k,v in first.items() if isinstance(v,Categorical) ]
+        else:
+            cat_cols = [i for i,v in enumerate(first) if isinstance(v,Categorical) ]
+
+        copyable = not isinstance(first,tuple)
+        get_string = 'string' == self._tipe
+
+        prev_row   = None
+        prev_yield = None
+
+        for row in rows:
+            if row == prev_row:
+                #this check doesn't cost us much and will greatly
+                #speed up the encoding of repeated categorical actions
+                yield prev_yield
+            else:
+                prev_row = row
+                row = row.copy() if copyable else list(row)
+
+                if get_string:
+                    for k in cat_cols:
+                        row[k] = str(row[k])
+                else:
+                    for k in cat_cols:
+                        row[k] = row[k].as_onehot
+
                 yield row
-        elif "onehot" in self._tipe:
-            for row in rows:
-                row = row.copy()
-                for k in cat_cols: row[k] = row[k].as_onehot
-                yield row
+                prev_yield = row

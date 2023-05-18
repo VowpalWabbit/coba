@@ -5,7 +5,7 @@ from operator import methodcaller
 from collections import deque
 from itertools import islice, chain, count, takewhile
 from typing import Iterable, Sequence, Union, Any, Pattern, Tuple, Mapping
-from typing import MutableSequence, MutableMapping, Callable, Iterator
+from typing import MutableSequence, MutableMapping, Callable
 
 from coba.exceptions import CobaException
 from coba.encodings import Encoder, CategoricalEncoder
@@ -153,7 +153,7 @@ class ArffDataReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             yield line,missing
 
 class ArffLineReader(Filter[str, Sequence[str]]):
-    def __init__(self, is_dense:bool, n_columns:int, ):
+    def __init__(self, is_dense:bool, n_columns:int):
         self._is_dense = is_dense
         self._n_columns = n_columns
 
@@ -302,7 +302,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
         if is_dense:
             hdr_map = dict(zip(headers, count()))
             for line,missing in data_reader.filter(data):
-                yield LazyDense(lambda line=line:line_reader.filter(line), encoders,hdr_map, missing)
+                yield LazyDense(lambda line=line:line_reader.filter(line),encoders,hdr_map,missing)
 
         else:
             encs = dict(enumerate(encoders))

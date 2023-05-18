@@ -28,5 +28,12 @@ class Categorical_Tests(unittest.TestCase):
         self.assertIsInstance(out,Categorical)
         self.assertEqual(out.levels, ['A',"B"])
 
+    def test_cast(self):
+        a = Categorical("A",["A","B"])
+        out = pickle.loads(pickle.dumps(a))
+
+        self.assertIsInstance(out,Categorical)
+        self.assertEqual(out.levels, ['A',"B"])
+
 if __name__ == '__main__':
     unittest.main()

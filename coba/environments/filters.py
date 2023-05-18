@@ -18,7 +18,8 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
-from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward, IPSReward, SequenceFeedback, MappingReward
+from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward
+from coba.primitives import IPSReward, SequenceFeedback, MappingReward, MulticlassReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Filter
@@ -488,7 +489,7 @@ class Sparse(EnvironmentFilter):
             return value
         if isinstance(value,primitives.Dense): 
             value_list = list(value)
-            return {k:value_list[i] for k,i in value.headers.items() if i < len(value_list)} if has_headers else dict(enumerate(value))
+            return {k:value_list[i] for k,i in value.headers.items() if i < len(value_list) and value_list[i] != 0} if has_headers else {k:v for k,v in enumerate(value) if v != 0 }
         if isinstance(value,primitives.Sparse):
             return value
         return {default_header:value}
@@ -904,29 +905,43 @@ class Repr(EnvironmentFilter):
 
         if not interactions: return []
 
-        has_actions   = 'actions' in first and first['actions']
+        has_actions   = 'actions' in first and bool(first['actions'])
         has_rewards   = 'rewards' in first
         has_feedbacks = 'feedbacks' in first
 
-        I = tee(interactions, 3 if has_actions else 2)
+        n_tee = 1 + int(self._cat_context is not None) + int(self._cat_actions is not None and has_actions)
 
-        interactions     = I[0]
-        cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter(i['context'] for i in I[1])
+        if n_tee == 1:
+            tees = iter([interactions])
+        else:
+            tees = iter(tee(interactions, n_tee))
 
-        if has_actions:
-            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions, True).filter(action for i in I[2] for action in i['actions'])
+        if self._cat_context is not None:
+            cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter(i['context'] for i in next(tees))
 
-        for interaction in interactions:
+        if self._cat_actions and has_actions:
+            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions).filter(i['actions'] for i in next(tees))
+
+        for interaction in next(tees):
+
             new = interaction.copy()
-            new['context'] = next(cat_context_iter)
 
-            if has_actions:
-                new_actions = list(islice(cat_actions_iter,len(interaction['actions'])))
+            if self._cat_context:
+                new['context'] = next(cat_context_iter)
+
+            if has_actions and self._cat_actions:
+                new_actions = next(cat_actions_iter)
                 old_actions = new['actions']
+
                 if new_actions != old_actions or type(new_actions[0]) != type(old_actions[0]):
                     new['actions'] = new_actions
+
+                if new_actions != old_actions:
                     if has_rewards:
-                        new['rewards'] = MappingReward(dict(zip(new_actions,list(map(new['rewards'].eval,old_actions)))))
+                        if isinstance(new['rewards'],MulticlassReward):
+                            new['rewards'] = MulticlassReward(new_actions[old_actions.index(new['rewards'].argmax())])
+                        else:
+                            new['rewards'] = SequenceReward(new_actions,list(map(new['rewards'].eval,old_actions)))
                     if has_feedbacks:
                         new['feedbacks'] = SequenceFeedback(new_actions,list(map(new['feedbacks'].eval,old_actions)))
 
@@ -1034,7 +1049,7 @@ class Finalize(EnvironmentFilter):
         action_materialized  = not first_has_action  or (not is_dense_action  and not is_sparse_action  or isinstance(first['action']    ,(list,tuple,dict)))
 
         if self._apply_repr:
-            interactions = Repr("onehot","onehot").filter(interactions)
+            interactions = Repr("onehot","onehot_tuple").filter(interactions)
 
         for interaction in interactions:
 

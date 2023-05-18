@@ -105,9 +105,9 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
     def test_value_not_categorical(self):
 
-        given = [(1,0),2,3]
-        expected = [(1,0),2,3]
-        actual = list(EncodeCatRows(value_rows=True).filter(given))
+        given = [1,2,3]
+        expected = [1,2,3]
+        actual = list(EncodeCatRows('onehot').filter(given))
 
         self.assertEqual(actual,expected)
 

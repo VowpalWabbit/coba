@@ -1,4 +1,4 @@
-from itertools import chain, count
+from itertools import chain
 from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping
 from coba.backports import Literal
 
@@ -228,4 +228,4 @@ class SupervisedSimulation(SimulatedEnvironment):
                 yield {'context':row.feats,'actions':actions,'rewards':reward(row.label)}
         else:
             for row in rows:
-                yield {'context':row[0]   ,'actions':actions,'rewards':reward(row[1])}
+                yield {'context':row[0],'actions':actions,'rewards':reward(row[1])}

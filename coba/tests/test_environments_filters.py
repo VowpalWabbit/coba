@@ -1762,6 +1762,15 @@ class Grounded_Tests(unittest.TestCase):
         self.assertEqual( 1, params['igl_seed'])
 
 class Repr_Tests(unittest.TestCase):
+
+    def test_repr_none_none(self):
+        out = next(Repr(None,None).filter([SimulatedInteraction([Categorical('1',['1','2'])],[1,2],[1,2])]))
+
+        self.assertEqual(['1'],out['context'])
+        self.assertIsInstance(out['context'][0],Categorical)
+        self.assertEqual([1,2],out['actions'])
+        self.assertEqual([1,2],out['rewards'])
+
     def test_no_categorical(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[1,2],[1,2])]))
 
@@ -1769,15 +1778,38 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual([1,2]  ,out['actions'])
         self.assertEqual([1,2]  ,out['rewards'])
     
-    def test_context_categorical(self):
+    def test_context_categorical_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,Categorical('1',['1','2'])],[1,2],[1,2])]))
 
         self.assertEqual([1,2,1,0],out['context'])
         self.assertEqual([1,2]    ,out['actions'])
         self.assertEqual([1,2]    ,out['rewards'])
 
+    def test_context_categorical_unflat(self):
+        out = next(Repr('onehot_tuple','onehot').filter([SimulatedInteraction([1,2,Categorical('1',['1','2'])],[1,2],[1,2])]))
+
+        self.assertEqual([1,2,(1,0)],out['context'])
+        self.assertEqual([1,2]      ,out['actions'])
+        self.assertEqual([1,2]      ,out['rewards'])
+
+    def test_context_categorical_string(self):
+        out = next(Repr('string','onehot').filter([SimulatedInteraction([Categorical('1',['1','2'])],[1,2],[1,2])]))
+
+        self.assertEqual(['1'],out['context'])
+        self.assertNotIsInstance(out['context'][0],Categorical)
+        self.assertEqual([1,2],out['actions'])
+        self.assertEqual([1,2],out['rewards'])
+
+    def test_context_categorical_value_string(self):
+        out = next(Repr('string','onehot').filter([SimulatedInteraction(Categorical('1',['1','2']),[1,2],[1,2])]))
+
+        self.assertEqual('1',out['context'])
+        self.assertNotIsInstance(out['context'],Categorical)
+        self.assertEqual([1,2],out['actions'])
+        self.assertEqual([1,2],out['rewards'])
+
     def test_actions_categorical_with_rewards(self):
-        out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
+        out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
@@ -1786,7 +1818,7 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual(out['rewards'].eval((0,1)), 2)
 
     def test_actions_categorical_with_feedbacks(self):
-        out = next(Repr('onehot','onehot').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
+        out = next(Repr('onehot','onehot_tuple').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
@@ -1809,7 +1841,7 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertNotIsInstance(out['actions'][0],Categorical)
         self.assertNotIsInstance(out['actions'][1],Categorical)
-        self.assertNotIsInstance(out['rewards'].argmax(),Categorical)
+        self.assertIsInstance(out['rewards'].argmax(),Categorical)
 
 class Finalize_Tests(unittest.TestCase):
 
