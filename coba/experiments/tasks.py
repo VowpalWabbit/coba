@@ -141,15 +141,16 @@ class OnPolicyEvaluation(EvaluationTask):
             for metric in set(self._record).intersection(OnPolicyEvaluation.ONLY_DISCRETE):
                 warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
 
-        record_prob    = 'probability' in self._record
-        record_time    = 'time'        in self._record
-        record_action  = 'action'      in self._record
-        record_context = 'context'     in self._record
-        record_actions = 'actions'     in self._record
-        record_rewards = 'rewards'     in self._record and discrete
-        record_rank    = 'rank'        in self._record and discrete
-        record_reward  = 'reward'      in self._record
-        record_regret  = 'regret'      in self._record
+        record_prob     = 'probability' in self._record
+        record_time     = 'time'        in self._record
+        record_action   = 'action'      in self._record
+        record_context  = 'context'     in self._record
+        record_actions  = 'actions'     in self._record
+        record_rewards  = 'rewards'     in self._record and discrete
+        record_rank     = 'rank'        in self._record and discrete
+        record_reward   = 'reward'      in self._record
+        record_regret   = 'regret'      in self._record
+        record_ope_loss = 'ope_loss'    in self._record
 
         get_reward = lambda reward                  : reward
         get_regret = lambda reward, rewards         : rewards.max()-reward
@@ -191,14 +192,15 @@ class OnPolicyEvaluation(EvaluationTask):
             if self._learn: learn(context, actions, action, feedback if feedbacks else reward, prob, **kwargs)
             learn_time = time.time() - start_time
 
-            if record_time   : out['predict_time'] = predict_time
-            if record_time   : out['learn_time']   = learn_time
-            if record_prob   : out['probability']  = prob
-            if record_action : out['action']       = action
-            if feedbacks     : out['feedback']     = feedback
-            if record_reward : out['reward']       = list(map(get_reward,reward)) if batched else get_reward(reward)
-            if record_regret : out['regret']       = list(map(get_regret,reward,rewards)) if batched else get_regret(reward, rewards)
-            if record_rank   : out['rank'  ]       = list(map(get_rank,reward,rewards,actions)) if batched else get_rank(reward, rewards, actions)
+            if record_time    : out['predict_time'] = predict_time
+            if record_time    : out['learn_time']   = learn_time
+            if record_prob    : out['probability']  = prob
+            if record_action  : out['action']       = action
+            if feedbacks      : out['feedback']     = feedback
+            if record_reward  : out['reward']       = list(map(get_reward,reward)) if batched else get_reward(reward)
+            if record_regret  : out['regret']       = list(map(get_regret,reward,rewards)) if batched else get_regret(reward, rewards)
+            if record_rank    : out['rank'  ]       = list(map(get_rank,reward,rewards,actions)) if batched else get_rank(reward, rewards, actions)
+            if record_ope_loss: out['ope_loss']     = _get_ope_loss(learner)
 
             if interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE:
                 out.update({k: interaction[k] for k in interaction.keys()-OnPolicyEvaluation.IMPLICIT_EXCLUDE})
