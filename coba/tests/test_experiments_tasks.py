@@ -13,11 +13,11 @@ from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, Simple
 from coba.experiments import SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation, ExplorationEvaluation
 from coba.learners import Learner, VowpalSoftmaxLearner, PMF
 from coba.pipes import Pipes
-from coba.primitives import SequenceReward
+from coba.primitives import SequenceReward, Batch as BatchType
 
 #for testing purposes
 class BatchFixedLearner(Learner):
-    
+
     @property
     def params(self):
         return {"family": "Recording"}
@@ -489,12 +489,12 @@ class OnPolicyEvaluation_Tests(unittest.TestCase):
             SimulatedInteraction(2,[],SequenceReward([0,1,2],[4,5,6])),
             SimulatedInteraction(3,[],SequenceReward([0,1,2],[1,2,3])),
         ]
-        
+
         with self.assertWarns(UserWarning) as w:
             task_results = list(task.process(learner, interactions))
 
         self.assertEqual("The rank metric can only be calculated for discrete environments", str(w.warning))
-        
+
         expected_task_results = [{"reward":7},{"reward":5},{"reward":3}]
 
         self.assertEqual(expected_task_results, task_results)
@@ -839,20 +839,58 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
         task_results = list(task.process(RecordingLearner(), OpeRewards("IPS").filter(interactions)))
         self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
 
-    def test_batched(self):
+    def test_batched_no_request(self):
         task                 = OffPolicyEvaluation()
         learner              = BatchFixedLearner()
         interactions         = [
             LoggedInteraction(1, "action_1", 1, probability=1.0, actions=["action_1", "action_2", "action_3"]),
             LoggedInteraction(2, "action_2", 2, probability=1.0, actions=["action_1", "action_2", "action_3"])
         ]
-        
+
         #with self.assertRaises(CobaException):
         task_results = list(task.process(learner, Batch(2).filter(OpeRewards("IPS").filter(interactions))))
-        
+
         self.assertEqual(2, len(task_results))
         self.assertEqual(1,task_results[0]['reward'])
         self.assertEqual(0,task_results[1]['reward'])
+
+    def test_batched_request_discrete(self):
+
+        class TestLearner:
+            def request(self, context, actions, request):
+                return [[1,0,0],[0,0,1]]
+
+        task                 = OffPolicyEvaluation(learn=False)
+        learner              = TestLearner()
+        interactions         = [
+            LoggedInteraction(1, "action_1", 1, probability=1.0, actions=["action_1", "action_2", "action_3"]),
+            LoggedInteraction(2, "action_2", 2, probability=1.0, actions=["action_1", "action_2", "action_3"])
+        ]
+
+        #with self.assertRaises(CobaException):
+        task_results = list(task.process(learner, Batch(2).filter(OpeRewards("IPS").filter(interactions))))
+
+        self.assertEqual(2, len(task_results))
+        self.assertEqual(1,task_results[0]['reward'])
+        self.assertEqual(0,task_results[1]['reward'])
+
+    def test_batched_request_continuous(self):
+        class TestLearner:
+            def request(self,context,actions,request):
+                if isinstance(context,BatchType): raise Exception()
+                return .5
+
+        task    = OffPolicyEvaluation(learn=False)
+        learner = TestLearner()
+        interactions = [
+            LoggedInteraction(1, 2, 3,actions=[]),
+            LoggedInteraction(2, 3, 4,actions=[]),
+        ]
+
+        task_results = list(task.process(learner, Batch(2).filter(OpeRewards("IPS").filter(interactions))))
+
+        self.assertEqual(1.5,task_results[0]['reward'])
+        self.assertEqual(2.0,task_results[1]['reward'])
 
     def test_with_request_continuous(self):
         class MyLearner:

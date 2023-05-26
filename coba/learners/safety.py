@@ -115,8 +115,8 @@ class SafeLearner(Learner):
         self._rng         = CobaRandom(seed)
         self._method      = {}
 
-        self._has_kwargs  = None
-        self._batch_order = None
+        self._pred_kwargs  = None
+        self._pred_batch = None
         self._pred_format = None
 
     @property
@@ -163,34 +163,32 @@ class SafeLearner(Learner):
                 self._method[key] = 2
                 return self._safe_call(key, method, args, kwargs)
             except:
-                pass
+                del self._method[key]
             raise
 
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+
         try:
-            return self._learner.request(context,actions,request)
+            return self._safe_call('request', self._learner.request, (context,actions,request))
         except AttributeError as ex:
-            if "'request'" not in str(ex):
-                raise
-            else:
-                raise CobaException((
-                    "The `request` interface has not been implemented for this learner."
-                ))
+            if "'request'" in str(ex):
+                raise CobaException(("The `request` method is not implemented for this learner."))
+            raise
 
     def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:
 
         pred = self._safe_call('predict', self._learner.predict, (context,actions))
 
-        if self._batch_order is None: # first call only
+        if self._pred_batch is None: # first call only
             predictor = lambda X,A: self._safe_call('predict', self._learner.predict, (X,A))
 
-            self._batch_order = batch_order(predictor,pred,context,actions)
-            self._has_kwargs  = isinstance(pred[-1] if self._batch_order != 'row' else pred[0][-1],abc.Mapping)
-            self._pred_format = pred_format(pred, self._batch_order, self._has_kwargs, actions)
+            self._pred_batch  = batch_order(predictor,pred,context,actions)
+            self._pred_kwargs = isinstance(pred[-1] if self._pred_batch != 'row' else pred[0][-1],abc.Mapping)
+            self._pred_format = pred_format(pred, self._pred_batch, self._pred_kwargs, actions)
 
-        if self._batch_order == 'not':
-            kwargs = pred[-1] if self._has_kwargs else {}
-            pred   = pred[ 0] if self._has_kwargs and len(pred)==2 else pred
+        if self._pred_batch == 'not':
+            kwargs = pred[-1] if self._pred_kwargs else {}
+            pred   = pred[ 0] if self._pred_kwargs and len(pred)==2 else pred
 
             if self._pred_format == 'PM':
                 i = self._get_pmf_index(pred)
@@ -201,10 +199,10 @@ class SafeLearner(Learner):
 
             return a,p,kwargs
 
-        if self._batch_order == 'row':
-            kwargs = [ p[-1] if self._has_kwargs else {} for p in pred ]
+        if self._pred_batch == 'row':
+            kwargs = [ p[-1] if self._pred_kwargs else {} for p in pred ]
             kwargs = {k: [kw[k] for kw in kwargs] for k in kwargs[0] }
-            pred   = [p[0] if len(p)==2 else p[:-1] for p in pred] if self._has_kwargs else pred
+            pred   = [p[0] if len(p)==2 else p[:-1] for p in pred] if self._pred_kwargs else pred
 
             A,P = [],[]
             if self._pred_format == 'PM':
@@ -218,9 +216,9 @@ class SafeLearner(Learner):
 
             return A,P,kwargs
 
-        if self._batch_order == 'col':
-            kwargs = pred[-1] if self._has_kwargs else {}
-            pred   = pred[:-1] if self._has_kwargs else pred
+        if self._pred_batch == 'col':
+            kwargs = pred[-1] if self._pred_kwargs else {}
+            pred   = pred[:-1] if self._pred_kwargs else pred
 
             if self._pred_format == 'PM':
                 I = [self._get_pmf_index(p) for p in zip(*pred)]

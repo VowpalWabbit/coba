@@ -260,7 +260,7 @@ class OffPolicyEvaluation(EvaluationTask):
             raise CobaException("Interactions need to have 'rewards' defined for OPE. This can be done using `Environments.ope_rewards`.")
 
         try:
-            learner.request(first['context'],[],[])
+            learner.request(first['context'],first['actions'],first['actions'])
         except Exception as ex:
             implements_request = '`request`' not in str(ex)
         else:
@@ -302,12 +302,21 @@ class OffPolicyEvaluation(EvaluationTask):
                         start_time   = time.time()
                         on_probs     = request(log_context,log_actions,log_actions)
                         predict_time = time.time()-start_time
-                        ope_reward   = sum(on_p*log_rewards.eval(a) for on_p,a in zip(on_probs,log_actions))
+                        if not batched:
+                            ope_reward = sum(p*log_rewards.eval(a) for p,a in zip(on_probs,log_actions))
+                        else:
+                            ope_reward = [ sum(p*R.eval(a) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
                     else:
                         start_time   = time.time()
-                        on_prob      = request(log_context,log_actions,[log_action])
+                        if not batched:
+                            on_prob = request(log_context,log_actions,[log_action])
+                        else:
+                            on_prob = request(log_context,log_actions,log_action)
                         predict_time = time.time()-start_time
-                        ope_reward   = on_prob*log_rewards.eval(log_action)
+                        if not batched:
+                            ope_reward   = on_prob*log_rewards.eval(log_action)
+                        else:
+                            ope_reward   = [p*r for p,r in zip(on_prob,log_rewards.eval(log_action))]
                 else:
                     start_time        = time.time()
                     on_action,on_prob = predict(log_context, log_actions)[:2]

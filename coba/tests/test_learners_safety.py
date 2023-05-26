@@ -446,6 +446,30 @@ class SafeLearner_Tests(unittest.TestCase):
         self.assertEqual(calls[0],(1,[3,4],3,1,.1,8))
         self.assertEqual(calls[1],(2,[5,6],5,0,.9,9))
 
+    def test_request(self):
+        class MyLearner:
+            def request(self,context,actions,request):
+                if context is None and actions == [1,2] and request == 2:
+                    return 1
+
+        self.assertEqual(SafeLearner(MyLearner()).request(None,[1,2],2), 1)
+
+    def test_request_batch(self):
+        calls = []
+        class TestLearner:
+            def request(self, context, actions, request):
+                if isinstance(context,Batch): raise Exception()
+                calls.append((context, actions, request))
+
+        context = Batch([1,2])
+        actions = Batch([[3,4],[5,6]])
+        request = Batch([[3,4],[5,6]])
+
+        SafeLearner(TestLearner()).request(context,actions,request)
+
+        self.assertEqual(calls[0],(1,[3,4],[3,4]))
+        self.assertEqual(calls[1],(2,[5,6],[5,6]))
+
     def test_request_not_implemented(self):
         class MyLearner:
             pass
@@ -458,30 +482,12 @@ class SafeLearner_Tests(unittest.TestCase):
     def test_request_exception(self):
         class MyLearner:
             def request(self,context,actions,request):
-                raise CobaException("TEST")
-
-        with self.assertRaises(CobaException) as ex:
-            SafeLearner(MyLearner()).request(None,[],[])
-
-        self.assertIn("TEST", str(ex.exception))
-
-    def test_request_attribute_error(self):
-        class MyLearner:
-            def request(self,context,actions,request):
                 raise AttributeError("TEST")
 
         with self.assertRaises(AttributeError) as ex:
             SafeLearner(MyLearner()).request(None,[],[])
 
         self.assertIn("TEST", str(ex.exception))
-
-    def test_request_return(self):
-        class MyLearner:
-            def request(self,context,actions,request):
-                if context is None and actions == [1,2] and request == 2:
-                    return 1
-
-        self.assertEqual(SafeLearner(MyLearner()).request(None,[1,2],2), 1)
 
 if __name__ == '__main__':
     unittest.main()
