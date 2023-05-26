@@ -1030,5 +1030,19 @@ class LambdaEvaluation_Tests(unittest.TestCase):
 
         self.assertEqual(list(LambdaEvaluation(test_eval).process(1,[1,2])), [1,[1,2]])
 
+class Helper_Tests(unittest.TestCase):
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    def test_get_ope_loss(self):
+        from coba import SafeLearner
+        from coba.experiments.tasks import _get_ope_loss
+
+        #VW learner
+        learner = VowpalSoftmaxLearner()
+        learner.learn(1, [1], 1, 1, 1.0)
+        self.assertEqual(_get_ope_loss(SafeLearner(learner)), -1.0)
+
+        # Non-VW learner
+        self.assertTrue(math.isnan(_get_ope_loss(SafeLearner(RecordingLearner()))))
+
 if __name__ == '__main__':
     unittest.main()
