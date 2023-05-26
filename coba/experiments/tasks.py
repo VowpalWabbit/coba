@@ -253,9 +253,6 @@ class OffPolicyEvaluation(EvaluationTask):
         first_rewards = first.get('rewards',[None])[0] if batched else first.get('rewards',None)
         first_actions = first.get('actions',[None])[0] if batched else first.get('actions',None)
 
-        if batched:
-            raise CobaException("OffPolicyEvaluation does not currently support batching.")
-
         if self._predict and first_actions is None:
             raise CobaException("Interactions need to have 'actions' defined for OPE.")
 
@@ -345,7 +342,11 @@ class OffPolicyEvaluation(EvaluationTask):
                 info.clear()
 
             if out:
-                yield out
+                if batched:
+                    #we flatten batched items so output works seamlessly with Result
+                    yield from ({k:v[i] for k,v in out.items()} for i in range(len(log_context)))
+                else:
+                    yield out
 
 class ExplorationEvaluation(EvaluationTask):
 

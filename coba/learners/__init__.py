@@ -1,6 +1,7 @@
 """This module contains all public learners and learner interfaces."""
 
-from coba.learners.primitives import Learner, SafeLearner, PMF, ActionProb
+from coba.learners.primitives import Learner, PMF, ActionProb
+from coba.learners.safety     import SafeLearner
 from coba.learners.bandit     import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral     import CorralLearner
 from coba.learners.vowpal     import VowpalMediator

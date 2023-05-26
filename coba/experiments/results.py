@@ -232,7 +232,7 @@ class Table:
  
         if kwargs:
             selection = []
-            for kw,arg in kwargs.items():    
+            for kw,arg in kwargs.items():
                 if kw in self._indexes and comparison != "match" and not callable(kwargs[kw]):
                     for lo,hi in self._lohis[kw]:
                         for l,h in self._compare(lo,hi,self._data[kw],arg,comparison,"bisect"):
@@ -803,7 +803,7 @@ class Result:
         return TransactionIO(filename).read()
 
     @staticmethod
-    def from_logged_envs(environments: Iterable[Environment]):
+    def from_logged_envs(environments: Iterable[Environment],include_probability:bool=False):
 
         env_param_list = []
         lrn_param_list = []
@@ -847,7 +847,8 @@ class Result:
             if env_id not in env_rows: env_rows[env_id] = env_param
             if lrn_id not in lrn_rows: lrn_rows[lrn_id] = lrn_param
 
-            keys = first.keys() - {'context', 'actions', 'rewards', 'probability'}
+            keys = first.keys() - {'context', 'actions', 'rewards'}
+            if not include_probability: keys -= {'probability'}
 
             _packed = {k:[] for k in keys}
             results = {"_packed": _packed}

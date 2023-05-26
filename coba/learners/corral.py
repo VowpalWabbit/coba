@@ -7,7 +7,8 @@ from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.primitives import Context, Action
 
-from coba.learners.primitives import Learner, SafeLearner, PMF, kwargs, Actions, Prob
+from coba.learners.safety import SafeLearner
+from coba.learners.primitives import Learner, PMF, kwargs, Actions, Prob
 
 class CorralLearner(Learner):
     """A meta-learner that takes a collection of learners and determines

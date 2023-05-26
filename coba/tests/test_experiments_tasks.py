@@ -11,7 +11,7 @@ from coba.environments import Shuffle, Noise, Batch, OpeRewards
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
 from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo, LambdaEvaluation
 from coba.experiments import SimpleEvaluation, OnPolicyEvaluation, OffPolicyEvaluation, ExplorationEvaluation
-from coba.learners import Learner, VowpalSoftmaxLearner
+from coba.learners import Learner, VowpalSoftmaxLearner, PMF
 from coba.pipes import Pipes
 from coba.primitives import SequenceReward
 
@@ -67,7 +67,7 @@ class RecordingLearner(Learner):
         self.predict_calls.append((context, actions))
 
         probs = [ int(i == action_index) for i in range(len(actions)) ]
-        self.predict_returns.append((probs, {'i':self._i}) if self._with_info else probs)
+        self.predict_returns.append((PMF(probs), {'i':self._i}) if self._with_info else probs)
         return self.predict_returns[-1]
 
     def learn(self, context, actions, action, reward, probability, **kwargs):
@@ -847,12 +847,12 @@ class OffPolicyEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(2, "action_2", 2, probability=1.0, actions=["action_1", "action_2", "action_3"])
         ]
         
-        with self.assertRaises(CobaException):
-            task_results = list(task.process(learner, Batch(2).filter(OpeRewards("IPS").filter(interactions))))
+        #with self.assertRaises(CobaException):
+        task_results = list(task.process(learner, Batch(2).filter(OpeRewards("IPS").filter(interactions))))
         
-        #self.assertEqual(2, len(task_results))
-        #self.assertEqual(1,task_results[0]['reward'])
-        #self.assertEqual(0,task_results[1]['reward'])
+        self.assertEqual(2, len(task_results))
+        self.assertEqual(1,task_results[0]['reward'])
+        self.assertEqual(0,task_results[1]['reward'])
 
     def test_with_request_continuous(self):
         class MyLearner:
