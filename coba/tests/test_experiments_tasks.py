@@ -955,11 +955,11 @@ class ExploreEvaluation_Tests(unittest.TestCase):
 
         request_calls = []
         learn_calls   = []
+        calls         = 0
 
         class FixedRequestLearner:
             def request(self,*args):
-                if args[1] != []:
-                    request_calls.append(args)
+                request_calls.append(args)
                 return [.25,.25,.5]
             def learn(self,*args):
                 learn_calls.append(args)
@@ -967,18 +967,18 @@ class ExploreEvaluation_Tests(unittest.TestCase):
 
         task    = ExplorationEvaluation(qpct=1,cinit=1)
         learner = FixedRequestLearner()
-        
+
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ] * 6
         task_results = list(task.process(learner, interactions))
 
-        expected_request_call    = [(1,[2,5,8],[2,5,8])] * 6
+        expected_request_call    = [(1,[2,5,8],[2,5,8])] * 7
         expected_learn_calls     = [(1,[2,5,8],2,3,.25)] * 6
         expected_task_results    = [{'reward': 3.0}] * 6
 
         self.assertEqual(expected_request_call, request_calls)
         self.assertEqual(expected_learn_calls, learn_calls)
         self.assertEqual(expected_task_results, task_results)
-    
+
     def test_record_time(self):
 
         class FixedRequestLearner:
@@ -989,7 +989,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
 
         task    = ExplorationEvaluation(cinit=1,qpct=1,record=['reward','time'])
         learner = FixedRequestLearner()
-        
+
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ]
         task_results = list(task.process(learner, interactions))
 
@@ -1014,7 +1014,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
 
         task    = ExplorationEvaluation(qpct=1,record=['reward'],cinit=1,seed=2)
         learner = FixedRequestLearner()
-        
+
         interactions = [ LoggedInteraction(1, 2, 5, actions=[2,5,8], probability=.25) ] * 3
         task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
 

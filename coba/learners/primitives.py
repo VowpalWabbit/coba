@@ -25,11 +25,11 @@ Prediction = Union[
     Tuple[Action,Prob, kwargs],
 ]
 
-class Learner(ABC):
+class Learner:
     """The Learner interface for contextual bandit learning."""
 
     @property
-    def params(self) -> Mapping[str,Any]: # pragma: no cover
+    def params(self) -> Mapping[str,Any]:
         """Parameters describing the learner (used for descriptive purposes only).
 
         Remarks:
@@ -56,7 +56,7 @@ class Learner(ABC):
             "The `request` interface has not been implemented for this learner."
         ))
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Prediction:
+    def predict(self, context: Context, actions: Actions) -> Prediction:
         """Predict which action to take in the context.
 
         Args:
@@ -74,28 +74,25 @@ class Learner(ABC):
             "The `predict` interface has not been implemented for this learner."
         ))
 
-    @abstractmethod
     def learn(self,
         context: Context,
         actions: Actions,
         action: Action,
-        feedback: Union[float,Any],
-        score: float,
+        reward: Union[float,Any],
+        probability: float,
         **kwargs) -> None:
         """Learn about the action taken in the context.
 
         Args:
             context: The context in which the action was taken.
-            actions: The set of actions chosen from.
-            action: Either the action that was chosen or the index of the action that was chosen.
-            feedback: This will be reward for contextual bandit problems and feedback for IGL problems.
-            score: This will be the probability for the action taken if a PMF/PDF is returned by predict.
-                 It will be the score if an action-score pair is returned by predict. And it will be the
-                 probability if off-policy learning is being performed on LoggedInteractions.
+            actions: The set of actions that were available.
+            action: The action that was taken.
+            reward: The reward for contextual bandit problems and feedback for IGL problems.
+            probability: The probability the given action was taken.
             **kwargs: Optional information returned with the prediction.
         """
         raise CobaException((
-            "The `predict` interface has not been implemented for this learner."
+            "The `learn` interface has not been implemented for this learner."
         ))
 
 def requires_hashables(cls:Type[Learner]):

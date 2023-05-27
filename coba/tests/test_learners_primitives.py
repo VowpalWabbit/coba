@@ -5,10 +5,15 @@ from coba.learners import Learner, ActionProb, PMF
 
 class Learner_Tests(unittest.TestCase):
 
+    def test_params_empty(self):
+        class MyLearner(Learner):
+            pass
+
+        self.assertEqual(MyLearner().params,{})
+
     def test_request_not_implemented(self):
         class MyLearner(Learner):
-            def learn(self, *args, **kwargs) -> None:
-                pass
+            pass
 
         with self.assertRaises(CobaException) as ex:
             MyLearner().request(None,[],[])
@@ -17,13 +22,22 @@ class Learner_Tests(unittest.TestCase):
 
     def test_predict_not_implemented(self):
         class MyLearner(Learner):
-            def learn(self, *args, **kwargs) -> None:
-                pass
+            pass
 
         with self.assertRaises(CobaException) as ex:
             MyLearner().predict(None,[])
 
         self.assertIn("`predict`", str(ex.exception))
+
+    def test_learn_not_implemented(self):
+        class MyLearner(Learner):
+            pass
+
+        with self.assertRaises(CobaException) as ex:
+            MyLearner().learn(None,None,None,None,None)
+
+        self.assertIn("`learn`", str(ex.exception))
+
 
 class ActionProb_Tests(unittest.TestCase):
 

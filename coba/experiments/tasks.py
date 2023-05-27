@@ -406,7 +406,7 @@ class ExplorationEvaluation(EvaluationTask):
             raise CobaException("ExplorationEvaluation does not currently support batching")
 
         try:
-            learner.request(first['context'],[],[])
+            learner.request(first['context'],first['actions'],first['actions'])
         except Exception as ex:
             if '`request`' in str(ex):
                 raise CobaException("ExplorationEvaluation requires Learners to implement a `request` method")
@@ -461,15 +461,15 @@ class ExplorationEvaluation(EvaluationTask):
             #The danger of this method is that the computational complexity is T (due to inserts).
             #Even so, T has to become very large (many millions?) before it is slower than alternatives.
             #The most obvious alternatively I also played with was dequeue with a fixed size/complexity.
-            #However, this requres sorting the dequeue for every accepted actions which is incredibly slow.
+            #However, this requires sorting the dequeue for every accepted action which is incredibly slow.
             if on_prob != 0:
                 insort(Q,log_prob/on_prob)
 
-            #we want c*on_prob/log_prob <= 1 approximately 1-qpct of the time.
+            #we want c*on_prob/log_prob <= 1 approximately (1 - qpct) of the time.
             #We know that if c <= min(log_prob) this condition will be met.
             #This might be too conservative though because it doesn't consider
             #the value of on_prob. For example if on_prob:=log_prob then the
-            #above condition will be met if c = 1 >= min(log_prob).
+            #above condition will be met if c = 1 which will be >= min(log_prob).
             if rng.random() <= c*on_prob/log_prob:
 
                 out = {}
@@ -491,10 +491,9 @@ class ExplorationEvaluation(EvaluationTask):
                 if record_prob   : out['probability']  = on_prob
 
                 if info: out.update(info)
-                if out: yield out
+                if out : yield out
 
                 ope_rewards.clear()
-
                 c = min(percentile(Q,self._qpct,sort=False), self._cmax)
 
         if ope_rewards:
