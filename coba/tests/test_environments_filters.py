@@ -2362,11 +2362,10 @@ class OpeRewards_Tests(unittest.TestCase):
 
         new_interactions = list(OpeRewards("DM").filter(interactions))
         
-        self.assertEqual(new_interactions[0]['rewards'].eval('c'),0)
-        self.assertEqual(new_interactions[0]['rewards'].eval('d'),0)
-
-        #this is the constant value...
-        self.assertEqual(new_interactions[1]['rewards'].eval('e'),new_interactions[1]['rewards'].eval('f'))
+        self.assertAlmostEqual(new_interactions[0]['rewards'].eval('c'),.79699, places=4)
+        self.assertAlmostEqual(new_interactions[0]['rewards'].eval('d'),.32049, places=4)
+        self.assertAlmostEqual(new_interactions[1]['rewards'].eval('e'),.18374, places=4)
+        self.assertAlmostEqual(new_interactions[1]['rewards'].eval('f'),.25000, places=4)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
     def test_DM_action_not_hashable(self):
@@ -2376,13 +2375,11 @@ class OpeRewards_Tests(unittest.TestCase):
         ]
 
         new_interactions = list(OpeRewards("DM").filter(interactions))
-        
-        self.assertEqual(new_interactions[0]['rewards'].eval(['c']),0)
-        self.assertEqual(new_interactions[0]['rewards'].eval(['d']),0)
 
-        #this is the constant value...
-        self.assertEqual(new_interactions[1]['rewards'].eval(['e']),new_interactions[1]['rewards'].eval(['f']))
-
+        self.assertAlmostEqual(new_interactions[0]['rewards'].eval(['c']),.79699, places=4)
+        self.assertAlmostEqual(new_interactions[0]['rewards'].eval(['d']),.32049, places=4)
+        self.assertAlmostEqual(new_interactions[1]['rewards'].eval(['e']),.18374, places=4)
+        self.assertAlmostEqual(new_interactions[1]['rewards'].eval(['f']),.25000, places=4)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
     def test_DR(self):
@@ -2391,14 +2388,18 @@ class OpeRewards_Tests(unittest.TestCase):
             {'action':'f','context':'b','actions':['e','f'],'reward':.25,'probability':.25},
         ]
 
-        new_interactions = list(OpeRewards("DR").filter(interactions))
-        
-        r0 = new_interactions[1]['rewards'].eval('e')
+        dm_interactions = list(OpeRewards("DM").filter(interactions))
+        dr_interactions = list(OpeRewards("DR").filter(interactions))
 
-        self.assertEqual(new_interactions[0]['rewards'].eval('c'),2)
-        self.assertEqual(new_interactions[0]['rewards'].eval('d'),0)
-        #this works because VW uses the constant value for both values
-        self.assertEqual(new_interactions[1]['rewards'].eval('f'),(.25-r0)/.25 + r0)
+        c = dm_interactions[0]['rewards'].eval('c')
+        d = dm_interactions[0]['rewards'].eval('d')
+        e = dm_interactions[1]['rewards'].eval('e')
+        f = dm_interactions[1]['rewards'].eval('f')
+
+        self.assertAlmostEqual(dr_interactions[0]['rewards'].eval('c'), c+(1-c)/.5, places=4)
+        self.assertAlmostEqual(dr_interactions[0]['rewards'].eval('d'), d+0       , places=4)
+        self.assertAlmostEqual(dr_interactions[1]['rewards'].eval('e'), e+0       , places=4)
+        self.assertAlmostEqual(dr_interactions[1]['rewards'].eval('f'), f+(.25-f)/.25, places=4)
 
     def test_params(self):
         self.assertEqual(OpeRewards().params,{})

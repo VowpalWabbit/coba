@@ -80,7 +80,7 @@ class VowpalMediator:
         self._vw.learn(example)
         self._vw.finish_example(example)
 
-    def make_example(self, namespaces: Namespaces, label:Optional[str]) -> Any:
+    def make_example(self, namespaces: Namespaces, label:Optional[str] = None) -> Any:
         """Create a VW example.
 
         Args:
@@ -105,7 +105,7 @@ class VowpalMediator:
     def transform_example(self, vw_shared, vw_uniques, labels):
         pass
 
-    def make_examples(self, shared: Namespaces, uniques: Sequence[Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
+    def make_examples(self, shared: Namespaces, uniques: Sequence[Namespaces], labels:Optional[Sequence[str]] = None) -> Sequence[Any]:
         """Create a list of VW examples.
 
         Args:

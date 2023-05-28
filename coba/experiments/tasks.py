@@ -356,26 +356,32 @@ class OffPolicyEvaluation(EvaluationTask):
 
 class ExplorationEvaluation(EvaluationTask):
 
-    def __init__(self, 
+    def __init__(self,
         record: Sequence[Literal['context','actions','action','reward','probability','time']] = ['reward'],
-        with_ope: bool = True, 
-        qpct: float = .02,
+        ope: bool = True,
+        qpct: float = .005,
         cmax: float = 1.0,
         cinit: float = None,
         seed: float = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
-            qpct: The unbiased case is q = 0
-            cmax: The unbiased case is c = min_p E[rejected] = c (i.e, c=1/M)
-            cinit: The initial value to use for c (the rejection sampling multiplier). By default a conservative estimate is used.
+            qpct: The unbiased case is q = 0. Smaller values give better estimates but reject more data.
+            cmax: The maximum value that the evaluator is allowed to use for `c` (the rejection sampling multiplier).
+                To get an unbiased estimate we need a `c` value such that c*on_prob/log_prob <= 1 for all 
+                on_prob/log_prob. The value `cmax` determines the maximum value `c` can be in order to guarantee `c`
+                will be an unbiased estimate. In practice, it is often better to not modify this value and instead
+                change `qpct` to control the biasedness of the estimate.
+            cinit: The initial value to use for `c` (the rejection sampling multiplier). If left as None then a very
+                conservative, data-adaptive estimate is used to initialize `c`. Without prior knowledge of the data
+                leaving this as `None` is likely the best course of action.
             seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """
 
         #An implementation of https://arxiv.org/ftp/arxiv/papers/1210/1210.4862.pdf
 
         self._record = [record] if isinstance(record,str) else record
-        self._ope    = with_ope
+        self._ope    = ope
         self._qpct   = qpct
         self._cmax   = cmax
         self._cinit  = cinit

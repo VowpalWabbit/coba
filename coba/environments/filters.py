@@ -371,7 +371,7 @@ class Impute(EnvironmentFilter):
                 imputation = self._get_imputation(col)
                 if imputation is not None:
                     imputations[i] = imputation
-                    if self._miss and any([c is None for c in col]): 
+                    if self._miss and any([c is None for c in col]):
                         impute_binary[i] = len(impute_binary)
 
         elif is_sparse:
@@ -409,7 +409,7 @@ class Impute(EnvironmentFilter):
 
                 is_missing = binary_template.copy()
                 for k,v in context.items():
-                    if v is None: 
+                    if v is None:
                         context[k] = imputations[k]
                         if k in impute_binary:
                             is_missing[impute_binary[k]] = 1
@@ -417,7 +417,7 @@ class Impute(EnvironmentFilter):
 
             elif is_value:
                 if impute_binary:
-                    if context is None: 
+                    if context is None:
                         interaction["context"] = [imputations,1]
                     else:
                         interaction["context"] = [context,0]
@@ -487,7 +487,7 @@ class Sparse(EnvironmentFilter):
     def _make_sparse(self, value, has_headers:bool, default_header:str) -> Optional[dict]:
         if value is None:
             return value
-        if isinstance(value,primitives.Dense): 
+        if isinstance(value,primitives.Dense):
             value_list = list(value)
             return {k:value_list[i] for k,i in value.headers.items() if i < len(value_list) and value_list[i] != 0} if has_headers else {k:v for k,v in enumerate(value) if v != 0 }
         if isinstance(value,primitives.Sparse):
@@ -802,9 +802,9 @@ class Grounded(EnvironmentFilter):
         def eval(self, arg):
             if not self._rng: self._rng = CobaRandom(self._seed)
             if arg == self._argmax:
-                return self._rng.choice(self._goods) 
+                return self._rng.choice(self._goods)
             else:
-                return self._rng.choice(self._bads) 
+                return self._rng.choice(self._bads)
 
     def __init__(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int) -> None:
         self._n_users  = self._cast_int(n_users , "n_users" )
@@ -839,7 +839,7 @@ class Grounded(EnvironmentFilter):
         rng = CobaRandom(self._seed)
 
         #we make it a set for faster contains checks
-        normalids       = set(self.normalids) 
+        normalids       = set(self.normalids)
         normal          = [u in normalids for u in self.userids]
         userid_isnormal = list(zip(self.userids,normal))
 
@@ -1057,7 +1057,7 @@ class Finalize(EnvironmentFilter):
 
             if not context_materialized and is_dense_context:
                 new['context'] = list(new['context'])
-            elif not context_materialized and is_sparse_context :
+            elif not context_materialized and is_sparse_context:
                 new['context'] = new['context'].copy()
 
             if not actions_materialized and is_dense_actions:
@@ -1180,7 +1180,11 @@ class OpeRewards(EnvironmentFilter):
 
             rng = CobaRandom(1)
             vw = VowpalMediator()
-            vw.init_learner("--cb_adf --interactions xa --interactions xxa --quiet ", label_type=4)
+
+            # When using cb_adf to estimate rewards for actions instead of the
+            # regression we would receive rewards far outside of the expected boundaries.
+            #vw.init_learner("--cb_adf --interactions xa --interactions xxa --quiet ", label_type=4)
+            vw.init_learner("--interactions xa --interactions xxa --quiet ", label_type=1)
 
             #so that we don't run forever
             #when interactions is re-iterable
@@ -1190,13 +1194,28 @@ class OpeRewards(EnvironmentFilter):
 
                 #Batch Shuffling reduces the correlation between
                 #the reward functions learned by this VW learner
-                #and potential downstream VW learners. When this
-                #correlation is strong we can over estimate the
-                #downstream VW learner's performance.
+                #and potential downstream VW learners. If this
+                #correlation is strong, we will over estimate
+                #the downstream VW learner's performance.
                 L = list(islice(interactions,4000))
                 R = [ [] for _ in range(len(L)) ]
+                X = []
 
                 if not L: break
+
+                for log, rewards in rng.shuffle(list(zip(L,R)), inplace=True):
+                    log_context = log['context']
+                    log_action  = log['action']
+                    log_reward  = log['reward']
+                    log_prob    = log['probability']
+
+                    #type-4
+                    #labels            = [None]*len(log_actions)
+                    #labels[log_index] = f"{log_index+1}:{log_reward}:{log_prob}"
+                    #vw.learn(vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions], labels))
+
+                    #type-1
+                    vw.learn(vw.make_example({"x":log_context, "a": log_action}, f"{log_reward} {1/log_prob}"))
 
                 for log, rewards in rng.shuffle(list(zip(L,R)), inplace=True):
                     log_context = log['context']
@@ -1206,13 +1225,13 @@ class OpeRewards(EnvironmentFilter):
                     log_prob    = log['probability']
                     log_index   = log_actions.index(log_action)
 
-                    labels            = [None]*len(log_actions)
-                    labels[log_index] = f"{log_index+1}:{log_reward}:{log_prob}"
+                    #type-4
+                    #examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions])
+                    #rewards.extend(vw.predict(examples))
 
-                    examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions], labels)
-
-                    vw.learn(examples)
-                    rewards.extend(examples[0].get_prediction())
+                    #type-1
+                    examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions])
+                    rewards.extend(vw.predict(e) for e in examples)
 
                     if self._rwds_type=="DR":
                         rewards[log_index] += (log_reward-rewards[log_index])/log_prob
