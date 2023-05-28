@@ -366,6 +366,7 @@ class ExplorationEvaluation(EvaluationTask):
         """
         Args:
             record: The datapoints to record for each interaction.
+            ope: Indicates whether off-policy estimates should be included from rejected training examples.
             qpct: The unbiased case is q = 0. Smaller values give better estimates but reject more data.
             cmax: The maximum value that the evaluator is allowed to use for `c` (the rejection sampling multiplier).
                 To get an unbiased estimate we need a `c` value such that c*on_prob/log_prob <= 1 for all 
