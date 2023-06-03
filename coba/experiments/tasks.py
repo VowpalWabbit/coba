@@ -414,6 +414,14 @@ class ExplorationEvaluation(EvaluationTask):
         except Exception as ex:
             if '`request`' in str(ex):
                 raise CobaException("ExplorationEvaluation requires Learners to implement a `request` method")
+            
+        if self._ope and 'rewards' not in first:
+            raise CobaException((
+                "ExplorationEvaluation was called with ope=True but the given interactions "
+                "do not have an ope rewards. To assign ope rewards to environments call "
+                "Environments.ope_rewards() with desired parameters before running the "
+                "experiment."
+            ))
 
         record_time     = 'time'        in self._record
         record_reward   = 'reward'      in self._record
@@ -475,7 +483,7 @@ class ExplorationEvaluation(EvaluationTask):
             #This might be too conservative though because it doesn't consider
             #the value of on_prob. For example if on_prob:=log_prob then the
             #above condition will be met if c = 1 which will be >= min(log_prob).
-            if rng.random() <= c*on_prob/log_prob:
+            if rng.random() <= c*(on_prob/log_prob):
 
                 out = {}
                 if ope_rewards:

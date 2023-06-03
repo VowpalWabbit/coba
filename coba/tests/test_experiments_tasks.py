@@ -951,11 +951,33 @@ class ExploreEvaluation_Tests(unittest.TestCase):
 
         self.assertIn("ExplorationEvaluation requires Learners to implement a `request` method",str(r.exception))
 
-    def test_learner_no_ope(self):
+    def test_ope(self):
+
+        request_returns = [
+            [.25,.25,.5],
+            [.05,.25,.7],
+            [.25,.25,.5],
+            [.05,.25,.7],
+        ]
+
+        class FixedRequestLearner:
+            def request(self,*args):
+                return request_returns.pop(0)
+            def learn(self,*args):
+                pass
+
+        task    = ExplorationEvaluation(qpct=1,record=['reward'],cinit=1,seed=2)
+        learner = FixedRequestLearner()
+
+        interactions = [ LoggedInteraction(1, 2, 5, actions=[2,5,8], probability=.25) ] * 3
+        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
+
+        self.assertEqual(task_results,[{"reward":3}])
+
+    def test_ope_false(self):
 
         request_calls = []
         learn_calls   = []
-        calls         = 0
 
         class FixedRequestLearner:
             def request(self,*args):
@@ -965,7 +987,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
                 learn_calls.append(args)
                 pass
 
-        task    = ExplorationEvaluation(qpct=1,cinit=1)
+        task    = ExplorationEvaluation(ope=False,qpct=1,cinit=1)
         learner = FixedRequestLearner()
 
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ] * 6
@@ -979,6 +1001,21 @@ class ExploreEvaluation_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
+    def test_ope_no_rewards(self):
+
+        class TestLearner:
+            def request(self,*args):
+                pass
+            def learn(self,*args):
+                pass
+
+        interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ] * 6
+        
+        with self.assertRaises(CobaException) as e:
+            list(ExplorationEvaluation().process(TestLearner(), interactions))
+
+        self.assertIn('interactions do not have an ope rewards', str(e.exception))
+
     def test_record_time(self):
 
         class FixedRequestLearner:
@@ -987,7 +1024,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
             def learn(self,*args):
                 pass
 
-        task    = ExplorationEvaluation(cinit=1,qpct=1,record=['reward','time'])
+        task    = ExplorationEvaluation(ope=False,cinit=1,qpct=1,record=['reward','time'])
         learner = FixedRequestLearner()
 
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ]
@@ -995,30 +1032,6 @@ class ExploreEvaluation_Tests(unittest.TestCase):
 
         self.assertIn('predict_time', task_results[0])
         self.assertIn('learn_time', task_results[0])
-
-    def test_with_ope(self):
-
-        class FixedRequestLearner:
-            t = 0
-            def request(self,*args):
-                FixedRequestLearner.t +=1
-                if FixedRequestLearner.t == 1:
-                    return [.25,.25,.5]
-                if FixedRequestLearner.t == 2:
-                    return [.05,.25,.7]
-                if FixedRequestLearner.t == 3:
-                    return [.25,.25,.5]
-                return [.05,.25,.7]
-            def learn(self,*args):
-                pass
-
-        task    = ExplorationEvaluation(qpct=1,record=['reward'],cinit=1,seed=2)
-        learner = FixedRequestLearner()
-
-        interactions = [ LoggedInteraction(1, 2, 5, actions=[2,5,8], probability=.25) ] * 3
-        task_results = list(task.process(learner, OpeRewards("IPS").filter(interactions)))
-
-        self.assertEqual(task_results,[{"reward":3}])
 
 class LambdaEvaluation_Tests(unittest.TestCase):
 

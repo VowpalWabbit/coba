@@ -11,7 +11,7 @@ import coba.random
 from coba.statistics import mean,var
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
-from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr
+from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pipes
@@ -41,13 +41,11 @@ class Performance_Tests(unittest.TestCase):
     def test_numeric_encode_performance(self):
         encoder = NumericEncoder()
         items   = ["1"]*5
-
         self._assert_scale_time(items, encoder.encodes, .0017, print_time, number=1000)
 
     def test_onehot_fit_performance(self):
         encoder = OneHotEncoder()
         items   = list(range(10))
-
         self._assert_scale_time(items, encoder.fit, .01, print_time, number=1000)
 
     def test_onehot_encode_performance(self):
@@ -128,7 +126,7 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = [ str(i) for i in range(100) ]
 
-        self._assert_scale_time(x, lambda x:vw.make_example({'x':x}, None), .04, print_time, number=1000)
+        self._assert_call_time(lambda:vw.make_example({'x':x}, None), .04, print_time, number=1000)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
@@ -146,7 +144,16 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = list(range(100))
 
-        self._assert_scale_time(x, lambda x:vw.make_example({'x':x}, None), .03, print_time, number=1000)
+        self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    def test_vowpal_mediator_make_example_sequence_mixed_performance(self):
+
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --quiet",4)
+        x = [ float(i) if i % 2 == 0 else str(i) for i in range(100) ]
+
+        self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
@@ -220,6 +227,11 @@ class Performance_Tests(unittest.TestCase):
     def test_linear_synthetic(self):
         self._assert_call_time(lambda:list(LinearSyntheticSimulation(10).read()), .07, print_time, number=1)
 
+    def test_ope_rewards(self):
+        I = [{'context':[1,2,3], 'actions':['a','b','c','d'], 'action':'a', 'probability':.5, 'reward':2}]*50
+        ope = OpeRewards('DM')
+        self._assert_call_time(lambda: list(ope.filter(I)), .16, print_time, number=10)
+
     def test_scale_dense_target_features(self):
         items = [SimulatedInteraction((3193.0, 151.0, '0', '0', '0'),[1,2,3],[4,5,6])]*10
         scale = Scale("min","minmax",target="context")
@@ -285,7 +297,7 @@ class Performance_Tests(unittest.TestCase):
                 table.insert({"environment_id":[environment_id]*N,"learner_id":[learner_id]*N,"index":list(range(1,N+1)),"reward":reward})
 
         table.index("index")
-        
+
         self._assert_call_time(lambda:table.where(index=10,comparison='<='), .15, print_time, number=10)
 
     def test_table_filter_number(self):
