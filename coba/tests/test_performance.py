@@ -227,6 +227,7 @@ class Performance_Tests(unittest.TestCase):
     def test_linear_synthetic(self):
         self._assert_call_time(lambda:list(LinearSyntheticSimulation(10).read()), .07, print_time, number=1)
 
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_ope_rewards(self):
         I = [{'context':[1,2,3], 'actions':['a','b','c','d'], 'action':'a', 'probability':.5, 'reward':2}]*50
         ope = OpeRewards('DM')
