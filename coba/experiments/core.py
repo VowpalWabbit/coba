@@ -2,17 +2,17 @@ from pathlib import Path
 from itertools import product
 from typing import Sequence, Optional, Union, overload, Tuple
 
-from coba.pipes import Pipes
+from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
 from coba.learners import Learner
 from coba.environments import Environment
 from coba.multiprocessing import CobaMultiprocessor
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
 from coba.exceptions import CobaException
 
-from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByChunk, MaxChunkSize, ProcessWorkItems
+from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByChunk, MaxChunk, ProcessWorkItems
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
 from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, SimpleEvaluation, LambdaEvaluation
-from coba.experiments.results import Result, TransactionIO
+from coba.experiments.results import Result, TransactionDecode, TransactionEncode, TransactionResult
 
 class Experiment:
     """An Experiment using a collection of environments and learners."""
@@ -159,16 +159,22 @@ class Experiment:
             assert n_given_learners     == restored.experiment.get('n_learners',n_given_learners)        , "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment.get('n_environments',n_given_environments), "The current experiment doesn't match the given transaction log."
 
+        meta = {'n_learners':n_given_learners,'n_environments':n_given_environments,'description':self._description,'seed':seed}
+
         workitems  = CreateWorkItems(self._pairs, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
         chunk      = ChunkByChunk(mp)
-        max_chunk  = MaxChunkSize(mt)
-        sink       = TransactionIO(result_file)
+        max_chunk  = MaxChunk(mt)
         process    = CobaMultiprocessor(ProcessWorkItems(), mp, mc, False)
+        encode     = TransactionEncode()
+        sink       = DiskSink(result_file) if result_file else ListSink(foreach=True)
+        source     = DiskSource(result_file) if result_file else ListSource(sink.items)
+        decode     = TransactionDecode()
+        result     = TransactionResult()
+        preamble   = Identity() if restored else Insert([["T0",meta]])
 
         try:
-            if not restored: sink.write([["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description, 'seed':seed }]])
-            Pipes.join(workitems, unfinished, chunk, max_chunk, process, sink).run()
+            Pipes.join(workitems, unfinished, chunk, max_chunk, process, preamble, encode, sink).run()
 
         except KeyboardInterrupt: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
@@ -179,7 +185,7 @@ class Experiment:
         CobaContext.logger = old_logger
         del CobaContext.store['experiment_seed']
 
-        return sink.read()
+        return Pipes.join(source,decode,result).read()
 
     def evaluate(self, result_file:str = None) -> Result:
         """Evaluate the experiment and return the results (this is a backwards compatible proxy for the run method).

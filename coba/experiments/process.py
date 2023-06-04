@@ -134,7 +134,7 @@ class ChunkByChunk(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
                     return pipe
         return 'not_chunked'
 
-class MaxChunkSize(Filter[Iterable[Sequence[WorkItem]], Iterable[Sequence[WorkItem]]]):
+class MaxChunk(Filter[Iterable[Sequence[WorkItem]], Iterable[Sequence[WorkItem]]]):
     def __init__(self, max_tasks) -> None:
         self._max_tasks = max_tasks
 

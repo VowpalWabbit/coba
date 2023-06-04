@@ -10,14 +10,14 @@ from coba.pipes.primitives import Filter, Source, Sink, Foreach, SourceFilters, 
 from coba.pipes.multiprocessing import Multiprocessor
 
 from coba.pipes.filters import Take, Shuffle, Structure, Identity, Flatten, Default, Reservoir
-from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache, Slice
+from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache, Slice, Insert
 
 from coba.pipes.rows    import LabelRows, EncodeRows, HeadRows, DropRows, EncodeCatRows
 from coba.pipes.rows    import LazyDense, EncodeDense, LabelDense, KeepDense, HeadDense
 from coba.pipes.rows    import LazySparse, EncodeSparse, LabelSparse, DropSparse
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
 from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableSource
-from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource
+from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource, ListSource
 from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
 
 from coba.pipes.core import Pipes
@@ -39,6 +39,7 @@ __all__ = [
     "UrlSource",
     "NullSource",
     "DiskSource",
+    "ListSource",
     "IterableSource",
     "QueueSource",
     "HttpSource",
@@ -52,6 +53,7 @@ __all__ = [
     "Slice",
     "Reservoir",
     "Shuffle",
+    "Insert",
     "NullSink",
     "ConsoleSink",
     "DiskSink",
@@ -74,5 +76,5 @@ __all__ = [
     "HeadRows",
     "DropRows",
     "EncodeCatRows",
-    "StopPipe"
+    "StopPipe",
 ]

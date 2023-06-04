@@ -5,7 +5,7 @@ import collections.abc
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, itemgetter, gt
+from operator import truediv, sub, gt
 from abc import abstractmethod
 from itertools import chain, repeat, accumulate, groupby, count, compress
 from typing import Any, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, NamedTuple
@@ -17,16 +17,17 @@ from coba.statistics import mean, stdev, StandardErrorOfMean, BootstrapConfidenc
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first
-from coba.pipes import Pipes, Sink, Source, JsonEncode, JsonDecode, DiskSource, DiskSink, IterableSource, ListSink, Foreach
+from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource
 
-def exponential_moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
-    #exponential moving average identical to Pandas df.ewm(span=span).mean()
-    alpha = 2/(1+span)
-    cumwindow  = list(accumulate(values          , lambda a,v: v + (1-alpha)*a))
-    cumdivisor = list(accumulate([1.]*len(values), lambda a,v: v + (1-alpha)*a))
-    return map(truediv, cumwindow, cumdivisor)
+def moving_avg(values:Sequence[float], span:int=None, exponential:bool=False) -> Iterable[float]:
 
-def moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
+    if exponential:
+        #exponential moving average identical to Pandas' df.ewm(span=span).mean()
+        alpha = 2/(1+span)
+        cumwindow  = list(accumulate(values          , lambda a,v: v + (1-alpha)*a))
+        cumdivisor = list(accumulate([1.]*len(values), lambda a,v: v + (1-alpha)*a))
+        return map(truediv, cumwindow, cumdivisor)
+
     if span == 1:
         return values
 
@@ -37,34 +38,6 @@ def moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
     window_sizes = chain(range(1,span), repeat(span))
 
     return map(truediv,window_sums,window_sizes)
-
-def old_to_new(
-    env_rows: Mapping[int           ,Mapping[str,Any]] = {},
-    lrn_rows: Mapping[int           ,Mapping[str,Any]] = {},
-    int_rows: Mapping[Tuple[int,int],Mapping[str,Any]] = {}) -> Tuple[Sequence,Sequence,Sequence]:
-
-    rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
-
-    env_table = Table(columns=['environment_id'                     ]          )
-    lrn_table = Table(columns=[                 'learner_id'        ]          )
-    int_table = Table(columns=['environment_id','learner_id','index'] + rwd_col)
-
-    env_table.insert([{"environment_id":e,                **v} for e,v in env_rows.items()])
-    lrn_table.insert([{                   "learner_id":l, **v} for l,v in lrn_rows.items()])
-
-    for (env_id, lrn_id), results in int_rows.items():
-        if results.get('_packed'):
-
-            packed = results['_packed']
-            N = len(packed[next(iter(packed))])
-
-            packed['environment_id'] = repeat(env_id,N)
-            packed['learner_id'    ] = repeat(lrn_id,N)
-            packed['index'         ] = range(1,N+1)
-
-            int_table.insert(packed)
-
-    return env_table, lrn_table, int_table
 
 class View:
 
@@ -132,10 +105,10 @@ class Table:
         return self._indexes
 
     def insert(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]]=()) -> 'Table':
-        data_is_empty              = not data
-        data_is_where_clause_view  = data and isinstance(data,View)
-        data_is_sequence_of_dicts  = data and isinstance(data,collections.abc.Sequence) and isinstance(data[0],collections.abc.Mapping)
-        data_is_mapping_of_columns = data and isinstance(data,collections.abc.Mapping)
+        data_is_empty             = not data
+        data_is_where_clause_view = data and isinstance(data,View)
+        data_is_mapping_of_cols   = data and isinstance(data,collections.abc.Mapping)
+        data_is_sequence_of_dicts = data and isinstance(data,collections.abc.Sequence) and isinstance(data[0],collections.abc.Mapping)
 
         if data_is_empty:
             return self
@@ -146,9 +119,9 @@ class Table:
 
         if data_is_sequence_of_dicts:
             data = {k:[d.get(k) for d in data] for k in set().union(*(d.keys() for d in data))}
-            data_is_mapping_of_columns = True
+            data_is_mapping_of_cols = True
 
-        if data_is_mapping_of_columns:
+        if data_is_mapping_of_cols:
             old,new = set(self._columns), set(data.keys())
             old_len = len(self)
             new_len = 0
@@ -359,103 +332,62 @@ class Table:
                 _re = re.compile(arg)
                 return [ i for i,c in enumerate(col,lo) if _re.search(c) ]
 
-class TransactionIO_V3(Source['Result'], Sink[Any]):
+class TransactionDecode:
+    def filter(self, transactions:Iterable[str]) -> Iterable[Any]:
 
-    def __init__(self, log_file: Optional[str] = None, minify:bool = True) -> None:
+        transactions = iter(transactions)
+        ver_row = JsonDecode().filter(next(transactions))
 
-        self._log_file = log_file
-        self._minify   = minify
-        self._source   = DiskSource(log_file) if log_file else IterableSource()
-        self._sink     = DiskSink(log_file) if log_file else ListSink(self._source.iterable)
+        if ver_row[1] == 4:
+            yield ver_row
+            yield from map(JsonDecode().filter,transactions)
 
-    def write(self, item: Any) -> None:
-        if isinstance(self._sink, ListSink):
-            self._sink.write(self._encode(item))
-        else:
-            if not Path(self._sink._filename).exists():self._sink.write('["version",3]')
-            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
+class TransactionEncode:
+    def filter(self, transactions: Iterable[Any]) -> Iterable[str]:
 
-    def read(self) -> 'Result':
-        n_lrns   = None
-        n_envs   = None
+        yield JsonEncode().filter(["version",4])
+
+        encoder = JsonEncode()
+
+        for item in transactions:
+            if item[0] == "T0":
+                yield encoder.filter(['experiment', item[1]])
+
+            elif item[0] == "T1":
+                yield encoder.filter(["L", item[1], item[2]])
+
+            elif item[0] == "T2":
+                yield encoder.filter(["E", item[1], item[2]])
+
+            elif item[0] == "T3":
+                rows_T = collections.defaultdict(list)
+
+                keys = sorted(set().union(*[r.keys() for r in item[2]]))
+
+                for row in item[2]:
+                    for key in keys:
+                        rows_T[key].append(row.get(key,None))
+
+                yield encoder.filter(["I", item[1], { "_packed": rows_T }])
+
+class TransactionResult:
+
+    def filter(self, transactions:Iterable[Any]) -> 'Result':
         lrn_rows = {}
         env_rows = {}
         int_rows = {}
-
-        if isinstance(self._source, IterableSource):
-            decoded_source = self._source
-        else:
-            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
-
-        for trx in decoded_source.read():
-
-            if not trx: continue
-
-            if trx[0] == "benchmark":
-                n_lrns = trx[1]["n_learners"]
-                n_envs = trx[1]["n_simulations"]
-
-            if trx[0] == "S":
-                env_rows[trx[1]] = trx[2]
-
-            if trx[0] == "L":
-                lrn_rows[trx[1]] = trx[2]
-
-            if trx[0] == "I":
-                int_rows[tuple(trx[1])] = trx[2]
-
-        return Result(*old_to_new(env_rows, lrn_rows, int_rows), {"n_learners":n_lrns,"n_environments":n_envs})
-
-    def _encode(self,item):
-        if item[0] == "T0":
-            return ['benchmark', {"n_learners":item[1], "n_simulations":item[2]}]
-
-        if item[0] == "T1":
-            return ["L", item[1], item[2]]
-
-        if item[0] == "T2":
-            return ["S", item[1], item[2]]
-
-        if item[0] == "T3":
-            rows_T = collections.defaultdict(list)
-
-            for row in item[2]:
-                for col,val in row.items():
-                    rows_T[col].append(val)
-
-            return ["I", item[1], { "_packed": rows_T }]
-
-        return None
-
-class TransactionIO_V4(Source['Result'], Sink[Any]):
-
-    def __init__(self, log_file: Optional[str] = None, minify:bool=True) -> None:
-
-        self._log_file = log_file
-        self._minify   = minify
-        self._source   = DiskSource(log_file) if log_file else IterableSource()
-        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.iterable)
-
-    def write(self, item: Any) -> None:
-        if isinstance(self._sink, ListSink):
-            self._sink.write(self._encode(item))
-        else:
-            if not Path(self._sink._filename).exists():self._sink.write('["version",4]')
-            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
-
-    def read(self) -> 'Result':
-
         exp_dict = {}
-        lrn_rows = {}
-        env_rows = {}
-        int_rows = {}
 
-        if isinstance(self._source, IterableSource):
-            decoded_source = self._source
-        else:
-            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
+        transactions = iter(transactions)
+        version      = next(transactions)[1]
 
-        for trx in decoded_source.read():
+        if version == 3:
+            raise CobaException("Deprecated transaction format. Please revert to an older version of Coba to read it.")
+
+        if version != 4:
+            raise CobaException(f"Unrecognized transaction format: version equals {version}.")
+
+        for trx in transactions:
 
             if not trx: continue
 
@@ -471,58 +403,28 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
             if trx[0] == "I":
                 int_rows[tuple(trx[1])] = trx[2]
 
-        return Result(*old_to_new(env_rows, lrn_rows, int_rows), exp_dict)
+        rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
 
-    def _encode(self,item):
-        if item[0] == "T0":
-            return ['experiment', {"n_learners":item[1], "n_environments":item[2], "description":None} if len(item)==3 else item[1] ]
+        env_table = Table(columns=['environment_id'                     ]          )
+        lrn_table = Table(columns=[                 'learner_id'        ]          )
+        int_table = Table(columns=['environment_id','learner_id','index'] + rwd_col)
 
-        if item[0] == "T1":
-            return ["L", item[1], item[2]]
+        env_table.insert([{"environment_id":e,                **v} for e,v in env_rows.items()])
+        lrn_table.insert([{                   "learner_id":l, **v} for l,v in lrn_rows.items()])
 
-        if item[0] == "T2":
-            return ["E", item[1], item[2]]
+        for (env_id, lrn_id), results in int_rows.items():
+            if results.get('_packed'):
 
-        if item[0] == "T3":
-            rows_T = collections.defaultdict(list)
+                packed = results['_packed']
+                N = len(packed[next(iter(packed))])
 
-            keys = set().union(*[r.keys() for r in item[2]])
+                packed['environment_id'] = repeat(env_id,N)
+                packed['learner_id'    ] = repeat(lrn_id,N)
+                packed['index'         ] = range(1,N+1)
 
-            for row in item[2]:
-                for key in keys:
-                    rows_T[key].append(row.get(key,None))
+                int_table.insert(packed)
 
-            return ["I", item[1], { "_packed": rows_T }]
-
-        return None
-
-class TransactionIO(Source['Result'], Sink[Any]):
-
-    def __init__(self, transaction_log: Optional[str] = None) -> None:
-
-        if not transaction_log or not Path(transaction_log).exists():
-            version = None
-        else:
-            version = JsonDecode().filter(next(DiskSource(transaction_log).read()))[1]
-
-        if version == 3:
-            self._transactionIO = TransactionIO_V3(transaction_log)
-
-        elif version == 4:
-            self._transactionIO = TransactionIO_V4(transaction_log)
-
-        elif version is None:
-            self._transactionIO = TransactionIO_V4(transaction_log)
-
-        else:
-            raise CobaException("We were unable to determine the appropriate Transaction reader for the file.")
-
-    def write(self, transactions: Iterable[Any]) -> None:
-        for transaction in transactions:
-            self._transactionIO.write(transaction)
-
-    def read(self) -> 'Result':
-        return self._transactionIO.read()
+        return Result(env_table, lrn_table, int_table, exp_dict)
 
 class Points(NamedTuple):
     X    : Sequence[Any]
@@ -700,16 +602,16 @@ class FilterPlottingData:
 class SmoothPlottingData:
 
     def filter(self, interactions:Table, y:str, span:Optional[int]) -> Sequence[Mapping[str,Any]]:
-        try:
-            out = []
-            for (env_id,lrn_id), table in interactions.groupby(2):
-                out.append({"environment_id":env_id, "learner_id":lrn_id, y:moving_average(table[y],span)})
-            return out
-        except:#pragma: no cover
-            out = []
-            for g, Y in groupby(interactions[["environment_id","learner_id", y]], itemgetter(slice(2))):
-                out.append({"environment_id":g[0], "learner_id":g[1], y:moving_average(list(Y),span)})
-            return out
+        # try:
+        out = []
+        for (env_id,lrn_id), table in interactions.groupby(2):
+            out.append({"environment_id":env_id, "learner_id":lrn_id, y:moving_avg(table[y],span)})
+        return out
+        # except:#pragma: no cover
+        #     out = []
+        #     for g, Y in groupby(interactions[["environment_id","learner_id", y]], itemgetter(slice(2))):
+        #         out.append({"environment_id":g[0], "learner_id":g[1], y:moving_average(list(Y),span)})
+        #     return out
 
 class ContrastPlottingData:
 
@@ -785,25 +687,27 @@ class Result:
     """A class representing the result of an Experiment."""
 
     @staticmethod
-    def from_file(filename: str) -> 'Result':
+    def from_save(filename: str) -> 'Result':
         """Create a Result from a transaction file."""
-
         if not Path(filename).exists():
             raise CobaException("We were unable to find the given Result file.")
 
-        return TransactionIO(filename).read()
+        return Pipes.join(DiskSource(filename),TransactionDecode(),TransactionResult()).read()
 
     @staticmethod
-    def from_logged_envs(environments: Iterable[Environment],include_probability:bool=False):
+    def from_file(filename: str) -> 'Result':
+        """Create a Result from a transaction file."""
+        return Result.from_save(filename)
 
-        env_param_list = []
-        lrn_param_list = []
-        env_param_dict = {}
-        lrn_param_dict = {}
+    @staticmethod
+    def from_logged_envs(environments: Iterable[Environment], include_prob:bool=False):
 
-        env_rows = {}
-        lrn_rows = {}
-        int_rows = {}
+        seen_env = set()
+        seen_lrn = set()
+
+        env_table = Table(columns=['environment_id'                              ])
+        lrn_table = Table(columns=[                 'learner_id'                 ])
+        int_table = Table(columns=['environment_id','learner_id','index','reward'])
 
         def determine_id(param,param_list,param_dict):
             try:
@@ -819,6 +723,12 @@ class Result:
                     param_list.append(param)
                     return len(param_list)-1
 
+        def determine_env_id(env_param,env_param_list=[],env_param_dict={}):
+            return determine_id(env_param,env_param_list,env_param_dict)
+
+        def determine_lrn_id(lrn_param,lrn_param_list=[],lrn_param_dict={}):
+            return determine_id(lrn_param,lrn_param_list,lrn_param_dict)
+
         my_mean = lambda x: sum(x)/len(x)
 
         for env in environments:
@@ -829,33 +739,35 @@ class Result:
             if not interactions: continue
 
             is_batched = isinstance(first['reward'],(Batch,list,tuple))
+
             env_param = dict(env.params)
             lrn_param = env_param.pop('learner')
 
-            env_id = determine_id(env_param,env_param_list,env_param_dict)
-            lrn_id = determine_id(lrn_param,lrn_param_list,lrn_param_dict)
+            env_id = determine_env_id(env_param)
+            lrn_id = determine_lrn_id(lrn_param)
 
-            if env_id not in env_rows: env_rows[env_id] = env_param
-            if lrn_id not in lrn_rows: lrn_rows[lrn_id] = lrn_param
+            if env_id not in seen_env:
+                seen_env.add(env_id)
+                env_table.insert([{'environment_id':env_id, **env_param}])
+
+            if lrn_id not in seen_lrn:
+                seen_lrn.add(lrn_id)
+                lrn_table.insert([{'learner_id':lrn_id, **lrn_param}])
 
             keys = first.keys() - {'context', 'actions', 'rewards'}
-            if not include_probability: keys -= {'probability'}
+            if not include_prob: keys -= {'probability'}
 
-            _packed = {k:[] for k in keys}
-            results = {"_packed": _packed}
+            int_cols = [[] for _ in keys]
+            for interaction in interactions:
+                for k,c in zip(keys,int_cols):
+                    c.append(my_mean(interaction[k]) if is_batched else interaction[k])
 
-            if is_batched:
-                for interaction in interactions:
-                    for k in keys:
-                        _packed[k].append(my_mean(interaction[k]))
-            else:
-                for interaction in interactions:
-                    for k in keys:
-                        _packed[k].append(interaction[k])
+            int_count = len(int_cols[0])
+            int_maps = {'environment_id':[env_id]*int_count, 'learner_id':[lrn_id]*int_count, 'index':list(range(1,int_count+1))}
+            int_maps.update(zip(keys,int_cols))
+            int_table.insert(int_maps)
 
-            int_rows[(env_id,lrn_id)]= results
-
-        return Result(*old_to_new(env_rows,lrn_rows,int_rows))
+        return Result(env_table, lrn_table, int_table, {})
 
     def __init__(self,
         env_rows: Union[Sequence,Table] = Table(),
