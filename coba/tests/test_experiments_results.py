@@ -322,7 +322,9 @@ class Table_Tests(unittest.TestCase):
     def test_multilevel_groupby(self):
         table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
         table.index('a','b','c')
-        self.assertEqual(list(map(len,table.groupby(2))),[1,1,2,2])
+
+        self.assertEqual([len(t) for _,t in table.groupby(2)],[1,1,2,2])
+        self.assertEqual([g for g,_ in table.groupby(2)],[(0,0),(0,1),(1,0),(1,1)])
 
 @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
 class Table_Pandas_Tests(unittest.TestCase):
@@ -1412,7 +1414,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting."
+        expected_log = "This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this call <result>.filter_fin() before plotting."
         expected_lines = [
             ((1,2),(2,5/2),(None,None),(None,None),0,1,'learner_1','-', 1),
             ((1,2),(2,5/2),(None,None),(None,None),1,1,'learner_2','-', 1)
@@ -1442,7 +1444,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting."
+        expected_log = "This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting."
         expected_lines = [
             ((1,2),(3/2,4/2),(None,None),(None,None),0,1,'learner_1','-', 1),
             ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'learner_2','-', 1)
@@ -1716,10 +1718,10 @@ class Result_Tests(unittest.TestCase):
         result = Result()
 
         result.set_plotter(plotter)
-        
+
         CobaContext.logger.sink = ListSink()
         result.plot_learners()
-        self.assertIn("This result doesn't",CobaContext.logger.sink.items[0])
+        self.assertEqual(["This result does not contain any data to plot."],CobaContext.logger.sink.items)
 
     def test_plot_contrast_bad_x_index(self):
         CobaContext.logger.sink = ListSink()
@@ -1729,7 +1731,7 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_no_matches(self):
         CobaContext.logger.sink = ListSink()
         Result().plot_contrast(0, 1, x=['a'])
-        self.assertIn("This result doesn't",CobaContext.logger.sink.items[0])
+        self.assertEqual(["This result does not contain any data to plot."],CobaContext.logger.sink.items)
 
     def test_plot_contrast_index(self):
         envs = [['environment_id'],]
@@ -1746,7 +1748,6 @@ class Result_Tests(unittest.TestCase):
         self.assertIn("plot_contrast does not currently", CobaContext.logger.sink.items[0])
 
     def test_plot_contrast_four_environment_all_default(self):
-
         envs = [['environment_id'],[0],[1],[2],[3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
@@ -1778,7 +1779,6 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
     
     def test_plot_contrast_four_environment_reverse(self):
-
         envs = [['environment_id'],[0],[1],[2],[3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
@@ -1810,7 +1810,6 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
 
     def test_plot_contrast_one_environment_env_not_index(self):
-
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
@@ -1840,7 +1839,6 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
 
     def test_plot_scat_contrast_one_environment_env_index(self):
-
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
@@ -1921,7 +1919,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         actual_rows = FilterPlottingData().filter(result, ['index'], "reward")
 
         self.assertEqual(expected_rows,list(actual_rows))
-        self.assertEqual(["This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting."], CobaContext.logger.sink.items)
+        self.assertEqual(["This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting."], CobaContext.logger.sink.items)
 
     def test_not_all_env_finished_with_unequal_lengths_and_x_index(self):
 
@@ -1937,8 +1935,8 @@ class FilterPlottingData_Tests(unittest.TestCase):
         actual_rows = FilterPlottingData().filter(result, ['index'], "reward")
 
         self.assertEqual(expected_rows,list(actual_rows))
-        self.assertIn("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.", CobaContext.logger.sink.items)
-        self.assertIn("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.", CobaContext.logger.sink.items)
+        self.assertIn("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this call <result>.filter_fin() before plotting.", CobaContext.logger.sink.items)
+        self.assertIn("This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting.", CobaContext.logger.sink.items)
 
     def test_no_env_finished_for_all_learners(self):
 
@@ -1953,7 +1951,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             FilterPlottingData().filter(result, ['index'], "reward")
 
-        self.assertEqual(str(e.exception),"This result does not contain an environment that has been finished for every learner. Plotting has been stopped.")
+        self.assertEqual(str(e.exception),"This result does not contain an environment that has been finished for every learner.")
 
     def test_no_data(self):
 
@@ -1963,7 +1961,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             FilterPlottingData().filter(Result(), ['index'], "reward")
 
-        self.assertEqual(str(e.exception),"This result doesn't contain any evaluation data to plot.")
+        self.assertEqual(str(e.exception),"This result does not contain any data to plot.")
 
     def test_all_env_finished_with_unequal_lengths_and_not_x_index(self):
 

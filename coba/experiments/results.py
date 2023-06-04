@@ -66,16 +66,6 @@ def old_to_new(
 
     return env_table, lrn_table, int_table
 
-def env_len_and_cnt(interactions: 'Table') -> Tuple[Mapping[int,int],Mapping[int,int]]:
-    env_len = {}
-    env_cnt = {}
-    for table in interactions.groupby(2):
-        env_id = table['environment_id'][0]
-        env_len[env_id] = len(table)
-        env_cnt[env_id] = env_cnt.get(env_id,0)+1
-
-    return env_len, env_cnt
-
 class View:
 
     class ListView:
@@ -243,9 +233,11 @@ class Table:
             selection=sorted(set(selection))
             return Table(View(self._data,selection), self._columns, self._indexes)
 
-    def groupby(self, level:int) -> Iterable['Table']:
+    def groupby(self, level:int) -> Iterable[Tuple[Tuple,'Table']]:
         for l,h in self._lohis[self._indexes[level]]:
-            yield Table(View(self._data, slice(l,h)), self._columns, self._indexes)
+            group = tuple(self._data[hdr][l] for hdr in self._indexes[:level])
+            table = Table(View(self._data, slice(l,h)), self._columns, self._indexes)
+            yield group, table
 
     def copy(self) -> 'Table':
         return Table(dict(self._data), tuple(self._columns), tuple(self._indexes))
@@ -687,32 +679,31 @@ class MatplotlibPlotter(Plotter):
 
 class FilterPlottingData:
 
-    def filter(self, unfinished:'Result', x:Sequence[str], y:str) -> Table:
+    def filter(self, unfinished:'Result', x:Sequence[str], y:str) -> 'Result':
 
-        if len(unfinished.interactions) == 0: raise CobaException("This result doesn't contain any evaluation data to plot.")
-        if y not in unfinished.interactions.columns: raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
+        if len(unfinished.interactions) == 0: raise CobaException("This result does not contain any data to plot.")
+        if y not in unfinished.interactions.columns: raise CobaException(f"This result does not contain a '{y}' column.")
 
         finished = unfinished.filter_fin('min' if x == ['index'] else None)
 
         if len(finished.learners) == 0:
-            raise CobaException("This result does not contain an environment that has been finished for every learner. Plotting has been stopped.")
+            raise CobaException("This result does not contain an environment that has been finished for every learner.")
 
         if len(finished.environments) != len(unfinished.environments):
-            CobaContext.logger.log("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.")
+            CobaContext.logger.log("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this call <result>.filter_fin() before plotting.")
 
-        if len(set(map(len,unfinished.interactions.groupby(2)))) > 1 and x == ['index']:
-            CobaContext.logger.log("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.")
+        if len(set(len(t) for _,t in unfinished.interactions.groupby(2))) > 1 and x == ['index']:
+            CobaContext.logger.log("This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting.")
 
         return finished.interactions
 
 class SmoothPlottingData:
 
     def filter(self, interactions:Table, y:str, span:Optional[int]) -> Sequence[Mapping[str,Any]]:
-
         try:
             out = []
-            for table in interactions.groupby(2):
-                out.append({"environment_id":table['environment_id'][0], "learner_id":table['learner_id'][0], y:moving_average(table[y],span)})
+            for (env_id,lrn_id), table in interactions.groupby(2):
+                out.append({"environment_id":env_id, "learner_id":lrn_id, y:moving_average(table[y],span)})
             return out
         except:#pragma: no cover
             out = []
@@ -932,7 +923,12 @@ class Result:
         learners     = self.learners
         environments = self.environments
 
-        env_lens, env_cnts = env_len_and_cnt(interactions)
+        env_lens = {}
+        env_cnts = {}
+        for (env_id,_), table in interactions.groupby(2):
+            env_lens[env_id] = len(table)
+            env_cnts[env_id] = env_cnts.get(env_id,0)+1
+
         n_interactions = min(env_lens.values()) if n_interactions == "min" else n_interactions
 
         def has_all(env_id):
