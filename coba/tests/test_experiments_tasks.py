@@ -156,6 +156,7 @@ class ClassEnvironmentInfo_Tests(unittest.TestCase):
             json.dumps(row)
 
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_classification_statistics_encodable_with_sklearn(self):
         import sklearn.exceptions
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)

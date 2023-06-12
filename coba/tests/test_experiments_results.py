@@ -1836,9 +1836,11 @@ class Result_Tests(unittest.TestCase):
     def test_confidence_se(self):
         self.assertEqual((2,(1.96,1.96)),Result()._confidence('se')([1,3]))
 
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_confidence_bs(self):
         self.assertEqual((2.5, (1.5,0.5)),Result()._confidence('bs')([1,2,3,4]))
     
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_confidence_ci(self):
         self.assertEqual((2.5, (1.5,0.5)),Result()._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
 
