@@ -116,7 +116,7 @@ class StdDevCI(PointAndInterval):
         return mean(sample)
     def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
         mu = mean(sample)
-        sd = 0 if len(sample) == 1 else stdev(sample)
+        sd = round(0 if len(sample) == 1 else stdev(sample),5)
         return (mu, (sd,sd))
 
 class StdErrCI(PointAndInterval):
@@ -131,7 +131,7 @@ class StdErrCI(PointAndInterval):
     def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
         (mu,(sd,sd)) = self._inner.point_interval(sample)
         sqrtn = len(sample)**.5
-        se    = sd/sqrtn
+        se    = round(sd/sqrtn,5)
         ci    = self._z_score*se
         return (mu, (ci,ci))
 
@@ -145,7 +145,7 @@ class BootstrapCI(PointAndInterval):
 
     def point(self,sample: Sequence[float]) -> float:
         return self._stat(sample)
-    
+
     def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
         from scipy.stats import bootstrap
 

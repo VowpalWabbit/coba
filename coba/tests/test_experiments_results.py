@@ -1124,7 +1124,7 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(err='sd',errevery=2)
 
         expected_lines = [
-            Points([1,2],[2,2.5],[],[(0,0),(sqrt(2),sqrt(2))],0,1,'1. learner_1','-', 1),
+            Points([1,2],[2,2.5],[],[(0,0),(1.41421,1.41421)],0,1,'1. learner_1','-', 1),
         ]
 
         self.assertEqual("Progressive Reward (2 Environments)", plotter.plot_calls[0][2])
