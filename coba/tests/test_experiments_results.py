@@ -2,13 +2,12 @@ import unittest
 import unittest.mock
 import importlib.util
 
-from math import sqrt
 from statistics import mean
 
 from coba.pipes import ListSink
 from coba.contexts import CobaContext, IndentLogger
 from coba.exceptions import CobaException, CobaExit
-from coba.statistics import BinomialCI, StdErrCI, BootstrapCI
+from coba.statistics import BootstrapCI
 
 from coba.experiments.results import TransactionEncode,TransactionDecode,TransactionResult
 from coba.experiments.results import Result, Table, View

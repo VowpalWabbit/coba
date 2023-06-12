@@ -56,8 +56,8 @@ class StdDevCI_Tests(unittest.TestCase):
     def test_two_items(self):
         mu,(lo,hi) = StdDevCI().point_interval([1,3])
         self.assertEqual(2,mu)
-        self.assertAlmostEqual(2**.5,lo)
-        self.assertAlmostEqual(2**.5,hi)
+        self.assertAlmostEqual(1.41421,lo)
+        self.assertAlmostEqual(1.41421,hi)
         mu = StdDevCI().point([1,3])
         self.assertEqual(2,mu)
 
