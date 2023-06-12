@@ -176,10 +176,10 @@ class Experiment:
         try:
             Pipes.join(workitems, unfinished, chunk, max_chunk, process, preamble, encode, sink).run()
 
-        except KeyboardInterrupt: # pragma: no cover
+        except KeyboardInterrupt: #pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
 
-        except Exception as ex: # pragma: no cover
+        except Exception as ex: #pragma: no cover
             CobaContext.logger.log(ex)
 
         CobaContext.logger = old_logger

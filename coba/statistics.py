@@ -91,7 +91,7 @@ def var(sample: Sequence[float]) -> float:
         E_s2 = hypot(*sample)**2
         E_s = sum(sample)
         return (E_s2-E_s*E_s/n)/(n-1)
-    else:
+    else: #pragma: no cover
         #using the corrected two pass algo as recommended by
         #https://cpsc.yale.edu/sites/default/files/files/tr222.pdf
         #I've optimized this as much as I think is possible in python

@@ -41,16 +41,23 @@ class weighted_percentile_Tests(unittest.TestCase):
     def test_simple_25(self):
         self.assertEqual(1.5, weighted_percentile([3,2,1], [1,1,1], .25))
 
-class Mean_Tests(unittest.TestCase):
+class mean_Tests(unittest.TestCase):
     def test(self):
         self.assertEqual(2,mean([1,2,3]))
 
-class StdDev_Tests(unittest.TestCase):
+class stddev_Tests(unittest.TestCase):
     def test(self):
         self.assertAlmostEqual(1.4142,stdev([1,3]),4)
 
     def test_length_1(self):
         self.assertTrue(isnan(stdev([1])))
+
+class var_Tests(unittest.TestCase):
+    def test_1(self):
+        self.assertTrue(isnan(var([1])))
+
+    def test_2(self):
+        self.assertAlmostEqual(2,var([1,3]))
 
 class StdDevCI_Tests(unittest.TestCase):
     def test_two_items(self):
