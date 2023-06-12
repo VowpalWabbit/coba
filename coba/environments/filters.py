@@ -1150,24 +1150,18 @@ class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
 
 class OpeRewards(EnvironmentFilter):
 
-    def __init__(self, rwds_type:Literal['IPS','DM','DR','NO']=None):
+    def __init__(self, rwds_type:Literal['IPS','DM','DR']=None):
         if rwds_type in ['DM','DR']:
             PackageChecker.vowpalwabbit("Rewards.__init__")
         self._rwds_type = rwds_type
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'rewards_type': self._rwds_type} if self._rwds_type else {}
+        return {'ope_reward': self._rwds_type or 'None'}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         if self._rwds_type is None:
             yield from interactions
-
-        elif self._rwds_type == "NO":
-            for log in interactions:
-                log = log.copy()
-                log.pop('rewards',None)
-                yield log
 
         elif self._rwds_type == "IPS":
             for log in interactions:
@@ -1234,7 +1228,7 @@ class OpeRewards(EnvironmentFilter):
                     rewards.extend(vw.predict(e) for e in examples)
 
                     if self._rwds_type=="DR":
-                        rewards[log_index] += (log_reward-rewards[log_index])/log_prob
+                        rewards[log_index] = rewards[log_index] + (log_reward-rewards[log_index])/log_prob
 
                 for log,rewards in zip(L,R):
                     log = log.copy()

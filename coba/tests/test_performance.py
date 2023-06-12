@@ -19,7 +19,7 @@ from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pip
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
-from coba.experiments.results import Result, moving_avg, Table
+from coba.experiments.results import Result, moving_average, Table
 from coba.experiments import OnPolicyEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
@@ -321,11 +321,11 @@ class Performance_Tests(unittest.TestCase):
 
     def test_moving_average_sliding_window(self):
         items = [1,0]*100
-        self._assert_scale_time(items, lambda x:list(moving_avg(x,span=2)), .025, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(moving_average(x,span=2)), .025, print_time, number=1000)
 
     def test_moving_average_rolling_window(self):
         items = [1,0]*300
-        self._assert_scale_time(items, lambda x:list(moving_avg(x)), .05, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(moving_average(x)), .05, print_time, number=1000)
 
     def test_mean(self):
         items = [1,0]*3000

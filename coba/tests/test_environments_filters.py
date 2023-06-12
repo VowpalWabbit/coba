@@ -2327,18 +2327,6 @@ class OpeRewards_Tests(unittest.TestCase):
         interactions = [{'a':1},{'b':2}]
         self.assertEqual(interactions,list(OpeRewards().filter(interactions)))
 
-    def test_NO(self):
-        interactions = [
-            {'action':1,'actions':[1,2],'reward':1  ,'probability':.5 ,"rewards":[1,2]},
-            {'action':2,'actions':[1,2],'reward':.25,'probability':.25},
-        ]
-
-        new_interactions = list(OpeRewards("NO").filter(interactions))
-
-        self.assertEqual(len(new_interactions),2)
-        self.assertEqual(new_interactions[0],{'action':1,'actions':[1,2],'reward':1  ,'probability':.5})
-        self.assertEqual(new_interactions[1],{'action':2,'actions':[1,2],'reward':.25  ,'probability':.25})
-
     def test_IPS(self):
         interactions = [
             {'action':1,'actions':[1,2],'reward':1  ,'probability':.5 },
@@ -2402,8 +2390,8 @@ class OpeRewards_Tests(unittest.TestCase):
         self.assertAlmostEqual(dr_interactions[1]['rewards'].eval('f'), f+(.25-f)/.25, places=4)
 
     def test_params(self):
-        self.assertEqual(OpeRewards().params,{})
-        self.assertEqual(OpeRewards("IPS").params,{"rewards_type":"IPS"})
+        self.assertEqual(OpeRewards().params,{"ope_reward":"None"})
+        self.assertEqual(OpeRewards("IPS").params,{"ope_reward":"IPS"})
 
 if __name__ == '__main__':
     unittest.main()

@@ -42,6 +42,10 @@ class PackageChecker_sans_package_Tests(unittest.TestCase):
         with self.assertRaises(CobaExit):
             PackageChecker.sklearn("")
 
+    def test_check_scipy_support(self):
+        with self.assertRaises(CobaExit):
+            PackageChecker.scipy("")
+
 class PackageChecker_with_package_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -65,6 +69,9 @@ class PackageChecker_with_package_Tests(unittest.TestCase):
 
     def test_check_sklearn_support(self):
         PackageChecker.sklearn("")
+
+    def test_check_scipy_support(self):
+        PackageChecker.scipy("")
 
 class KeyDefaultDict_Tests(unittest.TestCase):
 

@@ -80,7 +80,7 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
 
         finished_learners = set(self._restored.learners['learner_id']) if self._restored else set()
         finished_environments = set(self._restored.environments['environment_id']) if self._restored else set()
-        finished_evaluations = set(self._restored.interactions[['environment_id','learner_id']]) if self._restored else set()
+        finished_evaluations = set(zip(*self._restored.interactions[['environment_id','learner_id']])) if self._restored else set()
 
         for task in tasks:
 

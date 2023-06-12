@@ -85,6 +85,23 @@ class PackageChecker:
             PackageChecker._handle_import_error(caller_name, "numpy")
 
     @staticmethod
+    def scipy(caller_name: str) -> None:
+        """Raise ImportError with detailed error message if scipy is not installed.
+
+        Functionality requiring scipy should call this helper and then lazily import.
+
+        Args:
+            caller_name: The name of the caller that requires scipy.
+
+        Remarks:
+            This pattern was inspired by sklearn (see `PackageChecker.scipy` for more information).
+        """
+        try:
+            importlib.import_module('scipy')
+        except ImportError:
+            PackageChecker._handle_import_error(caller_name, "scipy")
+
+    @staticmethod
     def sklearn(caller_name: str) -> None:
         """Raise ImportError with detailed error message if sklearn is not installed.
 

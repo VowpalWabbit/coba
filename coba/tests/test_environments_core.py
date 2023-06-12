@@ -707,7 +707,6 @@ class Environments_Tests(unittest.TestCase):
         self.assertIsInstance(last_cache[0]['context'],list)
         self.assertIsInstance(last_cache[0]['actions'][0],Categorical)
 
-
     def test_grounded(self):
         envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)        
         envs = envs.grounded(10,5,4,2,3)
@@ -814,10 +813,10 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual({'id':'A'}, envs1[0].params)
         self.assertEqual({'id':'A','a':123}, envs2[0].params)
 
-    def test_rewards(self):
+    def test_ope_rewards(self):
         envs = Environments(TestEnvironment1('A')).ope_rewards("IPS")
         self.assertEqual(1  , len(envs))
-        self.assertEqual('IPS', envs[0].params['rewards_type'])
+        self.assertEqual('IPS', envs[0].params['ope_reward'])
 
     def test_getitem(self):
         env = TestEnvironment1('A')
