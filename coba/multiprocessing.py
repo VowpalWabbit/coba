@@ -73,8 +73,9 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 # If the error was due to an uncaught exception in the given filter it could be the case that the user 
                 # is expecting it therefore we don't want to supress it. On the other hand, if the error is due to the
                 # act of multiprocessing then we know the user is not expecting it and we log it in a friendly way.
-                if self._user_error(e): raise
-                CobaContext.logger.log(e)
+
+                #I have sense changed my mind. We should raise it regardless.
+                raise
 
             finally:
                  if self._maxtasksperchild != 0 or self._processes > 1:
@@ -85,6 +86,3 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         except RuntimeError as e: #pragma: no cover
             #This happens when importing main causes this code to run again
             coba_exit(str(e))
-
-    def _user_error(self, exception: Exception) -> bool:
-        return 'pickle' not in str(exception) and 'unable to find' not in str(exception)

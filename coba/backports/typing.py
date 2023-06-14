@@ -1,6 +1,6 @@
 import sys
 
-if sys.version_info >= (3,8):# pragma: no cover
+if sys.version_info >= (3,8):#pragma: no cover
     from typing import Literal
-else:
+else:#pragma: no cover
     from typing_extensions import Literal

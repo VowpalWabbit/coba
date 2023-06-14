@@ -136,7 +136,7 @@ class Environment(Source[Iterable[Interaction]], ABC):
     """An Environment that produces Contextual Bandit data"""
 
     @property
-    def params(self) -> Mapping[str,Any]: # pragma: no cover
+    def params(self) -> Mapping[str,Any]: #pragma: no cover
         """Paramaters describing the simulation.
 
         Remarks:
