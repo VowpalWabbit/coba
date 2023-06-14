@@ -586,8 +586,8 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
 
         experiment.evaluate()
 
-        self.assertEqual(1, len(CobaContext.logger.sink.items))
-        self.assertIn("pickle", CobaContext.logger.sink.items[0])
+        self.assertEqual(3, len(CobaContext.logger.sink.items))
+        self.assertIn("pickle", CobaContext.logger.sink.items[1])
 
     def test_wrapped_not_picklable_learner_sans_reduce(self):
         env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -598,8 +598,8 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
 
         experiment.evaluate()
 
-        self.assertEqual(1, len(CobaContext.logger.sink.items))
-        self.assertIn("pickle", CobaContext.logger.sink.items[0])
+        self.assertEqual(3, len(CobaContext.logger.sink.items))
+        self.assertIn("pickle", CobaContext.logger.sink.items[1])
 
     def test_not_picklable_learner_with_reduce(self):
         env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))

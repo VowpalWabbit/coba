@@ -982,8 +982,6 @@ class Result:
         """
 
         try:
-            #l needs to be defined such that all items in p1 have the same label and all items in p2 have the same label.
-
             xlim = xlim or [None,None]
             ylim = ylim or [None,None]
 
@@ -996,7 +994,7 @@ class Result:
             if     isinstance(labels,str)     : labels = [labels]
 
             if any(_c1 in c2 for _c1 in c1):
-                raise CobaException("A value cannot be in both `p1` and `p2`. Please make a change and run it again.")
+                raise CobaException("A value cannot be in both `c1` and `c2`. Please make a change and run it again.")
 
             contraster = (lambda x,y: y-x) if mode == 'diff' else (lambda x,y: int(y-x>0)) if mode=='prob' else mode
             _boundary  = 0 if mode == 'diff' else .5
@@ -1012,7 +1010,7 @@ class Result:
             err      = plottable._confidence(err, errevery)
 
             if x != ['index']:
-                #this implementation should give the same results as below but can be considerably slower
+                #this implementation always gives the correct results but is considerably slower than below (relatively)
                 C1,C2 = [],[]
                 for _c, group in groupby(plottable._indexed_ys(c,e,l,x,y,span),key=itemgetter(0)):
 
@@ -1028,7 +1026,7 @@ class Result:
                     if _Y: X_Y_YE.append((_x,) + err(_Y,_xi))
 
             else:
-                #this implementation should give the same results as above but can be considerably faster
+                #this implementation gives correct results under certain conditions but is considerably faster
                 X_Y_YE = []
                 for _xi, (_x, _group) in enumerate(groupby(plottable._indexed_ys(x,c,e,l,x,y,span),key=itemgetter(0))):
 
@@ -1040,38 +1038,54 @@ class Result:
                     if _Y: X_Y_YE.append((str(_x) if x != ['index'] else _x,) + err(_Y,_xi))
 
             if not X_Y_YE:
-                raise CobaException(f"We were unable to create any pairings to contrast. Make sure p1={og_p[0]} and p2={og_p[1]} is correct.")
+                raise CobaException(f"We were unable to create any pairings to contrast. Make sure c1={og_p[0]} and c2={og_p[1]} is correct.")
 
             if x == ['index']:
-
                 X,Y,YE = zip(*X_Y_YE)
                 color  = plottable._get_color(colors,        0)
-                label  = plottable._get_label(labels,'p2-p1',0)
+                label  = plottable._get_label(labels,'c2-c1',0)
                 label  = f"{label}" if legend else None
                 lines  = [Points(X,Y,None,YE, style=style, label=label, color=color)]
 
-            else:
+            elif x == c:
+                if len(c1) > 1 and len(c2) == 1:
+                    #Sort by c1. We assume _x is "{c2}-{c1}."
+                    c2_len = len(str(c2[0]))
+                    c1 = list(map(str,c1))
+                    X_Y_YE = sorted(X_Y_YE, key=lambda items: c1.index(items[0][c2_len+1:]))
+                elif len(c2) > 1 and len(c1) == 1:
+                    #Sort by c2. We assume _x is "{c2}-{c1}."
+                    c1_len = len(str(c1[0]))
+                    c2 = list(map(str,c2))
+                    X_Y_YE = sorted(X_Y_YE, key=lambda items: c2.index(items[0][:-(c1_len+1)]))
+                else:
+                    X_Y_YE = sorted(X_Y_YE)
 
+                X,Y,YE = zip(*X_Y_YE)
+                color  = plottable._get_color(colors, 0)
+                lines  = [Points(X,Y,None,YE, style=style, label=None, color=color)]
+
+            else:
                 upper = lambda y,ye: y+ye[1] if isinstance(ye,(list,tuple)) else y+ye
                 lower = lambda y,ye: y-ye[0] if isinstance(ye,(list,tuple)) else y-ye
 
                 #split into win,tie,loss
-                p1_win = [(x,y,ye) for x,y,ye in X_Y_YE if upper(y,ye) <  _boundary                            ]
+                c1_win = [(x,y,ye) for x,y,ye in X_Y_YE if upper(y,ye) <  _boundary                             ]
                 no_win = [(x,y,ye) for x,y,ye in X_Y_YE if lower(y,ye) <= _boundary and _boundary <= upper(y,ye)]
-                p2_win = [(x,y,ye) for x,y,ye in X_Y_YE if                             _boundary <  lower(y,ye)]
+                c2_win = [(x,y,ye) for x,y,ye in X_Y_YE if                              _boundary <  lower(y,ye)]
 
                 #sort by order of magnitude
 
-                p1_win = sorted(p1_win,key=itemgetter(1))
+                c1_win = sorted(c1_win,key=itemgetter(1))
                 no_win = sorted(no_win,key=itemgetter(1))
-                p2_win = sorted(p2_win,key=itemgetter(1))
+                c2_win = sorted(c2_win,key=itemgetter(1))
 
                 lines = []
 
-                if p1_win:
-                    X,Y,YE = zip(*p1_win)
+                if c1_win:
+                    X,Y,YE = zip(*c1_win)
                     color  = plottable._get_color(colors,     0)
-                    label  = plottable._get_label(labels,'p1',0)
+                    label  = plottable._get_label(labels,'c1',0)
                     label  = f"{label} ({len(X)})" if legend else None
                     lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
 
@@ -1082,10 +1096,10 @@ class Result:
                     label  = f"{label} ({len(X)})" if legend else None
                     lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
 
-                if p2_win:
-                    X,Y,YE = zip(*p2_win)
+                if c2_win:
+                    X,Y,YE = zip(*c2_win)
                     color  = plottable._get_color(colors,     2)
-                    label  = plottable._get_label(labels,'p2',1)
+                    label  = plottable._get_label(labels,'c2',1)
                     label  = f"{label} ({len(X)})" if legend else None
                     lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
 
@@ -1102,6 +1116,7 @@ class Result:
             title  = f"{ylabel} ({len(_Y)} Environments)"
 
             self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+
         except CobaException as e:
             CobaContext.logger.log(str(e))
 
@@ -1126,15 +1141,15 @@ class Result:
         except:
             return label
 
-    def _pairings(self, p:Sequence[str], P1: Sequence[Tuple[int,int,float]], P2: Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
+    def _pairings(self, c:Sequence[str], C1: Sequence[Tuple[int,int,float]], C2: Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
 
-        p = set(p)
+        c = set(c)
 
-        env_eq_cols = [ c for c in self.environments.columns if c not in p and c != 'environment_id' and 'environment_id' not in p ]
-        lrn_eq_cols = [ c for c in self.learners.columns     if c not in p and c != 'learner_id'     and 'learner_id'     not in p ]
+        env_eq_cols = [ _c for _c in self.environments.columns if _c not in c and _c != 'environment_id' and 'environment_id' not in c ]
+        lrn_eq_cols = [ _c for _c in self.learners.columns     if _c not in c and _c != 'learner_id'     and 'learner_id'     not in c ]
 
-        eq_on_all_env_cols = len(env_eq_cols) == len(self.environments.columns)-1 and 'environment_id' not in p
-        eq_on_all_lrn_cols = len(lrn_eq_cols) == len(self.learners.columns)-1 and 'learner_id' not in p
+        eq_on_all_env_cols = len(env_eq_cols) == len(self.environments.columns)-1 and 'environment_id' not in c
+        eq_on_all_lrn_cols = len(lrn_eq_cols) == len(self.learners.columns)-1 and 'learner_id' not in c
 
         if eq_on_all_env_cols: env_eq_cols = ['environment_id']
         if eq_on_all_lrn_cols: lrn_eq_cols = ['learner_id'    ]
@@ -1142,16 +1157,11 @@ class Result:
         env_eq_vals = { row[0]:row[1:] for row in zip(*self.environments[['environment_id']+env_eq_cols]) }
         lrn_eq_vals = { row[0]:row[1:] for row in zip(*self.learners    [['learner_id']    +lrn_eq_cols]) }
 
-        #this is in theory n*(n+1)/2 and assumes P1,P2 has a one to many relationship
-        #we could tighten this up by checking if the len(p1) or len(p2) is 1 in which
-        #case we know for sure the relationship is one rather than many.
-        for e1,l1,x1,y1 in P1:
-            to_del = []
-            for i2,(e2,l2,x2,y2) in enumerate(P2):
+        #could this be made faster? I could think of special cases but not a general solution to speed it up.
+        for e1,l1,x1,y1 in C1:
+            for e2,l2,x2,y2 in C2:
                 if env_eq_vals[e1] == env_eq_vals[e2] and lrn_eq_vals[l1] == lrn_eq_vals[l2]:
                     yield ((x1,x2),(y1,y2))
-                    to_del.append(i2)
-            for i in sorted(to_del,reverse=True): del P2[i]
 
     def _plottable(self, x:Sequence[str], y:str) -> 'Result':
 
@@ -1196,7 +1206,7 @@ class Result:
             ci = err
 
         def calc_ci(Z:Sequence[float],i:int = -1):
-            if ci is None: 
+            if ci is None:
                 return (mean(Z),0)
             else:
                 skip_err = (i+1)%errevery
@@ -1214,9 +1224,12 @@ class Result:
         env_vals = env_values(self.environments, list(chain(*indexes)))
         lrn_vals = lrn_values(self.learners    , list(chain(*indexes)))
 
+        e_ids = set(self.interactions['environment_id'])
+        l_ids = set(self.interactions['learner_id'])
+
         env_lrn_indexed = {}
-        for e_id in set(self.interactions['environment_id']):
-            for l_id in set(self.interactions['learner_id']):
+        for e_id in e_ids:
+            for l_id in l_ids:
                 V = collections.ChainMap(env_vals[e_id], lrn_vals[l_id])
                 env_lrn_indexed[(e_id,l_id)] = [ [V[i] if i != 'index' else None for i in index ] for index in indexes]
 

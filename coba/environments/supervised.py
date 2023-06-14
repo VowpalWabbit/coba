@@ -199,7 +199,6 @@ class SupervisedSimulation(SimulatedEnvironment):
             label_type = self._label_type or first_label_type
 
         label_type = label_type.lower()
-        self._params['label_type'] = label_type.upper()
 
         if label_type == "r":
             actions = []

@@ -174,13 +174,14 @@ class Experiment:
         preamble   = Identity() if restored else Insert([["T0",meta]])
 
         try:
+            CobaContext.logger.log("Experiment Started")
             Pipes.join(workitems, unfinished, chunk, max_chunk, process, preamble, encode, sink).run()
-
+            CobaContext.logger.log("Experiment Finished")
         except KeyboardInterrupt: # pragma: no cover
-            CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
-
+            CobaContext.logger.log("Experiment Aborted (aborted via Ctrl-C)")
         except Exception as ex: # pragma: no cover
             CobaContext.logger.log(ex)
+            CobaContext.logger.log("Experiment Stopped")
 
         CobaContext.logger = old_logger
         del CobaContext.store['experiment_seed']

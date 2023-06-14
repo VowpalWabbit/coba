@@ -1568,10 +1568,10 @@ class Result_Tests(unittest.TestCase):
         Result().plot_contrast(0, 1, x=['a'])
         self.assertEqual(["This result does not contain any data to plot."],CobaContext.logger.sink.items)
 
-    def test_shared_p(self):
+    def test_shared_c(self):
         CobaContext.logger.sink = ListSink()
         Result().plot_contrast(1, 1, x=['a'])
-        self.assertEqual(["A value cannot be in both `p1` and `p2`. Please make a change and run it again."],CobaContext.logger.sink.items)
+        self.assertEqual(["A value cannot be in both `c1` and `c2`. Please make a change and run it again."],CobaContext.logger.sink.items)
 
     def test_plot_contrast_no_pairings(self):
         envs = [['environment_id'],[0],[1]]
@@ -1586,7 +1586,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
         Result(envs, lrns, ints).plot_contrast(0, 1, x='index')
 
-        self.assertEqual(f"We were unable to create any pairings to contrast. Make sure p1=0 and p2=1 is correct.",CobaContext.logger.sink.items[0])
+        self.assertEqual(f"We were unable to create any pairings to contrast. Make sure c1=0 and c2=1 is correct.",CobaContext.logger.sink.items[0])
 
     def test_plot_contrast_index(self):
         envs = [['environment_id'],[0],[1]]
@@ -1600,12 +1600,12 @@ class Result_Tests(unittest.TestCase):
 
         plotter = TestPlotter()
         result = Result(envs, lrns, ints)
-        
+
         result.set_plotter(plotter)
         result.plot_contrast(1, 2, x='index')
 
         expected_lines = [
-            Points((1,2,3), (0, 0, -1), None, (0,0,0), 0     , 1, 'p2-p1', '-', 1.),
+            Points((1,2,3), (0, 0, -1), None, (0,0,0), 0     , 1, 'c2-c1', '-', 1.),
             Points((1,3)  , (0, 0    ), None,  None  , "#888", 1, None   , '-', .5),
         ]
 
@@ -1633,8 +1633,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1)
 
         expected_lines = [
-            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'p1 (2)', '.', 1.),
-            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'p2 (2)', '.', 1.),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'c1 (2)', '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'c2 (2)', '.', 1.),
             Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None    , '-', .5),
         ]
 
@@ -1661,7 +1661,7 @@ class Result_Tests(unittest.TestCase):
 
         expected_lines = [
             Points(('2',)   , (0, ), None, (0, ), 1     , 1, 'Tie (1)', '.', 1.),
-            Points(('3','1'), (1,2), None, (0,0), 2     , 1, 'p2 (2)' , '.', 1.),
+            Points(('3','1'), (1,2), None, (0,0), 2     , 1, 'c2 (2)' , '.', 1.),
             Points(('2','1'), (0,0), None, None , "#888", 1, None     , '-', .5)
         ]
 
@@ -1684,11 +1684,11 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, ints)
 
         result.set_plotter(plotter)
-        result.plot_contrast(2,1,'a',mode='prob')
+        result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, 'p1 (1)', '.', 1.),
-            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, 'p2 (2)', '.', 1.),
+            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, 'c1 (1)', '.', 1.),
+            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, 'c2 (2)', '.', 1.),
             Points(('2','3'), (.5,.5), None, None , "#888", 1, None    , '-', .5)
         ]
 
@@ -1711,8 +1711,83 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,c='a')
 
         expected_lines = [
-            Points(('0-1',     ), (2, ), None, (0, ), 2     , 1, 'p2 (1)', '.', 1.),
+            Points(('0-1',     ), (2, ), None, (0, ), 2     , 1, 'c2 (1)', '.', 1.),
             Points(('0-1','0-1'), (0,0), None, None , "#888", 1, None    , '-', .5)
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_contrast_x_eq_c_multi_c1(self):
+        envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        ints = [['environment_id','learner_id','index','reward'],
+            [0,1,1,0],[0,1,2,3],[0,1,3,12],
+            [0,2,1,1],[0,2,2,2],[0,2,3,6],
+            [1,1,1,0],[1,1,2,3],[1,1,3,6],
+            [1,2,1,1],[1,2,2,2],[1,2,3,6],
+            [2,1,1,0],[2,1,2,3],[2,1,3,9],
+            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast([2,3],1,c='a',x='a',boundary=False)
+
+        expected_lines = [
+            Points(('1-2','1-3'), (1,.5), None, (0, 0), 0, 1, None, '.', 1.),
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_contrast_x_eq_c_multi_c2(self):
+        envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        ints = [['environment_id','learner_id','index','reward'],
+            [0,1,1,0],[0,1,2,3],[0,1,3,12],
+            [0,2,1,1],[0,2,2,2],[0,2,3,6],
+            [1,1,1,0],[1,1,2,3],[1,1,3,6],
+            [1,2,1,1],[1,2,2,2],[1,2,3,6],
+            [2,1,1,0],[2,1,2,3],[2,1,3,9],
+            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast(1,[3,2],c='a',x='a',boundary=False)
+
+        expected_lines = [
+            Points(('3-1','2-1'), (-.5,-1), None, (0, 0), 0, 1, None, '.', 1.),
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_contrast_x_eq_c_one_one(self):
+        envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        ints = [['environment_id','learner_id','index','reward'],
+            [0,1,1,0],[0,1,2,3],[0,1,3,12],
+            [0,2,1,1],[0,2,2,2],[0,2,3,6],
+            [1,1,1,0],[1,1,2,3],[1,1,3,6],
+            [1,2,1,1],[1,2,2,2],[1,2,3,6],
+            [2,1,1,0],[2,1,2,3],[2,1,3,9],
+            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast(1,2,c='a',x='a',boundary=False)
+
+        expected_lines = [
+            Points(('2-1',), (-1,), None, (0,), 0, 1, None, '.', 1.),
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
