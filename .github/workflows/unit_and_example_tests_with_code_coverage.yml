@@ -34,7 +34,7 @@ jobs:
       - run: python --version
       - name: Min Dependency Installs
         run: |
-          python setup.py install -f
+          pip install .
           pip list
       - name: Min Dependency Unit Tests
         run: python -m unittest
