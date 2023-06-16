@@ -132,7 +132,6 @@ class Scale(EnvironmentFilter):
         if isinstance(first_context, primitives.Sparse) and self._target=="context" and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
-        is_discrete       = first_actions and len(first_actions) > 0
         is_dense_context  = isinstance(first_context, primitives.Dense)
         is_sparse_context = isinstance(first_context, primitives.Sparse)
         is_value_context  = not (is_dense_context or is_sparse_context)
@@ -177,7 +176,7 @@ class Scale(EnvironmentFilter):
 
         #now scale
         if not shifts_scales:
-            yield from chain(fitting_interactions, remaining_interactions)        
+            yield from chain(fitting_interactions, remaining_interactions)
         elif self._target == "context":
             if is_dense_context:
                 for interaction in chain(fitting_interactions, remaining_interactions):
@@ -545,10 +544,10 @@ class Binary(EnvironmentFilter):
         return { "binary": True }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        
+
         first, interactions = peek_first(interactions)
         is_discrete = 'actions' in first and 0 < len(first['actions']) and len(first['actions']) < float('inf')
-        
+
         if not is_discrete:
             warnings.warn("Only discrete action rewards can be made binary. ")
             yield from interactions
