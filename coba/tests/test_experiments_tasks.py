@@ -399,9 +399,9 @@ class OnPolicyEvaluation_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
         expected_task_results    = [
-            {"reward":7,'rank':0,'regret':2},
+            {"reward":7,'rank':0.,'regret':2},
             {"reward":5,'rank':.5,'regret':1},
-            {"reward":3,'rank':1,'regret':0}
+            {"reward":3,'rank':1.,'regret':0}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)

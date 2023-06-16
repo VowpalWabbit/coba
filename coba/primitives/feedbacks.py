@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, Any
+from typing import Sequence, Any
 
-from coba.primitives.semantic import Action, AIndex, Batch
+from coba.primitives.semantic import Action, Batch
 
 class Feedback(ABC):
     @abstractmethod
-    def eval(self, arg: Union[Action,AIndex]) -> Any:
+    def eval(self, arg: Action) -> Any:
         ...
 
 class SequenceFeedback(Feedback):

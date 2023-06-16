@@ -20,8 +20,8 @@ from coba.encodings import InteractionsEncoder
 from coba.environments import Environment, SafeEnvironment, Interaction
 from coba.exceptions import CobaExit
 from coba.learners import Learner, SafeLearner
-from coba.primitives import Batch
-from coba.statistics import percentile, weighted_percentile
+from coba.primitives import Batch, argmax
+from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first
 
 class LearnerTask(ABC):
@@ -153,7 +153,7 @@ class OnPolicyEvaluation(EvaluationTask):
         record_ope_loss = 'ope_loss'    in self._record
 
         get_reward = lambda reward                  : reward
-        get_regret = lambda reward, rewards         : rewards.max()-reward
+        get_regret = lambda reward, rewards, actions: rewards.eval(argmax(actions,rewards))-reward
         get_rank   = lambda reward, rewards, actions: sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
 
         get_reward_list  = lambda rewards,actions: list(map(rewards.eval, actions))
@@ -198,7 +198,7 @@ class OnPolicyEvaluation(EvaluationTask):
             if record_action  : out['action']       = action
             if feedbacks      : out['feedback']     = feedback
             if record_reward  : out['reward']       = list(map(get_reward,reward)) if batched else get_reward(reward)
-            if record_regret  : out['regret']       = list(map(get_regret,reward,rewards)) if batched else get_regret(reward, rewards)
+            if record_regret  : out['regret']       = list(map(get_regret,reward,rewards)) if batched else get_regret(reward, rewards, actions)
             if record_rank    : out['rank'  ]       = list(map(get_rank,reward,rewards,actions)) if batched else get_rank(reward, rewards, actions)
             if record_ope_loss: out['ope_loss']     = _get_ope_loss(learner)
 
@@ -563,11 +563,11 @@ class ClassEnvironmentInfo(EnvironmentTask):
 
         if not interactions: return {}
 
-        contexts, _ ,rewards = zip(*[ (i['context'], i['actions'], i['rewards']) for i in interactions ])
+        contexts, actions, rewards = zip(*[ (i['context'], i['actions'], i['rewards']) for i in interactions ])
         env_stats = {}
 
-        X = [ InteractionsEncoder('x').encode(x=c) for c in contexts ]
-        Y = [ r.argmax()                           for r in rewards  ]
+        X = [ InteractionsEncoder('x').encode(x=c) for c   in contexts             ]
+        Y = [ argmax(a,r)                          for a,r in zip(actions,rewards) ]
         X = self._dense(X)
 
         classes = list(set(Y))

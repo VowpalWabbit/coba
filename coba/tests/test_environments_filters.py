@@ -446,6 +446,27 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual([ 0/4, 0/2], scl_interactions[1]['context'])
         self.assertEqual([-4/4, 2/2], scl_interactions[2]['context'])
 
+    def test_scale_maxabs(self):
+
+        interactions = [
+            SimulatedInteraction((8,2), [1], [1]),
+            SimulatedInteraction((4,4), [1], [1]),
+            SimulatedInteraction((0,6), [1], [1])
+        ]
+
+        mem_interactions = interactions
+        scl_interactions = list(Scale(scale="maxabs").filter(interactions))
+
+        self.assertEqual((8,2), mem_interactions[0]['context'])
+        self.assertEqual((4,4), mem_interactions[1]['context'])
+        self.assertEqual((0,6), mem_interactions[2]['context'])
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertEqual([1.,1/3], scl_interactions[0]['context'])
+        self.assertEqual([.5,2/3], scl_interactions[1]['context'])
+        self.assertEqual([0.,3/3], scl_interactions[2]['context'])
+
     def test_scale_med_and_iqr(self):
 
         interactions = [
@@ -644,83 +665,6 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[0]['context'])
         self.assertEqual(None, scl_interactions[1]['context'])
         self.assertEqual(None, scl_interactions[2]['context'])
-
-    def test_scale_mean_and_minmax_target_rewards_discrete(self):
-
-        interactions = [
-            SimulatedInteraction(None, [1,2], [1,3]),
-            SimulatedInteraction(None, [1,2], [1,3]),
-            SimulatedInteraction(None, [1,2], [1,3])
-        ]
-
-        scl_interactions = list(Scale("mean","minmax", target="rewards").filter(interactions))
-
-        self.assertEqual(3, len(scl_interactions))
-
-        self.assertEqual(None, scl_interactions[0]['context'])
-        self.assertEqual(None, scl_interactions[1]['context'])
-        self.assertEqual(None, scl_interactions[2]['context'])
-
-        self.assertEqual([-1/2,1/2], [scl_interactions[0]['rewards'].eval(a) for a in [1,2]])
-        self.assertEqual([-1/2,1/2], [scl_interactions[1]['rewards'].eval(a) for a in [1,2]])
-        self.assertEqual([-1/2,1/2], [scl_interactions[2]['rewards'].eval(a) for a in [1,2]])
-
-    def test_scale_mean_and_minmax_target_rewards_continuous(self):
-
-        interactions = [
-            SimulatedInteraction(None, [], L1Reward(1.5)),
-            SimulatedInteraction(None, [], L1Reward(0.5)),
-        ]
-
-        scl_interactions = list(Scale(2,1/2, target="rewards").filter(interactions))
-
-        self.assertEqual(2, len(scl_interactions))
-
-        self.assertEqual(None, scl_interactions[0]['context'])
-        self.assertEqual(None, scl_interactions[1]['context'])
-
-        self.assertEqual([1/4,3/4], [scl_interactions[0]['rewards'].eval(a) for a in [0,1]])
-        self.assertEqual([3/4,3/4], [scl_interactions[1]['rewards'].eval(a) for a in [0,1]])
-
-    def test_scale_number_and_absmax_target_discrete_rewards(self):
-
-        interactions = [
-            SimulatedInteraction(None, [1,3], [1,3]),
-            SimulatedInteraction(None, [1,3], [3,1]),
-            SimulatedInteraction(None, [1,3], [1,3])
-        ]
-
-        scl_interactions = list(Scale(-3,"maxabs", target="rewards").filter(interactions))
-
-        self.assertEqual(3, len(scl_interactions))
-
-        self.assertEqual(None, scl_interactions[0]['context'])
-        self.assertEqual(None, scl_interactions[1]['context'])
-        self.assertEqual(None, scl_interactions[2]['context'])
-
-        self.assertEqual([-1,0], [scl_interactions[0]['rewards'].eval(a) for a in [1,3]])
-        self.assertEqual([0,-1], [scl_interactions[1]['rewards'].eval(a) for a in [1,3]])
-        self.assertEqual([-1,0], [scl_interactions[2]['rewards'].eval(a) for a in [1,3]])
-
-    def test_scale_min_and_minmax_target_argmax(self):
-
-        interactions = [
-            SimulatedInteraction(None, [], L1Reward(3)),
-            SimulatedInteraction(None, [], L1Reward(1)),
-            SimulatedInteraction(None, [], L1Reward(2))
-        ]
-
-        scl_interactions = list(Scale("min", "minmax", target="argmax").filter(interactions))
-
-        self.assertEqual(3, len(scl_interactions))
-
-        self.assertEqual(None, scl_interactions[0]['context'])
-        self.assertEqual(None, scl_interactions[1]['context'])
-        self.assertEqual(None, scl_interactions[2]['context'])
-
-        self.assertEqual(1 , scl_interactions[0]['rewards'].argmax())
-        self.assertEqual(0 , scl_interactions[1]['rewards'].argmax())
-        self.assertEqual(.5, scl_interactions[2]['rewards'].argmax())
 
     def test_params(self):
         self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None,"scale_target":"context"}, Scale(shift="mean",scale="std").params)
@@ -1239,7 +1183,21 @@ class Impute_Tests(unittest.TestCase):
         self.assertEqual({ "impute_stat": "median", "impute_using": 2, "impute_indicator":False }, Impute("median",False,2).params)
 
 class Binary_Tests(unittest.TestCase):
-    def test_binary(self):
+    def test_binary_not_discrete(self):
+        interactions = [
+            SimulatedInteraction((7,2), [], L1Reward(1)),
+            SimulatedInteraction((1,9), [], L1Reward(1)),
+            SimulatedInteraction((8,3), [], L1Reward(1))
+        ]
+
+        with self.assertWarns(UserWarning) as w:
+           interactions = list(Binary().filter(interactions))
+
+        self.assertEqual(L1Reward(1), interactions[0]['rewards'])
+        self.assertEqual(L1Reward(1), interactions[1]['rewards'])
+        self.assertEqual(L1Reward(1), interactions[2]['rewards'])
+
+    def test_binary_discrete(self):
         interactions = [
             SimulatedInteraction((7,2), [1,2], [.2,.3]),
             SimulatedInteraction((1,9), [1,2], [.1,.5]),
@@ -1813,7 +1771,6 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].argmax(), (0,1))
         self.assertEqual(out['rewards'].eval((1,0)), 1)
         self.assertEqual(out['rewards'].eval((0,1)), 2)
 
@@ -1822,7 +1779,6 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].argmax(), (0,1))
         self.assertEqual(out['rewards'].eval((1,0)), 1)
         self.assertEqual(out['rewards'].eval((0,1)), 2)
         self.assertEqual(out['feedbacks'].eval((1,0)), 3)
@@ -1833,7 +1789,6 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3]  , out['context'])
         self.assertEqual(['1','2'], out['actions'])
-        self.assertEqual(out['rewards'].argmax(), '2')
         self.assertEqual(out['rewards'].eval('1'), 1)
         self.assertEqual(out['rewards'].eval('2'), 2)
         self.assertEqual(out['feedbacks'].eval('1'), 3)
@@ -1841,7 +1796,6 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertNotIsInstance(out['actions'][0],Categorical)
         self.assertNotIsInstance(out['actions'][1],Categorical)
-        self.assertIsInstance(out['rewards'].argmax(),Categorical)
 
 class Finalize_Tests(unittest.TestCase):
 
