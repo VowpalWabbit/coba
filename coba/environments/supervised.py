@@ -8,7 +8,7 @@ from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 from coba.utilities import peek_first
 from coba.primitives import Categorical, L1Reward, MulticlassReward, HammingReward
 
-from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
+from coba.environments.primitives import Environment, SimulatedInteraction
 
 class CsvSource(Source[Iterable[MutableSequence]]):
     """Load a source (either local or remote) in CSV format.
@@ -120,7 +120,7 @@ class ManikSource(Source[Iterable[MutableMapping]]):
     def __str__(self) -> str:
         return str(self._source)
 
-class SupervisedSimulation(SimulatedEnvironment):
+class SupervisedSimulation(Environment):
     """Create a contextual bandit simulation using an existing supervised regression or classification dataset."""
 
     @overload

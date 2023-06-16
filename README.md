@@ -69,7 +69,7 @@
 
  ### Creating Environments From Scratch
 
- If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's simple `SimulatedEnvironment` interface.
+ If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's `Environment` interface.
 
  ## Experiments
 

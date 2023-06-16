@@ -2,9 +2,8 @@ from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Sequence, Mapping, overload
 
 from coba.primitives import Context, Action, Actions
-from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback, IPSReward
+from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
 from coba.pipes import Source, SourceFilters, Filter
-from coba.exceptions import CobaException
 
 class Interaction(dict):
     """An individual interaction that occurs in an Environment."""
@@ -155,18 +154,6 @@ class Environment(Source[Iterable[Interaction]], ABC):
 
     def __str__(self) -> str:
         return str(self.params) if self.params else self.__class__.__name__
-
-class SimulatedEnvironment(Environment):
-    """An environment made from SimulatedInteractions."""
-
-    @abstractmethod
-    def read(self) -> Iterable[SimulatedInteraction]:
-        """The sequence of interactions in the environment.
-
-        Remarks:
-            This function should always be "re-iterable".
-        """
-        ...
 
 class SafeEnvironment(Environment):
     """A wrapper for environment-likes that guarantees interface consistency."""
