@@ -1,6 +1,6 @@
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import Environments, ArffSource, CsvSource, LibSvmSource, ManikSource
-from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, LambdaSimulation
+from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, LambdaSimulation
 from coba.experiments  import Experiment, Result, SimpleEvaluation, SimpleLearnerInfo, SimpleEnvironmentInfo
 from coba.experiments  import ExplorationEvaluation, OnPolicyEvaluation, OffPolicyEvaluation
 
@@ -69,5 +69,6 @@ __all__ = [
     'OffPolicyEvaluation',
     'peek_first',
     'ActionProb', 
-    'PMF'
+    'PMF',
+    'Interaction'
 ]
