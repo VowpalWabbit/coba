@@ -6,7 +6,7 @@ from coba.experiments  import ExplorationEvaluation, OnPolicyEvaluation, OffPoli
 
 from coba.random import CobaRandom
 
-from coba.learners.primitives import Learner
+from coba.learners.primitives import Learner, ActionProb, PMF
 from coba.learners.safety import SafeLearner
 from coba.learners.bandit import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral import CorralLearner
@@ -67,5 +67,7 @@ __all__ = [
     'ExplorationEvaluation',
     'OnPolicyEvaluation',
     'OffPolicyEvaluation',
-    'peek_first'
+    'peek_first',
+    'ActionProb', 
+    'PMF'
 ]
