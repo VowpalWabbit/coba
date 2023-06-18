@@ -1,17 +1,19 @@
+
+from collections import abc
 from pathlib import Path
 from itertools import product
 from typing import Sequence, Optional, Union, overload, Tuple
 
-from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
-from coba.learners import Learner
 from coba.environments import Environment
-from coba.multiprocessing import CobaMultiprocessor
+from coba.learners     import Learner
+from coba.evaluators   import Evaluator, OnPolicyEvaluator, LambdaEvaluator
+
+from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
 from coba.exceptions import CobaException
+from coba.multiprocessing import CobaMultiprocessor
 
-from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByChunk, MaxChunk, ProcessWorkItems
-from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
-from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, SimpleEvaluation, LambdaEvaluation
+from coba.experiments.process import MakeTasks,  ResumeTasks, ChunkTasks, MaxChunk, ProcessTasks
 from coba.experiments.results import Result, TransactionDecode, TransactionEncode, TransactionResult
 
 class Experiment:
@@ -19,64 +21,50 @@ class Experiment:
 
     @overload
     def __init__(self,
-        environments    : Union[Environment, Sequence[Environment]],
-        learners        : Union[Learner,Sequence[Learner]],
-        *,
-        description     : str             = None,
-        learner_task    : LearnerTask     = SimpleLearnerInfo(),
-        environment_task: EnvironmentTask = SimpleEnvironmentInfo(),
-        evaluation_task : EvaluationTask  = SimpleEvaluation()) -> None:
+        environments : Union[Environment, Sequence[Environment]],
+        learners     : Union[Learner,Sequence[Learner]],
+        evaluator    : Evaluator = OnPolicyEvaluator(),
+        description  : str = None) -> None:
         """Instantiate an Experiment.
 
         Args:
             environments: The collection of environments to use in the experiment.
             learners: The collection of learners to use in the experiment.
+            evaluator: The evaluation task we wish to perform on learners and environments.
             description: A description of the experiment for documentaiton purposes.
-            learner_task: A task which describes a learner.
-            environment_task: A task which describes an environment.
-            evaluation_task: A task which evaluates a learner on an environment.
         """
 
     @overload
     def __init__(self,
-        eval_pairs      : Sequence[Tuple[Learner,Environment]],
-        *,
-        description     : str             = None,
-        learner_task    : LearnerTask     = SimpleLearnerInfo(),
-        environment_task: EnvironmentTask = SimpleEnvironmentInfo(),
-        evaluation_task : EvaluationTask  = SimpleEvaluation()) -> None:
+        eval_tuples: Sequence[Tuple[Learner,Environment]],
+        evaluator  : Evaluator = OnPolicyEvaluator(),
+        description: str = None) -> None:
         ...
         """Instantiate an Experiment.
 
         Args:
-            eval_pairs: The collection of learners with their evaluation environments.
-            learner_task: A task which describes a learner.
-            environment_task: A task which describes an environment.
-            evaluation_task: A task which evaluates a learner on an environment.
+            eval_pairs: The learner-environment pairs we wish to evaluate.
+            evaluator: The evaluation task we wish to perform on learners and environments.
+            description: A description of the experiment for documentaiton purposes.
         """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args,**kwargs) -> None:
         """Instantiate an Experiment."""
 
-        # TODO kwargs from other constructors aren't properly processed
-        if len(args) == 2:
-            envs = [args[0]] if hasattr(args[0],'read') else args[0]
-            lrns = [args[1]] if hasattr(args[1],'predict') else args[1]
-            args = [list(zip(*reversed(list(zip(*product(envs,lrns))))))]
+        args = list(args)
+        if len(args) > 0 and not isinstance(args[0],abc.Sequence): args[0] = [args[0]]
 
-        self._pairs            = args[0]
-        self._description      = kwargs.get('description',None)
-        self._learner_task     = kwargs.get('learner_task', SimpleLearnerInfo())
-        self._environment_task = kwargs.get('environment_task', SimpleEnvironmentInfo())
-        self._evaluation_task  = kwargs.get('evaluation_task', SimpleEvaluation())
+        pairs,evaluator,description = self._parse_init_args(*args,**kwargs)
 
-        if callable(self._evaluation_task):
-            self._evaluation_task = LambdaEvaluation(self._evaluation_task)
+        if callable(evaluator): evaluator = LambdaEvaluator(evaluator)
 
-        if any([lrn is None for lrn,_ in self._pairs]):
+        self._triples     = [(e,l,evaluator) for e,l in pairs]
+        self._description = description
+
+        if any([lrn is None for _,lrn,_ in self._triples]):
             raise CobaException("A Learner was given whose value was None, which can't be processed.")
 
-        if any([env is None for _,env in self._pairs]):
+        if any([env is None for env,_,_ in self._triples]):
             raise CobaException("An Environment was given whose value was None, which can't be processed.")
 
         self._processes        : Optional[int] = None
@@ -152,8 +140,8 @@ class Experiment:
         else:
             restored = None
 
-        n_given_learners     = len(set([l for l,_ in self._pairs]))
-        n_given_environments = len(set([e for _,e in self._pairs]))
+        n_given_learners     = len(set([l for _,l,_ in self._triples]))
+        n_given_environments = len(set([e for e,_,_ in self._triples]))
 
         if restored:
             assert n_given_learners     == restored.experiment.get('n_learners',n_given_learners)        , "The current experiment doesn't match the given transaction log."
@@ -161,11 +149,11 @@ class Experiment:
 
         meta = {'n_learners':n_given_learners,'n_environments':n_given_environments,'description':self._description,'seed':seed}
 
-        workitems  = CreateWorkItems(self._pairs, self._learner_task, self._environment_task, self._evaluation_task)
-        unfinished = RemoveFinished(restored)
-        chunk      = ChunkByChunk(mp)
+        workitems  = MakeTasks(self._triples)
+        unfinished = ResumeTasks(restored)
+        chunker    = ChunkTasks(mp)
         max_chunk  = MaxChunk(mt)
-        process    = CobaMultiprocessor(ProcessWorkItems(), mp, mc, False)
+        process    = CobaMultiprocessor(ProcessTasks(), mp, mc, False)
         encode     = TransactionEncode()
         sink       = DiskSink(result_file) if result_file else ListSink(foreach=True)
         source     = DiskSource(result_file) if result_file else ListSource(sink.items)
@@ -175,7 +163,7 @@ class Experiment:
 
         try:
             CobaContext.logger.log("Experiment Started")
-            Pipes.join(workitems, unfinished, chunk, max_chunk, process, preamble, encode, sink).run()
+            Pipes.join(workitems, unfinished, chunker, max_chunk, process, preamble, encode, sink).run()
             CobaContext.logger.log("Experiment Finished")
         except KeyboardInterrupt: #pragma: no cover
             CobaContext.logger.log("Experiment Aborted (aborted via Ctrl-C)")
@@ -196,3 +184,39 @@ class Experiment:
         """
 
         return self.run(result_file=result_file)
+
+    def _parse_init_args(self,*args,**kwargs) -> Tuple[Sequence[Tuple[Environment,Learner]], Evaluator, Optional[str]]:
+        #we know this with 100% certainty
+        definite_paired  = ({'eval_pairs'} & kwargs.keys()             ) or (len(args) == 1 and 'learners' not in kwargs)
+        definite_product = ({'environments','learners'} & kwargs.keys()) or (len(args) == 4)
+
+        #we are making reasonable guesses
+        likely_paired  = not definite_product and len(args)>0 and len(args[0])>0 and isinstance(args[0][0],tuple)
+        likely_product = not definite_paired  and len(args)>0 and len(args[0])>0 and not isinstance(args[0][0],tuple)
+
+        try:
+            if definite_paired or (likely_paired and not definite_product):
+                pairs       = args[0] if len(args) > 0 else kwargs['eval_pairs']
+                evaluator   = args[1] if len(args) > 1 else kwargs.get('evaluator',OnPolicyEvaluator())
+                description = args[2] if len(args) > 2 else kwargs.get('description',None)
+                return pairs, evaluator, description
+
+            if definite_product or (likely_product and not definite_paired):
+                envs        = args[0] if len(args) > 0 else kwargs['environments']
+                lrns        = args[1] if len(args) > 1 else kwargs['learners']
+                evaluator   = args[2] if len(args) > 2 else kwargs.get('evaluator',OnPolicyEvaluator())
+                description = args[3] if len(args) > 3 else kwargs.get('description',None)
+                if not isinstance(envs,abc.Sequence): envs = [envs]
+                if not isinstance(lrns,abc.Sequence): lrns = [lrns]
+                pairs = list(product(envs,lrns))
+                return pairs, evaluator, description
+
+            if len(args) > 0 and len(args[0]) == 0:
+                pairs       = []
+                evaluator   = None #this doesn't matter because pairs is empty
+                description = args[-1] if len(args) > 2 and isinstance(args[-1],str) else kwargs.get('description',None)
+                return pairs, evaluator, description
+
+            raise CobaException(f"We were unable to construct Experiment given *{args} **{kwargs}")
+        except KeyError as e:
+            raise TypeError(f'Experiment missing required argument {str(e)}')

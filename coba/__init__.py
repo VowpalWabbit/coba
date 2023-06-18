@@ -1,23 +1,22 @@
-from coba.contexts     import CobaContext, NullLogger
+from coba.random import CobaRandom
+from coba.contexts import CobaContext, NullLogger
+
 from coba.environments import Environments, ArffSource, CsvSource, LibSvmSource, ManikSource
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, LambdaSimulation
-from coba.experiments  import Experiment, Result, SimpleEvaluation, SimpleLearnerInfo, SimpleEnvironmentInfo
-from coba.experiments  import ExplorationEvaluation, OnPolicyEvaluation, OffPolicyEvaluation
 
-from coba.random import CobaRandom
+from coba.learners import Learner, ActionProb, PMF
+from coba.learners import SafeLearner, FixedLearner, RandomLearner
+from coba.learners import EpsilonBanditLearner, UcbBanditLearner
+from coba.learners import CorralLearner, LinUCBLearner
+from coba.learners import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
+from coba.learners import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
 
-from coba.learners.primitives import Learner, ActionProb, PMF
-from coba.learners.safety import SafeLearner
-from coba.learners.bandit import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
-from coba.learners.corral import CorralLearner
-from coba.learners.vowpal import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
-from coba.learners.vowpal import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
-from coba.learners.linucb import LinUCBLearner
+from coba.evaluators import OnPolicyEvaluator, OffPolicyEvaluator, ClassMetaEvaluator
+
+from coba.experiments  import Experiment, Result
 
 from coba.utilities import peek_first
-
 from coba.exceptions import CobaException
-
 from coba.backports import version, PackageNotFoundError
 
 try:
@@ -47,8 +46,6 @@ __all__ = [
     'VowpalSquarecbLearner',
     'VowpalOffPolicyLearner',
     'VowpalRndLearner',
-    'OnlineGroundedEval',
-    'OnlineOnPolicyEval',
     'CobaRandom',
     'NullLogger',
     'ArffSource',
@@ -58,17 +55,15 @@ __all__ = [
     'SimulatedInteraction',
     'LoggedInteraction',
     'GroundedInteraction',
-    'SimpleEvaluation', 
-    'SimpleLearnerInfo', 
-    'SimpleEnvironmentInfo',
     'LambdaSimulation',
     'Learner',
     'SafeLearner',
-    'ExplorationEvaluation',
-    'OnPolicyEvaluation',
-    'OffPolicyEvaluation',
     'peek_first',
-    'ActionProb', 
+    'ActionProb',
     'PMF',
-    'Interaction'
+    'Interaction',
+    'OnPolicyEvaluator',
+    'OffPolicyEvaluator',
+    'ClassMetaEvaluator'
+
 ]

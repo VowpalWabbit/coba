@@ -24,7 +24,7 @@ from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Filter
 
-from coba.environments.primitives import EnvironmentFilter, Interaction
+from coba.environments.primitives import Interaction, EnvironmentFilter, SimpleEnvironment
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -1071,14 +1071,18 @@ class Logged(EnvironmentFilter):
             raise CobaException("We were unable to create a logged representation of the interaction.")
 
         #Avoid circular dependency
-        from coba.experiments.tasks import OnPolicyEvaluation
+        from coba.evaluators import OnPolicyEvaluator
 
         seed = self._seed if self._seed is not None else CobaRandom().random()
 
         I1,I2 = tee(interactions,2)
-        flat_int = Unbatch().filter(I1)
-        eval_log = OnPolicyEvaluation(record=['action','reward','probability'],seed=seed).process(copy.deepcopy(self._learner),I2)
-        for interaction, log in zip(flat_int,eval_log):
+        interactions = Unbatch().filter(I1)
+
+        env = SimpleEnvironment(I2)
+        lrn = copy.deepcopy(self._learner)
+        evaluator = OnPolicyEvaluator(record=['action','reward','probability'],seed=seed)
+
+        for interaction, log in zip(interactions,evaluator.evaluate(env,lrn)):
             out = interaction.copy()
             out.update(log)
             yield out

@@ -4,26 +4,19 @@ from typing import Any, Union, Iterable, Sequence, Mapping, overload
 from coba.primitives import Context, Action, Actions
 from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
 from coba.pipes import Source, SourceFilters, Filter
+from coba.exceptions import CobaException
 
 class Interaction(dict):
     """An individual interaction that occurs in an Environment."""
     __slots__=()
     keywords = {}
 
-    @property
-    def extra(self) -> Mapping[str,Any]:
-        return { k:self[k] for k in self.keys()-self.keywords}
-
     @staticmethod
     def from_dict(kwargs_dict: Mapping[str, Any]) -> 'Interaction':
-        if 'feedbacks' in kwargs_dict:
-            sub_class =  GroundedInteraction
-        elif 'rewards' in kwargs_dict:
-            sub_class = SimulatedInteraction
-        else:
-            sub_class =  LoggedInteraction
-
-        return sub_class(**kwargs_dict)
+        if 'feedbacks' in kwargs_dict: return GroundedInteraction(**kwargs_dict)
+        if 'rewards' in kwargs_dict: return SimulatedInteraction(**kwargs_dict)
+        if 'reward' in kwargs_dict: return LoggedInteraction(**kwargs_dict)
+        return kwargs_dict
 
 class SimulatedInteraction(Interaction):
     """Simulated data that provides rewards for every possible action."""
@@ -71,9 +64,9 @@ class GroundedInteraction(Interaction):
             **kwargs: Additional information that should be recorded in the interactions table of an experiment result.
         """
 
-        self['context'] = context
-        self['actions'] = actions
-        self['rewards'] = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
+        self['context']   = context
+        self['actions']   = actions
+        self['rewards']   = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
         self['feedbacks'] = SequenceFeedback(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
 
         if kwargs: self.update(kwargs)
@@ -194,3 +187,16 @@ class SafeEnvironment(Environment):
             return f"{tipe}({','.join(f'{k}={v}' for k,v in params.items())})"
         else:
             return tipe
+
+class SimpleEnvironment(Environment):
+
+    def __init__(self, interactions: Sequence[Interaction]=(), params: Mapping[str,Any]={}) -> None:
+        self._interactions = interactions
+        self._params = params
+
+    @property
+    def params(self):
+        return self._params
+
+    def read(self) -> Iterable[Interaction]:
+        return self._interactions

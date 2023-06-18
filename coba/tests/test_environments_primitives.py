@@ -1,15 +1,9 @@
 import unittest
 
-from coba.environments import SafeEnvironment, Environment
+from coba.environments import SafeEnvironment, Environment, SimpleEnvironment
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction
-from coba.primitives   import IPSReward
 from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
-
-class DummyEnvironment:
-
-    def read(self):
-        return []
 
 class Environment_Tests(unittest.TestCase):
 
@@ -39,20 +33,20 @@ class Environment_Tests(unittest.TestCase):
 class SafeEnvironment_Tests(unittest.TestCase):
 
     def test_params(self):
-        self.assertEqual({'type': 'DummyEnvironment'}, SafeEnvironment(DummyEnvironment()).params)
+        self.assertEqual({'type': 'SimpleEnvironment'}, SafeEnvironment(SimpleEnvironment()).params)
 
     def test_read(self):
-        self.assertEqual([], SafeEnvironment(DummyEnvironment()).read())
+        self.assertEqual((), SafeEnvironment(SimpleEnvironment()).read())
 
     def test_str(self):
-        self.assertEqual('DummyEnvironment(shuffle=1)', str(SafeEnvironment(Pipes.join(DummyEnvironment(), Shuffle(1)))))
-        self.assertEqual('DummyEnvironment', str(SafeEnvironment(DummyEnvironment())))
+        self.assertEqual('SimpleEnvironment(shuffle=1)', str(SafeEnvironment(Pipes.join(SimpleEnvironment(), Shuffle(1)))))
+        self.assertEqual('SimpleEnvironment', str(SafeEnvironment(SimpleEnvironment())))
 
     def test_with_nesting(self):
-        self.assertIsInstance(SafeEnvironment(SafeEnvironment(DummyEnvironment()))._environment, DummyEnvironment)
+        self.assertIsInstance(SafeEnvironment(SafeEnvironment(SimpleEnvironment()))._environment, SimpleEnvironment)
 
     def test_with_pipes(self):
-        self.assertEqual({'type': 'DummyEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(DummyEnvironment(), Shuffle(1))) .params)
+        self.assertEqual({'type': 'SimpleEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(SimpleEnvironment(), Shuffle(1))) .params)
 
 class Interaction_Tests(unittest.TestCase):
     def test_simulated_dict(self):
@@ -66,6 +60,11 @@ class Interaction_Tests(unittest.TestCase):
 
     def test_grounded_dict(self):
         given    = {'context':1,'actions':[1,2],'action':1,'rewards':[3,4],'feedbacks':[5,6]}
+        expected = given
+        self.assertEqual(Interaction.from_dict(given),expected)
+
+    def test_unknown_dict(self):
+        given    = {'context':1,'actions':[1,2]}
         expected = given
         self.assertEqual(Interaction.from_dict(given),expected)
 
@@ -119,6 +118,14 @@ class SimulatedInteraction_Tests(unittest.TestCase):
     def test_rewards_actions_mismatch(self):
         with self.assertRaises(CobaException):
             SimulatedInteraction((1,2), (1,2,3), [4,5])
+
+class SimpleEnvironment_Tests(unittest.TestCase):
+
+    def test_read(self):
+        self.assertEqual([1,2,3],SimpleEnvironment([1,2,3]).read())
+
+    def test_params(self):
+        self.assertEqual({'a':1},SimpleEnvironment([],{'a':1}).params)
 
 if __name__ == '__main__':
     unittest.main()
