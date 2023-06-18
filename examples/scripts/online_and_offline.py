@@ -1,17 +1,15 @@
 import coba as cb
 
 def main():
-    cb.CobaContext.experiment.processes = 1
-    cb.CobaContext.cacher.cache_directory = "./coba_cache"
+    
+    cb.Environments.cache_dir("./coba_cache")
 
     oml_id = 150
-    filename = "cb_oml_{oml_id}.zip"
+    filename = f"cb_oml_{oml_id}.zip"
     
     # run first time as online
     online_vw_args = "--cb_explore_adf"
-    env = cb.Environments.from_openml(data_id=oml_id, take=128).logged(cb.VowpalLearner(online_vw_args)).save(
-        filename
-    )
+    env = cb.Environments.from_openml(data_id=oml_id, take=128).logged(cb.VowpalLearner(online_vw_args)).save(filename)
 
     assert type(env) == cb.Environments
     assert env[0].params['openml_data'] == 150
@@ -22,7 +20,7 @@ def main():
     lrn = cb.VowpalLearner(offline_vw_args)
     
     #offline performance, no need to call predict in this scenario
-    cb.Experiment(env, lrn, evaluation_task=cb.SimpleEvaluation(predict=False)).run()
+    cb.Experiment(env, lrn, evaluation_task=cb.OffPolicyEvaluator(predict=False)).run()
     lrn.finish()
 
     #online performance
