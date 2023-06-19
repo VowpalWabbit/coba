@@ -17,53 +17,5 @@ from coba.experiments  import Experiment, Result
 
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
-from coba.backports import version, PackageNotFoundError
 
-try:
-    #Option (5) on https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
-    __version__ = version('coba') 
-except PackageNotFoundError: #pragma: no cover
-    __version__ = "0.0.0"
-
-__all__ = [
-    "CobaException",
-    "CobaContext",
-    "Environments",
-    "Experiment",
-    "Result",
-    'RandomLearner',
-    'FixedLearner',
-    'EpsilonBanditLearner',
-    'UcbBanditLearner',
-    'CorralLearner',
-    'LinUCBLearner',
-    'VowpalLearner',
-    'VowpalEpsilonLearner',
-    'VowpalSoftmaxLearner',
-    'VowpalBagLearner',
-    'VowpalCoverLearner',
-    'VowpalRegcbLearner',
-    'VowpalSquarecbLearner',
-    'VowpalOffPolicyLearner',
-    'VowpalRndLearner',
-    'CobaRandom',
-    'NullLogger',
-    'ArffSource',
-    'CsvSource',
-    'LibSvmSource',
-    'ManikSource',
-    'SimulatedInteraction',
-    'LoggedInteraction',
-    'GroundedInteraction',
-    'LambdaSimulation',
-    'Learner',
-    'SafeLearner',
-    'peek_first',
-    'ActionProb',
-    'PMF',
-    'Interaction',
-    'OnPolicyEvaluator',
-    'OffPolicyEvaluator',
-    'ClassMetaEvaluator'
-
-]
+__version__ = "6.5.0"

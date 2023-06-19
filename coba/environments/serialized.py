@@ -7,7 +7,6 @@ from itertools import islice, repeat, chain
 from typing import Union, Sequence, Mapping, Iterable, Any
 
 from coba.contexts import CobaContext
-from coba.backports import version
 from coba.pipes import Source, Sink, Filter
 from coba.environments.primitives import Environment, Interaction
 
@@ -54,7 +53,8 @@ class EnvironmentsToObjects(Filter[Environment, Iterable]):
                 yield list(self._env_to_objects(env))
 
     def _env_to_objects(self,env):
-        yield {"version":2,"coba_version":version("coba")}
+        from coba import __version__ #imported here to avoid circular dependency
+        yield {"version":2,"coba_version":__version__}
         yield env.params
         I = iter(env.read())
         batch = list(islice(I,1000))

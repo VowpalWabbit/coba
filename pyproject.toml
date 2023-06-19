@@ -5,9 +5,12 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["coba", "coba.environments", "coba.learners", "coba.evaluators", "coba.experiments", "coba.pipes", "coba.contexts", "coba.backports", "coba.primitives"]
 
+[tool.setuptools.dynamic]
+version = {attr = "coba.__version__"}
+
 [project]
 name = "coba"
-version = "6.5.0"
+dynamic = ["version"]
 authors = [
     {name = "Mark Rucker", email = "rucker.mark@gmail.com"},
 ]
