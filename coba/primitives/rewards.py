@@ -1,23 +1,25 @@
 from abc import ABC, abstractmethod
-from typing import Sequence, Optional, Mapping, Any
-from coba.backports import Literal
+from typing import Sequence, Optional, Mapping, overload
 
 from coba.exceptions import CobaException
 from coba.primitives.semantic import Action, Batch
+
+def argmax(actions: Sequence[Action], rewards: 'Reward') -> Action:
+    max_r = -float('inf')
+    max_a = 0
+    for a in actions:
+        r = rewards.eval(a)
+        if r > max_r:
+            max_a = a
+            max_r = r
+
+    return max_a
 
 class Reward(ABC):
     __slots__ = ()
 
     @abstractmethod
     def eval(self, action: Action) -> float:
-        ...
-
-    @abstractmethod
-    def argmax(self) -> Action:
-        ...
-
-    @abstractmethod
-    def max(self) -> float:
         ...
 
 class IPSReward(Reward):
@@ -29,12 +31,6 @@ class IPSReward(Reward):
 
     def eval(self, arg: Action) -> float:
         return self._reward if arg == self._action else 0
-
-    def argmax(self) -> Action:
-        return self._action
-    
-    def max(self) -> float:
-        return self._reward 
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -49,14 +45,8 @@ class L1Reward(Reward):
     def __init__(self, action: float) -> None:
         self._label = action
 
-    def eval(self, action: float) -> float: #pragma: no cover
+    def eval(self, action: float) -> float:
         return action-self._label if self._label > action else self._label-action 
-
-    def argmax(self) -> float:
-        return self._label
-
-    def max(self) -> float:
-        return 0
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -74,64 +64,25 @@ class HammingReward(Reward):
     def eval(self, arg: Sequence[Action]) -> float:
         return len(self._labels.intersection(arg))/len(self._labels.union(arg))
 
-    def argmax(self) -> Sequence[Action]:
-        return self._labels
-    
-    def max(self) -> float:
-        return 1
-
     def __reduce__(self):
         #this makes the pickle smaller
         return HammingReward, (tuple(self._labels),)
 
 class BinaryReward(Reward):
-    __slots__ = ('_argmax',)
+    __slots__ = ('_maxarg',)
 
-    def __init__(self, action: Action):
-        self._argmax = action
+    def __init__(self, action: Action) -> None:
+        self._maxarg = action
 
     def eval(self, action: Action) -> float:
-        return float(self._argmax==action)
-
-    def argmax(self) -> Action:
-        return self._argmax
-
-    def max(self) -> Action:
-        return 1
+        return float(self._maxarg==action)
 
     def __reduce__(self):
         #this makes the pickle smaller
-        return BinaryReward, (self._argmax,)
+        return BinaryReward, (self._maxarg,)
     
     def __eq__(self, o: object) -> bool:
-        return o == self._argmax or (isinstance(o,BinaryReward) and o._argmax == self._argmax)
-
-class ScaleReward(Reward):
-    __slots__ = ('_reward', '_shift', '_scale', '_target')
-    def __init__(self, reward: Reward, shift: float, scale: float, target: Literal["argmax","value"]) -> None:
-        self._reward = reward
-        self._shift  = shift
-        self._scale  = scale
-        self._target = 'argmax' if target == 0 else 'value' if target ==1 else target
-
-    def eval(self, action: Any) -> float:
-        if self._target == "argmax":
-            return self._reward.eval(action+(1-self._scale)*self._reward.argmax()-self._scale*self._shift)
-        if self._target == "value":
-            return (self._reward.eval(action)+self._shift)*self._scale
-
-    def argmax(self) -> Action:
-        if self._target == "argmax":
-            return (self._reward.argmax()+self._shift)*self._scale
-        else:
-            return self._reward.argmax()
-    
-    def max(self) -> float:
-        return self.eval(self.argmax())
-
-    def __reduce__(self):
-        #this makes the pickle smaller
-        return ScaleReward, (self._reward, self._shift, self._scale, 0 if self._target == "argmax" else 1)
+        return o == self._maxarg or (isinstance(o,BinaryReward) and o._maxarg == self._maxarg)
 
 class SequenceReward(Reward):
     __slots__ = ('_actions','_rewards')
@@ -146,12 +97,6 @@ class SequenceReward(Reward):
     def eval(self, action: Action) -> float:
         return self._rewards[self._actions.index(action)]
 
-    def argmax(self) -> Action:
-        return self._actions[self._rewards.index(max(self._rewards))]
-
-    def max(self) -> float:
-        return max(self._rewards)
-
     def __reduce__(self):
         #this makes the pickle smaller
         return SequenceReward, (self._actions,self._rewards)
@@ -160,23 +105,13 @@ class SequenceReward(Reward):
         return o == self._rewards or (isinstance(o,SequenceReward) and o._actions == self._actions and o._rewards == self._rewards)
 
 class MappingReward(Reward):
-    __slots__ = ('_mapping','eval')
+    __slots__ = ('_mapping',)
 
     def __init__(self, mapping: Mapping[Action,float]) -> None:
         self._mapping = mapping
-        self.eval     = mapping.__getitem__
 
-    def argmax(self) -> Action:
-        max_r = -float('inf')
-        max_a = 0
-        for a,r in self._mapping.items():
-            if r > max_r:
-                max_a = a
-                max_r = r
-        return max_a
-
-    def max(self) -> float:
-        return max(self._mapping.values())
+    def eval(self, action: Action) -> float:
+        return self._mapping[action]
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -194,12 +129,6 @@ class MulticlassReward(Reward):
     def eval(self, action: Action) -> float:
         return int(self._label == action)
 
-    def argmax(self) -> Action:
-        return self._label
-    
-    def max(self) -> float:
-        return 1
-
     def __reduce__(self):
         return MulticlassReward, (self._label,)
     
@@ -209,9 +138,3 @@ class MulticlassReward(Reward):
 class BatchReward(Batch):
     def eval(self, actions: Sequence[Action]) -> Sequence[float]:
         return list(map(lambda r,a: r.eval(a), self, actions))
-
-    def argmax(self) -> Sequence[Action]:
-        return [r.argmax() for r in self]
-
-    def max(self) -> float:
-        return [r.max() for r in self]

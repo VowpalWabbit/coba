@@ -413,14 +413,14 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Unbatch interactions in the environments."""
         return self.filter(Unbatch())
 
-    def ope_rewards(self, rewards_type:Literal['IPS','DM','DR','NO'] = None):
+    def ope_rewards(self, rewards_type:Literal['IPS','DM','DR'] = None):
         """Reward estimates for off-policy evaluation."""
-        return self.filter(OpeRewards(rewards_type))
+        if isinstance(rewards_type,str): rewards_type = [rewards_type]
+        return self.filter([OpeRewards(r) for r in rewards_type])
 
     def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
-
+        """Save the environments to disk."""
         self_envs = list(self)
-
         if Path(path).exists():
             try:
                 path_envs   = Environments.from_save(path)

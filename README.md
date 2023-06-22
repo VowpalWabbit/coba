@@ -47,7 +47,7 @@
 
  * All contextual bandit learners in VowpalWabbit
  * UCB1-Tuned Bandit Learner by Auer et al. 2002
- * LinUCB by Chu et al. 2011
+ * LinUCB by Li and Chu et al. 2010
  * Corral by Agarwal et al. 2017
 
  ## Environments
@@ -69,7 +69,7 @@
 
  ### Creating Environments From Scratch
 
- If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's simple `SimulatedEnvironment` interface.
+ If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's `Environment` interface.
 
  ## Experiments
 

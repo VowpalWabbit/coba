@@ -7,7 +7,7 @@ from coba.environments import Environment, LambdaSimulation, SimulatedInteractio
 from coba.pipes import Source, ListSink
 from coba.learners import Learner, PMF
 from coba.contexts import CobaContext, IndentLogger, BasicLogger, NullLogger
-from coba.experiments import Experiment, SimpleEvaluation
+from coba.experiments import Experiment
 from coba.exceptions import CobaException
 from coba.primitives import Categorical, MulticlassReward
 
@@ -134,8 +134,8 @@ class CategoricalActionEnv(Environment):
         yield SimulatedInteraction(1, actions, MulticlassReward("a"))
         yield SimulatedInteraction(2, actions, MulticlassReward("a"))
 
-def test_eval(learner,interactions):
-    yield { "learner_type": str(type(learner)), "n_interactions": len(list(interactions))}
+def test_eval(environment, learner):
+    yield { "learner_type": str(type(learner)), "n_interactions": len(list(environment.read()))}
 
 class Experiment_Single_Tests(unittest.TestCase):
 
@@ -145,10 +145,55 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.experiment.processes = 1
         CobaContext.experiment.maxchunksperchild = 0
 
+    def test_init_tuples(self):
+        exp = Experiment([(1,2)], 'a', 'd')
+        self.assertEqual(exp._triples, [(1,2,'a')])
+        self.assertEqual(exp._description, 'd')
+
+        exp = Experiment(eval_pairs=[(1,2)], evaluator='a', description='d')
+        self.assertEqual(exp._triples, [(1,2,'a')])
+        self.assertEqual(exp._description, 'd')
+
+    def test_init_prod(self):
+        exp = Experiment(1, 2, 'a', 'd')
+        self.assertEqual(exp._triples, [(1,2,'a')])
+        self.assertEqual(exp._description, 'd')
+
+        exp = Experiment([1], [2], 'a', 'd')
+        self.assertEqual(exp._triples, [(1,2,'a')])
+        self.assertEqual(exp._description, 'd')
+
+        exp = Experiment(environments=1, learners=2, evaluator='a', description='d')
+        self.assertEqual(exp._triples, [(1,2,'a')])
+        self.assertEqual(exp._description, 'd')
+
+    def test_init_empties(self):
+        exp = Experiment([], 1, 'a', 'd')
+        self.assertEqual(exp._triples, [])
+        self.assertEqual(exp._description, 'd')
+
+        exp = Experiment(1, [], 'a', 'd')
+        self.assertEqual(exp._triples, [])
+        self.assertEqual(exp._description, 'd')
+
+        exp = Experiment([], 'a', 'd')
+        self.assertEqual(exp._triples, [])
+        self.assertEqual(exp._description, 'd')
+
+    def test_init_incomplete(self):
+        with self.assertRaises(CobaException):
+            exp = Experiment()
+        with self.assertRaises(CobaException):
+            exp = Experiment(evaluators='a')
+        with self.assertRaises(TypeError):
+            exp = Experiment(environments=1)
+        with self.assertRaises(TypeError):
+            exp = Experiment(learners=1)
+
     def test_func_eval(self):
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
         learner    = ModuloLearner()
-        experiment = Experiment(env1, [learner], evaluation_task=test_eval)
+        experiment = Experiment(env1, [learner], test_eval)
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -185,7 +230,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         CobaContext.logger = IndentLogger(ListSink())
 
-        result              = experiment.evaluate()
+        result              = experiment.run()
         actual_learners     = result.learners.to_dicts()
         actual_environments = result.environments.to_dicts()
         actual_interactions = result.interactions.to_dicts()
@@ -219,7 +264,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         CobaContext.logger = IndentLogger(ListSink())
 
-        result              = experiment.evaluate()
+        result              = experiment.run()
         actual_learners     = result.learners.to_dicts()
         actual_environments = result.environments.to_dicts()
         actual_interactions = result.interactions.to_dicts()
@@ -326,7 +371,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":1, "index":2, "reward":1},
         ]
 
-        result              = experiment.evaluate()
+        result              = experiment.run()
         actual_learners     = list(result._learners.to_dicts())
         actual_environments = list(result._environments.to_dicts())
         actual_interactions = list(result.interactions.to_dicts())
@@ -341,7 +386,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         learner1   = LearnInfoLearner("0")
         experiment = Experiment([env],[learner1])
 
-        actual_result       = experiment.evaluate()
+        actual_result       = experiment.run()
         actual_learners     = actual_result._learners.to_dicts()
         actual_environments = actual_result._environments.to_dicts()
         actual_interactions = actual_result.interactions.to_dicts()
@@ -365,9 +410,9 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_predict_info(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = PredictInfoLearner("0")
-        experiment = Experiment([env],[learner1],evaluation_task=SimpleEvaluation())
+        experiment = Experiment([env],[learner1])
 
-        actual_result       = experiment.evaluate()
+        actual_result       = experiment.run()
 
         actual_learners     = actual_result._learners.to_dicts()
         actual_environments = actual_result._environments.to_dicts()
@@ -399,9 +444,9 @@ class Experiment_Single_Tests(unittest.TestCase):
         #the second Experiment shouldn't ever call broken_factory() because
         #we're resuming from the first experiment's transaction.log
         try:
-            first_result  = Experiment([env],[working_learner],evaluation_task=SimpleEvaluation()).run("coba/tests/.temp/transactions.log")
+            first_result  = Experiment([env],[working_learner]).run("coba/tests/.temp/transactions.log")
             #second_result = first_result
-            second_result = Experiment([env],[broken_learner ],evaluation_task=SimpleEvaluation()).run("coba/tests/.temp/transactions.log")
+            second_result = Experiment([env],[broken_learner ]).run("coba/tests/.temp/transactions.log")
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
 
@@ -432,9 +477,9 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_no_params(self):
         env1       = NoParamsEnvironment()
         learner    = NoParamsLearner()
-        experiment = Experiment([env1], [learner], evaluation_task=SimpleEvaluation())
+        experiment = Experiment([env1], [learner])
 
-        result              = experiment.evaluate()
+        result              = experiment.run()
         actual_learners     = result.learners.to_dicts()
         actual_environments = result.environments.to_dicts()
         actual_interactions = result.interactions.to_dicts()
@@ -461,9 +506,9 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         env2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
-        experiment = Experiment([env1,env2], [ModuloLearner(), BrokenLearner()],evaluation_task=SimpleEvaluation())
+        experiment = Experiment([env1,env2], [ModuloLearner(), BrokenLearner()])
 
-        result              = experiment.evaluate()
+        result              = experiment.run()
         actual_learners     = result.learners.to_dicts()
         actual_environments = result.environments.to_dicts()
         actual_interactions = result.interactions.to_dicts()
@@ -524,10 +569,10 @@ class Experiment_Single_Tests(unittest.TestCase):
             lrn2 = ModuloLearner()
 
             with self.assertRaises(AssertionError) as e:
-                result = Experiment([env1,env2], [lrn1]).evaluate(str(path))
+                result = Experiment([env1,env2], [lrn1]).run(str(path))
 
             with self.assertRaises(AssertionError) as e:
-                result = Experiment([env1], [lrn1,lrn2]).evaluate(str(path))
+                result = Experiment([env1], [lrn1,lrn2]).run(str(path))
 
         finally:
             path.unlink()
@@ -586,8 +631,8 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
 
         experiment.evaluate()
 
-        self.assertEqual(1, len(CobaContext.logger.sink.items))
-        self.assertIn("pickle", CobaContext.logger.sink.items[0])
+        self.assertEqual(3, len(CobaContext.logger.sink.items))
+        self.assertIn("pickle", CobaContext.logger.sink.items[1])
 
     def test_wrapped_not_picklable_learner_sans_reduce(self):
         env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -596,24 +641,24 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
 
         CobaContext.logger = BasicLogger(ListSink())
 
-        experiment.evaluate()
+        experiment.run()
 
-        self.assertEqual(1, len(CobaContext.logger.sink.items))
-        self.assertIn("pickle", CobaContext.logger.sink.items[0])
+        self.assertEqual(3, len(CobaContext.logger.sink.items))
+        self.assertIn("pickle", CobaContext.logger.sink.items[1])
 
     def test_not_picklable_learner_with_reduce(self):
         env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = NotPicklableLearnerWithReduce()
         experiment = Experiment([env1],[learner])
 
-        experiment.evaluate()
+        experiment.run()
 
     def test_wrapped_not_picklable_learner_with_reduce(self):
         env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = WrappedLearner(NotPicklableLearnerWithReduce())
         experiment = Experiment([env1],[learner])
 
-        experiment.evaluate()
+        experiment.run()
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,47 +2,78 @@ import unittest
 import unittest.mock
 import importlib.util
 
-from math import sqrt
-from pathlib import Path
+from statistics import mean
 
 from coba.pipes import ListSink
 from coba.contexts import CobaContext, IndentLogger
 from coba.exceptions import CobaException, CobaExit
-from coba.statistics import BinomialConfidenceInterval
+from coba.statistics import BootstrapCI
 
-from coba.experiments.results import TransactionIO, TransactionIO_V3, TransactionIO_V4
+from coba.experiments.results import TransactionEncode,TransactionDecode,TransactionResult
 from coba.experiments.results import Result, Table, View
-from coba.experiments.results import MatplotlibPlotter
-from coba.experiments.results import moving_average, exponential_moving_average, old_to_new
-from coba.experiments.results import FilterPlottingData, SmoothPlottingData, ContrastPlottingData, TransformToXYE
+from coba.experiments.results import MatplotPlotter, Points
+from coba.experiments.results import moving_average
 
 class TestPlotter:
-
     def __init__(self):
         self.plot_calls = []
 
     def plot(self, *args) -> None:
         self.plot_calls.append(args)
 
-class old_to_new_Tests(unittest.TestCase):
+class TransactionResult_Tests(unittest.TestCase):
 
-    def test_simple(self):
-        envs,lrns,ints = old_to_new({}, {}, {(0,1): {"_packed":{"reward":[1,3]}},(0,2):{"_packed":{"reward":[1,4]}}})
-        self.assertEqual(envs,Table(columns=['environment_id']))
-        self.assertEqual(lrns,Table(columns=['learner_id']))
-        self.assertEqual(ints,Table(columns=['environment_id', 'learner_id', 'index', 'reward']).insert([(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)]))
+    def test_empty(self):
+        res = TransactionResult().filter([["version",4]])
+        self.assertEqual(res.environments,Table(columns=['environment_id']))
+        self.assertEqual(res.learners,Table(columns=['learner_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'index']))
 
-    def test_simple2(self):
-        envs,lrns,ints = old_to_new({}, {}, {})
-        self.assertEqual(envs,Table(columns=['environment_id']))
-        self.assertEqual(lrns,Table(columns=['learner_id']))
-        self.assertEqual(ints,Table(columns=['environment_id', 'learner_id', 'index']))
+    def test_same_columns(self):
+        res = TransactionResult().filter([["version",4],["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"reward":[1,4]}}]])
+        self.assertEqual(res.environments,Table(columns=['environment_id']))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'index', 'reward']).insert([(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)]))
 
-    def test_simple3(self):
-        envs,lrns,ints = old_to_new({}, {}, {(0,1): {"_packed":{"reward":[1,3]}},(0,2):{"_packed":{"z":[1,4]}}})
-        self.assertEqual(envs,Table(columns=['environment_id']))
-        self.assertEqual(lrns,Table(columns=['learner_id']))
-        self.assertEqual(ints,Table(columns=['environment_id', 'learner_id', 'index', 'reward','z']).insert([(0,1,1,1,None),(0,1,2,3,None),(0,2,1,None,1),(0,2,2,None,4)]))
+    def test_diff_columns(self):
+        res = TransactionResult().filter([["version",4],["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"z":[1,4]}}]])
+        self.assertEqual(res.environments,Table(columns=['environment_id']))
+        self.assertEqual(res.learners,Table(columns=['learner_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'index', 'reward', 'z']).insert([(0,1,1,1,None),(0,1,2,3,None),(0,2,1,None,1),(0,2,2,None,4)]))
+
+    def test_old_version(self):
+        with self.assertRaises(CobaException):
+            TransactionResult().filter([["version",3]])
+
+    def test_unknown_version(self):
+        with self.assertRaises(CobaException):
+            TransactionResult().filter([["version",5]])
+
+class TransactionEncode_Tests(unittest.TestCase):
+    def test_empty(self):
+        self.assertEqual(list(TransactionEncode().filter([])),['["version",4]'])
+
+    def test_experiment_dict(self):
+        self.assertEqual(list(TransactionEncode().filter([['T0',{'a':1.0}]])),['["version",4]','["experiment",{"a":1}]'])
+
+    def test_learner_params(self):
+        self.assertEqual(list(TransactionEncode().filter([['T1',0,{'a':1.0}]])),['["version",4]','["L",0,{"a":1}]'])
+
+    def test_environment_params(self):
+        self.assertEqual(list(TransactionEncode().filter([['T2',0,{'a':1.0}]])),['["version",4]','["E",0,{"a":1}]'])
+
+    def test_interactions(self):
+        self.assertEqual(list(TransactionEncode().filter([['T3',[1,0],[{"R1":3},{"R1":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,4]}}]'])
+
+    def test_interaction_uneven_dictionaries(self):
+        self.assertEqual(list(TransactionEncode().filter([['T3',[1,0],[{"R1":3},{"R2":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,null],"R2":[null,4]}}]'])
+
+class TransactionDecode_Tests(unittest.TestCase):
+    def test_get_version(self):
+        self.assertEqual(list(TransactionDecode().filter(['["version",4]'])), [["version",4]])
+
+    def test_one_row(self):
+        self.assertEqual(list(TransactionDecode().filter(['["version",4]','{"a":1}'])), [["version",4],{"a":1}])
 
 class View_Tests(unittest.TestCase):
     def test_getitem_seq(self):
@@ -322,12 +353,12 @@ class Table_Tests(unittest.TestCase):
     def test_multilevel_groupby(self):
         table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
         table.index('a','b','c')
-        self.assertEqual(list(map(len,table.groupby(2))),[1,1,2,2])
 
-@unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
-class Table_Pandas_Tests(unittest.TestCase):
+        self.assertEqual([len(t) for _,t in table.groupby(2)],[1,1,2,2])
+        self.assertEqual([g for g,_ in table.groupby(2)],[(0,0),(0,1),(1,0),(1,1)])
 
-    def test_pandas(self):
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
+    def test_to_pandas(self):
 
         import pandas as pd
         import pandas.testing
@@ -343,7 +374,8 @@ class Table_Pandas_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-    def test_pandas_with_array_column(self):
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
+    def test_to_pandas_with_array_column(self):
         import pandas as pd
         import pandas.testing
 
@@ -358,7 +390,8 @@ class Table_Pandas_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-    def test_pandas_with_dict_column(self):
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
+    def test_to_pandas_with_dict_column(self):
         import pandas as pd
         import pandas.testing
 
@@ -373,7 +406,8 @@ class Table_Pandas_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-    def test_pandas_with_View(self):
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
+    def test_to_pandas_with_View(self):
         import pandas as pd
         import pandas.testing
 
@@ -387,13 +421,13 @@ class Table_Pandas_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-@unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
-class MatplotlibPlotter_Tests(unittest.TestCase):
+@unittest.skipUnless(importlib.util.find_spec("matplotlib"), "this test requires matplotlib")
+class MatplotPlotter_Tests(unittest.TestCase):
 
     def test_no_matplotlib(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
             with self.assertRaises(CobaExit):
-                MatplotlibPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None)
+                MatplotPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None)
 
     def test_plot_lines_title_xlabel_ylabel(self):
         with unittest.mock.patch('matplotlib.pyplot.show') as show:
@@ -406,11 +440,11 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                        ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                        Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                        Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"screen")
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -445,11 +479,11 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], None, [10,11], "B", 1.00, 'L1', '-', 1),
-                        ([3,4], [7,8], None, [12,13], "R", 0.25, 'L2', '-', 1)
+                        Points([1,2], [5,6], None, [10,11], "B", 1.00, 'L1', '-', 1),
+                        Points([3,4], [7,8], None, [12,13], "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotlibPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, "screen")
+                    MatplotPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, "screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -477,14 +511,14 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
         with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
             lines = [
-                ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
             ]
 
             mock_ax = plt_figure().add_subplot()
             mock_ax.get_xticks.return_value = [1,2]
             mock_ax.get_xlim.return_value   = [2,2]
-            MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None)
+            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -492,28 +526,28 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
         with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
             lines = [
-                ([1,2], [5,6], None, [4,3], "B", 1.00, 'L1', '-', 1),
-                ([3,4], [7,8], None, [2,1], "R", 0.25, 'L2', '-', 1)
+                Points([1,2], [5,6], None, [4,3], "B", 1.00, 'L1', '-', 1),
+                Points([3,4], [7,8], None, [2,1], "R", 0.25, 'L2', '-', 1)
             ]
 
             mock_ax = plt_figure().add_subplot()
             mock_ax.get_xticks.return_value = [1,2]
             mock_ax.get_xlim.return_value   = [2,2]
-            MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None)
+            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None)
             self.assertEqual(([3,4],[7,8],[2,1],None,'-'), mock_ax.errorbar.call_args_list[0][0])
 
     def test_plot_ylim(self):
         with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
             lines = [
-                ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
             ]
 
             mock_ax = plt_figure().add_subplot()
             mock_ax.get_xticks.return_value = [1,2]
             mock_ax.get_xlim.return_value   = [2,2]
-            MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None)
+            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -522,14 +556,14 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 lines = [
-                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                 ]
 
                 mock_ax = plt_figure().add_subplot()
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
-                MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None)
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -540,14 +574,14 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 lines = [
-                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                 ]
 
                 mock_ax = plt_figure().add_subplot()
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
-                MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None)
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -558,14 +592,14 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 lines = [
-                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                 ]
 
                 mock_ax = plt_figure().add_subplot()
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
-                MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,None,None,None)
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -576,14 +610,14 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 lines = [
-                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                 ]
 
                 mock_ax = plt_figure().add_subplot()
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
-                MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,None,None,None)
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -601,11 +635,11 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                        ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                        Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                        Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotlibPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                    MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
 
                     self.assertEqual(1, plt_figure().add_subplot.call_count)
 
@@ -634,7 +668,7 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        plotter = MatplotlibPlotter()
+        plotter = MatplotPlotter()
         plotter.plot(None, [[]], 'abc', 'def', 'efg', (1,0), (0,1), True, True, None, None, None)
 
         expected_log = "The xlim end is less than the xlim start. Plotting is impossible."
@@ -646,7 +680,7 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        plotter = MatplotlibPlotter()
+        plotter = MatplotPlotter()
         plotter.plot(None, [[]], 'abc', 'def', 'efg', (0,1), (1,0), True, True, None, None, None)
 
         expected_log = "The ylim end is less than the ylim start. Plotting is impossible."
@@ -664,11 +698,11 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                        ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                        Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                        Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"abc")
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"abc")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -703,11 +737,11 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                        ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                        Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                        Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -738,11 +772,11 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                 plt_get_figlabels.return_value = ['coba']
 
                 lines = [
-                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
-                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                 ]
 
-                MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
 
                 plt_figure.assert_called_with(num='coba')
                 plt_figure().add_subplot.assert_called_with(111)
@@ -753,240 +787,11 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             CobaContext.logger = IndentLogger()
             CobaContext.logger.sink = ListSink()
 
-            plotter = MatplotlibPlotter()
+            plotter = MatplotPlotter()
             plotter.plot(None, [], 'abc', 'def', 'efg', None, None, True, True, None, None, None)
 
             self.assertEqual(0, plt_figure().add_subplot.call_count)
             self.assertEqual(["No data was found for plotting."], CobaContext.logger.sink.items)
-
-class TransactionIO_V3_Tests(unittest.TestCase):
-
-    def setUp(self) -> None:
-        if Path("coba/tests/.temp/transaction_v3.log").exists():
-            Path("coba/tests/.temp/transaction_v3.log").unlink()
-
-    def tearDown(self) -> None:
-        if Path("coba/tests/.temp/transaction_v3.log").exists():
-            Path("coba/tests/.temp/transaction_v3.log").unlink()
-
-    def test_simple_to_and_from_file(self):
-
-        io = TransactionIO_V3("coba/tests/.temp/transaction_v3.log")
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = io.read()
-
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_to_and_from_memory(self):
-        io = TransactionIO_V3()
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = io.read()
-
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_to_and_from_memory_unknown_transaction(self):
-        io = TransactionIO_V3()
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T4",'UNKNOWN'])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = io.read()
-
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-class TransactionIO_V4_Tests(unittest.TestCase):
-
-    def setUp(self) -> None:
-        if Path("coba/tests/.temp/transaction_v4.log").exists():
-            Path("coba/tests/.temp/transaction_v4.log").unlink()
-
-    def tearDown(self) -> None:
-        if Path("coba/tests/.temp/transaction_v4.log").exists():
-            Path("coba/tests/.temp/transaction_v4.log").unlink()
-
-    def test_uneven_dictionaries(self):
-        io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"R1":3},{"R2":4}]])
-
-        result = io.read()
-
-        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'R1':3,"R2":None},{'learner_id':0,'environment_id':1,'index':2,"R1":None,'R2':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_to_and_from_file(self):
-        io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = io.read()
-
-        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_to_and_from_memory_1(self):
-        io = TransactionIO_V4()
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = io.read()
-
-        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_to_and_from_memory_2(self):
-        io = TransactionIO_V4()
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = io.read()
-
-        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_to_and_from_memory_unknown_transaction(self):
-        io = TransactionIO_V4()
-
-        io.write(["T0",{"n_learners":1,"n_environments":2}])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T4",'UNKNOWN'])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = io.read()
-
-        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-class TransactionIO_Tests(unittest.TestCase):
-
-    def setUp(self) -> None:
-        if Path("coba/tests/.temp/transaction.log").exists():
-            Path("coba/tests/.temp/transaction.log").unlink()
-
-    def tearDown(self) -> None:
-        if Path("coba/tests/.temp/transaction.log").exists():
-            Path("coba/tests/.temp/transaction.log").unlink()
-
-    def test_simple_to_and_from_file_v2(self):
-
-        Path("coba/tests/.temp/transaction.log").write_text('["version",2]')
-
-        with self.assertRaises(CobaException):
-            TransactionIO("coba/tests/.temp/transaction.log")
-
-    def test_simple_to_and_from_file_v3(self):
-
-        io = TransactionIO_V3("coba/tests/.temp/transaction.log")
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = TransactionIO("coba/tests/.temp/transaction.log").read()
-
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_to_and_from_file_v4(self):
-        io = TransactionIO_V4("coba/tests/.temp/transaction.log")
-
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
-
-        result = io.read()
-
-        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_to_and_from_memory(self):
-        io = TransactionIO()
-
-        transactions = [
-            ["T0",1,2],
-            ["T1",0,{"name":"lrn1"}],
-            ["T2",1,{"source":"test"}],
-            ["T3",[1,0], [{"reward":3},{"reward":4}]]
-        ]
-
-        io.write(transactions)
-
-        result = io.read()
-
-        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
-
-    def test_simple_resume(self):
-        io = TransactionIO("coba/tests/.temp/transaction.log")
-
-        transactions = [
-            ["T0",1,2],
-            ["T1",0,{"name":"lrn1"}],
-            ["T2",1,{"source":"test"}],
-            ["T3",[1,0], [{"reward":3},{"reward":4}]]
-        ]
-
-        io.write(transactions)
-
-        result = TransactionIO("coba/tests/.temp/transaction.log").read()
-
-        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
-        self.assertEqual([{'learner_id':0,'name':"lrn1"}], list(result.learners.to_dicts()))
-        self.assertEqual([{'environment_id':1,'source':"test"}], list(result.environments.to_dicts()))
-        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], list(result.interactions.to_dicts()))
 
 class Result_Tests(unittest.TestCase):
 
@@ -1143,6 +948,15 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_result.learners))
         self.assertEqual(1, len(filtered_result.interactions))
 
+    def test_filter_env_no_change(self):
+
+        envs = [['environment_id'],[1,],[2,]]
+        lrns = [['learner_id'    ],[1,],[2,]]
+        ints = [['environment_id','learner_id'],[1,1],[2,1],[1,2]]
+
+        original_result = Result(envs, lrns, ints)
+        self.assertIs(original_result, original_result.filter_env(environment_id=[1,2]))
+
     def test_filter_env_no_match(self):
 
         CobaContext.logger = IndentLogger()
@@ -1219,6 +1033,18 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.interactions))
         self.assertEqual(["No learners matched the given filter."], CobaContext.logger.sink.items)
 
+    def test_filter_lrn_no_change(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        envs = [['environment_id'],[1,],[2,]]
+        lrns = [['learner_id'    ],[1,],[2,],[3,]]
+        ints = [['environment_id','learner_id'],[1,1],[1,2],[2,3]]
+
+        original_result = Result(envs, lrns, ints)
+        self.assertIs(original_result, original_result.filter_lrn(learner_id=[1,2,3]))
+
     def test_copy(self):
 
         envs = [['environment_id'],[1,],[2,]]
@@ -1275,11 +1101,32 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            ((1,2),(1,1.5),(None,None),(None,None),0,1,'learner_1','-', 1),
-            ((1,2),(1,1.5),(None,None),(None,None),1,1,'learner_2','-', 1)
+            Points([1,2],[1,1.5],[],[0,0],0,1,'1. learner_1','-', 1),
+            Points([1,2],[1,1.5],[],[0,0],1,1,'2. learner_2','-', 1)
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Interaction", plotter.plot_calls[0][3])
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_learners_one_environment_err_se(self):
+
+        envs = [['environment_id'],[0],[1]]
+        lrns = [['learner_id', 'family'],[1,'learner_1']]
+        ints = [['environment_id','learner_id','index','reward'],[0,1,1,1],[0,1,2,2],[1,1,1,3],[1,1,2,4]]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(err='sd',errevery=2)
+
+        expected_lines = [
+            Points([1,2],[2,2.5],[],[(0,0),(1.41421,1.41421)],0,1,'1. learner_1','-', 1),
+        ]
+
+        self.assertEqual("Progressive Reward (2 Environments)", plotter.plot_calls[0][2])
         self.assertEqual("Interaction", plotter.plot_calls[0][3])
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1289,7 +1136,7 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family','i','j','t'],[1,'learner_1',1,2,None],[2,'learner_2',None,None,2]]
-        ints = [['environment_id','learner_id','index','reward'],[0,1,1,1],[0,1,2,2],[0,2,1,1],[0,2,2,2]]
+        ints = [['environment_id','learner_id','index','reward'],[0,1,0,1],[0,1,1,2],[0,2,0,1],[0,2,1,2]]
 
         plotter = TestPlotter()
         result = Result(envs, lrns, ints)
@@ -1298,8 +1145,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            ((1,2),(1,1.5),(None,None),(None,None),0,1,'learner_1(i=1,j=2)','-', 1),
-            ((1,2),(1,1.5),(None,None),(None,None),1,1,'learner_2(t=2)','-', 1)
+            Points([0,1],[1.,1.5],[],[0,0],0,1,'1. learner_1(i=1,j=2)','-', 1),
+            Points([0,1],[1.,1.5],[],[0,0],1,1,'2. learner_2(t=2)','-', 1)
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -1326,8 +1173,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(None,None),0,1,'learner_1','-', 1),
-            ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'learner_2','-', 1)
+            Points([1,2],[3/2,4/2],[],[0,0],0,1,'1. learner_1','-', 1),
+            Points([1,2],[3/2,4/2],[],[0,0],1,1,'2. learner_2','-', 1)
         ]
 
         self.assertEqual("Progressive Reward (2 Environments)", plotter.plot_calls[0][2])
@@ -1352,8 +1199,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(x=['environment_id'])
 
         expected_lines = [
-            (('0',),(1.5,),(None,),(None,),0,1,'learner_1','.',1),
-            (('0',),(1.5,),(None,),(None,),1,1,'learner_2','.',1)
+            Points(['0'],[1.5],[],[0],0,1,'1. learner_1','.',1),
+            Points(['0'],[1.5],[],[0],1,1,'2. learner_2','.',1)
         ]
 
         self.assertEqual("Final Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -1362,14 +1209,16 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
-    def test_plot_learners_two_environments_err_sd(self):
-        envs = [['environment_id'],[0],[1]]
+    def test_plot_learners_three_environments_err_sd(self):
+        envs = [['environment_id'],[0],[1],[2]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
             [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
+            [0,2,1,2],[0,2,2,3],
             [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+            [1,2,1,3],[1,2,2,4],
+            [2,1,1,3],[2,1,2,4],
+            [2,2,1,4],[2,2,2,5],
         ]
 
         plotter = TestPlotter()
@@ -1379,19 +1228,12 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(err='sd')
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(sqrt(2)/2,sqrt(2)/2),0,1,'learner_1','-', 1),
-            ((1,2),(3/2,4/2),(None,None),(sqrt(2)/2,sqrt(2)/2),1,1,'learner_2','-', 1)
+            Points([1,2],[3,3.5],[],[(1,1),(1,1)],1,1,'2. learner_2','-', 1),
+            Points([1,2],[2,2.5],[],[(1,1),(1,1)],0,1,'1. learner_1','-', 1),
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual(expected_lines[0][:3], plotter.plot_calls[0][1][0][:3])
-        self.assertEqual(expected_lines[1][:3], plotter.plot_calls[0][1][1][:3])
-        self.assertAlmostEqual(expected_lines[0][3][0], plotter.plot_calls[0][1][0][3][0])
-        self.assertAlmostEqual(expected_lines[0][3][1], plotter.plot_calls[0][1][0][3][1])
-        self.assertAlmostEqual(expected_lines[1][3][0], plotter.plot_calls[0][1][1][3][0])
-        self.assertAlmostEqual(expected_lines[1][3][1], plotter.plot_calls[0][1][1][3][1])
-        self.assertEqual(expected_lines[0][4:], plotter.plot_calls[0][1][0][4:])
-        self.assertEqual(expected_lines[1][4:], plotter.plot_calls[0][1][1][4:])
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_mixed_env_count(self):
 
@@ -1412,10 +1254,10 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting."
+        expected_log = "This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this call <result>.filter_fin() before plotting."
         expected_lines = [
-            ((1,2),(2,5/2),(None,None),(None,None),0,1,'learner_1','-', 1),
-            ((1,2),(2,5/2),(None,None),(None,None),1,1,'learner_2','-', 1)
+            Points([1,2],[2,5/2],[],[0,0],0,1,'1. learner_1','-', 1),
+            Points([1,2],[2,5/2],[],[0,0],1,1,'2. learner_2','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1431,7 +1273,7 @@ class Result_Tests(unittest.TestCase):
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
             [0,1,1,1],[0,1,2,2],[0,1,3,3],
-            [0,2,1,1],[0,2,2,2],
+            [0,2,1,1],[0,2,2,2],[0,2,3,3],
             [1,1,1,2],[1,1,2,3],
             [1,2,1,2],[1,2,2,3],
         ]
@@ -1442,10 +1284,10 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting."
+        expected_log = "This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting."
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(None,None),0,1,'learner_1','-', 1),
-            ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'learner_2','-', 1)
+            Points([1,2],[3/2,4/2],[],[0,0],0,1,'1. learner_1','-', 1),
+            Points([1,2],[3/2,4/2],[],[0,0],1,1,'2. learner_2','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1531,8 +1373,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(labels=['a','b'],colors=3)
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(None,None),3,1,'a','-', 1),
-            ((1,2),(3/2,4/2),(None,None),(None,None),4,1,'b','-', 1)
+            Points([1,2],[3/2,4/2],[],[0,0],3,1,'a','-', 1),
+            Points([1,2],[3/2,4/2],[],[0,0],4,1,'b','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1555,13 +1397,13 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(labels=['a','b'])
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(None,None),0,1,'a','-', 1),
-            ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'b','-', 1)
+            Points([1,2],[3/2,4/2],[],[0,0],0,1,'a','-', 1),
+            Points([1,2],[3/2,4/2],[],[0,0],1,1,'b','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
-    
+
     def test_plot_learners_labels_one_color(self):
         
         envs = [['environment_id'],[0],[1]]
@@ -1580,8 +1422,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(labels=['a','b'],colors=1)
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'a','-', 1),
-            ((1,2),(3/2,4/2),(None,None),(None,None),2,1,'b','-', 1)
+            Points([1,2],[3/2,4/2],[],[0,0],1,1,'a','-', 1),
+            Points([1,2],[3/2,4/2],[],[0,0],2,1,'b','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1604,8 +1446,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(labels=['a'],colors=1)
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'a'        ,'-', 1),
-            ((1,2),(3/2,4/2),(None,None),(None,None),2,1,'learner_2','-', 1)
+            Points([1,2],[3/2,4/2],[],[0,0],1,1,'a'           ,'-', 1),
+            Points([1,2],[3/2,4/2],[],[0,0],2,1,'2. learner_2','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1628,8 +1470,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(colors=2)
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(None,None),2,1,'learner_1','-', 1),
-            ((1,2),(3/2,4/2),(None,None),(None,None),3,1,'learner_2','-', 1)
+            Points([1,2],[3/2,4/2],[],[0,0],2,1,'1. learner_1','-', 1),
+            Points([1,2],[3/2,4/2],[],[0,0],3,1,'2. learner_2','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1652,8 +1494,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(colors=[2])
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),(None,None),2,1,'learner_1','-', 1),
-            ((1,2),(3/2,4/2),(None,None),(None,None),3,1,'learner_2','-', 1)
+            Points([1,2],[3/2,4/2],[],[0,0],2,1,'1. learner_1','-', 1),
+            Points([1,2],[3/2,4/2],[],[0,0],3,1,'2. learner_2','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1678,8 +1520,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(top_n=2)
 
         expected_lines = [
-            ((1,2),(5,5.5),(None,None),(None,None),2,1,'learner_3','-', 1),
-            ((1,2),(3,3.5),(None,None),(None,None),1,1,'learner_2','-', 1)
+            Points([1,2],[5,5.5],[],[0,0],2,1,'3. learner_3','-', 1),
+            Points([1,2],[3,3.5],[],[0,0],1,1,'2. learner_2','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1704,8 +1546,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(top_n=-2)
 
         expected_lines = [
-            ((1,2),(3,3.5),(None,None),(None,None),1,1,'learner_2','-', 1),
-            ((1,2),(1,1.5),(None,None),(None,None),0,1,'learner_1','-', 1)
+            Points([1,2],[3,3.5],[],[0,0],1,1,'2. learner_2','-', 1),
+            Points([1,2],[1,1.5],[],[0,0],0,1,'1. learner_1','-', 1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1716,23 +1558,23 @@ class Result_Tests(unittest.TestCase):
         result = Result()
 
         result.set_plotter(plotter)
-        
+
         CobaContext.logger.sink = ListSink()
         result.plot_learners()
-        self.assertIn("This result doesn't",CobaContext.logger.sink.items[0])
+        self.assertEqual(["This result does not contain any data to plot."],CobaContext.logger.sink.items)
 
-    def test_plot_contrast_bad_x_index(self):
-        CobaContext.logger.sink = ListSink()
-        Result().plot_contrast(0, 1, x=['index','a'])
-        self.assertIn("The x-axis cannot",CobaContext.logger.sink.items[0])
-
-    def test_plot_contrast_no_matches(self):
+    def test_plot_contrast_no_data(self):
         CobaContext.logger.sink = ListSink()
         Result().plot_contrast(0, 1, x=['a'])
-        self.assertIn("This result doesn't",CobaContext.logger.sink.items[0])
+        self.assertEqual(["This result does not contain any data to plot."],CobaContext.logger.sink.items)
 
-    def test_plot_contrast_index(self):
-        envs = [['environment_id'],]
+    def test_shared_c(self):
+        CobaContext.logger.sink = ListSink()
+        Result().plot_contrast(1, 1, x=['a'])
+        self.assertEqual(["A value cannot be in both `c1` and `c2`. Please make a change and run it again."],CobaContext.logger.sink.items)
+
+    def test_plot_contrast_no_pairings(self):
+        envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
             [0,1,1,0],[0,1,2,3],[0,1,3,9],
@@ -1743,10 +1585,34 @@ class Result_Tests(unittest.TestCase):
 
         CobaContext.logger.sink = ListSink()
         Result(envs, lrns, ints).plot_contrast(0, 1, x='index')
-        self.assertIn("plot_contrast does not currently", CobaContext.logger.sink.items[0])
+
+        self.assertEqual(f"We were unable to create any pairings to contrast. Make sure c1=0 and c2=1 is correct.",CobaContext.logger.sink.items[0])
+
+    def test_plot_contrast_index(self):
+        envs = [['environment_id'],[0],[1]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        ints = [['environment_id','learner_id','index','reward'],
+            [0,1,1,0],[0,1,2,3],[0,1,3,9],
+            [0,2,1,1],[0,2,2,2],[0,2,3,6],
+            [1,1,1,1],[1,1,2,2],[1,1,3,9],
+            [1,2,1,0],[1,2,2,3],[1,2,3,6],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast(1, 2, x='index')
+
+        expected_lines = [
+            Points((1,2,3), (0, 0, -1), None, (0,0,0), 0     , 1, 'c2-c1', '-', 1.),
+            Points((1,3)  , (0, 0    ), None,  None  , "#888", 1, None   , '-', .5),
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_contrast_four_environment_all_default(self):
-
         envs = [['environment_id'],[0],[1],[2],[3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
@@ -1764,53 +1630,18 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, ints)
 
         result.set_plotter(plotter)
-        result.plot_contrast(1,2)
+        result.plot_contrast(2,1)
 
         expected_lines = [
-            (('2','1'), (-2,-1), (None,None), (None,None), 0     , 1, 'learner_2 (2)', '.', 1.),
-            (('0','3'), ( 1, 2), (None,None), (None,None), 2     , 1, 'learner_1 (2)', '.', 1.),
-            (('2','3'), ( 0, 0),  None      ,  None      , "#888", 1, None           , '-', .5),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'c1 (2)', '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'c2 (2)', '.', 1.),
+            Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None    , '-', .5),
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual(expected_lines[0], plotter.plot_calls[0][1][0])
-        self.assertEqual(expected_lines[1], plotter.plot_calls[0][1][1])
-        self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
-    
-    def test_plot_contrast_four_environment_reverse(self):
-
-        envs = [['environment_id'],[0],[1],[2],[3]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,9],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,1],[1,1,2,2],[1,1,3,6],
-            [1,2,1,0],[1,2,2,3],[1,2,3,9],
-            [2,1,1,0],[2,1,2,0],[2,1,3,6],
-            [2,2,1,0],[2,2,2,3],[2,2,3,9],
-            [3,1,1,0],[3,1,2,3],[3,1,3,9],
-            [3,2,1,0],[3,2,2,0],[3,2,3,6],
-        ]
-
-        plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
-
-        result.set_plotter(plotter)
-        result.plot_contrast(1,2,reverse=True)
-
-        expected_lines = [
-            (('3','0'), ( 2, 1), (None,None), (None,None), 2     , 1, 'learner_1 (2)', '.', 1.),
-            (('1','2'), (-1,-2), (None,None), (None,None), 0     , 1, 'learner_2 (2)', '.', 1.),
-            (('3','2'), ( 0, 0),  None      ,  None      , "#888", 1, None           , '-', .5),
-        ]
-
-        self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual(expected_lines[0], plotter.plot_calls[0][1][0])
-        self.assertEqual(expected_lines[1], plotter.plot_calls[0][1][1])
-        self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_contrast_one_environment_env_not_index(self):
-
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
@@ -1826,21 +1657,18 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, ints)
 
         result.set_plotter(plotter)
-        result.plot_contrast(1,2,'a')
+        result.plot_contrast(2,1,'a')
 
         expected_lines = [
-            (('2',)   , (0, ), (None,    ), (None,    ), 1     , 1, 'Tie (1)'      , '.', 1.),
-            (('3','1'), (1,2), (None,None), (None,None), 2     , 1, 'learner_1 (2)', '.', 1.),
-            (('2','1'), (0,0), None       , None       , "#888", 1, None           , '-', .5)
+            Points(('2',)   , (0, ), None, (0, ), 1     , 1, 'Tie (1)', '.', 1.),
+            Points(('3','1'), (1,2), None, (0,0), 2     , 1, 'c2 (2)' , '.', 1.),
+            Points(('2','1'), (0,0), None, None , "#888", 1, None     , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual(expected_lines[0], plotter.plot_calls[0][1][0])
-        self.assertEqual(expected_lines[1], plotter.plot_calls[0][1][1])
-        self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
-    def test_plot_scat_contrast_one_environment_env_index(self):
-
+    def test_plot_contrast_one_environment_env_not_index_mode_prob(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         ints = [['environment_id','learner_id','index','reward'],
@@ -1856,42 +1684,116 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, ints)
 
         result.set_plotter(plotter)
-        result.plot_contrast(1,2,'a',mode='scat')
+        result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            ((3,  ), (3,  ), (None,    ), (None,    ), 1     , 1, 'Tie (1)'      , '.', 1.),
-            ((5, 4), (3, 3), (None,None), (None,None), 2     , 1, 'learner_1 (2)', '.', 1.),
-            ((0, 5), (0, 5), None       , None       , "#888", 1, None           , '-', .5)
+            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, 'c1 (1)', '.', 1.),
+            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, 'c2 (2)', '.', 1.),
+            Points(('2','3'), (.5,.5), None, None , "#888", 1, None    , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual(expected_lines[0], plotter.plot_calls[0][1][0])
-        self.assertEqual(expected_lines[1], plotter.plot_calls[0][1][1])
-        self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
-class moving_average_Tests(unittest.TestCase):
+    def test_plot_contrast_one_environment_env_not_index_with_p(self):
+        envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
+        lrns = [['learner_id', 'family'],[1,'learner_1']]
+        ints = [['environment_id','learner_id','index','reward'],
+            [0,1,1,0],[0,1,2,3],[0,1,3,12],
+            [1,1,1,0],[1,1,2,3],[1,1,3,6],
+            [2,1,1,0],[2,1,2,3],[2,1,3,9],
+        ]
 
-    def test_sliding_windows(self):
-        self.assertEqual([0,1/2,1/2,0/2,1/2], list(moving_average([0,1,0,0,1],span=2)))
-        self.assertEqual([0,1/2,1/3,1/3,1/3], list(moving_average([0,1,0,0,1],span=3)))
-        self.assertEqual([0,1/2,1/3,1/4,2/4], list(moving_average([0,1,0,0,1],span=4)))
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
 
-    def test_rolling_windows(self):
-        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=None)))
-        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=5   )))
-        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=6   )))
+        result.set_plotter(plotter)
+        result.plot_contrast(2,1,c='a')
 
-    def test_no_window(self):
-        self.assertEqual([0,1,0,0,1], list(moving_average([0,1,0,0,1],span=1)))
+        expected_lines = [
+            Points(('0-1',     ), (2, ), None, (0, ), 2     , 1, 'c2 (1)', '.', 1.),
+            Points(('0-1','0-1'), (0,0), None, None , "#888", 1, None    , '-', .5)
+        ]
 
-class exponential_moving_average_Tets(unittest.TestCase):
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
-    def test_span_2(self):
-        self.assertEqual([1,1.75,2.62,3.55], [round(v,2) for v in list(exponential_moving_average([1,2,3,4],span=2))])
+    def test_plot_contrast_x_eq_c_multi_c1(self):
+        envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        ints = [['environment_id','learner_id','index','reward'],
+            [0,1,1,0],[0,1,2,3],[0,1,3,12],
+            [0,2,1,1],[0,2,2,2],[0,2,3,6],
+            [1,1,1,0],[1,1,2,3],[1,1,3,6],
+            [1,2,1,1],[1,2,2,2],[1,2,3,6],
+            [2,1,1,0],[2,1,2,3],[2,1,3,9],
+            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        ]
 
-class FilterPlottingData_Tests(unittest.TestCase):
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
 
-    def test_all_env_finished_with_equal_lengths_and_x_index(self):
+        result.set_plotter(plotter)
+        result.plot_contrast([2,3],1,c='a',x='a',boundary=False)
+
+        expected_lines = [
+            Points(('1-2','1-3'), (1,.5), None, (0, 0), 0, 1, None, '.', 1.),
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_contrast_x_eq_c_multi_c2(self):
+        envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        ints = [['environment_id','learner_id','index','reward'],
+            [0,1,1,0],[0,1,2,3],[0,1,3,12],
+            [0,2,1,1],[0,2,2,2],[0,2,3,6],
+            [1,1,1,0],[1,1,2,3],[1,1,3,6],
+            [1,2,1,1],[1,2,2,2],[1,2,3,6],
+            [2,1,1,0],[2,1,2,3],[2,1,3,9],
+            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast(1,[3,2],c='a',x='a',boundary=False)
+
+        expected_lines = [
+            Points(('3-1','2-1'), (-.5,-1), None, (0, 0), 0, 1, None, '.', 1.),
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_contrast_x_eq_c_one_one(self):
+        envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        ints = [['environment_id','learner_id','index','reward'],
+            [0,1,1,0],[0,1,2,3],[0,1,3,12],
+            [0,2,1,1],[0,2,2,2],[0,2,3,6],
+            [1,1,1,0],[1,1,2,3],[1,1,3,6],
+            [1,2,1,1],[1,2,2,2],[1,2,3,6],
+            [2,1,1,0],[2,1,2,3],[2,1,3,9],
+            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast(1,2,c='a',x='a',boundary=False)
+
+        expected_lines = [
+            Points(('2-1',), (-1,), None, (0,), 0, 1, None, '.', 1.),
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plottable_all_env_finished_with_equal_lengths_and_x_index(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1901,13 +1803,10 @@ class FilterPlottingData_Tests(unittest.TestCase):
         ints = [['environment_id','learner_id','index','reward'], [0,0,1,1], [0,1,1,1],]
         result = Result(envs, lrns, ints)
 
-        expected_rows = result.interactions
-        actual_rows = FilterPlottingData().filter(result, ['index'], "reward")
-
-        self.assertEqual(expected_rows,actual_rows)
+        self.assertEqual(result, result._plottable(['index'],'reward'))
         self.assertEqual([], CobaContext.logger.sink.items)
 
-    def test_all_env_finished_with_unequal_lengths_and_x_index(self):
+    def test_plottable_all_env_finished_with_unequal_lengths_and_x_index(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1918,12 +1817,13 @@ class FilterPlottingData_Tests(unittest.TestCase):
         result = Result(envs, lrns, ints)
 
         expected_rows = [(0,0,1,1),(0,1,1,1),(1,0,1,1),(1,1,1,1)]
-        actual_rows = FilterPlottingData().filter(result, ['index'], "reward")
 
-        self.assertEqual(expected_rows,list(actual_rows))
-        self.assertEqual(["This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting."], CobaContext.logger.sink.items)
+        plottable = result._plottable(['index'],'reward')
 
-    def test_not_all_env_finished_with_unequal_lengths_and_x_index(self):
+        self.assertEqual(expected_rows,list(plottable.interactions))
+        self.assertEqual(["This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting."], CobaContext.logger.sink.items)
+
+    def test_plottable_not_all_env_finished_with_unequal_lengths_and_x_index(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1934,13 +1834,13 @@ class FilterPlottingData_Tests(unittest.TestCase):
         result = Result(envs, lrns, ints)
 
         expected_rows = [(1,0,1,1),(1,1,1,1)]
-        actual_rows = FilterPlottingData().filter(result, ['index'], "reward")
+        plottable = result._plottable(['index'],'reward')
 
-        self.assertEqual(expected_rows,list(actual_rows))
-        self.assertIn("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.", CobaContext.logger.sink.items)
-        self.assertIn("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.", CobaContext.logger.sink.items)
+        self.assertEqual(expected_rows,list(plottable.interactions))
+        self.assertIn("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this call <result>.filter_fin() before plotting.", CobaContext.logger.sink.items)
+        self.assertIn("This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting.", CobaContext.logger.sink.items)
 
-    def test_no_env_finished_for_all_learners(self):
+    def test_plottable_no_env_finished_for_all_learners(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1951,21 +1851,11 @@ class FilterPlottingData_Tests(unittest.TestCase):
         result = Result(envs, lrns, ints)
 
         with self.assertRaises(CobaException) as e:
-            FilterPlottingData().filter(result, ['index'], "reward")
+            result._plottable(['index'], "reward")
 
-        self.assertEqual(str(e.exception),"This result does not contain an environment that has been finished for every learner. Plotting has been stopped.")
+        self.assertEqual(str(e.exception),"This result does not contain an environment that has been finished for every learner.")
 
-    def test_no_data(self):
-
-        CobaContext.logger = IndentLogger()
-        CobaContext.logger.sink = ListSink()
-
-        with self.assertRaises(CobaException) as e:
-            FilterPlottingData().filter(Result(), ['index'], "reward")
-
-        self.assertEqual(str(e.exception),"This result doesn't contain any evaluation data to plot.")
-
-    def test_all_env_finished_with_unequal_lengths_and_not_x_index(self):
+    def test_plottable_all_env_finished_with_unequal_lengths_and_not_x_index(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1982,424 +1872,79 @@ class FilterPlottingData_Tests(unittest.TestCase):
            (1,1,1,1),(1,1,2,1)
         ]
 
-        actual_rows = FilterPlottingData().filter(result, ['openml_task'], "reward")
-        self.assertEqual(expected_rows,list(actual_rows))
+        plottable = result._plottable(['openml_task'],'reward')
+        self.assertEqual(expected_rows,list(plottable.interactions))
 
-class SmoothPlottingData_Tests(unittest.TestCase):
+    def test_plottable_no_data(self):
 
-    def test_full_span(self):
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
 
-        rows = Table(columns=['environment_id','learner_id','index','reward']).insert([
-            [0,0,1,0],[0,0,2,2],[0,0,3,4],
-            [0,1,1,0],[0,1,2,4],[0,1,3,8],
-        ]).index("environment_id",'learner_id','index')
+        with self.assertRaises(CobaException) as e:
+            Result()._plottable(['index'], "reward")
 
-        expected_rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,1,2]},
-            {"environment_id":0, "learner_id":1, "reward":[0,2,4]}
-        ]
+        self.assertEqual(str(e.exception),"This result does not contain any data to plot.")
 
-        actual_rows = SmoothPlottingData().filter(rows, "reward", None)
-        actual_rows[0]['reward'] = list(actual_rows[0]['reward'])
-        actual_rows[1]['reward'] = list(actual_rows[1]['reward'])
+    def test_plottable_no_y(self):
 
-        self.assertEqual(expected_rows,actual_rows)
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
 
-    def test_part_span(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        ints = [['environment_id','learner_id','index','reward'], [0,0,1,1], [0,1,1,1],]
+        result = Result(envs, lrns, ints)
 
-        rows = Table(columns=['environment_id','learner_id','index','reward']).insert([
-            [0,0,1,0],[0,0,2,2],[0,0,3,2],
-            [0,1,1,0],[0,1,2,4],[0,1,3,4],
-        ]).index("environment_id",'learner_id','index')
+        with self.assertRaises(CobaException) as e:
+            result._plottable(['index'], "a")
 
-        expected_rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,1,2]},
-            {"environment_id":0, "learner_id":1, "reward":[0,2,4]}
-        ]
+        self.assertEqual(str(e.exception),"This result does not contain column 'a' in interactions.")
 
-        actual_rows = SmoothPlottingData().filter(rows, "reward", 2)
-        actual_rows[0]['reward'] = list(actual_rows[0]['reward'])
-        actual_rows[1]['reward'] = list(actual_rows[1]['reward'])
+    def test_confidence_skip_err(self):
+        self.assertEqual((2,(0,0)),Result()._confidence('sd',2)([1,2,3],0))
+        self.assertEqual((2,(1,1)),Result()._confidence('sd',2)([1,2,3],1))
 
-        self.assertEqual(expected_rows,actual_rows)
+    def test_confidence_sd(self):
+        self.assertEqual((2,(1,1)),Result()._confidence('sd')([1,2,3]))
 
-    def test_no_span(self):
+    def test_confidence_se(self):
+        self.assertEqual((2,(1.96,1.96)),Result()._confidence('se')([1,3]))
 
-        rows = Table(columns=['environment_id','learner_id','index','reward']).insert([
-            [0,0,1,0],[0,0,2,2],[0,0,3,4],
-            [0,1,1,0],[0,1,2,4],[0,1,3,8],
-        ]).index("environment_id",'learner_id','index')
-
-        expected_rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,2,4]},
-            {"environment_id":0, "learner_id":1, "reward":[0,4,8]}
-        ]
-
-        actual_rows = SmoothPlottingData().filter(rows, "reward", 1)
-        actual_rows[0]['reward'] = list(actual_rows[0]['reward'])
-        actual_rows[1]['reward'] = list(actual_rows[1]['reward'])
-
-        self.assertEqual(expected_rows,actual_rows)
-
-class ContrastPlottingData_Tests(unittest.TestCase):
-
-    def test_2_env_diff_0(self):
-
-        rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,2,4]},
-            {"environment_id":0, "learner_id":1, "reward":[0,4,8]},
-            {"environment_id":1, "learner_id":0, "reward":[0,0,0]},
-            {"environment_id":1, "learner_id":1, "reward":[1,2,3]}
-        ]
-
-        expected_rows = [
-            {"environment_id":0, "reward":[0,2,4]},
-            {"environment_id":1, "reward":[1,2,3]}
-        ]
-
-        actual_rows = ContrastPlottingData().filter(rows, "reward", "diff", 1)
-
-        self.assertEqual(expected_rows,actual_rows)
-
-    def test_2_env_diff_1(self):
-
-        rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,2,4]},
-            {"environment_id":0, "learner_id":1, "reward":[0,4,8]},
-            {"environment_id":1, "learner_id":0, "reward":[0,0,0]},
-            {"environment_id":1, "learner_id":1, "reward":[1,2,3]}
-        ]
-
-        expected_rows = [
-            {"environment_id":0, "reward":[-0,-2,-4]},
-            {"environment_id":1, "reward":[-1,-2,-3]}
-        ]
-
-        actual_rows = ContrastPlottingData().filter(rows, "reward", "diff", 0)
-
-        self.assertEqual(expected_rows,actual_rows)
-
-    def test_2_env_prob_0(self):
-
-        rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,2,4]},
-            {"environment_id":0, "learner_id":1, "reward":[0,4,8]},
-            {"environment_id":1, "learner_id":0, "reward":[0,0,0]},
-            {"environment_id":1, "learner_id":1, "reward":[1,2,3]}
-        ]
-
-        expected_rows = [
-            {"environment_id":0, "reward":[0,1,1]},
-            {"environment_id":1, "reward":[1,1,1]}
-        ]
-
-        actual_rows = ContrastPlottingData().filter(rows, "reward", "prob", 1)
-        
-        self.assertEqual(expected_rows,actual_rows)
-
-    def test_2_env_prob_1(self):
-
-        rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,2,4]},
-            {"environment_id":0, "learner_id":1, "reward":[0,4,8]},
-            {"environment_id":1, "learner_id":0, "reward":[0,0,0]},
-            {"environment_id":1, "learner_id":1, "reward":[1,2,3]}
-        ]
-
-        expected_rows = [
-            {"environment_id":0, "reward":[0,0,0]},
-            {"environment_id":1, "reward":[0,0,0]}
-        ]
-
-        actual_rows = ContrastPlottingData().filter(rows, "reward", "prob", 0)
-
-        self.assertEqual(expected_rows,actual_rows)
-
-    def test_2_env_scat_1(self):
-
-        rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,2,4]},
-            {"environment_id":0, "learner_id":1, "reward":[0,4,8]},
-            {"environment_id":1, "learner_id":0, "reward":[0,0,0]},
-            {"environment_id":1, "learner_id":1, "reward":[1,2,3]}
-        ]
-
-        expected_rows = [
-            {"environment_id":0, "reward":[(0,0),(2,4),(4,8)]},
-            {"environment_id":1, "reward":[(0,1),(0,2),(0,3)]}
-        ]
-
-        actual_rows = ContrastPlottingData().filter(rows, "reward", "scat", 0)
-
-        self.assertEqual(expected_rows,actual_rows)
-
-    def test_2_env_callable(self):
-
-        rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,2,4]},
-            {"environment_id":0, "learner_id":1, "reward":[0,4,8]},
-            {"environment_id":1, "learner_id":0, "reward":[0,0,0]},
-            {"environment_id":1, "learner_id":1, "reward":[1,2,3]}
-        ]
-
-        expected_rows = [
-            {"environment_id":0, "reward":[0,-2,-4]},
-            {"environment_id":1, "reward":[-1,-2,-3]}
-        ]
-
-        actual_rows = ContrastPlottingData().filter(rows, "reward", lambda x,y: y-x, 1)
-        self.assertEqual(expected_rows,actual_rows)
-
-class TransformXYE_Tests(unittest.TestCase):
-
-    def test_x_index_no_err(self):
-
-        rows = [
-            {"environment_id":0, "reward":[0,2,4]},
-            {"environment_id":1, "reward":[0,4,8]}
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':4},
-        }
-
-        expected_rows = [
-            (1, 0, None, None),
-            (2, 3, None, None),
-            (3, 6, None, None),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", None)
-
-        self.assertEqual(expected_rows,actual_rows)
-
-    def test_x_index_sd_err(self):
-
-        rows = [
-            {"environment_id":0, "reward":[0,1]},
-            {"environment_id":1, "reward":[0,3]}
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':4},
-        }
-
-        expected_rows = [
-            (1, 0, None, 0      ),
-            (2, 2, None, sqrt(2)),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'sd')
-
-        self.assertEqual(expected_rows[0][:3],actual_rows[0][:3])
-        self.assertEqual(expected_rows[1][:3],actual_rows[1][:3])
-        self.assertAlmostEqual(expected_rows[0][3],actual_rows[0][3])
-        self.assertAlmostEqual(expected_rows[1][3],actual_rows[1][3])
-
-    def test_x_index_se_err(self):
-
-        rows = [
-            {"environment_id":0, "reward":[0,1]},
-            {"environment_id":1, "reward":[0,3]}
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':4},
-        }
-
-        expected_rows = [
-            (1, 0, None, (0   ,0   )),
-            (2, 2, None, (1.96,1.96)),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'se')
-
-        self.assertEqual(expected_rows[0][:3],actual_rows[0][:3])
-        self.assertEqual(expected_rows[1][:3],actual_rows[1][:3])
-        
-        self.assertAlmostEqual(expected_rows[0][3][0],actual_rows[0][3][0])
-        self.assertAlmostEqual(expected_rows[1][3][0],actual_rows[1][3][0])
-        self.assertAlmostEqual(expected_rows[0][3][1],actual_rows[0][3][1])
-        self.assertAlmostEqual(expected_rows[1][3][1],actual_rows[1][3][1])
-
-    def test_x_index_bs_err(self):
-
-        rows = [
-            {"environment_id":0, "learner_id":0, "reward":[0,1]},
-            {"environment_id":0, "learner_id":1, "reward":[0,0]}
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':4},
-        }
-
-        expected_rows = [
-            (1,   0, None, (0 , 0)),
-            (2, 1/2, None, (.5,.5)),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'bs')
-        self.assertEqual(expected_rows,actual_rows)
-
-    def test_x_index_bi_err(self):
-
-        rows = [
-            {"environment_id":0, "reward":[0,1]},
-            {"environment_id":1, "reward":[0,1]},
-            {"environment_id":2, "reward":[0,1]},
-            {"environment_id":3, "reward":[0,0]},
-            {"environment_id":4, "reward":[0,0]},
-            {"environment_id":5, "reward":[0,0]},
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':4},
-        }
-
-        expected_rows = [
-            (1,   0, None, (0         , 0.39033   )),
-            (2, 1/2, None, (.5-0.18761, 0.81238-.5)),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'bi')
-
-        self.assertEqual      (expected_rows[0][0:3] ,actual_rows[0][0:3]   )
-        self.assertEqual      (expected_rows[0][3][0],actual_rows[0][3][0]  )
-        self.assertAlmostEqual(expected_rows[0][3][1],actual_rows[0][3][1],4)
-
-        self.assertEqual      (expected_rows[1][0:3] ,actual_rows[1][0:3]   )
-        self.assertAlmostEqual(expected_rows[1][3][0],actual_rows[1][3][0],4)
-        self.assertAlmostEqual(expected_rows[1][3][1],actual_rows[1][3][1],4)
-
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
-    def test_x_index_bi_exact_err(self):
-
-        rows = [
-            {"environment_id":0, "reward":[1]},
-            {"environment_id":1, "reward":[1]},
-            {"environment_id":2, "reward":[1]},
-            {"environment_id":3, "reward":[0]},
-            {"environment_id":4, "reward":[0]},
-            {"environment_id":5, "reward":[0]},
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':4},
-        }
-
-        expected_rows = [
-            (1, 1/2, None, (.5-0.11811, 0.88188-.5)),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", BinomialConfidenceInterval('clopper-pearson'))
-
-        self.assertEqual      (expected_rows[0][0:3] ,actual_rows[0][0:3]   )
-        self.assertAlmostEqual(expected_rows[0][3][0],actual_rows[0][3][0],4)
-        self.assertAlmostEqual(expected_rows[0][3][1],actual_rows[0][3][1],4)
-
-    def test_one_env_bs_err(self):
-
-        rows = [
-            {"environment_id":0, "reward":[1,2]},
-            {"environment_id":1, "reward":[2,4]},
-            {"environment_id":2, "reward":[3,6]},
-            {"environment_id":3, "reward":[4,8]},
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':4},
-            2: {'a':1,'b':2},
-            3: {'a':3,'b':4},
-        }
-
-        expected_rows = [
-            ('1', 4, None, (2,2)),
-            ('3', 6, None, (2,2)),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, 'a', "reward", 'bs')
-
-        self.assertEqual(expected_rows,actual_rows)
-
-    def test_two_env_bs_err(self):
-
-        rows = [
-            {"environment_id":0, "reward":[1,2]},
-            {"environment_id":1, "reward":[2,4]},
-            {"environment_id":2, "reward":[3,6]},
-            {"environment_id":3, "reward":[4,8]},
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':5},
-            2: {'a':1,'b':2},
-            3: {'a':3,'b':6},
-        }
-
-        expected_rows = [
-            ('(1, 2)', 4, None, (2,2)),
-            ('(3, 5)', 4, None, (0,0)),
-            ('(3, 6)', 8, None, (0,0)),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, ['a','b'], "reward", 'bs')
-
-        self.assertEqual(expected_rows,actual_rows)
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
+    def test_confidence_bs(self):
+        self.assertEqual((2.5, (1.5,0.5)),Result()._confidence('bs')([1,2,3,4]))
     
-    def test_index_pairwise_bs_err(self):
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
+    def test_confidence_ci(self):
+        self.assertEqual((2.5, (1.5,0.5)),Result()._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
 
-        rows = [
-            {"environment_id":0, "reward":[(1,2),(3,4)]},
-            {"environment_id":1, "reward":[(3,6),(3,6)]},
-        ]
+    def test_confidence_none(self):
+        self.assertEqual((2,0),Result()._confidence(None)([1,2,3]))
 
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':5},
-        }
+    def test_confidence_bi(self):
+        mu,(l,h) = Result()._confidence('bi')([0,0,1,1])
+        
+        self.assertEqual(.5,mu)
+        self.assertAlmostEqual(l,0.34996429)
+        self.assertAlmostEqual(h,0.34996429)
 
-        expected_rows = [
-            (2, 4, (1,1), (2,2)),
-            (3, 5, (0,0), (1,1)),
-        ]
+class moving_average_Tests(unittest.TestCase):
 
-        actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'bs')
+    def test_sliding_windows(self):
+        self.assertEqual([0,1/2,1/2,0/2,1/2], list(moving_average([0,1,0,0,1],span=2)))
+        self.assertEqual([0,1/2,1/3,1/3,1/3], list(moving_average([0,1,0,0,1],span=3)))
+        self.assertEqual([0,1/2,1/3,1/4,2/4], list(moving_average([0,1,0,0,1],span=4)))
 
-        self.assertEqual(expected_rows,actual_rows)
+    def test_rolling_windows(self):
+        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=None)))
+        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=5   )))
+        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=6   )))
 
-    def test_two_env_pairwise_bs_err(self):
+    def test_no_window(self):
+        self.assertEqual([0,1,0,0,1], list(moving_average([0,1,0,0,1],span=1)))
 
-        rows = [
-            {"environment_id":0, "reward":[(1,2)]},
-            {"environment_id":1, "reward":[(2,4)]},
-            {"environment_id":2, "reward":[(3,6)]},
-            {"environment_id":3, "reward":[(4,8)]},
-        ]
-
-        envs = {
-            0: {'a':1,'b':2},
-            1: {'a':3,'b':5},
-            2: {'a':1,'b':2},
-            3: {'a':3,'b':6},
-        }
-
-        expected_rows = [
-            (2, 4, (1,1), (2,2)),
-            (2, 4, (0,0), (0,0)),
-            (4, 8, (0,0), (0,0)),
-        ]
-
-        actual_rows = TransformToXYE().filter(rows, envs, ['a','b'], "reward", 'bs')
-
-        self.assertEqual(expected_rows,actual_rows)
+    def test_exponential_span_2(self):
+        self.assertEqual([1,1.75,2.62,3.55], [round(v,2) for v in list(moving_average([1,2,3,4],span=2,exponential=True))])
 
 if __name__ == '__main__':
     unittest.main()

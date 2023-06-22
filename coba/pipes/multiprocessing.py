@@ -305,7 +305,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                     self._main_err = True
                     event.set()
 
-                #we have to stop on exception because depending on where the exception occurred
+                #we have to stop on exception since, depending on where the exception occurred,
                 #we may not have actually read anything from the input queue. If we didn't then
                 #the input queue will never empty and we'll be stuck starting processes forever.
                 if not worker.poisoned and not self._exceptions and worker.exitcode == 0:

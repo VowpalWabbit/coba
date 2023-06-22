@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Sequence, Mapping, overload
 
 from coba.primitives import Context, Action, Actions
-from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback, IPSReward
+from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
 from coba.pipes import Source, SourceFilters, Filter
 from coba.exceptions import CobaException
 
@@ -11,20 +11,12 @@ class Interaction(dict):
     __slots__=()
     keywords = {}
 
-    @property
-    def extra(self) -> Mapping[str,Any]:
-        return { k:self[k] for k in self.keys()-self.keywords}
-
     @staticmethod
     def from_dict(kwargs_dict: Mapping[str, Any]) -> 'Interaction':
-        if 'feedbacks' in kwargs_dict:
-            sub_class =  GroundedInteraction
-        elif 'rewards' in kwargs_dict:
-            sub_class = SimulatedInteraction
-        else:
-            sub_class =  LoggedInteraction
-
-        return sub_class(**kwargs_dict)
+        if 'feedbacks' in kwargs_dict: return GroundedInteraction(**kwargs_dict)
+        if 'rewards' in kwargs_dict: return SimulatedInteraction(**kwargs_dict)
+        if 'reward' in kwargs_dict: return LoggedInteraction(**kwargs_dict)
+        return kwargs_dict
 
 class SimulatedInteraction(Interaction):
     """Simulated data that provides rewards for every possible action."""
@@ -72,9 +64,9 @@ class GroundedInteraction(Interaction):
             **kwargs: Additional information that should be recorded in the interactions table of an experiment result.
         """
 
-        self['context'] = context
-        self['actions'] = actions
-        self['rewards'] = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
+        self['context']   = context
+        self['actions']   = actions
+        self['rewards']   = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
         self['feedbacks'] = SequenceFeedback(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
 
         if kwargs: self.update(kwargs)
@@ -136,7 +128,7 @@ class Environment(Source[Iterable[Interaction]], ABC):
     """An Environment that produces Contextual Bandit data"""
 
     @property
-    def params(self) -> Mapping[str,Any]: # pragma: no cover
+    def params(self) -> Mapping[str,Any]: #pragma: no cover
         """Paramaters describing the simulation.
 
         Remarks:
@@ -155,18 +147,6 @@ class Environment(Source[Iterable[Interaction]], ABC):
 
     def __str__(self) -> str:
         return str(self.params) if self.params else self.__class__.__name__
-
-class SimulatedEnvironment(Environment):
-    """An environment made from SimulatedInteractions."""
-
-    @abstractmethod
-    def read(self) -> Iterable[SimulatedInteraction]:
-        """The sequence of interactions in the environment.
-
-        Remarks:
-            This function should always be "re-iterable".
-        """
-        ...
 
 class SafeEnvironment(Environment):
     """A wrapper for environment-likes that guarantees interface consistency."""
@@ -207,3 +187,16 @@ class SafeEnvironment(Environment):
             return f"{tipe}({','.join(f'{k}={v}' for k,v in params.items())})"
         else:
             return tipe
+
+class SimpleEnvironment(Environment):
+
+    def __init__(self, interactions: Sequence[Interaction]=(), params: Mapping[str,Any]={}) -> None:
+        self._interactions = interactions
+        self._params = params
+
+    @property
+    def params(self):
+        return self._params
+
+    def read(self) -> Iterable[Interaction]:
+        return self._interactions

@@ -8,7 +8,6 @@ from typing import Sequence, Tuple, Union, Callable
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
-from coba.random import CobaRandom
 from coba.utilities import PackageChecker
 
 def iqr(values: Sequence[float]) -> float:
@@ -28,7 +27,7 @@ def weighted_percentile(values: Sequence[float], weights: Sequence[float], perce
 
         if percentile == 0:
             return values[0]
-        
+
         if percentile == 1:
             return values[-1]
 
@@ -40,10 +39,10 @@ def weighted_percentile(values: Sequence[float], weights: Sequence[float], perce
 
     if sort:
         values, weights = zip(*sorted(zip(values,weights)))
-    
+
     weights = (0,)+weights[1:]
     weight_sum = sum(weights)
-    weights    = [w/weight_sum for w in accumulate(weights) ] 
+    weights    = [w/weight_sum for w in accumulate(weights) ]
 
     if isinstance(percentiles,(float,int)):
         return _percentile(values, weights, percentiles)
@@ -57,7 +56,7 @@ def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]
 
         i = percentile*(len(values)-1)
         I = int(i)
-        
+
         if i == I:
             return values[I]
         else:
@@ -77,7 +76,7 @@ def phi(x: float) -> float:
     return (1.0 + erf(x / sqrt(2.0))) / 2.0
 
 def mean(sample: Sequence[float]) -> float:
-    #If precision is needed use a true statistics package  
+    #If precision is needed use a true statistics package
     return sum(sample)/len(sample)
 
 def var(sample: Sequence[float]) -> float:
@@ -92,7 +91,7 @@ def var(sample: Sequence[float]) -> float:
         E_s2 = hypot(*sample)**2
         E_s = sum(sample)
         return (E_s2-E_s*E_s/n)/(n-1)
-    else:
+    else: #pragma: no cover
         #using the corrected two pass algo as recommended by
         #https://cpsc.yale.edu/sites/default/files/files/tr222.pdf
         #I've optimized this as much as I think is possible in python
@@ -105,46 +104,69 @@ def stdev(sample: Sequence[float]) -> float:
 class PointAndInterval(ABC):
 
     @abstractmethod
-    def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+    def point(self, sample: Sequence[float]) -> float:
         ...
 
-class StandardErrorOfMean(PointAndInterval):
+    @abstractmethod
+    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+        ...
+
+class StdDevCI(PointAndInterval):
+    def point(self,sample: Sequence[float]) -> float:
+        return mean(sample)
+    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+        mu = mean(sample)
+        sd = round(0 if len(sample) == 1 else stdev(sample),5)
+        return (mu, (sd,sd))
+
+class StdErrCI(PointAndInterval):
 
     def __init__(self, z_score:float=1.96) -> None:
-        self._z_score = z_score 
+        self._z_score = z_score
+        self._inner   = StdDevCI()
 
-    def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
-        mu = mean(sample)
-        se = 0 if len(sample) == 1 else stdev(sample)/(len(sample)**(.5))
-        
-        return (mu, (self._z_score*se,self._z_score*se))
+    def point(self,sample: Sequence[float]) -> float:
+        return self._inner.point(sample)
 
-class BootstrapConfidenceInterval(PointAndInterval):
+    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+        (mu,(sd,sd)) = self._inner.point_interval(sample)
+        sqrtn = len(sample)**.5
+        se    = round(sd/sqrtn,5)
+        ci    = self._z_score*se
+        return (mu, (ci,ci))
+
+class BootstrapCI(PointAndInterval):
 
     def __init__(self, confidence:float, statistic:Callable[[Sequence[float]], float]) -> None:
+        PackageChecker.scipy('BootstrapConfidenceInterval.__init__')
         self._conf = confidence
         self._stat = statistic
+        self._args = dict(method='basic', vectorized=False, n_resamples=1000, random_state=1)
 
-    def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
-        rng = CobaRandom(1)
-        n = len(sample)
+    def point(self,sample: Sequence[float]) -> float:
+        return self._stat(sample)
 
-        sample_stats = [ self._stat([sample[i] for i in rng.randints(n, 0, n-1)]) for _ in range(50) ]
+    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+        from scipy.stats import bootstrap
 
-        lower_conf = (1-self._conf)/2
-        upper_conf = (1+self._conf)/2
+        p   = self._stat(sample)
 
-        point_stat = self._stat(sample)
-        lower_stat,upper_stat = percentile(sample_stats,[lower_conf,upper_conf])
+        if len(sample) < 3:
+            l,h = p,p
+        else:
+            l,h = bootstrap([sample], self._stat, **self._args).confidence_interval
 
-        return (point_stat, (point_stat-lower_stat,upper_stat-point_stat))
+        return (p, (p-l,h-p))
 
-class BinomialConfidenceInterval(PointAndInterval):
+class BinomialCI(PointAndInterval):
 
     def __init__(self, method:Literal['wilson', 'clopper-pearson']):
         self._method = method
 
-    def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+    def point(self,sample: Sequence[float]) -> float:
+        return sum(sample)/len(sample)
+
+    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
         if set(sample) - set([0,1]):
             raise CobaException("A binomial confidence interval can only be calculated on values of 0 and 1.")
 
@@ -157,7 +179,7 @@ class BinomialConfidenceInterval(PointAndInterval):
             #https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm
             interval_num = z_975*((p_hat*(1-p_hat))/n + Q/(2*n))**(.5)
             location_num = (p_hat+Q)
-            
+
             interval_den = (1+2*Q)
             location_den = (1+2*Q)
 
@@ -165,10 +187,11 @@ class BinomialConfidenceInterval(PointAndInterval):
             location = location_num/location_den
 
             return (p_hat, (p_hat-(location-interval), (location+interval)-p_hat))
-        
+
         else:
-            PackageChecker.sklearn("BinomialConfidenceInterval")
+            PackageChecker.scipy("BinomialConfidenceInterval")
             from scipy.stats import beta
+
             lo = beta.ppf(.05/2, sum(sample), len(sample) - sum(sample) + 1)
             hi = beta.ppf(1-.05/2, sum(sample) + 1, len(sample) - sum(sample))
             p_hat = sum(sample)/len(sample)
@@ -178,7 +201,7 @@ class BinomialConfidenceInterval(PointAndInterval):
 
             return (p_hat, (p_hat-lo,hi-p_hat))
 
-class OnlineVariance():
+class OnlineVariance:
     """Calculate sample variance in an online fashion.
 
     Remarks:
@@ -219,7 +242,7 @@ class OnlineVariance():
         if count > 1:
             self._variance = M2 / (count - 1)
 
-class OnlineMean():
+class OnlineMean:
     """Calculate mean in an online fashion."""
 
     def __init__(self):

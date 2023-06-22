@@ -22,9 +22,9 @@ class VowpalMediator:
 
     def __init__(self) -> None:
         self._vw = None
-        self._namespace_keys = []
-        self._namespace_keys_index: Dict[str,int] = {}
         self._args = ""
+        self._ns_keys = {}
+        self._ns_keys_cnt = 0
  
         PackageChecker.vowpalwabbit('VowpalMediator.__init__')
 
@@ -139,11 +139,11 @@ class VowpalMediator:
                 if not feats and feats != 0 and feats != "":
                     continue
                 elif feats.__class__ is str:
-                    yield (ns, [f"{self._get_namespace_keys(ns,1)[0]}={feats}"])
+                    yield (ns, [f"{self._get_ns_keys(ns,0)}={feats}"])
                 elif feats.__class__ is int or feats.__class__ is float:
-                    yield (ns, [(self._get_namespace_keys(ns,1)[0], feats)])
+                    yield (ns, [(self._get_ns_keys(ns,0), feats)])
                 else:
-                    feats = feats.items() if isinstance(feats, Sparse) else zip(self._get_namespace_keys(ns,len(feats)),feats)
+                    feats = feats.items() if isinstance(feats, Sparse) else zip(self._get_ns_keys(ns,len(feats)),feats)
                     yield (ns, [f"{k}={v}" if v.__class__ is str else (k, v) for k,v in feats if v!= 0])
         else: #pragma: no cover
             #the strange type checks below were faster than traditional methods when performance testing
@@ -151,9 +151,9 @@ class VowpalMediator:
                 if not feats and feats != 0 and feats != "":
                     continue
                 elif feats.__class__ is str:
-                    yield (ns, [f"{self._get_namespace_keys(ns,1)[0]}={feats}"])
+                    yield (ns, {f"{self._get_ns_keys(ns,0)}={feats}":1})
                 elif feats.__class__ is int or feats.__class__ is float:
-                    yield (ns, [(self._get_namespace_keys(ns,1)[0], feats)])
+                    yield (ns, {self._get_ns_keys(ns,0): feats})
                 elif isinstance(feats,Sparse):
                     no_str = not any(map(isinstance,feats.values(),repeat(str))) # most-performant (still 2x slower than no check)
                     #no_str = str not in set(map(attrgetter("__class__"),feats.values()))
@@ -169,32 +169,34 @@ class VowpalMediator:
                                 del new[k]
                         yield (ns,new)
                 else:
-                    d={}
+                    no_str = not any(map(isinstance,compress(feats,feats),repeat(str)))
 
-                    K = self._get_namespace_keys(ns,len(feats))
+                    K = self._get_ns_keys(ns,len(feats))
                     V = feats
 
-                    for k,v in compress(zip(K,V),V):
-                        if v.__class__ is str:
-                            d[f"{k}={v}"] = 1
-                        else:
-                            d[k] = v
+                    if no_str:
+                        d = dict(compress(zip(K,V),V))
+                    else:
+                        d={}
+                        for k,v in compress(zip(K,V),V):
+                            if v.__class__ is str:
+                                d[f"{k}={v}"] = 1
+                            else:
+                                d[k] = v
 
                     yield (ns, d)
 
-    def _get_namespace_keys(self, namespace:str, length:int) -> Sequence[str]:
+    def _get_ns_keys(self, ns:str, length: int) -> Union[str,Sequence[str]]:
 
-        if namespace in self._namespace_keys_index:
-            index = self._namespace_keys_index[namespace]
-            keys  = self._namespace_keys[index:index+length]
-        else:
-            index = len(self._namespace_keys)
-            keys  = list(map(str,range(index,index+length)))
+        if ns not in self._ns_keys:
+            if not length:
+                self._ns_keys[ns] = str(self._ns_keys_cnt)
+                self._ns_keys_cnt += 1
+            else:
+                self._ns_keys[ns] = list(map(str,range(self._ns_keys_cnt,self._ns_keys_cnt+length)))
+                self._ns_keys_cnt += length
 
-            self._namespace_keys_index[namespace] = index
-            self._namespace_keys += keys
-
-        return keys
+        return self._ns_keys[ns]
 
     def __str__(self) -> str:
         return self._args

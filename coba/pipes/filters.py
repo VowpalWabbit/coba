@@ -420,3 +420,11 @@ class Cache(Filter[Iterable[Any], Iterable[Any]]):
                 yield from current
                 current = list(islice(items,n_slice))
             self._cache = temp_cache
+
+class Insert(Filter[Iterable[Any], Iterable[Any]]):
+    def __init__(self, insert_items: Sequence[Any]) -> None:
+        self._insert_items = insert_items
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        yield from self._insert_items
+        yield from items

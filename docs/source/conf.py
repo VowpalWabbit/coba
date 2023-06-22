@@ -93,7 +93,8 @@ import coba.contexts
 import coba.contexts.core
 
 def set_module(module):
-    for cls in map(module.__dict__.get, module.__all__):
+    from types import ModuleType
+    for cls in [v for k,v in module.__dict__.items() if not k.startswith("__") and not isinstance(v,ModuleType) ]:
         try:
             cls.__module__ = module.__name__
         except:

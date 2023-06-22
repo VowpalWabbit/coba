@@ -2,7 +2,7 @@ import requests
 import gzip
 
 from queue import Queue
-from typing import Callable, Iterable, Any, Union, Mapping
+from typing import Any, Callable, Iterable, Union, Mapping, Sequence
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
@@ -15,7 +15,7 @@ class NullSource(Source[Any]):
         return []
 
 class IdentitySource(Source[Any]):
-    """A source which reads from an iterable."""
+    """A source that reads from an iterable."""
 
     def __init__(self, item: Any, params: Mapping[str,Any] = None):
         """Instantiate an IterableSource.
@@ -35,7 +35,7 @@ class IdentitySource(Source[Any]):
         return self._item
 
 class DiskSource(Source[Iterable[str]]):
-    """A source which reads a file from disk.
+    """A source that reads a file from disk.
 
     This source supports reading both plain text files as well gz compressed file.
     In order to make this distinction gzip files must end with a gz extension.
@@ -77,7 +77,7 @@ class DiskSource(Source[Iterable[str]]):
                 yield line.rstrip('\r\n')
 
 class QueueSource(Source[Iterable[Any]]):
-    """A source which reads from a queue."""
+    """A source that reads from a queue."""
 
     def __init__(self, queue:Queue, block:bool=True, poison:Any=None) -> None:
         """Instantiate a QueueSource.
@@ -106,7 +106,7 @@ class QueueSource(Source[Iterable[Any]]):
             pass
 
 class HttpSource(Source[Union[requests.Response, Iterable[str]]]):
-    """A source which reads from a web URL."""
+    """A source that reads from a web URL."""
 
     def __init__(self, url: str, mode: Literal["response","lines"] = "response") -> None:
         """Instantiate an HttpSource.
@@ -123,7 +123,7 @@ class HttpSource(Source[Union[requests.Response, Iterable[str]]]):
         return response if self._mode == "response" else response.iter_lines(decode_unicode=True)
 
 class IterableSource(Source[Iterable[Any]]):
-    """A source which reads from an iterable."""
+    """A source that reads from an iterable."""
 
     def __init__(self, iterable: Iterable[Any]=None):
         """Instantiate an IterableSource.
@@ -136,8 +136,22 @@ class IterableSource(Source[Iterable[Any]]):
     def read(self) -> Iterable[Any]:
         return self.iterable
 
+class ListSource(Source[Sequence[Any]]):
+    """A source that reads from a list."""
+
+    def __init__(self, sequence: Sequence[Any]=None):
+        """Instantiate a ListSource.
+
+        Args:
+            list: The sequence we should read from.
+        """
+        self.items = [] if sequence is None else sequence
+
+    def read(self) -> Iterable[Any]:
+        return self.items
+
 class LambdaSource(Source[Any]):
-    """A source which reads from a callable method."""
+    """A source that reads from a callable method."""
 
     def __init__(self, read: Callable[[],Any]):
         """Instantiate a LambdaSource.
@@ -151,7 +165,7 @@ class LambdaSource(Source[Any]):
         return self._read()
 
 class UrlSource(Source[Iterable[str]]):
-    """A source which reads from a url.
+    """A source that reads from a url.
 
     If the given url uses a file scheme or is a local path then 
     a DiskSource is used internally.If the given url uses an http 

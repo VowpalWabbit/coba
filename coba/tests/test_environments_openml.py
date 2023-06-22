@@ -1096,9 +1096,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual([], interactions[1]['actions'])
         self.assertEqual([], interactions[2]['actions'])
 
-        self.assertEqual(8.1,interactions[0]['rewards'].argmax())
-        self.assertEqual(8.2,interactions[1]['rewards'].argmax())
-        self.assertEqual(8.3,interactions[2]['rewards'].argmax())
+        self.assertEqual(0,interactions[0]['rewards'].eval(8.1))
+        self.assertEqual(0,interactions[1]['rewards'].eval(8.2))
+        self.assertEqual(0,interactions[2]['rewards'].eval(8.3))
 
     def test_str(self):
         self.assertEqual('Openml(data=150)', str(OpenmlSimulation(150)))

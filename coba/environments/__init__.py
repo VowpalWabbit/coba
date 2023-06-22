@@ -6,7 +6,7 @@ can be applied to environments to modify them in useful ways (e.g., shuffling, s
 """
 
 from coba.environments.core       import Environments
-from coba.environments.primitives import Interaction, Environment, SafeEnvironment, EnvironmentFilter
+from coba.environments.primitives import Interaction, Environment, SafeEnvironment, EnvironmentFilter, SimpleEnvironment
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
@@ -17,50 +17,3 @@ from coba.environments.synthetics import LambdaSimulation, LinearSyntheticSimula
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.openml     import OpenmlSimulation, OpenmlSource
 from coba.environments.supervised import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
-
-__all__ = [
-    'Interaction',
-    'SimulatedInteraction',
-    'LoggedInteraction',
-    'GroundedInteraction',
-    'Environment',
-    'SafeEnvironment',
-    'Environments',
-    'LambdaSimulation',
-    'OpenmlSimulation',
-    'OpenmlSource',
-    'SupervisedSimulation',
-    'CsvSource',
-    'ArffSource',
-    'LibSvmSource',
-    'ManikSource',
-    'LinearSyntheticSimulation',
-    'NeighborsSyntheticSimulation',
-    'KernelSyntheticSimulation',
-    'MLPSyntheticSimulation',
-    'EnvironmentFilter',
-    'Sort',
-    'Scale',
-    'Cycle',
-    'Impute',
-    'Binary',
-    'Where',
-    'Shuffle',
-    'Take',
-    'Reservoir',
-    'Noise',
-    'Identity',
-    'Sparse',
-    'Riffle',
-    'Flatten',
-    'Params',
-    'Cache',
-    'Grounded',
-    'Finalize',
-    'Repr',
-    'Batch',
-    'BatchSafe',
-    'Chunk',
-    'Logged',
-    'OpeRewards'
-]

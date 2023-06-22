@@ -9,9 +9,9 @@ from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
-from coba.environments.primitives import Context, Action, SimulatedEnvironment, SimulatedInteraction, SequenceReward
+from coba.environments.primitives import Context, Action, Environment, SimulatedInteraction, SequenceReward
 
-class LambdaSimulation(SimulatedEnvironment):
+class LambdaSimulation(Environment):
     """A simulation created from generative lambda functions."""
 
     @overload

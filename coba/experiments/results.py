@@ -2,79 +2,69 @@ import re
 import collections
 import collections.abc
 
+from statistics import mean
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, itemgetter, gt
+from operator import truediv, sub, itemgetter
 from abc import abstractmethod
-from itertools import chain, repeat, accumulate, groupby, count, compress
-from typing import Any, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, NamedTuple
+from dataclasses import dataclass, astuple, field, replace
+from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, islice
+from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any
 from coba.backports import Literal
 
 from coba.primitives import Batch
 from coba.environments import Environment
-from coba.statistics import mean, stdev, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval, PointAndInterval
+from coba.statistics import StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first
-from coba.pipes import Pipes, Sink, Source, JsonEncode, JsonDecode, DiskSource, DiskSink, IterableSource, ListSink, Foreach
+from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource
 
-def exponential_moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
-    #exponential moving average identical to Pandas df.ewm(span=span).mean()
-    alpha = 2/(1+span)
-    cumwindow  = list(accumulate(values          , lambda a,v: v + (1-alpha)*a))
-    cumdivisor = list(accumulate([1.]*len(values), lambda a,v: v + (1-alpha)*a))
-    return map(truediv, cumwindow, cumdivisor)
+def moving_average(values:Sequence[float], span:int=None, exponential:bool=False) -> Iterable[float]:
 
-def moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
-    if span == 1:
+    if exponential:
+        #exponential moving average identical to Pandas' df.ewm(span=span).mean()
+        alpha = 2/(1+span)
+        cumwindow  = list(accumulate(values          , lambda a,v: v + (1-alpha)*a))
+        cumdivisor = list(accumulate([1.]*len(values), lambda a,v: v + (1-alpha)*a))
+        return map(truediv, cumwindow, cumdivisor)
+
+    elif span == 1:
         return values
 
-    if span is None or span >= len(values):
-        return tuple(map(truediv, accumulate(values),count(1)))
+    elif span is None or span >= len(values):
+        return map(truediv, accumulate(values), count(1))
 
-    window_sums  = accumulate(map(sub, values, chain(repeat(0,span),values)))
-    window_sizes = chain(range(1,span), repeat(span))
+    else:
+        window_sums  = accumulate(map(sub, values, chain(repeat(0,span),values)))
+        window_sizes = chain(range(1,span), repeat(span))
 
-    return map(truediv,window_sums,window_sizes)
+        return map(truediv,window_sums,window_sizes)
 
-def old_to_new(
-    env_rows: Mapping[int           ,Mapping[str,Any]] = {},
-    lrn_rows: Mapping[int           ,Mapping[str,Any]] = {},
-    int_rows: Mapping[Tuple[int,int],Mapping[str,Any]] = {}) -> Tuple[Sequence,Sequence,Sequence]:
+def env_values(envs: 'Table', cols: Sequence[str]) -> Mapping[int,Mapping[str,Any]]:
+    env_cols = ['environment_id'] + [c for c in cols if c in envs.columns]
+    env_vals = {env[0]:dict(zip(env_cols[1:],env[1:])) for env in zip(*envs[env_cols])}        
+    return env_vals         
 
-    rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
+def lrn_values(lrns: 'Table', cols: Sequence[str]) -> Mapping[int,Mapping[str,Any]]:
+    lrn_cols = ['learner_id'] + [c for c in cols if c in lrns.columns]
+    lrn_vals = {lrn[0]:dict(zip(lrn_cols[1:],lrn[1:])) for lrn in zip(*lrns[lrn_cols])}
 
-    env_table = Table(columns=['environment_id'                     ]          )
-    lrn_table = Table(columns=[                 'learner_id'        ]          )
-    int_table = Table(columns=['environment_id','learner_id','index'] + rwd_col)
+    if 'full_name' in cols:
+        #A user-friendly name created from a learner's params for reporting purposes.
 
-    env_table.insert([{"environment_id":e,                **v} for e,v in env_rows.items()])
-    lrn_table.insert([{                   "learner_id":l, **v} for l,v in lrn_rows.items()])
+        lrn_cols = lrns.columns
+        lrn_rows = { row[0]: row for row in lrns }
 
-    for (env_id, lrn_id), results in int_rows.items():
-        if results.get('_packed'):
+        for lrn_id,vals in lrn_vals.items():
+            values = dict((k,v) for k,v in zip(lrn_cols,lrn_rows[lrn_id]) if v is not None)
+            family = values.get('family',values['learner_id'])
+            params = f"({','.join(f'{k}={v}' for k,v in values.items() if k not in ['family','learner_id'])})"
 
-            packed = results['_packed']
-            N = len(packed[next(iter(packed))])
+            vals['full_name'] = f"{lrn_id}. {family}{'' if params=='()' else params}"
 
-            packed['environment_id'] = repeat(env_id,N)
-            packed['learner_id'    ] = repeat(lrn_id,N)
-            packed['index'         ] = range(1,N+1)
-
-            int_table.insert(packed)
-
-    return env_table, lrn_table, int_table
-
-def env_len_and_cnt(interactions: 'Table') -> Tuple[Mapping[int,int],Mapping[int,int]]:
-    env_len = {}
-    env_cnt = {}
-    for table in interactions.groupby(2):
-        env_id = table['environment_id'][0]
-        env_len[env_id] = len(table)
-        env_cnt[env_id] = env_cnt.get(env_id,0)+1
-
-    return env_len, env_cnt
+    return lrn_vals
 
 class View:
 
@@ -142,10 +132,10 @@ class Table:
         return self._indexes
 
     def insert(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]]=()) -> 'Table':
-        data_is_empty              = not data
-        data_is_where_clause_view  = data and isinstance(data,View)
-        data_is_sequence_of_dicts  = data and isinstance(data,collections.abc.Sequence) and isinstance(data[0],collections.abc.Mapping)
-        data_is_mapping_of_columns = data and isinstance(data,collections.abc.Mapping)
+        data_is_empty             = not data
+        data_is_where_clause_view = data and isinstance(data,View)
+        data_is_mapping_of_cols   = data and isinstance(data,collections.abc.Mapping)
+        data_is_sequence_of_dicts = data and isinstance(data,collections.abc.Sequence) and isinstance(data[0],collections.abc.Mapping)
 
         if data_is_empty:
             return self
@@ -156,9 +146,9 @@ class Table:
 
         if data_is_sequence_of_dicts:
             data = {k:[d.get(k) for d in data] for k in set().union(*(d.keys() for d in data))}
-            data_is_mapping_of_columns = True
+            data_is_mapping_of_cols = True
 
-        if data_is_mapping_of_columns:
+        if data_is_mapping_of_cols:
             old,new = set(self._columns), set(data.keys())
             old_len = len(self)
             new_len = 0
@@ -227,7 +217,7 @@ class Table:
             return self
 
         if row_pred:
-            selection = list(compress(count(),map(row_pred,self[:])))
+            selection = list(compress(count(),map(row_pred,self)))
             return Table(View(self._data,selection), self._columns, self._indexes) 
  
         if kwargs:
@@ -243,9 +233,11 @@ class Table:
             selection=sorted(set(selection))
             return Table(View(self._data,selection), self._columns, self._indexes)
 
-    def groupby(self, level:int) -> Iterable['Table']:
+    def groupby(self, level:int) -> Iterable[Tuple[Tuple,'Table']]:
         for l,h in self._lohis[self._indexes[level]]:
-            yield Table(View(self._data, slice(l,h)), self._columns, self._indexes)
+            group = tuple(self._data[hdr][l] for hdr in self._indexes[:level])
+            table = Table(View(self._data, slice(l,h)), self._columns, self._indexes)
+            yield group, table
 
     def copy(self) -> 'Table':
         return Table(dict(self._data), tuple(self._columns), tuple(self._indexes))
@@ -271,16 +263,16 @@ class Table:
         if isinstance(idx1,str):
             return self._data[idx1]
 
-        if isinstance(idx1,slice) and idx1.start is None and idx1.stop is None and idx1.step is None:
-            idx1 = self.columns
+        if isinstance(idx1,slice):
+            return [self._data[col] for col in self._columns[idx1]]
 
         if isinstance(idx1,collections.abc.Collection):
-            return list(zip(*(self._data[col] for col in idx1)))
+            return [self._data[col] for col in idx1]
 
         raise KeyError(idx1)
 
     def __iter__(self) -> Iterator[Sequence[Any]]:
-        return iter(self[:])
+        return iter(zip(*self[:]))
 
     def __str__(self) -> str:
         return str({"Columns": self.columns, "Rows": len(self)})
@@ -367,103 +359,62 @@ class Table:
                 _re = re.compile(arg)
                 return [ i for i,c in enumerate(col,lo) if _re.search(c) ]
 
-class TransactionIO_V3(Source['Result'], Sink[Any]):
+class TransactionDecode:
+    def filter(self, transactions:Iterable[str]) -> Iterable[Any]:
 
-    def __init__(self, log_file: Optional[str] = None, minify:bool = True) -> None:
+        transactions = iter(transactions)
+        ver_row = JsonDecode().filter(next(transactions))
 
-        self._log_file = log_file
-        self._minify   = minify
-        self._source   = DiskSource(log_file) if log_file else IterableSource()
-        self._sink     = DiskSink(log_file) if log_file else ListSink(self._source.iterable)
+        if ver_row[1] == 4:
+            yield ver_row
+            yield from map(JsonDecode().filter,transactions)
 
-    def write(self, item: Any) -> None:
-        if isinstance(self._sink, ListSink):
-            self._sink.write(self._encode(item))
-        else:
-            if not Path(self._sink._filename).exists():self._sink.write('["version",3]')
-            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
+class TransactionEncode:
+    def filter(self, transactions: Iterable[Any]) -> Iterable[str]:
 
-    def read(self) -> 'Result':
-        n_lrns   = None
-        n_envs   = None
+        yield JsonEncode().filter(["version",4])
+
+        encoder = JsonEncode()
+
+        for item in transactions:
+            if item[0] == "T0":
+                yield encoder.filter(['experiment', item[1]])
+
+            elif item[0] == "T1":
+                yield encoder.filter(["L", item[1], item[2]])
+
+            elif item[0] == "T2":
+                yield encoder.filter(["E", item[1], item[2]])
+
+            elif item[0] == "T3":
+                rows_T = collections.defaultdict(list)
+
+                keys = sorted(set().union(*[r.keys() for r in item[2]]))
+
+                for row in item[2]:
+                    for key in keys:
+                        rows_T[key].append(row.get(key,None))
+
+                yield encoder.filter(["I", item[1], { "_packed": rows_T }])
+
+class TransactionResult:
+
+    def filter(self, transactions:Iterable[Any]) -> 'Result':
         lrn_rows = {}
         env_rows = {}
         int_rows = {}
-
-        if isinstance(self._source, IterableSource):
-            decoded_source = self._source
-        else:
-            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
-
-        for trx in decoded_source.read():
-
-            if not trx: continue
-
-            if trx[0] == "benchmark":
-                n_lrns = trx[1]["n_learners"]
-                n_envs = trx[1]["n_simulations"]
-
-            if trx[0] == "S":
-                env_rows[trx[1]] = trx[2]
-
-            if trx[0] == "L":
-                lrn_rows[trx[1]] = trx[2]
-
-            if trx[0] == "I":
-                int_rows[tuple(trx[1])] = trx[2]
-
-        return Result(*old_to_new(env_rows, lrn_rows, int_rows), {"n_learners":n_lrns,"n_environments":n_envs})
-
-    def _encode(self,item):
-        if item[0] == "T0":
-            return ['benchmark', {"n_learners":item[1], "n_simulations":item[2]}]
-
-        if item[0] == "T1":
-            return ["L", item[1], item[2]]
-
-        if item[0] == "T2":
-            return ["S", item[1], item[2]]
-
-        if item[0] == "T3":
-            rows_T = collections.defaultdict(list)
-
-            for row in item[2]:
-                for col,val in row.items():
-                    rows_T[col].append(val)
-
-            return ["I", item[1], { "_packed": rows_T }]
-
-        return None
-
-class TransactionIO_V4(Source['Result'], Sink[Any]):
-
-    def __init__(self, log_file: Optional[str] = None, minify:bool=True) -> None:
-
-        self._log_file = log_file
-        self._minify   = minify
-        self._source   = DiskSource(log_file) if log_file else IterableSource()
-        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.iterable)
-
-    def write(self, item: Any) -> None:
-        if isinstance(self._sink, ListSink):
-            self._sink.write(self._encode(item))
-        else:
-            if not Path(self._sink._filename).exists():self._sink.write('["version",4]')
-            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
-
-    def read(self) -> 'Result':
-
         exp_dict = {}
-        lrn_rows = {}
-        env_rows = {}
-        int_rows = {}
 
-        if isinstance(self._source, IterableSource):
-            decoded_source = self._source
-        else:
-            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
+        transactions = iter(transactions)
+        version      = next(transactions)[1]
 
-        for trx in decoded_source.read():
+        if version == 3:
+            raise CobaException("Deprecated transaction format. Please revert to an older version of Coba to read it.")
+
+        if version != 4:
+            raise CobaException(f"Unrecognized transaction format: version equals {version}.")
+
+        for trx in transactions:
 
             if not trx: continue
 
@@ -479,69 +430,45 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
             if trx[0] == "I":
                 int_rows[tuple(trx[1])] = trx[2]
 
-        return Result(*old_to_new(env_rows, lrn_rows, int_rows), exp_dict)
+        rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
 
-    def _encode(self,item):
-        if item[0] == "T0":
-            return ['experiment', {"n_learners":item[1], "n_environments":item[2], "description":None} if len(item)==3 else item[1] ]
+        env_table = Table(columns=['environment_id'                     ]          )
+        lrn_table = Table(columns=[                 'learner_id'        ]          )
+        int_table = Table(columns=['environment_id','learner_id','index'] + rwd_col)
 
-        if item[0] == "T1":
-            return ["L", item[1], item[2]]
+        env_table.insert([{"environment_id":e,                **v} for e,v in env_rows.items()])
+        lrn_table.insert([{                   "learner_id":l, **v} for l,v in lrn_rows.items()])
 
-        if item[0] == "T2":
-            return ["E", item[1], item[2]]
+        for (env_id, lrn_id), results in int_rows.items():
+            if results.get('_packed'):
 
-        if item[0] == "T3":
-            rows_T = collections.defaultdict(list)
+                packed = results['_packed']
+                N = len(packed[next(iter(packed))])
 
-            keys = set().union(*[r.keys() for r in item[2]])
+                packed['environment_id'] = repeat(env_id,N)
+                packed['learner_id'    ] = repeat(lrn_id,N)
+                packed['index'         ] = range(1,N+1)
 
-            for row in item[2]:
-                for key in keys:
-                    rows_T[key].append(row.get(key,None))
+                int_table.insert(packed)
 
-            return ["I", item[1], { "_packed": rows_T }]
+        return Result(env_table, lrn_table, int_table, exp_dict)
 
-        return None
-
-class TransactionIO(Source['Result'], Sink[Any]):
-
-    def __init__(self, transaction_log: Optional[str] = None) -> None:
-
-        if not transaction_log or not Path(transaction_log).exists():
-            version = None
-        else:
-            version = JsonDecode().filter(next(DiskSource(transaction_log).read()))[1]
-
-        if version == 3:
-            self._transactionIO = TransactionIO_V3(transaction_log)
-
-        elif version == 4:
-            self._transactionIO = TransactionIO_V4(transaction_log)
-
-        elif version is None:
-            self._transactionIO = TransactionIO_V4(transaction_log)
-
-        else:
-            raise CobaException("We were unable to determine the appropriate Transaction reader for the file.")
-
-    def write(self, transactions: Iterable[Any]) -> None:
-        for transaction in transactions:
-            self._transactionIO.write(transaction)
-
-    def read(self) -> 'Result':
-        return self._transactionIO.read()
-
-class Points(NamedTuple):
-    X    : Sequence[Any]
-    Y    : Sequence[float]
-    XE   : Sequence[float]  = None
-    YE   : Sequence[float]  = None
+@dataclass
+class Points:
+    X    : List[Any]        = field(default_factory=list)
+    Y    : List[float]      = field(default_factory=list)
+    XE   : List[float]      = field(default_factory=list)
+    YE   : List[float]      = field(default_factory=list)
     color: Union[str,int]   = None
     alpha: float            = 1
     label: Optional[str]    = None
     style: Literal['-','.'] = "-"
     zorder:int              = 1
+
+    def add(self, x, y, ye):
+        self.X.append(x)
+        self.Y.append(y)
+        self.YE.append(ye)
 
 class Plotter:
     @abstractmethod
@@ -560,7 +487,7 @@ class Plotter:
         out: Union[None,Literal['screen'],str]) -> None:
         pass
 
-class MatplotlibPlotter(Plotter):
+class MatplotPlotter(Plotter):
 
     def plot(self,
         ax,
@@ -580,7 +507,7 @@ class MatplotlibPlotter(Plotter):
         xlim = xlim or [None,None]
         ylim = ylim or [None,None]
 
-        PackageChecker.matplotlib('Result.plot_learners')
+        PackageChecker.matplotlib('MatplotPlotter')
         import matplotlib.pyplot as plt
 
         color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -612,7 +539,7 @@ class MatplotlibPlotter(Plotter):
             any_label = False
             num_coalesce = lambda x1,x2: x1 if isinstance(x1,(int,float)) else x2
 
-            for X, Y, XE, YE, c, a, l, fmt,z in lines:
+            for X, Y, XE, YE, c, a, l, fmt,z in map(astuple,lines):
 
                 if l: any_label = True
 
@@ -626,7 +553,7 @@ class MatplotlibPlotter(Plotter):
 
                 if isinstance(c,int): c = color_cycle[c%len(color_cycle)]
 
-                not_err_bar = lambda E: not E or all([e is None for e in E])
+                not_err_bar = lambda E: not E or all(not e for e in E)
 
                 if X and Y:
                     if all(map(not_err_bar,[XE,YE])):
@@ -634,9 +561,9 @@ class MatplotlibPlotter(Plotter):
                     else:
                         XE = None if not_err_bar(XE) else list(zip(*XE)) if isinstance(XE[0],tuple) else XE
                         YE = None if not_err_bar(YE) else list(zip(*YE)) if isinstance(YE[0],tuple) else YE
-                        error_every = max(int(len(X)*0.05),1) if fmt == "-" else 1
+                        errorevery = 1 if fmt == "-" else 1
                         elinewidth = 0.5 if 'elinewidth' not in CobaContext.store else CobaContext.store['elinewidth']
-                        ax.errorbar(X, Y, YE, XE, fmt, elinewidth=elinewidth, errorevery=error_every, color=c, alpha=a, label=l,zorder=z)
+                        ax.errorbar(X, Y, YE, XE, fmt, elinewidth=elinewidth, errorevery=errorevery, color=c, alpha=a, label=l,zorder=z)
 
             if xrotation is not None:
                 plt.xticks(rotation=xrotation)
@@ -685,134 +612,31 @@ class MatplotlibPlotter(Plotter):
                 plt.show()
                 plt.close()
 
-class FilterPlottingData:
-
-    def filter(self, unfinished:'Result', x:Sequence[str], y:str) -> Table:
-
-        if len(unfinished.interactions) == 0: raise CobaException("This result doesn't contain any evaluation data to plot.")
-        if y not in unfinished.interactions.columns: raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
-
-        finished = unfinished.filter_fin('min' if x == ['index'] else None)
-
-        if len(finished.learners) == 0:
-            raise CobaException("This result does not contain an environment that has been finished for every learner. Plotting has been stopped.")
-
-        if len(finished.environments) != len(unfinished.environments):
-            CobaContext.logger.log("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.")
-
-        if len(set(map(len,unfinished.interactions.groupby(2)))) > 1 and x == ['index']:
-            CobaContext.logger.log("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.")
-
-        return finished.interactions
-
-class SmoothPlottingData:
-
-    def filter(self, interactions:Table, y:str, span:Optional[int]) -> Sequence[Mapping[str,Any]]:
-
-        try:
-            out = []
-            for table in interactions.groupby(2):
-                out.append({"environment_id":table['environment_id'][0], "learner_id":table['learner_id'][0], y:moving_average(table[y],span)})
-            return out
-        except:#pragma: no cover
-            out = []
-            for g, Y in groupby(interactions[["environment_id","learner_id", y]], itemgetter(slice(2))):
-                out.append({"environment_id":g[0], "learner_id":g[1], y:moving_average(list(Y),span)})
-            return out
-
-class ContrastPlottingData:
-
-    def filter(self, rows:Sequence[Mapping[str,Any]], y:str, mode:Union[Literal["diff","prob",'scat'],Callable[[float,float],float]], learner_id1:int) -> Sequence[Mapping[str,Any]]:
-
-        sort_key  = lambda row: (row['environment_id'], 0 if row['learner_id']==learner_id1 else 1)
-        group_key = lambda row: row['environment_id']
-
-        if mode == "prob":
-            contraster = lambda Y1,Y2: list(map(int,map(gt,Y1,Y2)))
-        elif mode == "diff":
-            contraster = lambda Y1,Y2: list(map(sub,Y1,Y2))
-        elif mode =="scat":
-            contraster = lambda Y1,Y2: list(zip(Y1,Y2))
-        else:
-            contraster = lambda Y1,Y2: list(map(mode,Y1,Y2))
-
-        contrast = lambda env_id, pair: {'environment_id': env_id, y: contraster(pair[0][y],pair[1][y]) }
-
-        return [ contrast(env_id,list(pair)) for env_id, pair in groupby(sorted(rows,key=sort_key),key=group_key) ]
-
-class TransformToXYE:
-
-    def filter(self,
-        rows: Sequence[Mapping[str,Any]],
-        envs: Mapping[int,Mapping[str,Any]],
-        x:Sequence[str],
-        y:str,
-        err:Union[str,None,PointAndInterval]) -> Sequence[Tuple[Any,float,Union[None,float,Tuple[float,float]]]]:
-
-        if err == 'sd':
-            YE = lambda z: (mean(z), stdev(z))
-        elif err == 'se':
-            YE = StandardErrorOfMean(1.96).calculate #z-score for .975 area to the left and right
-        elif err == "bs":
-            YE = BootstrapConfidenceInterval(.95, mean).calculate
-        elif err == "bi":
-            YE = BinomialConfidenceInterval('wilson').calculate
-        elif isinstance(err,PointAndInterval):
-            YE = err.calculate
-        else:
-            YE = lambda z: (mean(z) if len(z) > 1 else z[0], None)
-
-        iters = [ iter(row[y]) for row in rows ]
-        first_val = next(iters[0])
-        iters[0] = chain([first_val],iters[0])
-
-        is_scatter = isinstance(first_val,(list,tuple))
-
-        if x == ['index']:
-            Z = zip(*iters)
-            X = count(1)
-
-            if not is_scatter:
-                points = [(x,None)+YE(z) for x,z in zip(X,Z) ]
-            else:
-                points = [YE(z1)+YE(z2) for _,z in zip(X,Z) for z1,z2 in [tuple(zip(*z))]]
-        else:
-            XZ = collections.defaultdict(list)
-
-            make_x = lambda eid: eid if list(x) == ['environment_id'] else envs[eid].get(x[0]) if len(x) == 1 else tuple(envs[eid].get(k) for k in x)
-            for row,I in zip(rows,iters):
-                XZ[str(make_x(row["environment_id"]))].append(list(I)[-1])
-
-            if not is_scatter:
-                points = [(x,None)+YE(z) for x,z in XZ.items()]
-            else:
-                points = [YE(z1)+YE(z2) for _,z in XZ.items() for z1,z2 in [tuple(zip(*z))]]
-
-        return [ (x,y,xe,ye) for x,xe,y,ye in points ]
-
 class Result:
     """A class representing the result of an Experiment."""
 
     @staticmethod
-    def from_file(filename: str) -> 'Result':
+    def from_save(filename: str) -> 'Result':
         """Create a Result from a transaction file."""
-
         if not Path(filename).exists():
             raise CobaException("We were unable to find the given Result file.")
 
-        return TransactionIO(filename).read()
+        return Pipes.join(DiskSource(filename),TransactionDecode(),TransactionResult()).read()
 
     @staticmethod
-    def from_logged_envs(environments: Iterable[Environment],include_probability:bool=False):
+    def from_file(filename: str) -> 'Result':
+        """Create a Result from a transaction file."""
+        return Result.from_save(filename)
 
-        env_param_list = []
-        lrn_param_list = []
-        env_param_dict = {}
-        lrn_param_dict = {}
+    @staticmethod
+    def from_logged_envs(environments: Iterable[Environment], include_prob:bool=False):
 
-        env_rows = {}
-        lrn_rows = {}
-        int_rows = {}
+        seen_env = set()
+        seen_lrn = set()
+
+        env_table = Table(columns=['environment_id'                              ])
+        lrn_table = Table(columns=[                 'learner_id'                 ])
+        int_table = Table(columns=['environment_id','learner_id','index','reward'])
 
         def determine_id(param,param_list,param_dict):
             try:
@@ -828,6 +652,12 @@ class Result:
                     param_list.append(param)
                     return len(param_list)-1
 
+        def determine_env_id(env_param,env_param_list=[],env_param_dict={}):
+            return determine_id(env_param,env_param_list,env_param_dict)
+
+        def determine_lrn_id(lrn_param,lrn_param_list=[],lrn_param_dict={}):
+            return determine_id(lrn_param,lrn_param_list,lrn_param_dict)
+
         my_mean = lambda x: sum(x)/len(x)
 
         for env in environments:
@@ -838,33 +668,35 @@ class Result:
             if not interactions: continue
 
             is_batched = isinstance(first['reward'],(Batch,list,tuple))
+
             env_param = dict(env.params)
             lrn_param = env_param.pop('learner')
 
-            env_id = determine_id(env_param,env_param_list,env_param_dict)
-            lrn_id = determine_id(lrn_param,lrn_param_list,lrn_param_dict)
+            env_id = determine_env_id(env_param)
+            lrn_id = determine_lrn_id(lrn_param)
 
-            if env_id not in env_rows: env_rows[env_id] = env_param
-            if lrn_id not in lrn_rows: lrn_rows[lrn_id] = lrn_param
+            if env_id not in seen_env:
+                seen_env.add(env_id)
+                env_table.insert([{'environment_id':env_id, **env_param}])
+
+            if lrn_id not in seen_lrn:
+                seen_lrn.add(lrn_id)
+                lrn_table.insert([{'learner_id':lrn_id, **lrn_param}])
 
             keys = first.keys() - {'context', 'actions', 'rewards'}
-            if not include_probability: keys -= {'probability'}
+            if not include_prob: keys -= {'probability'}
 
-            _packed = {k:[] for k in keys}
-            results = {"_packed": _packed}
+            int_cols = [[] for _ in keys]
+            for interaction in interactions:
+                for k,c in zip(keys,int_cols):
+                    c.append(my_mean(interaction[k]) if is_batched else interaction[k])
 
-            if is_batched:
-                for interaction in interactions:
-                    for k in keys:
-                        _packed[k].append(my_mean(interaction[k]))
-            else:
-                for interaction in interactions:
-                    for k in keys:
-                        _packed[k].append(interaction[k])
+            int_count = len(int_cols[0])
+            int_maps = {'environment_id':[env_id]*int_count, 'learner_id':[lrn_id]*int_count, 'index':list(range(1,int_count+1))}
+            int_maps.update(zip(keys,int_cols))
+            int_table.insert(int_maps)
 
-            int_rows[(env_id,lrn_id)]= results
-
-        return Result(*old_to_new(env_rows,lrn_rows,int_rows))
+        return Result(env_table, lrn_table, int_table, {})
 
     def __init__(self,
         env_rows: Union[Sequence,Table] = Table(),
@@ -886,7 +718,7 @@ class Result:
         self._learners    .index(                 'learner_id'        )
         self._interactions.index('environment_id','learner_id','index')
 
-        self._plotter = MatplotlibPlotter()
+        self._plotter = MatplotPlotter()
 
     @property
     def learners(self) -> Table:
@@ -932,7 +764,12 @@ class Result:
         learners     = self.learners
         environments = self.environments
 
-        env_lens, env_cnts = env_len_and_cnt(interactions)
+        env_lens = {}
+        env_cnts = {}
+        for (env_id,_), table in interactions.groupby(2):
+            env_lens[env_id] = len(table)
+            env_cnts[env_id] = env_cnts.get(env_id,0)+1
+
         n_interactions = min(env_lens.values()) if n_interactions == "min" else n_interactions
 
         def has_all(env_id):
@@ -970,12 +807,14 @@ class Result:
         learners     = self.learners
         interactions = self.interactions
 
-        if len(environments) != len(self.environments):
-            interactions = interactions.where(environment_id=set(environments["environment_id"]))
-            learners     = learners    .where(learner_id    =set(interactions["learner_id"]))
+        if len(environments) == len(self.environments):
+            return self
 
         if len(environments) == 0:
             CobaContext.logger.log(f"No environments matched the given filter.")
+
+        interactions = interactions.where(environment_id=set(environments["environment_id"]))
+        learners     = learners    .where(learner_id    =set(interactions["learner_id"]))
 
         return Result(environments,learners,interactions,self.experiment)
 
@@ -992,143 +831,32 @@ class Result:
         learners     = self.learners.where(pred, **kwargs)
         interactions = self.interactions
 
-        if len(learners) != len(self.learners):
-            interactions = self.interactions.where(learner_id    =set(learners["learner_id"]))
-            environments = self.environments.where(environment_id=set(interactions["environment_id"]))
-
+        if len(learners) == len(self.learners):
+            return self
+        
         if len(learners) == 0:
             CobaContext.logger.log(f"No learners matched the given filter.")
 
+        interactions = self.interactions.where(learner_id    =set(learners["learner_id"]))
+        environments = self.environments.where(environment_id=set(interactions["environment_id"]))
+
         return Result(environments,learners,interactions)
 
-    def plot_contrast(self,
-        learner_id1: int,
-        learner_id2: int,
-        x          : Union[str, Sequence[str]] = "environment_id",
-        y          : str = "reward",
-        mode       : Union[Literal["diff","prob",'scat'],Callable[[float,float],float]] = "diff",
-        span       : int = None,
-        err        : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
-        labels     : Sequence[str] = None,
-        colors     : Sequence[str] = None,
-        xlim       : Tuple[Optional[Number],Optional[Number]] = None,
-        ylim       : Tuple[Optional[Number],Optional[Number]] = None,
-        xticks     : bool = True,
-        yticks     : bool = True,
-        reverse    : bool = False,
-        out        : Union[None,Literal['screen'],str] = 'screen',
-        ax = None) -> None:
-        """Plot a direct contrast of the performance for two learners.
-
-        Args:
-            learner_id1: The first learner to plot in the contrast.
-            learner_id2: The second learner to plot in the contrast.
-            x: The value to plot on the x-axis. This can either be index or environment columns to group by.
-            y: The value to plot on the y-axis.
-            mode: The kind of contrast plot to make: diff plots the pairwise difference, prob plots the the probability
-                of learner_id1 beating learner_id2, and scatter plots learner_id1 on x-axis and learner_id2 on y axis.
-            span: The number of y values to smooth together when reporting y. If this is None then the average of all y
-                values up to current is shown otherwise a moving average with window size of span (the window will be
-                smaller than span initially).
-            err: This determines what kind of error bars to plot (if any). If `None` then no bars are plotted, if 'se'
-                the standard error is shown, and if 'sd' the standard deviation is shown.
-            labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
-            colors: The colors used to plot the learners plot.
-            xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
-            ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
-            xticks: Whether the x-axis labels should be drawn.
-            yticks: Whether the y-axis labels should be drawn.
-            reverse: Whether to reverse order when counting winners and losers.
-            out: Indicate where the plot should be sent to after plotting is finished.
-            ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
-        """
-        try:
-            xlim = xlim or [None,None]
-            ylim = ylim or [None,None]
-
-            x = [x] if isinstance(x,str) else list(x)
-            self._validate_parameters(x)
-
-            if x == ['index']:
-                raise CobaException("plot_contrast does not currently support contrasting by `index`.")
-
-            rows = FilterPlottingData().filter(self.filter_lrn(learner_id=[learner_id1, learner_id2]), x, y)
-            rows = SmoothPlottingData().filter(rows, y, span)
-            rows = ContrastPlottingData().filter(rows, y, mode, learner_id1)
-
-            envs = self.environments
-            XYE = TransformToXYE().filter(rows, { row[0]:dict(zip(envs.columns,row)) for row in envs }, x, y, err)
-
-            if x != ['index']:
-                XYE = sorted(XYE, key=lambda xye: xye[1], reverse=reverse)
-
-            bound = .5 if mode == "prob" else 0
-
-            win,tie,loss = [],[],[]
-            for _x,_y,_xe,_ye in XYE:
-                o = 1 if not reverse else -1
-
-                xl,xu = (0,0) if _xe is None else (_xe,_xe) if isinstance(_xe,Number) else _xe
-                yl,yu = (0,0) if _ye is None else (_ye,_ye) if isinstance(_ye,Number) else _ye
-
-                if mode != 'scat':
-                    (win if _y-yl > o*bound else loss if _y+yu < o*bound else tie).append((_x,_y,_xe,_ye))
-                else:
-                    (win if _x-xl>o*(_y+yu) else loss if _y-yl> o*(_x+xu) else tie).append((_x,_y,_xe,_ye))
-
-            colors = (colors or []) + [0,1,2]
-            labels = (labels or []) + [self._full_name(learner_id1), self._full_name(learner_id2)]
-
-            fmt = "-" if x == ['index'] else "."
-
-            plots = []
-
-            if not reverse:
-                if loss: plots.append(Points(*zip(*loss), colors[0], 1, labels[1] + " " + f"({len(loss)})", fmt))
-                if tie : plots.append(Points(*zip(*tie) , colors[1], 1, 'Tie'     + " " + f"({len(tie )})", fmt))
-                if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))
-            else:
-                if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))
-                if tie : plots.append(Points(*zip(*tie) , colors[1], 1, 'Tie'     + " " + f"({len(tie )})", fmt))
-                if loss: plots.append(Points(*zip(*loss), colors[0], 1, labels[1] + " " + f"({len(loss)})", fmt))
-
-            if mode != 'scat':
-                leftmost_x  = (loss+tie+win)[ 0][0] if not reverse else (win+tie+loss)[ 0][0]
-                rightmost_x = (loss+tie+win)[-1][0] if not reverse else (win+tie+loss)[-1][0]
-                plots.append(Points((leftmost_x,rightmost_x),(bound,bound), None, None , "#888", 1, None, '-',.5))
-            else:
-                m = max([p[0] for p in (loss+tie+win)]+[p[1] for p in (loss+tie+win)]+[1])
-                plots.append(Points((0,m),(0,m), None, None , "#888", 1, None, '-',.5))
-
-            xrotation = 90 if x != ['index'] and len(XYE)>5 else 0
-            yrotation = 0
-
-            if mode != "scat":
-                xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
-                ylabel = f"{labels[0]} - {labels[1]}" if mode=="diff" else f"P({labels[0]} > {labels[1]})"
-            else:
-                xlabel = y
-                ylabel = y
-
-            title = f"{ylabel} ({len(rows) if x==['index'] else len(XYE)} Environments)"
-
-            self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
-        except CobaException as e:
-            CobaContext.logger.log(str(e))
-
     def plot_learners(self,
-        x     : Union[str,Sequence[str]] = "index",
-        y     : str = "reward",
-        span  : int = None,
-        err   : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
-        labels: Sequence[str] = None,
-        colors: Union[int,Sequence[Union[str,int]]] = None,
-        xlim  : Tuple[Optional[Number],Optional[Number]] = None,
-        ylim  : Tuple[Optional[Number],Optional[Number]] = None,
-        xticks: bool = True,
-        yticks: bool = True,
-        top_n: int = None,
-        out   : Union[None,Literal['screen'],str] = 'screen',
+        x       : Union[str,Sequence[str]] = "index",
+        y       : str = "reward",
+        l       : Union[str,Sequence[str]] = "full_name",
+        span    : int = None,
+        err     : Union[Literal['se','sd','bs','bi'], None, PointAndInterval] = None,
+        errevery: int = None,
+        labels  : Sequence[str] = None,
+        colors  : Union[int,Sequence[Union[str,int]]] = None,
+        xlim    : Tuple[Optional[Number],Optional[Number]] = None,
+        ylim    : Tuple[Optional[Number],Optional[Number]] = None,
+        xticks  : bool = True,
+        yticks  : bool = True,
+        top_n   : int = None,
+        out     : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
             performance for different learners across independent environments. This plot is valuable in gaining
@@ -1137,11 +865,13 @@ class Result:
         Args:
             x: The value to plot on the x-axis. This can either be index or environment columns to group by.
             y: The value to plot on the y-axis.
+            l: The value to plot in the legend.
             span: The number of y values to smooth together when reporting y. If this is None then the average of all y
                 values up to current is shown otherwise a moving average with window size of span (the window will be
                 smaller than span initially).
             err: This determines what kind of error bars to plot (if any). If `None` then no bars are plotted, if 'se'
                 the standard error is shown, and if 'sd' the standard deviation is shown.
+            errevery: This determines the frequency of errorbars. If `None` they appear 5% of the time.
             labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
             colors: The colors used to plot the learners plot.
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
@@ -1157,75 +887,238 @@ class Result:
             ylim = ylim or [None,None]
 
             if isinstance(labels,str): labels = [labels]
-            if isinstance(x,str): x = [x]
+            if isinstance(x,str)     : x      = [x]
+            if isinstance(l,str)     : l      = [l]
 
-            self._validate_parameters(x)
+            plottable = self._plottable(x,y)
 
-            rows = FilterPlottingData().filter(self, x, y)
-            rows = SmoothPlottingData().filter(rows, y, span)
+            n_interactions = len(next(plottable.interactions.groupby(2))[1])
 
-            envs     = self.environments
-            env_rows = { row[0]:dict(zip(envs.columns,row)) for row in envs }
-            get_key  = lambda row: row['learner_id']
-            lines    = []
+            errevery = errevery or max(int(n_interactions*0.05),1) if x == ['index'] else 1
+            style    = "-" if x == ['index'] else "."
+            err      = plottable._confidence(err, errevery)
 
-            style = "-" if x == ['index'] else "."
+            lines: List[Points] = []
+            for _l, group in groupby(plottable._indexed_ys(l,x,y,span),key=itemgetter(0)):
 
-            def get_color(colors:Union[None,Sequence[Union[str,int]]], i:int):
-                try:
-                    return colors[i] if colors else i
-                except IndexError:
-                    return i+max(colors) if isinstance(colors[0],(int,float)) else i
-                except TypeError:
-                    return i+colors
+                color = plottable._get_color(colors,   len(lines))
+                label = plottable._get_label(labels,_l,len(lines))
+                group = map(itemgetter(slice(1,None)),group)
+                lines.append(Points(style=style,color=color,label=label))
 
-            def get_label(labels:Sequence[str], i:int, lrn_id:int=None):
-                try:
-                    return labels[i] if labels else self._full_name(lrn_id)
-                except:
-                    return self._full_name(lrn_id)
+                for _xi, (_x, group) in enumerate(groupby(group, key=itemgetter(0))):
+                    Y = [g[-1] for g in group]
+                    lines[-1].add(str(_x) if x != ['index'] else _x, *err(Y, _xi))
 
-            for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
-                lrn_rows = list(lrn_rows)
-                XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
-                color    = get_color(colors,i)
-                label    = get_label(labels,i,lrn_id)
-                lines.append(Points(*zip(*XYE), color, 1, label, style))
-
-            lines  = sorted(lines, key=lambda line: line[1][-1], reverse=True)
+            lines  = sorted(lines, key=lambda line: line.Y[-1], reverse=True)
             labels = [l.label for l in lines]
             colors = [l.color for l in lines]
             xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
             ylabel = y.capitalize().replace("_pct"," Percent")
 
-            title = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel}"
-            title = title + f" ({len(lrn_rows) if x==['index'] else len(XYE)} Environments)"
+            y_location = "Final" if x != ['index'] else ""
+            y_avg_type = ("Instant" if span == 1 else f"Span {span}" if span else "Progressive")
+            y_samples  = f"({len(Y)} Environments)"
+            title      = ' '.join(filter(None,[y_location, y_avg_type, ylabel, y_samples]))
 
-            if x != ['index']: title = f"Final {title}"
-
-            xrotation = 90 if x != ['index'] and len(XYE)>5 else 0
+            xrotation = 90 if x != ['index'] and len(lines[0].X)>5 else 0
             yrotation = 0
 
             if top_n:
                 if abs(top_n) > len(lines): top_n = len(lines)*abs(top_n)/top_n
-                if top_n > 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[:top_n],0    ) ]
-                if top_n < 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[top_n:],top_n) ]
+                if top_n > 0: lines = [replace(l,color=plottable._get_color(colors,i),label=plottable._get_label(labels,l.label,i)) for i,l in enumerate(lines[:top_n],0    ) ]
+                if top_n < 0: lines = [replace(l,color=plottable._get_color(colors,i),label=plottable._get_label(labels,l.label,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
             self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+
         except CobaException as e:
             CobaContext.logger.log(str(e))
 
-    def _full_name(self,lrn_id:int) -> str:
-        """A user-friendly name created from a learner's params for reporting purposes."""
+    def plot_contrast(self,
+        c1      : Any,
+        c2      : Any,
+        x       : Union[str, Sequence[str]] = "environment_id",
+        y       : str = "reward",
+        c       : Union[str, Sequence[str]] = 'learner_id',
+        mode    : Union[Literal["diff","prob"], Callable[[float,float],float]] = "diff",
+        span    : int = None,
+        err     : Union[Literal['se','sd','bs','bi'], None, PointAndInterval] = None,
+        errevery: int = None,
+        labels  : Sequence[str] = None,
+        colors  : Sequence[str] = None,
+        xlim    : Tuple[Optional[Number],Optional[Number]] = None,
+        ylim    : Tuple[Optional[Number],Optional[Number]] = None,
+        xticks  : bool = True,
+        yticks  : bool = True,
+        boundary: bool = True,
+        legend  : bool = True, 
+        out     : Union[None,Literal['screen'],str] = 'screen',
+        ax = None) -> None:
+        """Plot a direct contrast of the performance for two learners.
 
-        cols = self.learners.columns
-        vals = self.learners.where(learner_id=lrn_id)[:][0]
+        Args:
+            c1: The first set of parameter values we want to contrast.
+            c2: The second set of parameter values we want to contrast.
+            x: The value to plot on the x-axis. This can either be index or environment columns to group by.
+            y: The value to plot on the y-axis.
+            c: The parameters keys we want to contrast.
+            mode: The kind of contrast plot to make: diff plots the pairwise difference, prob plots the the probability
+                of learner_id1 beating learner_id2, and scatter plots learner_id1 on x-axis and learner_id2 on y axis.
+            span: The number of y values to smooth together when reporting y. If this is None then the average of all y
+                values up to current is shown otherwise a moving average with window size of span (the window will be
+                smaller than span initially).
+            err: This determines what kind of error bars to plot (if any). If `None` then no bars are plotted, if 'se'
+                the standard error is shown, and if 'sd' the standard deviation is shown.
+            errevery: This determines the frequency of errorbars. If `None` they appear 5% of the time.
+            labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
+            colors: The colors used to plot the learners plot.
+            xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
+            ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
+            xticks: Whether the x-axis labels should be drawn.
+            yticks: Whether the y-axis labels should be drawn.
+            boundary: Whether we want to plot the boundary line between which set is the best performing.
+            out: Indicate where the plot should be sent to after plotting is finished.
+            ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
+        """
 
-        values = dict((k,v) for k,v in zip(cols,vals) if v is not None)
-        family = values.get('family',values['learner_id'])
-        params = f"({','.join(f'{k}={v}' for k,v in values.items() if k not in ['family','learner_id'])})"
+        try:
+            xlim = xlim or [None,None]
+            ylim = ylim or [None,None]
 
-        return family if params == '()' else family+params
+            og_p = (c1,c2)
+
+            if not isinstance(c1,(list,tuple)): c1     = [c1]
+            if not isinstance(c2,(list,tuple)): c2     = [c2]
+            if     isinstance(x,str)          : x      = [x]
+            if     isinstance(c,str)          : c      = [c]
+            if     isinstance(labels,str)     : labels = [labels]
+
+            if any(_c1 in c2 for _c1 in c1):
+                raise CobaException("A value cannot be in both `c1` and `c2`. Please make a change and run it again.")
+
+            contraster = (lambda x,y: y-x) if mode == 'diff' else (lambda x,y: int(y-x>0)) if mode=='prob' else mode
+            _boundary  = 0 if mode == 'diff' else .5
+
+            plottable = self._plottable(x,y)
+            e         = ['environment_id']
+            l         = ['learner_id'    ]
+
+            n_interactions = len(next(plottable.interactions.groupby(2))[1])
+
+            errevery = errevery or max(int(n_interactions*0.05),1) if x == ['index'] else 1
+            style    = "-" if x == ['index'] else "."
+            err      = plottable._confidence(err, errevery)
+
+            if x != ['index']:
+                #this implementation always gives the correct results but is considerably slower than below (relatively)
+                C1,C2 = [],[]
+                for _c, group in groupby(plottable._indexed_ys(c,e,l,x,y,span),key=itemgetter(0)):
+
+                    if _c in c1:
+                        C1.extend(map(itemgetter(slice(1,None)),group))
+                    if _c in c2:
+                        C2.extend(map(itemgetter(slice(1,None)),group))
+
+                X_Y_YE = []
+                for _xi, (_x, group) in enumerate(groupby(sorted(plottable._pairings(c,C1,C2),key=itemgetter(0)),key=itemgetter(0))):
+                    _x = f"{_x[0]}" if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
+                    _Y = [contraster(*pair) for _,pair in group]
+                    if _Y: X_Y_YE.append((_x,) + err(_Y,_xi))
+
+            else:
+                #this implementation gives correct results under certain conditions but is considerably faster
+                X_Y_YE = []
+                for _xi, (_x, _group) in enumerate(groupby(plottable._indexed_ys(x,c,e,l,x,y,span),key=itemgetter(0))):
+
+                    _group = list(map(itemgetter(slice(1,None)),_group))
+                    _C1    = [g[1:] for g in _group if g[0] in c1]
+                    _C2    = [g[1:] for g in _group if g[0] in c2]
+                    _Y     = [contraster(*pair) for _,pair in plottable._pairings(c,_C1,_C2)]
+
+                    if _Y: X_Y_YE.append((str(_x) if x != ['index'] else _x,) + err(_Y,_xi))
+
+            if not X_Y_YE:
+                raise CobaException(f"We were unable to create any pairings to contrast. Make sure c1={og_p[0]} and c2={og_p[1]} is correct.")
+
+            if x == ['index']:
+                X,Y,YE = zip(*X_Y_YE)
+                color  = plottable._get_color(colors,        0)
+                label  = plottable._get_label(labels,'c2-c1',0)
+                label  = f"{label}" if legend else None
+                lines  = [Points(X,Y,None,YE, style=style, label=label, color=color)]
+
+            elif x == c:
+                if len(c1) > 1 and len(c2) == 1:
+                    #Sort by c1. We assume _x is "{c2}-{c1}."
+                    c2_len = len(str(c2[0]))
+                    c1 = list(map(str,c1))
+                    X_Y_YE = sorted(X_Y_YE, key=lambda items: c1.index(items[0][c2_len+1:]))
+                elif len(c2) > 1 and len(c1) == 1:
+                    #Sort by c2. We assume _x is "{c2}-{c1}."
+                    c1_len = len(str(c1[0]))
+                    c2 = list(map(str,c2))
+                    X_Y_YE = sorted(X_Y_YE, key=lambda items: c2.index(items[0][:-(c1_len+1)]))
+                else:
+                    X_Y_YE = sorted(X_Y_YE)
+
+                X,Y,YE = zip(*X_Y_YE)
+                color  = plottable._get_color(colors, 0)
+                lines  = [Points(X,Y,None,YE, style=style, label=None, color=color)]
+
+            else:
+                upper = lambda y,ye: y+ye[1] if isinstance(ye,(list,tuple)) else y+ye
+                lower = lambda y,ye: y-ye[0] if isinstance(ye,(list,tuple)) else y-ye
+
+                #split into win,tie,loss
+                c1_win = [(x,y,ye) for x,y,ye in X_Y_YE if upper(y,ye) <  _boundary                             ]
+                no_win = [(x,y,ye) for x,y,ye in X_Y_YE if lower(y,ye) <= _boundary and _boundary <= upper(y,ye)]
+                c2_win = [(x,y,ye) for x,y,ye in X_Y_YE if                              _boundary <  lower(y,ye)]
+
+                #sort by order of magnitude
+
+                c1_win = sorted(c1_win,key=itemgetter(1))
+                no_win = sorted(no_win,key=itemgetter(1))
+                c2_win = sorted(c2_win,key=itemgetter(1))
+
+                lines = []
+
+                if c1_win:
+                    X,Y,YE = zip(*c1_win)
+                    color  = plottable._get_color(colors,     0)
+                    label  = plottable._get_label(labels,'c1',0)
+                    label  = f"{label} ({len(X)})" if legend else None
+                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+
+                if no_win:
+                    X,Y,YE = zip(*no_win)
+                    color  = plottable._get_color(colors, 1)
+                    label  = 'Tie'
+                    label  = f"{label} ({len(X)})" if legend else None
+                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+
+                if c2_win:
+                    X,Y,YE = zip(*c2_win)
+                    color  = plottable._get_color(colors,     2)
+                    label  = plottable._get_label(labels,'c2',1)
+                    label  = f"{label} ({len(X)})" if legend else None
+                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+
+            if boundary:
+                leftmost_x  = lines[0 ].X[0 ]
+                rightmost_x = lines[-1].X[-1]
+                lines.append(Points((leftmost_x,rightmost_x),(_boundary,_boundary), None, None , "#888", 1, None, '-',.5))
+
+            xrotation = 90 if x != ['index'] and len(X_Y_YE)>5 else 0
+            yrotation = 0
+
+            xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
+            ylabel = f"$\Delta$ {y}" if mode=="diff" else f"P($\Delta$ {y} > 0)"
+            title  = f"{ylabel} ({len(_Y)} Environments)"
+
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+
+        except CobaException as e:
+            CobaContext.logger.log(str(e))
 
     def __str__(self) -> str:
         return str({"Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })
@@ -1234,6 +1127,131 @@ class Result:
         #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
         print(str(self))
 
-    def _validate_parameters(self, x:Sequence[str]):
-        if 'index' in x and len(x) > 1:
-            raise CobaException('The x-axis cannot contain both interaction index and environment features. Please choose one or the other.')
+    def _get_color(self, colors:Union[None,Sequence[Union[str,int]]], i:int) -> Union[str,int]:
+        try:
+            return colors[i] if colors else i
+        except IndexError:
+            return i+max(colors) if isinstance(colors[0],(int,float)) else i
+        except TypeError:
+            return i+colors
+
+    def _get_label(self, labels:Sequence[str], label:str, i:int) -> str:
+        try:
+            return labels[i] if labels else label
+        except:
+            return label
+
+    def _pairings(self, c:Sequence[str], C1: Sequence[Tuple[int,int,float]], C2: Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
+
+        c = set(c)
+
+        env_eq_cols = [ _c for _c in self.environments.columns if _c not in c and _c != 'environment_id' and 'environment_id' not in c ]
+        lrn_eq_cols = [ _c for _c in self.learners.columns     if _c not in c and _c != 'learner_id'     and 'learner_id'     not in c ]
+
+        eq_on_all_env_cols = len(env_eq_cols) == len(self.environments.columns)-1 and 'environment_id' not in c
+        eq_on_all_lrn_cols = len(lrn_eq_cols) == len(self.learners.columns)-1 and 'learner_id' not in c
+
+        if eq_on_all_env_cols: env_eq_cols = ['environment_id']
+        if eq_on_all_lrn_cols: lrn_eq_cols = ['learner_id'    ]
+
+        env_eq_vals = { row[0]:row[1:] for row in zip(*self.environments[['environment_id']+env_eq_cols]) }
+        lrn_eq_vals = { row[0]:row[1:] for row in zip(*self.learners    [['learner_id']    +lrn_eq_cols]) }
+
+        #could this be made faster? I could think of special cases but not a general solution to speed it up.
+        for e1,l1,x1,y1 in C1:
+            for e2,l2,x2,y2 in C2:
+                if env_eq_vals[e1] == env_eq_vals[e2] and lrn_eq_vals[l1] == lrn_eq_vals[l2]:
+                    yield ((x1,x2),(y1,y2))
+
+    def _plottable(self, x:Sequence[str], y:str) -> 'Result':
+
+        if 'index' in x and len(x) > 1: 
+            raise CobaException('The x-axis cannot contain both indexes and parameters.')
+
+        if len(self.interactions) == 0: 
+            raise CobaException("This result does not contain any data to plot.")
+
+        if y not in self.interactions.columns: 
+            raise CobaException(f"This result does not contain column '{y}' in interactions.")
+
+        only_finished   = self.filter_fin('min' if x == ['index'] else None)
+        self_unfinished = False
+
+        if len(only_finished.learners) == 0:
+            raise CobaException("This result does not contain an environment that has been finished for every learner.")
+
+        if len(only_finished.environments) != len(self.environments):
+            self_unfinished = True
+            CobaContext.logger.log("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this call <result>.filter_fin() before plotting.")
+
+        if len(set(len(t) for _,t in self.interactions.groupby(2))) > 1 and x == ['index']:
+            self_unfinished = True
+            CobaContext.logger.log("This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting.")
+
+        return only_finished if self_unfinished else self
+
+    def _confidence(self, err: Union[str,PointAndInterval], errevery:int = 1):
+
+        if err == 'se':
+            ci = StdErrCI(1.96)
+        elif err == 'bs':
+            ci = BootstrapCI(.95, mean)
+        elif err == 'bi':
+            ci = BinomialCI('wilson')
+        elif err == 'sd':
+            ci = StdDevCI()
+        elif err is None or isinstance(err,str):
+            ci = None
+        else:
+            ci = err
+
+        def calc_ci(Z:Sequence[float],i:int = -1):
+            if ci is None:
+                return (mean(Z),0)
+            else:
+                skip_err = (i+1)%errevery
+                return (ci.point(Z), (0,0)) if skip_err else ci.point_interval(Z)
+
+        return calc_ci
+
+    def _indexed_ys(self,*args) -> Iterable[Tuple[Tuple[Tuple,...],float]]:
+
+        span    = args[-1]
+        y       = args[-2]
+        indexes = [[index] if isinstance(index,str) else index for index in args[:-2]]
+        coords  = [(i,j) for i in range(len(indexes)) for j in range(len(indexes[i])) if indexes[i][j] == 'index' ]
+
+        env_vals = env_values(self.environments, list(chain(*indexes)))
+        lrn_vals = lrn_values(self.learners    , list(chain(*indexes)))
+
+        e_ids = set(self.interactions['environment_id'])
+        l_ids = set(self.interactions['learner_id'])
+
+        env_lrn_indexed = {}
+        for e_id in e_ids:
+            for l_id in l_ids:
+                V = collections.ChainMap(env_vals[e_id], lrn_vals[l_id])
+                env_lrn_indexed[(e_id,l_id)] = [ [V[i] if i != 'index' else None for i in index ] for index in indexes]
+
+        indexed_values = []
+        for (env_id,lrn_id), table in self.interactions.groupby(2):
+            indexed = env_lrn_indexed[(env_id,lrn_id)]
+            values  = zip(table['index'],moving_average(table[y],span)) if any(coords) else [(0,mean(table[y]))]
+            indexed_values.append((indexed, iter(values)))
+
+        first_index = list(chain(*indexes)).index('index') if coords else None
+        upto_index  = lambda item: tuple(islice(chain(*item[0]), first_index))
+
+        for _,group in groupby(sorted(indexed_values,key=upto_index),key=upto_index):
+            group = list(group)
+            try:
+                while True:
+                    for indexed, values in group:
+                        i, y = next(values)
+                        for c in coords:
+                            indexed[c[0]] = indexed[c[0]].copy()
+                            indexed[c[0]][c[1]] = i
+                        yield tuple(index[0] if len(index) == 1 else index for index in indexed)+(y,)
+            except StopIteration:
+                #we assume all environments are of equal length
+                pass

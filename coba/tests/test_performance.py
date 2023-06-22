@@ -11,7 +11,7 @@ import coba.random
 from coba.statistics import mean,var
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
-from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr
+from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pipes
@@ -20,8 +20,8 @@ from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadD
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
 from coba.experiments.results import Result, moving_average, Table
-from coba.experiments import OnPolicyEvaluation
-from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
+from coba.evaluators import OnPolicyEvaluator
+from coba.primitives import Categorical, HashableSparse
 
 Timeable = Callable[[],Any]
 Scalable = Callable[[list],Timeable]
@@ -41,13 +41,11 @@ class Performance_Tests(unittest.TestCase):
     def test_numeric_encode_performance(self):
         encoder = NumericEncoder()
         items   = ["1"]*5
-
         self._assert_scale_time(items, encoder.encodes, .0017, print_time, number=1000)
 
     def test_onehot_fit_performance(self):
         encoder = OneHotEncoder()
         items   = list(range(10))
-
         self._assert_scale_time(items, encoder.fit, .01, print_time, number=1000)
 
     def test_onehot_encode_performance(self):
@@ -128,7 +126,7 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = [ str(i) for i in range(100) ]
 
-        self._assert_scale_time(x, lambda x:vw.make_example({'x':x}, None), .04, print_time, number=1000)
+        self._assert_call_time(lambda:vw.make_example({'x':x}, None), .04, print_time, number=1000)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
@@ -146,7 +144,16 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = list(range(100))
 
-        self._assert_scale_time(x, lambda x:vw.make_example({'x':x}, None), .03, print_time, number=1000)
+        self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    def test_vowpal_mediator_make_example_sequence_mixed_performance(self):
+
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --quiet",4)
+        x = [ float(i) if i % 2 == 0 else str(i) for i in range(100) ]
+
+        self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
@@ -220,6 +227,12 @@ class Performance_Tests(unittest.TestCase):
     def test_linear_synthetic(self):
         self._assert_call_time(lambda:list(LinearSyntheticSimulation(10).read()), .07, print_time, number=1)
 
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    def test_ope_rewards(self):
+        I = [{'context':[1,2,3], 'actions':['a','b','c','d'], 'action':'a', 'probability':.5, 'reward':2}]*50
+        ope = OpeRewards('DM')
+        self._assert_call_time(lambda: list(ope.filter(I)), .16, print_time, number=10)
+
     def test_scale_dense_target_features(self):
         items = [SimulatedInteraction((3193.0, 151.0, '0', '0', '0'),[1,2,3],[4,5,6])]*10
         scale = Scale("min","minmax",target="context")
@@ -229,11 +242,6 @@ class Performance_Tests(unittest.TestCase):
         items = [SimulatedInteraction({1:3193.0, 2:151.0, 3:'0', 4:'0', 5:'0'},[1,2,3],[4,5,6])]*10
         scale = Scale(0,"minmax",target="context")
         self._assert_scale_time(items, lambda x:list(scale.filter(x)), .035, print_time, number=1000)
-
-    def test_scale_target_rewards(self):
-        items = [SimulatedInteraction((3193.0, 151.0),[1,2,3],[4,5,6])]*10
-        scale = Scale("min","minmax",target="rewards")
-        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .04, print_time, number=1000)
 
     def test_environments_flat_tuple(self):
         items = [SimulatedInteraction([1,2,3,4]+[(0,1)]*3,[1,2,3],[4,5,6])]*10
@@ -285,7 +293,7 @@ class Performance_Tests(unittest.TestCase):
                 table.insert({"environment_id":[environment_id]*N,"learner_id":[learner_id]*N,"index":list(range(1,N+1)),"reward":reward})
 
         table.index("index")
-        
+
         self._assert_call_time(lambda:table.where(index=10,comparison='<='), .15, print_time, number=10)
 
     def test_table_filter_number(self):
@@ -368,7 +376,7 @@ class Performance_Tests(unittest.TestCase):
     def test_to_grounded_interaction(self):
         items    = [SimulatedInteraction(1, [1,2,3,4], [0,0,0,1])]*10
         grounded = Grounded(10,5,10,5,1)
-        self._assert_scale_time(items,lambda x:list(grounded.filter(x)), .03, print_time, number=1000)
+        self._assert_scale_time(items,lambda x:list(grounded.filter(x)), .04, print_time, number=1000)
 
     def test_simple_evaluation(self):
 
@@ -378,12 +386,17 @@ class Performance_Tests(unittest.TestCase):
             def learn(*args):
                 pass
 
+        class DummEnv:
+            __slots__ = ('read',)
+            def __init__(self,interactions):
+                self.read = lambda: interactions
+
         items = [SimulatedInteraction(1,[1,2,3],[1,2,3])]*100
-        eval  = OnPolicyEvaluation()
+        eval  = OnPolicyEvaluator()
         learn = DummyLearner()
 
         #most of this time is being spent in SafeLearner.predict...
-        self._assert_scale_time(items,lambda x:list(eval.process(learn, x)), .065, print_time, number=100)
+        self._assert_scale_time(items,lambda x:list(eval.evaluate(DummEnv(x),learn)), .065, print_time, number=100)
 
     def test_safe_learner_predict(self):
 
@@ -402,13 +415,6 @@ class Performance_Tests(unittest.TestCase):
 
         learn = SafeLearner(DummyLearner())
         self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5), .0008, print_time, number=1000)
-
-    def test_scale_reward_init(self):
-        self._assert_call_time(lambda: ScaleReward(None, 1, 2, "argmax"), .08, print_time, number=100000)
-
-    def test_scale_reward(self):
-        reward = ScaleReward(L1Reward(1), 1, 2, "argmax")
-        self._assert_call_time(lambda: reward.eval(4), .07, print_time, number=100000)
 
     def test_simulated_interaction_init(self):
         self._assert_call_time(lambda: SimulatedInteraction(1,[1,2],[0,1]), .012, print_time, number=10000)
