@@ -66,6 +66,11 @@ def lrn_values(lrns: 'Table', cols: Sequence[str]) -> Mapping[int,Mapping[str,An
 
     return lrn_vals
 
+def val_values(vals: 'Table', cols: Sequence[str]) -> Mapping[int,Mapping[str,Any]]:
+    val_cols = ['evaluator_id'] + [c for c in cols if c in vals.columns]
+    val_vals = {val[0]:dict(zip(val_cols[1:],val[1:])) for val in zip(*vals[val_cols])}
+    return val_vals
+
 class View:
 
     class ListView:
@@ -1306,19 +1311,22 @@ class Result:
 
         env_vals = env_values(self.environments, list(chain(*indexes)))
         lrn_vals = lrn_values(self.learners    , list(chain(*indexes)))
+        val_vals = val_values(self.evaluators  , list(chain(*indexes)))
 
         e_ids = set(self.interactions['environment_id'])
         l_ids = set(self.interactions['learner_id'])
+        v_ids = set(self.interactions['evaluator_id'])
 
         env_lrn_indexed = {}
         for e_id in e_ids:
             for l_id in l_ids:
-                V = collections.ChainMap(env_vals[e_id], lrn_vals[l_id])
-                env_lrn_indexed[(e_id,l_id)] = [ [V[i] if i != 'index' else None for i in index ] for index in indexes]
+                for v_id in v_ids:
+                    V = collections.ChainMap(env_vals[e_id], lrn_vals[l_id], val_vals[v_id])
+                    env_lrn_indexed[(e_id,l_id,v_id)] = [ [V[i] if i != 'index' else None for i in index ] for index in indexes]
 
         indexed_values = []
-        for (env_id,lrn_id), table in self.interactions.groupby(2):
-            indexed = env_lrn_indexed[(env_id,lrn_id)]
+        for (env_id,lrn_id,val_id), table in self.interactions.groupby(3):
+            indexed = env_lrn_indexed[(env_id,lrn_id,val_id)]
             values  = zip(table['index'],moving_average(table[y],span)) if any(coords) else [(0,mean(table[y]))]
             indexed_values.append((indexed, iter(values)))
 

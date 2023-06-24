@@ -1235,6 +1235,29 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
+    def test_plot_learners_one_environment_val_params(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id'],[1]]
+        vals = [['evaluator_id','type'],[0,'a'],[1,'b']]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,0,1],[0,1,0,1,2],[0,1,1,0,1],[0,1,1,1,2]]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, vals, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(l='type')
+
+        expected_lines = [
+            Points([0,1],[1.,1.5],[],[0,0],0,1,'a','-', 1),
+            Points([0,1],[1.,1.5],[],[0,0],1,1,'b','-', 1)
+        ]
+
+        self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Interaction", plotter.plot_calls[0][3])
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
     def test_plot_learners_two_environments_all_default(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]

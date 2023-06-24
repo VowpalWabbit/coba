@@ -290,7 +290,7 @@ class VowpalLearner(Learner):
 
     def predict(self, context: Context, actions: Sequence[Action]) -> PMF:
 
-        if not self._vw.is_initialized and isinstance(context,Batch):
+        if not self._vw.is_initialized and isinstance(context,Batch):#pragma: no cover
             raise CobaException("VW learner does not support batched calls.")
 
         if not self._vw.is_initialized and self._adf:
