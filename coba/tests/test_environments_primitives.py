@@ -43,7 +43,7 @@ class SafeEnvironment_Tests(unittest.TestCase):
         self.assertEqual('SimpleEnvironment', str(SafeEnvironment(SimpleEnvironment())))
 
     def test_with_nesting(self):
-        self.assertIsInstance(SafeEnvironment(SafeEnvironment(SimpleEnvironment()))._environment, SimpleEnvironment)
+        self.assertIsInstance(SafeEnvironment(SafeEnvironment(SimpleEnvironment())).environment, SimpleEnvironment)
 
     def test_with_pipes(self):
         self.assertEqual({'type': 'SimpleEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(SimpleEnvironment(), Shuffle(1))) .params)

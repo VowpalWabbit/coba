@@ -4,7 +4,6 @@ from typing import Any, Union, Iterable, Sequence, Mapping, overload
 from coba.primitives import Context, Action, Actions
 from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
 from coba.pipes import Source, SourceFilters, Filter
-from coba.exceptions import CobaException
 
 class Interaction(dict):
     """An individual interaction that occurs in an Environment."""
@@ -158,26 +157,26 @@ class SafeEnvironment(Environment):
             environment: The environment we wish to make sure has the expected interface
         """
 
-        self._environment = environment if not isinstance(environment, SafeEnvironment) else environment._environment
+        self.environment = environment if not isinstance(environment, SafeEnvironment) else environment.environment
 
     @property
     def params(self) -> Mapping[str, Any]:
         try:
-            params = self._environment.params
+            params = self.environment.params
         except AttributeError:
             params = {}
 
         if "type" not in params:
 
-            if isinstance(self._environment, SourceFilters):
-                params["type"] = self._environment._source.__class__.__name__
+            if isinstance(self.environment, SourceFilters):
+                params["type"] = self.environment._source.__class__.__name__
             else:
-                params["type"] = self._environment.__class__.__name__
+                params["type"] = self.environment.__class__.__name__
 
         return params
 
     def read(self) -> Iterable[Interaction]:
-        return self._environment.read()
+        return self.environment.read()
 
     def __str__(self) -> str:
         params = dict(self.params)

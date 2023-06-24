@@ -5,7 +5,7 @@ from typing import Any, Iterable, Sequence, Optional, Tuple
 
 from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, SafeEnvironment, Finalize, BatchSafe, Chunk
-from coba.evaluators import Evaluator
+from coba.evaluators import Evaluator, SafeEvaluator
 
 from coba.pipes import Source, Filter, SourceFilters
 from coba.contexts import CobaContext
@@ -16,18 +16,13 @@ from coba.experiments.results import Result
 class Task:
 
     def __init__(self,
-        env_id: Optional[int],
-        lrn_id: Optional[int],
-        env   : Optional[Environment],
-        lrn   : Optional[Learner],
-        task  : Evaluator,
-        copy  : bool = False) -> None:
-
-        self.env_id = env_id
-        self.lrn_id = lrn_id
-        self.env    = env
-        self.lrn    = lrn
-        self.task   = task
+        env : Optional[Tuple[int,Environment]],
+        lrn : Optional[Tuple[int,Learner,bool]],
+        val : Optional[Tuple[int,Evaluator]],
+        copy: bool = False) -> None:
+        (self.env_id, self.env) = env or (None,None)
+        (self.lrn_id, self.lrn) = lrn or (None,None)
+        (self.val_id, self.val) = val or (None,None)
         self.copy   = copy
 
 class MakeTasks(Source[Iterable[Task]]):
@@ -45,46 +40,59 @@ class MakeTasks(Source[Iterable[Task]]):
         #is always in the exact same order we should be fine. In the future we may want to consider.
         #adding a better check for environments other than assigning an index based on their order.
 
-        lrns = dict()
-        envs = dict()
+        envs = {None:None}
+        lrns = {None:None}
+        evls = {None:None}
 
         learner_counts = Counter([l for _,l,_ in self._triples])
 
         for env, lrn, evl in self._triples:
 
-            if lrn not in lrns:
-                lrns[lrn] = len(lrns)
-                yield Task(None, lrns[lrn], None, lrn, None)
-
             if env not in envs:
-                envs[env] = len(envs)
-                yield Task(envs[env], None, env, None, None)
+                envs[env] = len(envs)-1
+                yield Task((envs[env],env), None, None)
 
-            yield Task(envs[env], lrns[lrn], env, lrn, evl, copy=learner_counts[lrn]>1)
+            if lrn not in lrns:
+                lrns[lrn] = len(lrns)-1
+                yield Task(None, (lrns[lrn],lrn), None)
+
+            if evl not in evls:
+                evls[evl] = len(evls)-1
+                yield Task(None, None, (evls[evl],evl))
+
+            if evl:
+                yield Task((envs[env],env), (lrns[lrn],lrn), (evls[evl],evl), copy=learner_counts[lrn]>1)
 
 class ResumeTasks(Filter[Iterable[Task], Iterable[Task]]):
     def __init__(self, restored: Optional[Result]) -> None:
-        self._restored = restored
+        self._restored = restored or Result(None,None,None,None)
 
     def filter(self, tasks: Iterable[Task]) -> Iterable[Task]:
 
-        finished_learners = set(self._restored.learners['learner_id']) if self._restored else set()
-        finished_environments = set(self._restored.environments['environment_id']) if self._restored else set()
-        finished_evaluations = set(zip(*self._restored.interactions[['environment_id','learner_id']])) if self._restored else set()
+        finished_lrns = set(self._restored.learners['learner_id'])
+        finished_envs = set(self._restored.environments['environment_id'])
+        finished_evls = set(self._restored.evaluators['evaluator_id'])
+        finished_outs = set(zip(*self._restored.interactions[['environment_id','learner_id','evaluator_id']]))
 
         for task in tasks:
 
-            is_learner_task = task.env_id is None
-            is_environ_task = task.lrn_id is None
-            is_eval_task    = not (is_learner_task or is_environ_task)
+            is_env_task = bool(task.env and not task.lrn and not task.val)
+            is_lrn_task = bool(task.lrn and not task.env and not task.val)
+            is_val_task = bool(task.val and not task.env and not task.lrn)
+            is_out_task = bool(task.env and task.lrn and task.val)
 
-            if not self._restored:
+            if is_env_task: task_id = task.env_id
+            if is_lrn_task: task_id = task.lrn_id
+            if is_val_task: task_id = task.val_id
+            if is_out_task: task_id = (task.env_id,task.lrn_id,task.val_id)
+
+            if is_env_task and task_id not in finished_envs:
                 yield task
-            elif is_learner_task and task.lrn_id not in finished_learners:
+            if is_lrn_task and task_id not in finished_lrns:
                 yield task
-            elif is_environ_task and task.env_id not in finished_environments:
+            if is_val_task and task_id not in finished_evls:
                 yield task
-            elif is_eval_task and (task.env_id, task.lrn_id) not in finished_evaluations:
+            if is_out_task and task_id not in finished_outs:
                 yield task
 
 class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
@@ -102,20 +110,23 @@ class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
         items  = list(items)
         chunks = defaultdict(list)
 
-        workitems_sans_env = [t for t in items if t.env_id is None    ]
-        workitems_with_env = [t for t in items if t.env_id is not None]
+        tasks_sans_env = [t for t in items if not t.env ]
+        tasks_with_env = [t for t in items if     t.env ]
 
-        for env_item in workitems_with_env:
-            chunks[self._get_last_chunk(env_item.env)].append(env_item)
+        for task in tasks_with_env:
+            chunks[self._get_last_chunk(task.env)].append(task)
 
-        for lrn_item in workitems_sans_env:
-            yield [lrn_item]
+        for task in tasks_sans_env:
+            yield [task]
 
-        for workitem in chunks.pop('not_chunked',[]):
-            yield [workitem]
+        for tasks in chunks.pop('not_chunked',[]):
+            yield [tasks]
 
-        for chunk in sorted(chunks.values(), key=lambda chunk: min([c.env_id for c in chunk])):
-            yield list(sorted(chunk, key=lambda c: (c.env_id, -1 if c.lrn_id is None else c.lrn_id)))
+        chunks_sorter = lambda c: min([c.env_id for c in c])
+        chunk_sorter  = lambda t: (t.env_id, t.lrn_id if t.lrn else -1)
+
+        for chunk in sorted(chunks.values(), key=chunks_sorter):
+            yield list(sorted(chunk, key=chunk_sorter))
 
     def _get_last_chunk(self, env):
         if isinstance(env, SourceFilters):
@@ -157,44 +168,52 @@ class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
 
                 while chunk:
                     try:
-                        item = chunk.pop()
+                        task = chunk.pop()
 
-                        if item.env is None:
-                            with CobaContext.logger.time(f"Recording Learner {item.lrn_id} parameters..."):
-                                yield ["T1", item.lrn_id, SafeLearner(item.lrn).params]
+                        env_id,env = (task.env_id,task.env)
+                        lrn_id,lrn = (task.lrn_id,task.lrn)
+                        val_id,val = (task.val_id,task.val)
 
-                        if item.lrn is None:
-                            with CobaContext.logger.time(f"Recording Environment {item.env_id} statistics..."):
-                                yield ["T2", item.env_id, SafeEnvironment(item.env).params]
+                        if task.copy: lrn = deepcopy(lrn)
 
-                        if item.env and item.lrn and item.env_id not in empty_envs:
+                        if env and not lrn and not val:
+                            with CobaContext.logger.time(f"Recording Environment {env_id} parameters..."):
+                                yield ["T1", env_id, SafeEnvironment(env).params]
 
-                            with CobaContext.logger.time(f"Peeking at Environment {item.env_id}..."):
-                                interactions = peek_first(item.env.read())[1]
+                        if lrn and not env and not val:
+                            with CobaContext.logger.time(f"Recording Learner {lrn_id} parameters..."):
+                                yield ["T2", lrn_id, SafeLearner(lrn).params]
+
+                        if val and not env and not lrn:
+                            with CobaContext.logger.time(f"Recording Evaluator {val_id} parameters..."):
+                                yield ["T3", val_id, SafeEvaluator(val).params]
+
+                        if env and lrn and val and env_id not in empty_envs:
+
+                            with CobaContext.logger.time(f"Peeking at Environment {env_id}..."):
+                                interactions = peek_first(env.read())[1]
 
                             if not interactions:
-                                CobaContext.logger.log(f"Environment {item.env_id} has nothing to evaluate (this is likely due to having too few interactions).")
-                                empty_envs.add(item.env_id)
+                                CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is likely due to having too few interactions).")
+                                empty_envs.add(env_id)
                                 continue
 
                             class dummy_env:
-                                env = item.env
+                                _env = env
                                 @property
-                                def params(self): return SafeEnvironment(item.env).params #pragma: no cover
+                                def params(self): return SafeEnvironment(env).params #pragma: no cover
                                 def read(self): return BatchSafe(Finalize()).filter(interactions)
 
-                            with CobaContext.logger.time(f"Evaluating Learner {item.lrn_id} on Environment {item.env_id}..."):
-                                lrn = item.lrn if not item.copy else deepcopy(item.lrn)
+                            with CobaContext.logger.time(f"Evaluating Learner {lrn_id} on Environment {env_id}..."):
                                 env = dummy_env()
-                                yield ["T3", (item.env_id, item.lrn_id), list(item.task.evaluate(env,lrn))]
-                                if hasattr(lrn,'finish') and item.copy: lrn.finish()
+                                yield ["T4", (env_id, lrn_id, val_id), list(SafeEvaluator(val).evaluate(env,lrn))]
+                                if hasattr(lrn,'finish') and task.copy: lrn.finish()
 
                     except Exception as e:
                         CobaContext.logger.log(e)
 
     def _env_ids(self, item: Task):
-        return (-1,) if item.env_id is None else (item.env_id,)
+        return (item.env_id if item.env else -1,)
 
     def _lrn_ids(self, item: Task):
-        return (-1,) if item.lrn_id is None else (item.lrn_id,)
- 
+        return (item.lrn_id if item.lrn else -1,)

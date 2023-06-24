@@ -105,18 +105,12 @@ class SafeLearner(Learner):
             learner: The learner we wish to make sure has the expected interface
         """
 
-        #is learn   batch safe
-        #is request batch safe
-        #is predict batch safe
+        self.learner = learner if not isinstance(learner, SafeLearner) else learner.learner
+        self._rng    = CobaRandom(seed)
+        self._method = {}
 
-        # what is the prediction format being returned by predict?
-
-        self._learner     = learner if not isinstance(learner, SafeLearner) else learner._learner
-        self._rng         = CobaRandom(seed)
-        self._method      = {}
-
-        self._pred_kwargs  = None
-        self._pred_batch = None
+        self._pred_kwargs = None
+        self._pred_batch  = None
         self._pred_format = None
 
     @property
@@ -134,13 +128,13 @@ class SafeLearner(Learner):
     @property
     def params(self) -> Mapping[str, Any]:
         try:
-            params = self._learner.params
+            params = self.learner.params
             params = params if isinstance(params,dict) else params()
         except AttributeError:
             params = {}
 
         if "family" not in params:
-            params["family"] = self._learner.__class__.__name__
+            params["family"] = self.learner.__class__.__name__
 
         return params
 
@@ -169,7 +163,7 @@ class SafeLearner(Learner):
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
 
         try:
-            return self._safe_call('request', self._learner.request, (context,actions,request))
+            return self._safe_call('request', self.learner.request, (context,actions,request))
         except AttributeError as ex:
             if "'request'" in str(ex):
                 raise CobaException(("The `request` method is not implemented for this learner."))
@@ -177,10 +171,10 @@ class SafeLearner(Learner):
 
     def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:
 
-        pred = self._safe_call('predict', self._learner.predict, (context,actions))
+        pred = self._safe_call('predict', self.learner.predict, (context,actions))
 
         if self._pred_batch is None: # first call only
-            predictor = lambda X,A: self._safe_call('predict', self._learner.predict, (X,A))
+            predictor = lambda X,A: self._safe_call('predict', self.learner.predict, (X,A))
 
             self._pred_batch  = batch_order(predictor,pred,context,actions)
             self._pred_kwargs = isinstance(pred[-1] if self._pred_batch != 'row' else pred[0][-1],abc.Mapping)
@@ -234,7 +228,7 @@ class SafeLearner(Learner):
     def learn(self, context, actions, action, reward, probability, **kwargs) -> None:
 
         try:
-            self._safe_call('learn', self._learner.learn, (context,actions,action,reward,probability), kwargs)
+            self._safe_call('learn', self.learner.learn, (context,actions,action,reward,probability), kwargs)
         except TypeError as ex:
             if 'got an unexpected' in str(ex):
                 raise CobaException("It appears that learner.predict returned kwargs but learner.learn did not accept them.") from ex

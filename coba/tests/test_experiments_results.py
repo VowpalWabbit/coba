@@ -27,19 +27,19 @@ class TransactionResult_Tests(unittest.TestCase):
         res = TransactionResult().filter([["version",4]])
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners,Table(columns=['learner_id']))
-        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'index']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
 
     def test_same_columns(self):
         res = TransactionResult().filter([["version",4],["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"reward":[1,4]}}]])
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners    ,Table(columns=['learner_id']))
-        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'index', 'reward']).insert([(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)]))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index', 'reward']).insert([(0,1,0,1,1),(0,1,0,2,3),(0,2,0,1,1),(0,2,0,2,4)]))
 
     def test_diff_columns(self):
         res = TransactionResult().filter([["version",4],["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"z":[1,4]}}]])
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners,Table(columns=['learner_id']))
-        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'index', 'reward', 'z']).insert([(0,1,1,1,None),(0,1,2,3,None),(0,2,1,None,1),(0,2,2,None,4)]))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index', 'reward', 'z']).insert([(0,1,0,1,1,None),(0,1,0,2,3,None),(0,2,0,1,None,1),(0,2,0,2,None,4)]))
 
     def test_old_version(self):
         with self.assertRaises(CobaException):
@@ -56,17 +56,17 @@ class TransactionEncode_Tests(unittest.TestCase):
     def test_experiment_dict(self):
         self.assertEqual(list(TransactionEncode().filter([['T0',{'a':1.0}]])),['["version",4]','["experiment",{"a":1}]'])
 
-    def test_learner_params(self):
-        self.assertEqual(list(TransactionEncode().filter([['T1',0,{'a':1.0}]])),['["version",4]','["L",0,{"a":1}]'])
-
     def test_environment_params(self):
-        self.assertEqual(list(TransactionEncode().filter([['T2',0,{'a':1.0}]])),['["version",4]','["E",0,{"a":1}]'])
+        self.assertEqual(list(TransactionEncode().filter([['T1',0,{'a':1.0}]])),['["version",4]','["E",0,{"a":1}]'])
+
+    def test_learner_params(self):
+        self.assertEqual(list(TransactionEncode().filter([['T2',0,{'a':1.0}]])),['["version",4]','["L",0,{"a":1}]'])
 
     def test_interactions(self):
-        self.assertEqual(list(TransactionEncode().filter([['T3',[1,0],[{"R1":3},{"R1":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,4]}}]'])
+        self.assertEqual(list(TransactionEncode().filter([['T4',[1,0],[{"R1":3},{"R1":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,4]}}]'])
 
     def test_interaction_uneven_dictionaries(self):
-        self.assertEqual(list(TransactionEncode().filter([['T3',[1,0],[{"R1":3},{"R2":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,null],"R2":[null,4]}}]'])
+        self.assertEqual(list(TransactionEncode().filter([['T4',[1,0],[{"R1":3},{"R2":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,null],"R2":[null,4]}}]'])
 
 class TransactionDecode_Tests(unittest.TestCase):
     def test_get_version(self):
@@ -332,7 +332,7 @@ class Table_Tests(unittest.TestCase):
 
     def test_where_preserves_order(self):
         table = Table(columns=['a']).insert({'a':list(range(1000))})
-        
+
         no_index_where = table.where(a=list(reversed([0,10,20,30,40,50,60])))
         self.assertSequenceEqual(no_index_where['a'],[0,10,20,30,40,50,60])
 
@@ -796,18 +796,18 @@ class MatplotPlotter_Tests(unittest.TestCase):
 class Result_Tests(unittest.TestCase):
 
     def test_set_plotter(self):
-        result = Result()
+        result = Result(None,None,None,None)
         self.assertIsNotNone(result._plotter)
         result.set_plotter(None)
         self.assertIsNone(result._plotter)
 
     def test_interaction_rows(self):
-        result = Result(int_rows=[['environment_id','learner_id','index','reward'],(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
+        result = Result(None,None,None,[['environment_id','learner_id','index','reward'],(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
         self.assertEqual("{'Learners': 0, 'Environments': 0, 'Interactions': 4}", str(result))
         self.assertEqual( [(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)], list(result.interactions))
 
     def test_has_preamble(self):
-        self.assertDictEqual(Result(exp_dict={"n_learners":1, "n_environments":2}).experiment, {"n_learners":1, "n_environments":2})
+        self.assertDictEqual(Result(None,None,None,None,exp_dict={"n_learners":1, "n_environments":2}).experiment, {"n_learners":1, "n_environments":2})
 
     def test_exception_when_no_file(self):
         with self.assertRaises(Exception):
@@ -846,7 +846,6 @@ class Result_Tests(unittest.TestCase):
                 yield {"reward": 1}
                 yield {"reward": 2}
 
-
         expected_envs = [
             {"environment_id":0, "source": 1 , "logged":True, "scale":True, "batched": None},
             {"environment_id":1, "source":[2], "logged":True, "scale":True, "batched": 2   },
@@ -857,49 +856,58 @@ class Result_Tests(unittest.TestCase):
             {"learner_id":1, "family":"lrn2", "a":2},
         ]
 
+        expected_vals = [
+            {'evaluator_id':0, 'type':'unknown'}
+        ]
+
         expected_ints = [
-            {'environment_id': 0, 'learner_id': 0, 'index':1, 'reward': 1 },
-            {'environment_id': 0, 'learner_id': 0, 'index':2, 'reward': 2 },
-            {'environment_id': 0, 'learner_id': 1, 'index':1, 'reward': 5 },
-            {'environment_id': 0, 'learner_id': 1, 'index':2, 'reward': 6 },
-            {'environment_id': 1, 'learner_id': 0, 'index':1, 'reward': 3 },
-            {'environment_id': 1, 'learner_id': 0, 'index':2, 'reward': 4 },
-            {'environment_id': 1, 'learner_id': 1, 'index':1, 'reward': 1 },
-            {'environment_id': 1, 'learner_id': 1, 'index':2, 'reward': 2 },
+            {'environment_id': 0, 'learner_id': 0, 'evaluator_id': 0, 'index':1, 'reward': 1 },
+            {'environment_id': 0, 'learner_id': 0, 'evaluator_id': 0, 'index':2, 'reward': 2 },
+            {'environment_id': 0, 'learner_id': 1, 'evaluator_id': 0, 'index':1, 'reward': 5 },
+            {'environment_id': 0, 'learner_id': 1, 'evaluator_id': 0, 'index':2, 'reward': 6 },
+            {'environment_id': 1, 'learner_id': 0, 'evaluator_id': 0, 'index':1, 'reward': 3 },
+            {'environment_id': 1, 'learner_id': 0, 'evaluator_id': 0, 'index':2, 'reward': 4 },
+            {'environment_id': 1, 'learner_id': 1, 'evaluator_id': 0, 'index':1, 'reward': 1 },
+            {'environment_id': 1, 'learner_id': 1, 'evaluator_id': 0, 'index':2, 'reward': 2 },
         ]
 
         res = Result.from_logged_envs([Logged1(),Logged2(),Logged3(),Logged4()])
         self.assertCountEqual(res.environments.to_dicts(), expected_envs)
         self.assertCountEqual(res.learners.to_dicts()    , expected_lrns)
+        self.assertCountEqual(res.evaluators.to_dicts()  , expected_vals)
         self.assertCountEqual(res.interactions.to_dicts(), expected_ints)
 
     def test_filter_fin_sans_n_interactions(self):
-        envs = [['environment_id'             ],[1,],[2,]]
-        lrns = [['learner_id'                 ],[1,],[2,]]
-        ints = [['environment_id','learner_id','index'],[1,1,0],[1,2,0],[2,1,0]]
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'],[1],[2]]
+        vals = [['evaluator_id'],[1],[2]]
+        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[1,2,1,0],[2,1,1,0]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_fin()
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(2, len(original_result.evaluators))
         self.assertEqual(3, len(original_result.interactions))
 
         self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(1, len(filtered_result.evaluators))
         self.assertEqual(2, len(filtered_result.interactions))
 
     def test_filter_fin_with_n_interactions(self):
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,]]
-        ints = [['environment_id','learner_id','index','reward'],
-            [1,1,1,1],[1,1,2,2],
-            [1,2,1,1],[1,2,2,2],[1,2,3,3],
-            [2,1,1,1],
-            [2,2,1,1]
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [1,1,1,1,1],[1,1,1,2,2],
+            [1,2,1,1,1],[1,2,1,2,2],[1,2,1,3,3],
+            [2,1,1,1,1],
+            [2,2,1,1,1]
         ]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
@@ -915,11 +923,12 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,]]
-        ints = [['environment_id','learner_id','index'],[1,1,0],[2,1,0]]
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]]
+        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[2,1,1,0]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_fin()
 
         self.assertEqual(2, len(original_result.environments))
@@ -933,28 +942,32 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_env(self):
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,]]
-        ints = [['environment_id','learner_id'],[1,1],[2,1],[1,2]]
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1],[2]]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,1,1],[1,2,1]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_env(environment_id=2)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(2, len(original_result.evaluators))
         self.assertEqual(3, len(original_result.interactions))
 
         self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(1, len(filtered_result.learners))
+        self.assertEqual(1, len(filtered_result.evaluators))
         self.assertEqual(1, len(filtered_result.interactions))
 
     def test_filter_env_no_change(self):
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,]]
-        ints = [['environment_id','learner_id'],[1,1],[2,1],[1,2]]
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]    ]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,1,1],[1,2,1]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         self.assertIs(original_result, original_result.filter_env(environment_id=[1,2]))
 
     def test_filter_env_no_match(self):
@@ -962,11 +975,12 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,]]
-        ints = [['environment_id','learner_id'],[1,1],[2,1],[1,2]]
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]    ]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,1,1],[1,2,1]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_env(environment_id=3)
 
         self.assertEqual(2, len(original_result.environments))
@@ -980,36 +994,42 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_lrn_1(self):
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,]]
-        ints = [['environment_id','learner_id'],[1,1],[2,1],[1,2]]
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1],[2]]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,1,1],[1,2,1]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_lrn(learner_id=2)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(2, len(original_result.evaluators))
         self.assertEqual(3, len(original_result.interactions))
 
         self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(1, len(filtered_result.learners))
+        self.assertEqual(1, len(filtered_result.evaluators))
         self.assertEqual(1, len(filtered_result.interactions))
 
     def test_filter_lrn_2(self):
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,],[3,]]
-        ints = [['environment_id','learner_id'],[1,1],[1,2],[2,3]]
+        envs = [['environment_id'],[1],[2]    ]
+        lrns = [['learner_id'    ],[1],[2],[3]]
+        vals = [['evaluator_id'  ],[1],[2],[3]]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[1,2,1],[2,3,2]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_lrn(learner_id=[2,1])
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(3, len(original_result.learners))
+        self.assertEqual(3, len(original_result.evaluators))
         self.assertEqual(3, len(original_result.interactions))
 
         self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(1, len(filtered_result.evaluators))
         self.assertEqual(2, len(filtered_result.interactions))
 
     def test_filter_lrn_no_match(self):
@@ -1017,11 +1037,12 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,],[3,]]
-        ints = [['environment_id','learner_id'],[1,1],[1,2],[2,3]]
+        envs = [['environment_id'],[1],[2]    ]
+        lrns = [['learner_id'    ],[1],[2],[3]]
+        vals = [['evaluator_id'  ],[1]        ]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[1,2,1],[2,3,1]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_lrn(learner_id=5)
 
         self.assertEqual(2, len(original_result.environments))
@@ -1038,64 +1059,123 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,],[3,]]
-        ints = [['environment_id','learner_id'],[1,1],[1,2],[2,3]]
+        envs = [['environment_id'],[1],[2]    ]
+        lrns = [['learner_id'    ],[1],[2],[3]]
+        vals = [['evaluator_id'  ],[1]        ]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[1,2,1],[2,3,1]]
 
-        original_result = Result(envs, lrns, ints)
+        original_result = Result(envs, lrns, vals, ints)
         self.assertIs(original_result, original_result.filter_lrn(learner_id=[1,2,3]))
+
+    def test_filter_val(self):
+
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1],[2]]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,1,1],[1,2,2]]
+
+        original_result = Result(envs, lrns, vals, ints)
+        filtered_result = original_result.filter_val(evaluator_id=1)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(2, len(original_result.evaluators))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(2, len(filtered_result.environments))
+        self.assertEqual(1, len(filtered_result.learners))
+        self.assertEqual(1, len(filtered_result.evaluators))
+        self.assertEqual(2, len(filtered_result.interactions))
+
+    def test_filter_val_no_change(self):
+
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]    ]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,1,1],[1,2,1]]
+
+        original_result = Result(envs, lrns, vals, ints)
+        self.assertIs(original_result, original_result.filter_val(evaluator_id=1))
+
+    def test_filter_val_no_match(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]    ]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,1,1],[1,2,1]]
+
+        original_result = Result(envs, lrns, vals, ints)
+        filtered_result = original_result.filter_val(evaluator_id=3)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(0, len(filtered_result.environments))
+        self.assertEqual(0, len(filtered_result.learners))
+        self.assertEqual(0, len(filtered_result.interactions))
+        self.assertEqual(["No evaluators matched the given filter."], CobaContext.logger.sink.items)
 
     def test_copy(self):
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,],[3,]]
-        ints = [['environment_id','learner_id'],[1,1],[1,2],[2,3]]
+        envs = [['environment_id'],[1],[2]    ]
+        lrns = [['learner_id'    ],[1],[2],[3]]
+        vals = [['evaluator_id'  ],[1]        ]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[1,2,1],[2,3,1]]
 
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
         result_copy = result.copy()
 
         self.assertIsNot(result, result_copy)
-        self.assertIsNot(result.learners, result_copy.learners)
+        
         self.assertIsNot(result.environments, result_copy.environments)
+        self.assertIsNot(result.learners, result_copy.learners)
+        self.assertIsNot(result.evaluators, result_copy.evaluators)
         self.assertIsNot(result.interactions, result_copy.interactions)
 
-        self.assertEqual(list(result.learners), list(result_copy.learners))
         self.assertEqual(list(result.environments), list(result_copy.environments))
+        self.assertEqual(list(result.learners), list(result_copy.learners))
+        self.assertEqual(list(result.evaluators), list(result_copy.evaluators))
         self.assertEqual(list(result.interactions), list(result_copy.interactions))
 
     def test_str(self):
 
-        envs = [['environment_id'],[1,],[2,]]
-        lrns = [['learner_id'    ],[1,],[2,],[3,]]
-        ints = [['environment_id','learner_id'],[1,1],[1,2],[2,3]]
+        envs = [['environment_id'],[1],[2]    ]
+        lrns = [['learner_id'    ],[1],[2],[3]]
+        vals = [['evaluator_id'  ],[1]        ]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[1,2,1],[2,3,1]]
 
-        self.assertEqual("{'Learners': 3, 'Environments': 2, 'Interactions': 3}", str(Result(envs, lrns, ints)))
+        self.assertEqual("{'Learners': 3, 'Environments': 2, 'Interactions': 3}", str(Result(envs, lrns, vals, ints)))
 
     def test_ipython_display_(self):
 
         with unittest.mock.patch("builtins.print") as mock:
 
-            envs = [['environment_id'],[1,],[2,]]
-            lrns = [['learner_id'    ],[1,],[2,],[3,]]
-            ints = [['environment_id','learner_id'],[1,1],[1,2],[2,3]]
+            envs = [['environment_id'],[1],[2]]
+            lrns = [['learner_id'    ],[1],[2],[3]]
+            vals = [['evaluator_id'],[0]]
+            ints = [['environment_id','learner_id','evaluator_id'],[1,1,0],[1,2,0],[2,3,0]]
 
-            result = Result(envs, lrns, ints)
+            result = Result(envs, lrns, vals, ints)
             result._ipython_display_()
             mock.assert_called_once_with(str(result))
 
     def test_plot_learners_bad_x_index(self):
         CobaContext.logger.sink = ListSink()
-        Result().plot_learners(x=['index','a'])
+        Result(None,None,None,None).plot_learners(x=['index','a'])
         self.assertIn("The x-axis cannot contain", CobaContext.logger.sink.items[0])
 
     def test_plot_learners_one_environment_all_default(self):
-
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],[0,1,1,1],[0,1,2,2],[0,2,1,1],[0,2,2,2]]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners()
@@ -1111,13 +1191,13 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_one_environment_err_se(self):
-
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1']]
-        ints = [['environment_id','learner_id','index','reward'],[0,1,1,1],[0,1,2,2],[1,1,1,3],[1,1,2,4]]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[1,1,0,1,3],[1,1,0,2,4]]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(err='sd',errevery=2)
@@ -1133,13 +1213,13 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_one_environment_lrn_params(self):
-
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family','i','j','t'],[1,'learner_1',1,2,None],[2,'learner_2',None,None,2]]
-        ints = [['environment_id','learner_id','index','reward'],[0,1,0,1],[0,1,1,2],[0,2,0,1],[0,2,1,2]]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,0,1],[0,1,0,1,2],[0,2,0,0,1],[0,2,0,1,2]]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners()
@@ -1156,18 +1236,18 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_two_environments_all_default(self):
-
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners()
@@ -1179,21 +1259,21 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual("Progressive Reward (2 Environments)", plotter.plot_calls[0][2])
         self.assertEqual("Interaction", plotter.plot_calls[0][3])
-        
+
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_one_environment_x_not_index(self):
-
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(x=['environment_id'])
@@ -1212,17 +1292,18 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_three_environments_err_sd(self):
         envs = [['environment_id'],[0],[1],[2]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,2],[0,2,2,3],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,3],[1,2,2,4],
-            [2,1,1,3],[2,1,2,4],
-            [2,2,1,4],[2,2,2,5],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,2],[0,2,0,2,3],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,3],[1,2,0,2,4],
+            [2,1,0,1,3],[2,1,0,2,4],
+            [2,2,0,1,4],[2,2,0,2,5],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(err='sd')
@@ -1236,20 +1317,20 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_mixed_env_count(self):
-
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],[0,1,3,3],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],[0,1,0,3,3],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners()
@@ -1271,15 +1352,16 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],[0,1,3,3],
-            [0,2,1,1],[0,2,2,2],[0,2,3,3],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],[0,1,0,3,3],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,3],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners()
@@ -1295,18 +1377,18 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
 
     def test_plot_learners_filename(self):
-
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(out="abc")
@@ -1315,18 +1397,18 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual("abc", plotter.plot_calls[0][11])
 
     def test_plot_learners_ax(self):
-
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(ax=1)
@@ -1335,18 +1417,18 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, plotter.plot_calls[0][0])
 
     def test_plot_learners_xlim_ylim(self):
-
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(xlim=(1,2), ylim=(2,3))
@@ -1356,18 +1438,18 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual((2,3), plotter.plot_calls[0][6])
 
     def test_plot_learners_labels_int_colors(self):
-
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(labels=['a','b'],colors=3)
@@ -1383,15 +1465,16 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_labels_no_colors(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(labels=['a','b'])
@@ -1405,18 +1488,18 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_labels_one_color(self):
-        
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(labels=['a','b'],colors=1)
@@ -1432,15 +1515,16 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_bad_labels(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(labels=['a'],colors=1)
@@ -1456,15 +1540,16 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_one_int_color(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(colors=2)
@@ -1480,15 +1565,16 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_one_list_color(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,1],[0,2,2,2],
-            [1,1,1,2],[1,1,2,3],
-            [1,2,1,2],[1,2,2,3],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,1],[0,2,0,2,2],
+            [1,1,0,1,2],[1,1,0,2,3],
+            [1,2,0,1,2],[1,2,0,2,3],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(colors=[2])
@@ -1504,17 +1590,18 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_top_n_positive(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2'],[3,'learner_3']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,3],[0,2,2,4],
-            [0,3,1,5],[0,3,2,6],
-            [1,1,1,1],[1,1,2,2],
-            [1,2,1,3],[1,2,2,4],
-            [1,3,1,5],[1,3,2,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,3],[0,2,0,2,4],
+            [0,3,0,1,5],[0,3,0,2,6],
+            [1,1,0,1,1],[1,1,0,2,2],
+            [1,2,0,1,3],[1,2,0,2,4],
+            [1,3,0,1,5],[1,3,0,2,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(top_n=2)
@@ -1530,17 +1617,18 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_top_n_negative(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2'],[3,'learner_3']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,1],[0,1,2,2],
-            [0,2,1,3],[0,2,2,4],
-            [0,3,1,5],[0,3,2,6],
-            [1,1,1,1],[1,1,2,2],
-            [1,2,1,3],[1,2,2,4],
-            [1,3,1,5],[1,3,2,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,1],[0,1,0,2,2],
+            [0,2,0,1,3],[0,2,0,2,4],
+            [0,3,0,1,5],[0,3,0,2,6],
+            [1,1,0,1,1],[1,1,0,2,2],
+            [1,2,0,1,3],[1,2,0,2,4],
+            [1,3,0,1,5],[1,3,0,2,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_learners(top_n=-2)
@@ -1555,7 +1643,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_empty_results(self):
         plotter = TestPlotter()
-        result = Result()
+        result = Result(None,None,None,None)
 
         result.set_plotter(plotter)
 
@@ -1565,41 +1653,43 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_contrast_no_data(self):
         CobaContext.logger.sink = ListSink()
-        Result().plot_contrast(0, 1, x=['a'])
+        Result(None,None,None,None).plot_contrast(0, 1, x=['a'])
         self.assertEqual(["This result does not contain any data to plot."],CobaContext.logger.sink.items)
 
     def test_shared_c(self):
         CobaContext.logger.sink = ListSink()
-        Result().plot_contrast(1, 1, x=['a'])
+        Result(None,None,None,None).plot_contrast(1, 1, x=['a'])
         self.assertEqual(["A value cannot be in both `c1` and `c2`. Please make a change and run it again."],CobaContext.logger.sink.items)
 
     def test_plot_contrast_no_pairings(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,9],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,1],[1,1,2,2],[1,1,3,6],
-            [1,2,1,0],[1,2,2,3],[1,2,3,9],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,9],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,1],[1,1,0,2,2],[1,1,0,3,6],
+            [1,2,0,1,0],[1,2,0,2,3],[1,2,0,3,9],
         ]
 
         CobaContext.logger.sink = ListSink()
-        Result(envs, lrns, ints).plot_contrast(0, 1, x='index')
+        Result(envs, lrns, vals, ints).plot_contrast(0, 1, x='index')
 
         self.assertEqual(f"We were unable to create any pairings to contrast. Make sure c1=0 and c2=1 is correct.",CobaContext.logger.sink.items[0])
 
     def test_plot_contrast_index(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,9],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,1],[1,1,2,2],[1,1,3,9],
-            [1,2,1,0],[1,2,2,3],[1,2,3,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,9],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,1],[1,1,0,2,2],[1,1,0,3,9],
+            [1,2,0,1,0],[1,2,0,2,3],[1,2,0,3,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_contrast(1, 2, x='index')
@@ -1615,19 +1705,20 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_four_environment_all_default(self):
         envs = [['environment_id'],[0],[1],[2],[3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,9],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,1],[1,1,2,2],[1,1,3,6],
-            [1,2,1,0],[1,2,2,3],[1,2,3,9],
-            [2,1,1,0],[2,1,2,0],[2,1,3,6],
-            [2,2,1,0],[2,2,2,3],[2,2,3,9],
-            [3,1,1,0],[3,1,2,3],[3,1,3,9],
-            [3,2,1,0],[3,2,2,0],[3,2,3,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,9],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,1],[1,1,0,2,2],[1,1,0,3,6],
+            [1,2,0,1,0],[1,2,0,2,3],[1,2,0,3,9],
+            [2,1,0,1,0],[2,1,0,2,0],[2,1,0,3,6],
+            [2,2,0,1,0],[2,2,0,2,3],[2,2,0,3,9],
+            [3,1,0,1,0],[3,1,0,2,3],[3,1,0,3,9],
+            [3,2,0,1,0],[3,2,0,2,0],[3,2,0,3,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_contrast(2,1)
@@ -1644,17 +1735,18 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_one_environment_env_not_index(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,12],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,0],[1,1,2,3],[1,1,3,6],
-            [1,2,1,1],[1,2,2,2],[1,2,3,6],
-            [2,1,1,0],[2,1,2,3],[2,1,3,9],
-            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,12],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,0],[1,1,0,2,3],[1,1,0,3,6],
+            [1,2,0,1,1],[1,2,0,2,2],[1,2,0,3,6],
+            [2,1,0,1,0],[2,1,0,2,3],[2,1,0,3,9],
+            [2,2,0,1,1],[2,2,0,2,2],[2,2,0,3,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_contrast(2,1,'a')
@@ -1671,17 +1763,18 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_one_environment_env_not_index_mode_prob(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,12],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,0],[1,1,2,3],[1,1,3,6],
-            [1,2,1,1],[1,2,2,2],[1,2,3,6],
-            [2,1,1,0],[2,1,2,3],[2,1,3,9],
-            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,12],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,0],[1,1,0,2,3],[1,1,0,3,6],
+            [1,2,0,1,1],[1,2,0,2,2],[1,2,0,3,6],
+            [2,1,0,1,0],[2,1,0,2,3],[2,1,0,3,9],
+            [2,2,0,1,1],[2,2,0,2,2],[2,2,0,3,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_contrast(2,1,x='a',mode='prob')
@@ -1698,14 +1791,15 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_one_environment_env_not_index_with_p(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,12],
-            [1,1,1,0],[1,1,2,3],[1,1,3,6],
-            [2,1,1,0],[2,1,2,3],[2,1,3,9],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,12],
+            [1,1,0,1,0],[1,1,0,2,3],[1,1,0,3,6],
+            [2,1,0,1,0],[2,1,0,2,3],[2,1,0,3,9],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_contrast(2,1,c='a')
@@ -1721,17 +1815,18 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_x_eq_c_multi_c1(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,12],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,0],[1,1,2,3],[1,1,3,6],
-            [1,2,1,1],[1,2,2,2],[1,2,3,6],
-            [2,1,1,0],[2,1,2,3],[2,1,3,9],
-            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,12],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,0],[1,1,0,2,3],[1,1,0,3,6],
+            [1,2,0,1,1],[1,2,0,2,2],[1,2,0,3,6],
+            [2,1,0,1,0],[2,1,0,2,3],[2,1,0,3,9],
+            [2,2,0,1,1],[2,2,0,2,2],[2,2,0,3,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_contrast([2,3],1,c='a',x='a',boundary=False)
@@ -1746,17 +1841,18 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_x_eq_c_multi_c2(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,12],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,0],[1,1,2,3],[1,1,3,6],
-            [1,2,1,1],[1,2,2,2],[1,2,3,6],
-            [2,1,1,0],[2,1,2,3],[2,1,3,9],
-            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,12],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,0],[1,1,0,2,3],[1,1,0,3,6],
+            [1,2,0,1,1],[1,2,0,2,2],[1,2,0,3,6],
+            [2,1,0,1,0],[2,1,0,2,3],[2,1,0,3,9],
+            [2,2,0,1,1],[2,2,0,2,2],[2,2,0,3,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_contrast(1,[3,2],c='a',x='a',boundary=False)
@@ -1771,17 +1867,18 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_x_eq_c_one_one(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],
-            [0,1,1,0],[0,1,2,3],[0,1,3,12],
-            [0,2,1,1],[0,2,2,2],[0,2,3,6],
-            [1,1,1,0],[1,1,2,3],[1,1,3,6],
-            [1,2,1,1],[1,2,2,2],[1,2,3,6],
-            [2,1,1,0],[2,1,2,3],[2,1,3,9],
-            [2,2,1,1],[2,2,2,2],[2,2,3,6],
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,12],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,0],[1,1,0,2,3],[1,1,0,3,6],
+            [1,2,0,1,1],[1,2,0,2,2],[1,2,0,3,6],
+            [2,1,0,1,0],[2,1,0,2,3],[2,1,0,3,9],
+            [2,2,0,1,1],[2,2,0,2,2],[2,2,0,3,6],
         ]
 
         plotter = TestPlotter()
-        result = Result(envs, lrns, ints)
+        result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
         result.plot_contrast(1,2,c='a',x='a',boundary=False)
@@ -1800,8 +1897,9 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'], [0,0,1,1], [0,1,1,1],]
-        result = Result(envs, lrns, ints)
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1]]
+        result = Result(envs, lrns, vals, ints)
 
         self.assertEqual(result, result._plottable(['index'],'reward'))
         self.assertEqual([], CobaContext.logger.sink.items)
@@ -1813,10 +1911,11 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'], [0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]]
-        result = Result(envs, lrns, ints)
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
+        result = Result(envs, lrns, vals, ints)
 
-        expected_rows = [(0,0,1,1),(0,1,1,1),(1,0,1,1),(1,1,1,1)]
+        expected_rows = [(0,0,0,1,1),(0,1,0,1,1),(1,0,0,1,1),(1,1,0,1,1)]
 
         plottable = result._plottable(['index'],'reward')
 
@@ -1830,10 +1929,11 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'], [0,0,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]]
-        result = Result(envs, lrns, ints)
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
+        result = Result(envs, lrns, vals, ints)
 
-        expected_rows = [(1,0,1,1),(1,1,1,1)]
+        expected_rows = [(1,0,0,1,1),(1,1,0,1,1)]
         plottable = result._plottable(['index'],'reward')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
@@ -1847,8 +1947,9 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],[0,0,1,1],[1,1,1,1],[1,1,2,1]]
-        result = Result(envs, lrns, ints)
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[1,1,0,1,1],[1,1,0,2,1]]
+        result = Result(envs, lrns, vals, ints)
 
         with self.assertRaises(CobaException) as e:
             result._plottable(['index'], "reward")
@@ -1862,14 +1963,15 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'],[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]]
-        result = Result(envs, lrns, ints)
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
+        result = Result(envs, lrns, vals, ints)
 
         expected_rows = [
-           (0,0,1,1),
-           (0,1,1,1),
-           (1,0,1,1),(1,0,2,1),
-           (1,1,1,1),(1,1,2,1)
+           (0,0,0,1,1),
+           (0,1,0,1,1),
+           (1,0,0,1,1),(1,0,0,2,1),
+           (1,1,0,1,1),(1,1,0,2,1)
         ]
 
         plottable = result._plottable(['openml_task'],'reward')
@@ -1881,7 +1983,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         with self.assertRaises(CobaException) as e:
-            Result()._plottable(['index'], "reward")
+            Result(None,None,None,None)._plottable(['index'], "reward")
 
         self.assertEqual(str(e.exception),"This result does not contain any data to plot.")
 
@@ -1892,8 +1994,9 @@ class Result_Tests(unittest.TestCase):
 
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        ints = [['environment_id','learner_id','index','reward'], [0,0,1,1], [0,1,1,1],]
-        result = Result(envs, lrns, ints)
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1]]
+        result = Result(envs, lrns, vals, ints)
 
         with self.assertRaises(CobaException) as e:
             result._plottable(['index'], "a")
@@ -1901,29 +2004,29 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(str(e.exception),"This result does not contain column 'a' in interactions.")
 
     def test_confidence_skip_err(self):
-        self.assertEqual((2,(0,0)),Result()._confidence('sd',2)([1,2,3],0))
-        self.assertEqual((2,(1,1)),Result()._confidence('sd',2)([1,2,3],1))
+        self.assertEqual((2,(0,0)),Result._confidence('sd',2)([1,2,3],0))
+        self.assertEqual((2,(1,1)),Result._confidence('sd',2)([1,2,3],1))
 
     def test_confidence_sd(self):
-        self.assertEqual((2,(1,1)),Result()._confidence('sd')([1,2,3]))
+        self.assertEqual((2,(1,1)),Result._confidence('sd')([1,2,3]))
 
     def test_confidence_se(self):
-        self.assertEqual((2,(1.96,1.96)),Result()._confidence('se')([1,3]))
+        self.assertEqual((2,(1.96,1.96)),Result._confidence('se')([1,3]))
 
     @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_confidence_bs(self):
-        self.assertEqual((2.5, (1.5,0.5)),Result()._confidence('bs')([1,2,3,4]))
-    
+        self.assertEqual((2.5, (1.5,0.5)),Result._confidence('bs')([1,2,3,4]))
+
     @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_confidence_ci(self):
-        self.assertEqual((2.5, (1.5,0.5)),Result()._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
+        self.assertEqual((2.5, (1.5,0.5)),Result._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
 
     def test_confidence_none(self):
-        self.assertEqual((2,0),Result()._confidence(None)([1,2,3]))
+        self.assertEqual((2,0),Result._confidence(None)([1,2,3]))
 
     def test_confidence_bi(self):
-        mu,(l,h) = Result()._confidence('bi')([0,0,1,1])
-        
+        mu,(l,h) = Result._confidence('bi')([0,0,1,1])
+
         self.assertEqual(.5,mu)
         self.assertAlmostEqual(l,0.34996429)
         self.assertAlmostEqual(h,0.34996429)

@@ -9,7 +9,7 @@ from numbers import Number
 from operator import truediv, sub, itemgetter
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
-from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, islice
+from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, islice, product
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any
 from coba.backports import Literal
 
@@ -44,8 +44,8 @@ def moving_average(values:Sequence[float], span:int=None, exponential:bool=False
 
 def env_values(envs: 'Table', cols: Sequence[str]) -> Mapping[int,Mapping[str,Any]]:
     env_cols = ['environment_id'] + [c for c in cols if c in envs.columns]
-    env_vals = {env[0]:dict(zip(env_cols[1:],env[1:])) for env in zip(*envs[env_cols])}        
-    return env_vals         
+    env_vals = {env[0]:dict(zip(env_cols[1:],env[1:])) for env in zip(*envs[env_cols])}
+    return env_vals
 
 def lrn_values(lrns: 'Table', cols: Sequence[str]) -> Mapping[int,Mapping[str,Any]]:
     lrn_cols = ['learner_id'] + [c for c in cols if c in lrns.columns]
@@ -169,7 +169,7 @@ class Table:
         else: #data_is_list_of_rows
             assert len(data[0]) == len(self._columns), "The given data rows don't align with the table's headers."
             for hdr,col in zip(self._columns,zip(*data)):
-                self._data[hdr].extend(col)  
+                self._data[hdr].extend(col)
 
         self._indexes = ()
         self._lohis = {}
@@ -218,8 +218,8 @@ class Table:
 
         if row_pred:
             selection = list(compress(count(),map(row_pred,self)))
-            return Table(View(self._data,selection), self._columns, self._indexes) 
- 
+            return Table(View(self._data,selection), self._columns, self._indexes)
+
         if kwargs:
             selection = []
             for kw,arg in kwargs.items():
@@ -307,7 +307,7 @@ class Table:
 
     def _compare(self,lo,hi,col,arg,comparison,method):
 
-        if method != "bisect" or callable(arg): 
+        if method != "bisect" or callable(arg):
             col = col[lo:hi]
 
         if callable(arg):
@@ -381,12 +381,15 @@ class TransactionEncode:
                 yield encoder.filter(['experiment', item[1]])
 
             elif item[0] == "T1":
-                yield encoder.filter(["L", item[1], item[2]])
-
-            elif item[0] == "T2":
                 yield encoder.filter(["E", item[1], item[2]])
 
+            elif item[0] == "T2":
+                yield encoder.filter(["L", item[1], item[2]])
+
             elif item[0] == "T3":
+                yield encoder.filter(["V", item[1], item[2]])
+
+            elif item[0] == "T4":
                 rows_T = collections.defaultdict(list)
 
                 keys = sorted(set().union(*[r.keys() for r in item[2]]))
@@ -400,8 +403,9 @@ class TransactionEncode:
 class TransactionResult:
 
     def filter(self, transactions:Iterable[Any]) -> 'Result':
-        lrn_rows = {}
         env_rows = {}
+        lrn_rows = {}
+        val_rows = {}
         int_rows = {}
         exp_dict = {}
 
@@ -427,19 +431,26 @@ class TransactionResult:
             if trx[0] == "L":
                 lrn_rows[trx[1]] = trx[2]
 
+            if trx[0] == "V":
+                val_rows[trx[1]] = trx[2]
+
             if trx[0] == "I":
+                if len(trx[1]) ==2: trx[1] = [*trx[1],0]
                 int_rows[tuple(trx[1])] = trx[2]
 
+        if not val_rows: val_rows[0] = {'type': 'unknown'}
         rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
 
-        env_table = Table(columns=['environment_id'                     ]          )
-        lrn_table = Table(columns=[                 'learner_id'        ]          )
-        int_table = Table(columns=['environment_id','learner_id','index'] + rwd_col)
+        env_table = Table(columns=['environment_id'                                    ]          )
+        lrn_table = Table(columns=[                 'learner_id'                       ]          )
+        val_table = Table(columns=[                              'evaluator_id'        ]          )
+        int_table = Table(columns=['environment_id','learner_id','evaluator_id','index'] + rwd_col)
 
-        env_table.insert([{"environment_id":e,                **v} for e,v in env_rows.items()])
-        lrn_table.insert([{                   "learner_id":l, **v} for l,v in lrn_rows.items()])
+        env_table.insert([{"environment_id":e,                                 **r} for e,r in env_rows.items()])
+        lrn_table.insert([{                   "learner_id":l,                  **r} for l,r in lrn_rows.items()])
+        val_table.insert([{                                  "evaluator_id":v, **r} for v,r in val_rows.items()])
 
-        for (env_id, lrn_id), results in int_rows.items():
+        for (env_id, lrn_id, val_id), results in int_rows.items():
             if results.get('_packed'):
 
                 packed = results['_packed']
@@ -447,11 +458,12 @@ class TransactionResult:
 
                 packed['environment_id'] = repeat(env_id,N)
                 packed['learner_id'    ] = repeat(lrn_id,N)
+                packed['evaluator_id'  ] = repeat(val_id,N)
                 packed['index'         ] = range(1,N+1)
 
                 int_table.insert(packed)
 
-        return Result(env_table, lrn_table, int_table, exp_dict)
+        return Result(env_table, lrn_table, val_table, int_table, exp_dict)
 
 @dataclass
 class Points:
@@ -633,10 +645,12 @@ class Result:
 
         seen_env = set()
         seen_lrn = set()
+        seen_val = set()
 
-        env_table = Table(columns=['environment_id'                              ])
-        lrn_table = Table(columns=[                 'learner_id'                 ])
-        int_table = Table(columns=['environment_id','learner_id','index','reward'])
+        env_table = Table(columns=['environment_id'                                             ])
+        lrn_table = Table(columns=[                 'learner_id'                                ])
+        val_table = Table(columns=[                              'evaluator_id'                 ])
+        int_table = Table(columns=['environment_id','learner_id','evaluator_id','index','reward'])
 
         def determine_id(param,param_list,param_dict):
             try:
@@ -658,6 +672,9 @@ class Result:
         def determine_lrn_id(lrn_param,lrn_param_list=[],lrn_param_dict={}):
             return determine_id(lrn_param,lrn_param_list,lrn_param_dict)
 
+        def determine_val_id(val_param,val_param_list=[],val_param_dict={}):
+            return determine_id(val_param,val_param_list,val_param_dict)
+
         my_mean = lambda x: sum(x)/len(x)
 
         for env in environments:
@@ -671,9 +688,11 @@ class Result:
 
             env_param = dict(env.params)
             lrn_param = env_param.pop('learner')
+            val_param = env_param.pop('evaluator',{'type':'unknown'})
 
             env_id = determine_env_id(env_param)
             lrn_id = determine_lrn_id(lrn_param)
+            val_id = determine_val_id(val_param)
 
             if env_id not in seen_env:
                 seen_env.add(env_id)
@@ -682,6 +701,10 @@ class Result:
             if lrn_id not in seen_lrn:
                 seen_lrn.add(lrn_id)
                 lrn_table.insert([{'learner_id':lrn_id, **lrn_param}])
+
+            if val_id not in seen_val:
+                seen_val.add(val_id)
+                val_table.insert([{'evaluator_id':val_id, **val_param}])
 
             keys = first.keys() - {'context', 'actions', 'rewards'}
             if not include_prob: keys -= {'probability'}
@@ -692,17 +715,23 @@ class Result:
                     c.append(my_mean(interaction[k]) if is_batched else interaction[k])
 
             int_count = len(int_cols[0])
-            int_maps = {'environment_id':[env_id]*int_count, 'learner_id':[lrn_id]*int_count, 'index':list(range(1,int_count+1))}
+            int_maps = {
+                'environment_id': [env_id]*int_count,
+                'learner_id'    : [lrn_id]*int_count,
+                'evaluator_id'  : [val_id]*int_count,
+                'index'         : list(range(1,int_count+1))
+            }
             int_maps.update(zip(keys,int_cols))
             int_table.insert(int_maps)
 
-        return Result(env_table, lrn_table, int_table, {})
+        return Result(env_table, lrn_table, val_table, int_table, {})
 
     def __init__(self,
-        env_rows: Union[Sequence,Table] = Table(),
-        lrn_rows: Union[Sequence,Table] = Table(),
-        int_rows: Union[Sequence,Table] = Table(),
-        exp_dict: Mapping  = {}) -> None:
+        env_rows: Union[Sequence,Table,None],
+        lrn_rows: Union[Sequence,Table,None],
+        val_rows: Union[Sequence,Table,None],
+        int_rows: Union[Sequence,Table,None],
+        exp_dict: Mapping = {}) -> None:
         """Instantiate a Result class.
 
         This constructor should never be called directly. Instead a Result file should be created
@@ -710,13 +739,20 @@ class Result:
         """
         self.experiment = exp_dict
 
+        env_rows = env_rows if env_rows is not None else Table(columns=['environment_id'                                    ])
+        lrn_rows = lrn_rows if lrn_rows is not None else Table(columns=[                 'learner_id'                       ])
+        val_rows = val_rows if val_rows is not None else Table(columns=[                              'evaluator_id'        ])
+        int_rows = int_rows if int_rows is not None else Table(columns=['environment_id','learner_id','evaluator_id','index'])
+
         self._environments = env_rows if isinstance(env_rows,Table) else Table(columns=env_rows[0]).insert(env_rows[1:])
         self._learners     = lrn_rows if isinstance(lrn_rows,Table) else Table(columns=lrn_rows[0]).insert(lrn_rows[1:])
+        self._evaluators   = val_rows if isinstance(val_rows,Table) else Table(columns=val_rows[0]).insert(val_rows[1:])
         self._interactions = int_rows if isinstance(int_rows,Table) else Table(columns=int_rows[0]).insert(int_rows[1:])
 
-        self._environments.index('environment_id'                     )
-        self._learners    .index(                 'learner_id'        )
-        self._interactions.index('environment_id','learner_id','index')
+        self._environments.index('environment_id'                                    )
+        self._learners    .index(                 'learner_id'                       )
+        self._evaluators  .index(                              'evaluator_id'        )
+        self._interactions.index('environment_id','learner_id','evaluator_id','index')
 
         self._plotter = MatplotPlotter()
 
@@ -737,12 +773,18 @@ class Result:
         return self._environments
 
     @property
-    def interactions(self) -> Table:
-        """The collection of interactions that learners chose actions for in the Experiment.
+    def evaluators(self) -> Table:
+        """The collection of evaluators used in the Experiment.
 
-        The primary key of this Table is (index, environment_id, learner_id). It should be noted that the InteractionTable
-        has an additional property, to_progressive_pandas() which calculates the expanding moving average or exponential
-        moving average for interactions ordered by index and grouped by environment_id and learner_id.
+        The primary key of this table is evaluator_id.
+        """
+        return self._evaluators
+
+    @property
+    def interactions(self) -> Table:
+        """The collection of interactions evaluated by evaluators in the Experiment.
+
+        The primary key of this Table is (environment_id, learner_id, evaluator_id, index).
         """
         return self._interactions
 
@@ -752,7 +794,7 @@ class Result:
 
     def copy(self) -> 'Result':
         """Create a copy of Result."""
-        return Result(self.environments.copy(), self.learners.copy(), self.interactions.copy(), dict(self.experiment))
+        return Result(self.environments.copy(), self.learners.copy(), self.evaluators.copy(), self.interactions.copy(), dict(self.experiment))
 
     def filter_fin(self, n_interactions: Union[int,Literal['min']] = None) -> 'Result':
         """Filter the result to only contain data about environments with all learners and interactions.
@@ -760,38 +802,48 @@ class Result:
         Args:
             n_interactions: The number of interactions at which an environment is considered complete.
         """
-        interactions = self.interactions
-        learners     = self.learners
+
         environments = self.environments
+        learners     = self.learners
+        evaluators   = self.evaluators
+        interactions = self.interactions
 
         env_lens = {}
-        env_cnts = {}
-        for (env_id,_), table in interactions.groupby(2):
-            env_lens[env_id] = len(table)
-            env_cnts[env_id] = env_cnts.get(env_id,0)+1
+        val_cnts = {}
+        for (env_id,_,val_id), table in interactions.groupby(3):
+            env_lens[env_id]          = len(table)
+            val_cnts[(env_id,val_id)] = val_cnts.get((env_id,val_id),0)+1
 
         n_interactions = min(env_lens.values()) if n_interactions == "min" else n_interactions
-
-        def has_all(env_id):
-            return env_cnts.get(env_id,-1) == len(learners)
 
         def has_min(env_id):
             return n_interactions == None or env_lens.get(env_id,-1) >= n_interactions
 
-        complete_ids = set([env_id for env_id in environments["environment_id"] if has_all(env_id) and has_min(env_id)])
+        def has_all(env_id,val_id):
+            return val_cnts.get((env_id,val_id),-1) == len(learners)
 
-        if complete_ids != set(env_lens.keys()):
-            environments = environments.where(environment_id=complete_ids)
-            interactions = interactions.where(environment_id=complete_ids)
+        complete_envs = []
+        complete_vals = []
+        for env_id,val_id in product(environments["environment_id"],evaluators['evaluator_id']):
+            if has_min(env_id) and has_all(env_id,val_id):
+                complete_envs.append(env_id)
+                complete_vals.append(val_id)
+
+        if len(complete_envs) != len(val_cnts):
+            environments    = environments.where(environment_id=set(complete_envs))
+            evaluators      = evaluators  .where(evaluator_id  =set(complete_vals))
+            interactions    = interactions.where(environment_id=set(complete_envs))
+            interactions    = interactions.where(evaluator_id  =set(complete_vals))
 
         if n_interactions and {n_interactions} != set(env_lens.values()):
             interactions = interactions.where(index=n_interactions,comparison="<=")
 
         if len(environments) == 0:
             learners = learners.where(lambda _:False)
+            evaluators = evaluators.where(lambda _:False)
             CobaContext.logger.log(f"There was no environment which was finished for every learner.")
 
-        return Result(environments, learners, interactions, self.experiment)
+        return Result(environments, learners, evaluators, interactions, self.experiment)
 
     def filter_env(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
         """Filter the result to only contain data about specific environments.
@@ -805,6 +857,7 @@ class Result:
 
         environments = self.environments.where(pred, **kwargs)
         learners     = self.learners
+        evaluators   = self.evaluators
         interactions = self.interactions
 
         if len(environments) == len(self.environments):
@@ -815,8 +868,9 @@ class Result:
 
         interactions = interactions.where(environment_id=set(environments["environment_id"]))
         learners     = learners    .where(learner_id    =set(interactions["learner_id"]))
+        evaluators   = evaluators  .where(evaluator_id  =set(interactions["evaluator_id"]))
 
-        return Result(environments,learners,interactions,self.experiment)
+        return Result(environments,learners,evaluators,interactions,self.experiment)
 
     def filter_lrn(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
         """Filter the result to only contain data about specific learners.
@@ -829,18 +883,46 @@ class Result:
 
         environments = self.environments
         learners     = self.learners.where(pred, **kwargs)
+        evaluators   = self.evaluators
         interactions = self.interactions
 
         if len(learners) == len(self.learners):
             return self
-        
+
         if len(learners) == 0:
             CobaContext.logger.log(f"No learners matched the given filter.")
 
-        interactions = self.interactions.where(learner_id    =set(learners["learner_id"]))
-        environments = self.environments.where(environment_id=set(interactions["environment_id"]))
+        interactions = interactions.where(learner_id    =set(learners["learner_id"]))
+        environments = environments.where(environment_id=set(interactions["environment_id"]))
+        evaluators   = evaluators  .where(evaluator_id  =set(interactions["evaluator_id"]))
 
-        return Result(environments,learners,interactions)
+        return Result(environments,learners,evaluators,interactions)
+
+    def filter_val(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
+        """Filter the result to only contain data about specific evaluators.
+
+        Args:
+            pred: A predicate that returns true for learner dictionaries that should be kept.
+            **kwargs: key-value pairs to filter on. To see filtering options see Table.filter.
+        """
+        if len(self.learners) == 0: return self
+
+        environments = self.environments
+        learners     = self.learners
+        evaluators   = self.evaluators.where(pred, **kwargs)
+        interactions = self.interactions
+
+        if len(evaluators) == len(self.evaluators):
+            return self
+
+        if len(evaluators) == 0:
+            CobaContext.logger.log(f"No evaluators matched the given filter.")
+
+        interactions = interactions.where(evaluator_id  =set(evaluators['evaluator_id']))
+        environments = environments.where(environment_id=set(interactions["environment_id"]))
+        learners     = learners    .where(learner_id    =set(interactions["learner_id"]))
+
+        return Result(environments,learners,evaluators,interactions)
 
     def plot_learners(self,
         x       : Union[str,Sequence[str]] = "index",
@@ -951,7 +1033,7 @@ class Result:
         xticks  : bool = True,
         yticks  : bool = True,
         boundary: bool = True,
-        legend  : bool = True, 
+        legend  : bool = True,
         out     : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
         """Plot a direct contrast of the performance for two learners.
@@ -1165,13 +1247,13 @@ class Result:
 
     def _plottable(self, x:Sequence[str], y:str) -> 'Result':
 
-        if 'index' in x and len(x) > 1: 
+        if 'index' in x and len(x) > 1:
             raise CobaException('The x-axis cannot contain both indexes and parameters.')
 
-        if len(self.interactions) == 0: 
+        if len(self.interactions) == 0:
             raise CobaException("This result does not contain any data to plot.")
 
-        if y not in self.interactions.columns: 
+        if y not in self.interactions.columns:
             raise CobaException(f"This result does not contain column '{y}' in interactions.")
 
         only_finished   = self.filter_fin('min' if x == ['index'] else None)
@@ -1190,7 +1272,8 @@ class Result:
 
         return only_finished if self_unfinished else self
 
-    def _confidence(self, err: Union[str,PointAndInterval], errevery:int = 1):
+    @staticmethod
+    def _confidence(err: Union[str,PointAndInterval], errevery:int = 1):
 
         if err == 'se':
             ci = StdErrCI(1.96)

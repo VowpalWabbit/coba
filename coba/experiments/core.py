@@ -6,7 +6,7 @@ from typing import Sequence, Optional, Union, overload, Tuple
 
 from coba.environments import Environment
 from coba.learners     import Learner
-from coba.evaluators   import Evaluator, OnPolicyEvaluator, LambdaEvaluator
+from coba.evaluators   import Evaluator, OnPolicyEvaluator
 
 from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
@@ -56,8 +56,6 @@ class Experiment:
 
         pairs,evaluator,description = self._parse_init_args(*args,**kwargs)
 
-        if callable(evaluator): evaluator = LambdaEvaluator(evaluator)
-
         self._triples     = [(e,l,evaluator) for e,l in pairs]
         self._description = description
 
@@ -81,9 +79,9 @@ class Experiment:
 
         Args:
             processes: The number of processes to create for evaluating the experiment.
-            maxchunksperchild: The number of chunks each process evaluate before being restarted. A 
+            maxchunksperchild: The number of chunks each process evaluate before being restarted. A
                 value of 0 means that all processes will survive until the end of the experiment.
-            maxtasksperchunk: The maximum number of tasks a chunk can have. If a chunk has too many 
+            maxtasksperchunk: The maximum number of tasks a chunk can have. If a chunk has too many
                 tasks it will be split into smaller chunks. A value of 0 means that chunks are never
                 broken down into smaller chunks.
         """
