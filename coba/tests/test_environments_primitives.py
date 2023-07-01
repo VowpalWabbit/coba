@@ -33,7 +33,7 @@ class Environment_Tests(unittest.TestCase):
 class SafeEnvironment_Tests(unittest.TestCase):
 
     def test_params(self):
-        self.assertEqual({'type': 'SimpleEnvironment'}, SafeEnvironment(SimpleEnvironment()).params)
+        self.assertEqual({'env_type': 'SimpleEnvironment'}, SafeEnvironment(SimpleEnvironment()).params)
 
     def test_read(self):
         self.assertEqual((), SafeEnvironment(SimpleEnvironment()).read())
@@ -46,7 +46,7 @@ class SafeEnvironment_Tests(unittest.TestCase):
         self.assertIsInstance(SafeEnvironment(SafeEnvironment(SimpleEnvironment())).environment, SimpleEnvironment)
 
     def test_with_pipes(self):
-        self.assertEqual({'type': 'SimpleEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(SimpleEnvironment(), Shuffle(1))) .params)
+        self.assertEqual({'env_type': 'SimpleEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(SimpleEnvironment(), Shuffle(1))) .params)
 
 class Interaction_Tests(unittest.TestCase):
     def test_simulated_dict(self):

@@ -364,9 +364,9 @@ class Impute(EnvironmentFilter):
             if is_dense:
                 is_missing = [0]*len(impute_binary)
                 for k,v in enumerate(context):
-                    if v is None and k in imputations: 
+                    if v is None and k in imputations:
                         context[k] = imputations[k]
-                        if k in impute_binary: 
+                        if k in impute_binary:
                             is_missing[impute_binary[k]] = 1
                 context += is_missing
 
@@ -479,38 +479,37 @@ class Cycle(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        underlying_iterable     = iter(interactions)
-        sans_cycle_interactions = islice(underlying_iterable, self._after)
-        with_cycle_interactions = underlying_iterable
+        first, interactions = peek_first(interactions)
 
-        yield from sans_cycle_interactions
+        has_actions = first and 'actions' in first
+        has_rewards = first and 'rewards' in first
 
-        first, with_cycle_interactions = peek_first(with_cycle_interactions)
+        one_hot = lambda n,N: tuple([0]*n+[1]+[0]*(N-n-1))
+        rotate  = lambda l: l[-1%n_actions:] + l[:-1%n_actions]
 
-        if with_cycle_interactions:
+        n_actions      = len(first['actions']) if has_actions else 0
+        is_discrete    = 0 < n_actions and n_actions < float('inf')
+        onehot_actions = set(map(one_hot,range(n_actions),repeat(n_actions)))
+        is_onehot      = has_actions and set(first['actions']) == onehot_actions
+        is_categorical = has_actions and all(map(isinstance,first['actions'],repeat(str)))
 
-            action_set = set(first['actions'])
-            n_actions  = len(action_set)
+        is_cyclable = has_actions and has_rewards and is_discrete and (is_onehot or is_categorical)
 
-            onehot_actions  = {tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)}
-            is_discrete     = 0 < n_actions and n_actions < float('inf')
-            is_onehots      = action_set == onehot_actions
-            is_categoricals = all([isinstance(a,str) for a in action_set])
+        if not is_cyclable:
+            warnings.warn("Cycle only works for discrete environments without action features. It will be ignored in this case.")
+            yield from interactions
 
-            is_cyclable = is_discrete and (is_onehots or is_categoricals)
+        else:
+            for i,interaction in enumerate(interactions):
 
-            if not is_cyclable:
-                warnings.warn("Cycle only works for discrete environments without action features. It will be ignored in this case.")
-                yield from with_cycle_interactions
-            else:
-                for interaction in with_cycle_interactions:
-                    rewards = deque(map(interaction['rewards'].eval,interaction['actions']))
-                    rewards.rotate(1)
+                new = interaction.copy()
 
-                    new = interaction.copy()
-                    new['rewards'] = SequenceReward(interaction['actions'],list(rewards))
+                if i >= self._after:
+                    actions = interaction['actions']
+                    rewards = interaction['rewards']
+                    new['rewards'] = SequenceReward(actions,rotate(list(map(rewards.eval,actions))))
 
-                    yield new
+                yield new
 
 class Flatten(EnvironmentFilter):
     """Flatten the context and action features for interactions."""
@@ -862,7 +861,7 @@ class Grounded(EnvironmentFilter):
         raise CobaException(f"{value_name} must be a whole number and not {value}.")
 
 class Repr(EnvironmentFilter):
-    def __init__(self, 
+    def __init__(self,
         categorical_context:Literal["onehot","onehot_tuple","string"] = None,
         categorical_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
         self._cat_context = categorical_context

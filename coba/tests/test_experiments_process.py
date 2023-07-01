@@ -136,7 +136,7 @@ class RemoveFinished_Tests(unittest.TestCase):
     def test_three_finished(self):
 
         restored = Result(
-            [['environment_id'],[0]], 
+            [['environment_id'],[0]],
             [['learner_id'],[1]],
             [['evaluator_id'],[2]],
             [['environment_id','learner_id','evaluator_id'],[0,1,2]])
@@ -280,7 +280,7 @@ class ChunkTasks_Tests(unittest.TestCase):
         self.assertCountEqual(groups[3], [tasks[2],tasks[4]])
 
 class MaxChunk_Tests(unittest.TestCase):
-    
+
     def test_max_size_0(self):
         actual   = list(MaxChunk(0).filter([[1,2,3],[4,5],[6]]))
         expected = [[1,2,3],[4,5],[6]]
@@ -290,10 +290,10 @@ class MaxChunk_Tests(unittest.TestCase):
         actual   = list(MaxChunk(1).filter([[1,2,3],[4,5],[6]]))
         expected = [[1],[2],[3],[4],[5],[6]]
         self.assertEqual(expected, actual)
-    
+
     def test_max_size_2(self):
         actual   = list(MaxChunk(2).filter([[1,2,3],[4,5],[6]]))
-        expected = [[1,2],[3],[4,5],[6]] 
+        expected = [[1,2],[3],[4,5],[6]]
         self.assertEqual(expected, actual)
 
 class ProcessWorkItems_Tests(unittest.TestCase):
@@ -340,9 +340,9 @@ class ProcessWorkItems_Tests(unittest.TestCase):
         self.assertIs(val2.observed[0]._env, sim1)
         self.assertIs(val2.observed[1]     , lrn2)
 
-        self.assertEqual(['T1', 0      , {'type': 'CountReadSimulation'}], transactions[0])
-        self.assertEqual(['T4', (0,0,0), []                             ], transactions[1])
-        self.assertEqual(['T4', (0,1,1), []                             ], transactions[2])
+        self.assertEqual(['T1', 0      , {'env_type': 'CountReadSimulation'}], transactions[0])
+        self.assertEqual(['T4', (0,0,0), []                                 ], transactions[1])
+        self.assertEqual(['T4', (0,1,1), []                                 ], transactions[2])
 
         self.assertEqual(sim1[0].n_reads, 1)
 
@@ -383,7 +383,7 @@ class ProcessWorkItems_Tests(unittest.TestCase):
         self.assertIs(task2.observed[1], lrn1)
 
     def test_empty_env_skipped(self):
-        
+
         lrn1 = ModuloLearner("1")
         src1  = LinearSyntheticSimulation(n_interactions=0)
 

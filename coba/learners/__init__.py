@@ -8,3 +8,4 @@ from coba.learners.vowpal     import VowpalMediator
 from coba.learners.vowpal     import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
 from coba.learners.vowpal     import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
 from coba.learners.linucb     import LinUCBLearner
+from coba.learners.misguided  import MisguidedLearner

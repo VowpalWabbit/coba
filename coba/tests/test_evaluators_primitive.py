@@ -21,7 +21,7 @@ class SafeEvaluator_Tests(unittest.TestCase):
 
     def test_params_callable(self):
         def test_eval(env,lrn): return 1
-        self.assertEqual({'type':'test_eval'}, SafeEvaluator(test_eval).params)
+        self.assertEqual({'eval_type':'test_eval'}, SafeEvaluator(test_eval).params)
 
 class Helper_Tests(unittest.TestCase):
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
