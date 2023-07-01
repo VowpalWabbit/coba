@@ -59,7 +59,7 @@ jobs:
           python "examples/scripts/Quickstart.py"
           python "examples/scripts/custom_namespaces_vw_learner.py"
           python "examples/scripts/online_and_offline.py"
-          jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --inplace
+          jupyter nbconvert --execute "examples/notebooks/Quickstart.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Results.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Experiments.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Environments.ipynb" --inplace
