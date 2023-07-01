@@ -1,12 +1,12 @@
 import coba as cb
 
 def main():
-    
+
     cb.Environments.cache_dir("./coba_cache")
 
     oml_id = 150
     filename = f"cb_oml_{oml_id}.zip"
-    
+
     # run first time as online
     online_vw_args = "--cb_explore_adf"
     env = cb.Environments.from_openml(data_id=oml_id, take=128).logged(cb.VowpalLearner(online_vw_args)).save(filename)
