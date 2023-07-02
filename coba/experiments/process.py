@@ -65,7 +65,7 @@ class MakeTasks(Source[Iterable[Task]]):
 
 class ResumeTasks(Filter[Iterable[Task], Iterable[Task]]):
     def __init__(self, restored: Optional[Result]) -> None:
-        self._restored = restored or Result(None,None,None,None)
+        self._restored = restored or Result()
 
     def filter(self, tasks: Iterable[Task]) -> Iterable[Task]:
 

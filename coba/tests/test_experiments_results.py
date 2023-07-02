@@ -83,6 +83,12 @@ class View_Tests(unittest.TestCase):
         self.assertEqual(1, listview[0])
         self.assertEqual(3, len(listview))
 
+    def test_sliceview(self):
+        sliceview = View.SliceView([1,2,3,4],slice(3))
+        self.assertEqual([1,2], list(sliceview[:2]))
+        self.assertEqual(1, sliceview[0])
+        self.assertEqual(3, len(sliceview))
+
     def test_getitem_seq(self):
         view = View({"a":[1,2,3]},[0,2])
         self.assertSequenceEqual(view['a'],(1,3))
@@ -840,7 +846,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
 class Result_Tests(unittest.TestCase):
 
     def test_set_plotter(self):
-        result = Result(None,None,None,None)
+        result = Result()
         self.assertIsNotNone(result._plotter)
         result.set_plotter(None)
         self.assertIsNone(result._plotter)
@@ -851,11 +857,11 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual( [(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)], list(result.interactions))
 
     def test_has_preamble(self):
-        self.assertDictEqual(Result(None,None,None,None,exp_dict={"n_learners":1, "n_environments":2}).experiment, {"n_learners":1, "n_environments":2})
+        self.assertDictEqual(Result(None,None,None,None,{"n_learners":1, "n_environments":2}).experiment, {"n_learners":1, "n_environments":2})
 
     def test_exception_when_no_file(self):
         with self.assertRaises(Exception):
-            Result(None,None,None,None).from_file("abcd")
+            Result().from_file("abcd")
 
     def test_from_logged_envs(self):
         class Logged1:
@@ -915,7 +921,7 @@ class Result_Tests(unittest.TestCase):
             {'environment_id': 1, 'learner_id': 1, 'evaluator_id': 0, 'index':2, 'reward': 2 },
         ]
 
-        res = Result(None,None,None,None).from_logged_envs([Logged1(),Logged2(),Logged3(),Logged4()])
+        res = Result().from_logged_envs([Logged1(),Logged2(),Logged3(),Logged4()])
         self.assertCountEqual(res.environments.to_dicts(), expected_envs)
         self.assertCountEqual(res.learners.to_dicts()    , expected_lrns)
         self.assertCountEqual(res.evaluators.to_dicts()  , expected_vals)
@@ -1231,7 +1237,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_bad_x_index(self):
         CobaContext.logger.sink = ListSink()
-        Result(None,None,None,None).plot_learners(x=['index','a'])
+        Result().plot_learners(x=['index','a'])
         self.assertIn("The x-axis cannot contain", CobaContext.logger.sink.items[0])
 
     def test_plot_learners_all_default(self):
@@ -1321,7 +1327,6 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual("Interaction", plotter.plot_calls[0][3])
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
-
 
     def test_plot_learners_one_environment_err_se(self):
         envs = [['environment_id'],[0],[1]]
@@ -1799,7 +1804,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_empty_results(self):
         plotter = TestPlotter()
-        result = Result(None,None,None,None)
+        result = Result()
 
         result.set_plotter(plotter)
 
@@ -1809,12 +1814,12 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_contrast_no_data(self):
         CobaContext.logger.sink = ListSink()
-        Result(None,None,None,None).plot_contrast(0, 1, x=['a'])
+        Result().plot_contrast(0, 1, x=['a'])
         self.assertEqual(["This result does not contain any data to plot."],CobaContext.logger.sink.items)
 
     def test_shared_c(self):
         CobaContext.logger.sink = ListSink()
-        Result(None,None,None,None).plot_contrast(1, 1, x=['a'])
+        Result().plot_contrast(1, 1, x=['a'])
         self.assertEqual(["A value cannot be in both `l1` and `l2`. Please make a change and run it again."],CobaContext.logger.sink.items)
 
     def test_plot_contrast_no_pairings(self):
@@ -2139,7 +2144,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         with self.assertRaises(CobaException) as e:
-            Result(None,None,None,None)._plottable('index','reward','learner_id','environment_id')
+            Result()._plottable('index','reward','learner_id','environment_id')
 
         self.assertEqual(str(e.exception),"This result does not contain any data to plot.")
 
@@ -2160,28 +2165,28 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(str(e.exception),"This result does not contain column 'a' in interactions.")
 
     def test_confidence_skip_err(self):
-        self.assertEqual((2,(0,0)),Result(None,None,None,None)._confidence('sd',2)([1,2,3],0))
-        self.assertEqual((2,(1,1)),Result(None,None,None,None)._confidence('sd',2)([1,2,3],1))
+        self.assertEqual((2,(0,0)),Result()._confidence('sd',2)([1,2,3],0))
+        self.assertEqual((2,(1,1)),Result()._confidence('sd',2)([1,2,3],1))
 
     def test_confidence_sd(self):
-        self.assertEqual((2,(1,1)),Result(None,None,None,None)._confidence('sd')([1,2,3]))
+        self.assertEqual((2,(1,1)),Result()._confidence('sd')([1,2,3]))
 
     def test_confidence_se(self):
-        self.assertEqual((2,(1.96,1.96)),Result(None,None,None,None)._confidence('se')([1,3]))
+        self.assertEqual((2,(1.96,1.96)),Result()._confidence('se')([1,3]))
 
     @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_confidence_bs(self):
-        self.assertEqual((2.5, (1.5,0.5)),Result(None,None,None,None)._confidence('bs')([1,2,3,4]))
+        self.assertEqual((2.5, (1.0,1.0)),Result()._confidence('bs')([1,2,3,4]))
 
     @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_confidence_ci(self):
-        self.assertEqual((2.5, (1.5,0.5)),Result(None,None,None,None)._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
+        self.assertEqual((2.5, (1.5,0.5)),Result()._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
 
     def test_confidence_none(self):
-        self.assertEqual((2,0),Result(None,None,None,None)._confidence(None)([1,2,3]))
+        self.assertEqual((2,0),Result()._confidence(None)([1,2,3]))
 
     def test_confidence_bi(self):
-        mu,(l,h) = Result(None,None,None,None)._confidence('bi')([0,0,1,1])
+        mu,(l,h) = Result()._confidence('bi')([0,0,1,1])
 
         self.assertEqual(.5,mu)
         self.assertAlmostEqual(l,0.34996429)

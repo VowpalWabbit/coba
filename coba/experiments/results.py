@@ -2,7 +2,6 @@ import re
 import collections
 import collections.abc
 
-from statistics import mean
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
@@ -11,12 +10,12 @@ from functools import cmp_to_key
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby
-from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any
+from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload
 from coba.backports import Literal
 
 from coba.primitives import Batch
 from coba.environments import Environment
-from coba.statistics import StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
+from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first
@@ -43,7 +42,7 @@ def moving_average(values:Sequence[float], span:int=None, exponential:bool=False
 
         return map(truediv,window_sums,window_sizes)
 
-#this adds one more check on average but avoids the worst case 
+#this adds one more check on average but avoids the worst case
 #scenario, which can be common for certain types of experiments.
 def my_bisect_left(c,a,l,h): return l if c[l  ]==a else bisect_left(c,a,l,h)
 def my_bisect_right(c,a,l,h): return h if c[h-1]==a else bisect_right(c,a,l,h)
@@ -67,20 +66,53 @@ class View:
         def __iter__(self):
             return iter(map(self._seq.__getitem__,self._sel))
 
+    class SliceView:
+        def __init__(self, seq:Sequence, sel:slice):
+            self._seq = seq
+            self._sel = sel
+
+        def __len__(self):
+            return (self._sel.stop or len(self._seq)) - (self._sel.start or 0)
+
+        def __getitem__(self,key):
+            if isinstance(key,slice):
+                key_start = key.start or 0
+                key_stop  = key.stop or len(self)
+                new_start = (self._sel.start or 0) + key_start
+                new_stop  = new_start + key_stop - key_start
+                return self._seq[slice(new_start,new_stop)]
+            else:
+                return self._seq[(self._sel.start or 0)+key]
+
+        def __iter__(self):
+            #this isn't a true iter, this makes a copy, but
+            #this runs about 3x faster than doing a true iter.
+            return iter(self._seq[self._sel])
+
     def __init__(self, data: Union[Mapping[str,Sequence],'View'], select: Union[Sequence[int],slice]) -> None:
         if isinstance(data,collections.abc.Mapping):
             self._data = data
-            self._select = select
+            self._select = self._try_slice(select)
         else:
             self._data = data._data
-            if isinstance(select,slice) and isinstance(data._select,slice):
+
+            given_slice = isinstance(select,slice)
+            have_slice  = isinstance(data._select,slice)
+
+            if given_slice and have_slice:
                 self._select = slice(data._select.start+select.start,data._select.start+select.stop)
-            if isinstance(select,slice) and not isinstance(data._select,slice):
-                self._select = data._select[select]
-            if not isinstance(select,slice) and isinstance(data._select,slice):
-                self._select = [data._select.start + i for i in select]
-            if not isinstance(select,slice) and not isinstance(data._select,slice):
-                self._select = [data._select[i] for i in select]
+            if given_slice and not have_slice:
+                self._select = self._try_slice(data._select[select])
+            if not given_slice and have_slice:
+                self._select = self._try_slice([data._select.start + i for i in select])
+            if not given_slice and not have_slice:
+                self._select = self._try_slice([data._select[i] for i in select])
+
+    def _try_slice(self, select: Sequence[int]):
+        if select and not isinstance(select,slice) and (select[-1]-select[0]+1) == len(select):
+            return slice(select[0], select[-1]+1)
+        else:
+            return select
 
     def keys(self):
         return self._data.keys()
@@ -93,9 +125,9 @@ class View:
 
     def __getitem__(self,key):
         if isinstance(self._select,slice):
-            return self._data[key][self._select]
+            return View.SliceView(self._data[key],self._select)
         else:
-            return View.ListView(self._data[key], self._select)
+            return View.ListView(self._data[key],self._select)
 
     def __setitem__(self,key,value):
         raise CobaException("A view of the data cannot be modified.")
@@ -224,7 +256,8 @@ class Table:
                 else:
                     selection.extend(self._compare(0,len(self),self._data[kw],arg,comparison,"foreach"))
 
-            selection=sorted(set(selection))
+            if len(kwargs) > 1: selection=sorted(set(selection))
+
             return Table(View(self._data,selection), self._columns, self._indexes)
 
     def groupby(self, level:int) -> Iterable[Tuple[Tuple,'Table']]:
@@ -316,7 +349,7 @@ class Table:
 
         if comparison == "in" or (comparison is None and isinstance(arg,collections.abc.Iterable) and not isinstance(arg,str)):
             if method == "bisect":
-                return [ (my_bisect_left(col,v,lo,hi),my_bisect_right(col,v,lo,hi)) for v in arg ]
+                return [ (my_bisect_left(col,v,lo,hi),my_bisect_right(col,v,lo,hi)) for v in sorted(arg) ]
             else:
                 return [ i for i,c in enumerate(col,lo) if c in arg ]
 
@@ -733,23 +766,36 @@ class Result:
 
         return Result(env_table, lrn_table, val_table, int_table, {})
 
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
     def __init__(self,
         env_rows: Union[Sequence,Table,None],
         lrn_rows: Union[Sequence,Table,None],
         val_rows: Union[Sequence,Table,None],
         int_rows: Union[Sequence,Table,None],
         exp_dict: Mapping = {}) -> None:
+        ...
+
+    def __init__(self,*args) -> None:
         """Instantiate a Result class.
 
         This constructor should never be called directly. Instead a Result file should be created
         from an Experiment and the result file should be loaded via Result.from_file(filename).
         """
-        self.experiment = exp_dict
+        if len(args) > 0:
+            env_rows,lrn_rows,val_rows,int_rows = args[:4]
+        else:
+            env_rows,lrn_rows,val_rows,int_rows = tuple([None]*4)
 
-        env_rows = env_rows if env_rows is not None else Table(columns=['environment_id'                                    ])
-        lrn_rows = lrn_rows if lrn_rows is not None else Table(columns=[                 'learner_id'                       ])
-        val_rows = val_rows if val_rows is not None else Table(columns=[                              'evaluator_id'        ])
-        int_rows = int_rows if int_rows is not None else Table(columns=['environment_id','learner_id','evaluator_id','index'])
+        env_rows = env_rows or Table(columns=['environment_id'                                    ])
+        lrn_rows = lrn_rows or Table(columns=[                 'learner_id'                       ])
+        val_rows = val_rows or Table(columns=[                              'evaluator_id'        ])
+        int_rows = int_rows or Table(columns=['environment_id','learner_id','evaluator_id','index'])
+
+        self.experiment = args[4] if len(args) == 5 else {}
 
         self._environments = env_rows if isinstance(env_rows,Table) else Table(columns=env_rows[0]).insert(env_rows[1:])
         self._learners     = lrn_rows if isinstance(lrn_rows,Table) else Table(columns=lrn_rows[0]).insert(lrn_rows[1:])
@@ -962,11 +1008,12 @@ class Result:
             if isinstance(labels,str): labels = [labels]
 
             plottable = self._plottable(x,y,l,p)
-            n_interactions = len(next(plottable.interactions.groupby(2))[1])
+            n_interactions = len(next(plottable.interactions.groupby(3))[1])
 
             errevery = errevery or max(int(n_interactions*0.05),1) if x == 'index' else 1
             style    = "-" if x == 'index' else "."
             err      = plottable._confidence(err, errevery)
+            x_prep   = str if x != 'index' else (lambda _x: _x)
 
             lines: List[Points] = []
             for _l, group in groupby(plottable._indexed_ys(l,x,y=y,span=span),key=itemgetter(0)):
@@ -978,7 +1025,7 @@ class Result:
 
                 for _xi, (_x, group) in enumerate(groupby(group, key=itemgetter(0))):
                     Y = [g[-1] for g in group]
-                    lines[-1].add(str(_x) if x != 'index' else _x, *err(Y, _xi))
+                    lines[-1].add(x_prep(_x), *err(Y, _xi))
 
             lines  = sorted(lines, key=lambda line: line.Y[-1], reverse=True)
             labels = [l.label or str(l.label) for l in lines]
@@ -1071,9 +1118,9 @@ class Result:
 
             plottable = self._plottable(x,y,l,p)
             eid       = 'environment_id'
-            lid       = 'learner_id'    
+            lid       = 'learner_id'
 
-            n_interactions = len(next(plottable.interactions.groupby(2))[1])
+            n_interactions = len(next(plottable.interactions.groupby(3))[1])
 
             errevery = errevery or max(int(n_interactions*0.05),1) if x == 'index' else 1
             style    = "-" if x == 'index' else "."
@@ -1258,7 +1305,7 @@ class Result:
 
         return only_finished
 
-    def _confidence(self,err: Union[str,PointAndInterval], errevery:int = 1):
+    def _confidence(self, err: Union[str,PointAndInterval], errevery:int = 1):
 
         if err == 'se':
             ci = StdErrCI(1.96)
@@ -1321,11 +1368,11 @@ class Result:
 
         indexed_values = []
         for indexed_table in self._indexed_tables(*indexes):
-            _indexes  = indexed_table[:-1]
             _table    = indexed_table[ -1]
-            _y_index  = [(0,None)      ] if not coords else _table['index']
-            _y_values = [mean(_table[y])] if not coords else moving_average(_table[y],span)
-            indexed_values.append((_indexes, iter(zip(_y_index,_y_values))))
+            _indexes = [repeat(i) for i in indexed_table[:-1]]
+            for i in coords: _indexes[i] = iter(_table['index'])
+            _y_values = [mean(_table[y])] if not coords else iter(moving_average(_table[y],span))
+            indexed_values.append( (indexed_table[:-1], iter(zip(*_indexes,_y_values))) )
 
         first_index = coords[0] if coords else -1
         upto_index  = itemgetter(slice(0,first_index))
@@ -1334,13 +1381,11 @@ class Result:
             try:
                 group = list(group)
                 while True:
-                    for _indexes, values in group:
-                        yi, y = next(values)
-                        _indexed_y = [*_indexes,y]
-                        for i in coords: _indexed_y[i] = yi
-                        yield _indexed_y
+                    for _,_indexed_ys in group:
+                        Y = next(_indexed_ys)
+                        yield Y
             except StopIteration:
-                #we assume all environments are of equal length
+                #we assume all environments are of equal length due to `_plottable`
                 pass
 
     def _global_n(self, n: Union[int,Literal['min']]):
@@ -1362,6 +1407,7 @@ class Result:
         if to_remove:
             select = self._remove(to_remove,n)
             interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
+
         if n == 'min':
             interactions = interactions.where(index={'<=':min_N})
 

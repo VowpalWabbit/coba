@@ -18,7 +18,7 @@ def main():
     # https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Explore-Eval
     offline_vw_args = "--cb_explore_adf --explore_eval"
     lrn = cb.VowpalLearner(offline_vw_args)
-    
+
     #offline performance, no need to call predict in this scenario
     cb.Experiment(env, lrn, evaluation_task=cb.OffPolicyEvaluator(predict=False)).run()
     lrn.finish()
