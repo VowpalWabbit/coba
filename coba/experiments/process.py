@@ -1,7 +1,8 @@
 from copy import deepcopy
 from itertools import islice
+from operator import itemgetter
 from collections import defaultdict, Counter
-from typing import Any, Iterable, Sequence, Optional, Tuple
+from typing import Any, Iterable, Sequence, Optional, Tuple, Mapping
 
 from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, SafeEnvironment, Finalize, BatchSafe, Chunk
@@ -11,7 +12,7 @@ from coba.pipes import Source, Filter, SourceFilters
 from coba.contexts import CobaContext
 from coba.utilities import peek_first
 
-from coba.experiments.results import Result
+from coba.experiments.results import Result, Table
 
 class Task:
 
@@ -24,11 +25,25 @@ class Task:
         (self.lrn_id, self.lrn) = lrn or (None,None)
         (self.val_id, self.val) = val or (None,None)
         self.copy   = copy
+    
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,Task) \
+        and self.env_id == o.env_id \
+        and self.env    == o.env    \
+        and self.lrn_id == o.lrn_id \
+        and self.lrn    == o.lrn    \
+        and self.val_id == o.val_id \
+        and self.val    == o.val    \
+        and self.copy   == o.copy   \
 
 class MakeTasks(Source[Iterable[Task]]):
 
-    def __init__(self,triples: Sequence[Tuple[Environment,Learner,Evaluator]]) -> None:
+    def __init__(self, 
+        triples: Sequence[Tuple[Environment,Learner,Evaluator]],
+        restored: Optional[Result] = None) -> None:
+        
         self._triples = triples
+        self._restored = restored or Result()
 
     def read(self) -> Iterable[Task]:
 
@@ -40,60 +55,54 @@ class MakeTasks(Source[Iterable[Task]]):
         #is always in the exact same order we should be fine. In the future we may want to consider.
         #adding a better check for environments other than assigning an index based on their order.
 
-        envs = {None:None}
-        lrns = {None:None}
-        evls = {None:None}
+        restored_envs = {d['environment_id']:d for d in self._restored.environments.to_dicts()}
+        restored_lrns = {d['learner_id'    ]:d for d in self._restored.learners    .to_dicts()}
+        restored_vals = {d['evaluator_id'  ]:d for d in self._restored.evaluators  .to_dicts()}
 
+        envs = self._init_ids(map(itemgetter(0),self._triples), restored_envs)
+        lrns = self._init_ids(map(itemgetter(1),self._triples), restored_lrns)
+        vals = self._init_ids(map(itemgetter(2),self._triples), restored_vals)
+
+        max_eid = max([*restored_envs.keys(),-1])
+        max_lid = max([*restored_lrns.keys(),-1])
+        max_vid = max([*restored_vals.keys(),-1])
+
+        finished_evals = set(map(itemgetter(0),self._restored.interactions.groupby(3)))
         learner_counts = Counter([l for _,l,_ in self._triples])
 
-        for env, lrn, evl in self._triples:
+        for env, lrn, val in self._triples:
 
             if env not in envs:
-                envs[env] = len(envs)-1
-                yield Task((envs[env],env), None, None)
+                envs[env] = max_eid + 1
+                max_eid   = max_eid + 1
+                yield Task((max_eid,env), None, None)
 
             if lrn not in lrns:
-                lrns[lrn] = len(lrns)-1
-                yield Task(None, (lrns[lrn],lrn), None)
+                lrns[lrn] = max_lid + 1
+                max_lid   = max_lid + 1
+                yield Task(None, (max_lid,lrn), None)
 
-            if evl not in evls:
-                evls[evl] = len(evls)-1
-                yield Task(None, None, (evls[evl],evl))
+            if val not in vals:
+                vals[val] = max_vid + 1
+                max_vid   = max_vid + 1
+                yield Task(None, None, (max_vid,val))
 
-            if evl:
-                yield Task((envs[env],env), (lrns[lrn],lrn), (evls[evl],evl), copy=learner_counts[lrn]>1)
+            eid,lid,vid = (envs[env],lrns[lrn],vals[val])
 
-class ResumeTasks(Filter[Iterable[Task], Iterable[Task]]):
-    def __init__(self, restored: Optional[Result]) -> None:
-        self._restored = restored or Result()
+            if val and (eid,lid,vid) not in finished_evals:
+                yield Task((eid,env),(lid,lrn),(vid,val),copy=learner_counts[lrn]>1)
 
-    def filter(self, tasks: Iterable[Task]) -> Iterable[Task]:
+    def _init_ids(self, items:Iterable, restored:Mapping[int,dict]) -> Mapping[object,int]:
+        item_ids = {None:None}
 
-        finished_lrns = set(self._restored.learners['learner_id'])
-        finished_envs = set(self._restored.environments['environment_id'])
-        finished_evls = set(self._restored.evaluators['evaluator_id'])
-        finished_outs = set(zip(*self._restored.interactions[['environment_id','learner_id','evaluator_id']]))
+        for item in items:
+            if item not in item_ids:
+                for id,given in restored.items():
+                    if item.params.items() <= given.items():
+                        item_ids[item] = id
+                        break
 
-        for task in tasks:
-
-            is_env_task = bool(task.env and not task.lrn and not task.val)
-            is_lrn_task = bool(task.lrn and not task.env and not task.val)
-            is_val_task = bool(task.val and not task.env and not task.lrn)
-            is_out_task = bool(task.env and task.lrn and task.val)
-
-            if is_env_task: task_id = task.env_id
-            if is_lrn_task: task_id = task.lrn_id
-            if is_val_task: task_id = task.val_id
-            if is_out_task: task_id = (task.env_id,task.lrn_id,task.val_id)
-
-            if is_env_task and task_id not in finished_envs:
-                yield task
-            if is_lrn_task and task_id not in finished_lrns:
-                yield task
-            if is_val_task and task_id not in finished_evls:
-                yield task
-            if is_out_task and task_id not in finished_outs:
-                yield task
+        return item_ids
 
 class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
 

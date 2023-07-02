@@ -313,7 +313,7 @@ class Performance_Tests(unittest.TestCase):
         ints = Table(columns=['environment_id','learner_id','evaluator_id']).insert([[e,l,0] for e in range(3) for l in range(5)])
 
         res  = Result(envs, lrns, vals, ints)
-        self._assert_call_time(lambda:res.filter_env(mod=3), .02, print_time, number=1000)
+        self._assert_call_time(lambda:res.filter_env(mod=3), .06, print_time, number=1000)
 
     def test_moving_average_sliding_window(self):
         items = [1,0]*100

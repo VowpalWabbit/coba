@@ -11,7 +11,7 @@ from coba.evaluators   import OnPolicyEvaluator
 
 from coba.experiments.results import Result
 from coba.experiments.process import (
-    Task, MakeTasks, ResumeTasks,
+    Task, MakeTasks,
     ChunkTasks, ProcessTasks, MaxChunk
 )
 
@@ -70,9 +70,21 @@ class ExceptionSimulation:
 
     def read(self) -> Iterable[SimulatedInteraction]:
         raise Exception('ExceptionSimulation.read')
+
+class ParamObj:
+    def __init__(self,**params):
+        self.params = params
+
 #for testing purposes
 
 class MakeTasks_Tests(unittest.TestCase):
+
+    def test_eq(self):
+        env1 = ParamObj(a=1)
+        env2 = ParamObj(a=2)
+        self.assertEqual(Task((1,env1),None,None),Task((1,env1),None,None),)
+        self.assertNotEqual(Task((1,env1),None,None),Task((1,env2),None,None),)
+        self.assertNotEqual(Task((1,env1),None,None),Task((2,env2),None,None),)
 
     def test_two_env_two_lrn(self):
         env1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -131,51 +143,63 @@ class MakeTasks_Tests(unittest.TestCase):
         self.assertEqual(1, len([t for t in works if t.env is env2 and t.lrn is lrn1 and t.val is evl1 and t.copy == True]))
         self.assertEqual(1, len([t for t in works if t.env is env1 and t.lrn is lrn2 and t.val is evl1 and t.copy == False]))
 
-class RemoveFinished_Tests(unittest.TestCase):
-
-    def test_three_finished(self):
+    def test_all_finished(self):
 
         restored = Result(
-            [['environment_id'],[0]],
-            [['learner_id'],[1]],
-            [['evaluator_id'],[2]],
-            [['environment_id','learner_id','evaluator_id'],[0,1,2]])
+            [['environment_id','a'],[0,0]],
+            [['learner_id','b'],[1,1]],
+            [['evaluator_id','c'],[2,2]],
+            [['environment_id','learner_id','evaluator_id','index'],[0,1,2,1]])
 
-        tasks = [
-            Task(None, (0,'a'), None),
-            Task(None, (1,'a'), None),
-            Task((0,'a'), None, None),
-            Task((1,'a'), None, None),
-            Task(None, None, (2,'a')),
-            Task((0,'a'), (0,'a'), (2,'a')),
-            Task((1,'a'), (0,'a'), (2,'a')),
-            Task((0,'a'), (1,'a'), (2,'a')),
-            Task((1,'a'), (1,'a'), (2,'a')),
+        triples   = [ (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))]
+        new_tasks = list(MakeTasks(triples,restored).read())
+
+        self.assertEqual([], new_tasks)
+
+    def test_unfinished_interactions(self):
+
+        restored = Result(
+            [['environment_id','a'],[0,0]],
+            [['learner_id','b'],[1,1]],
+            [['evaluator_id','c'],[2,2]],
+            None)
+
+        triple    = (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))
+        new_tasks = list(MakeTasks([triple],restored).read())
+
+        self.assertEqual([Task((0,triple[0]),(1,triple[1]),(2,triple[2]))], new_tasks)
+
+    def test_unfinished_learner_and_interactions(self):
+
+        restored = Result(
+            [['environment_id','a'],[0,0]],
+            None,
+            [['evaluator_id','c'],[2,2]],
+            None)
+
+        triple   = (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))
+        actual   = list(MakeTasks([triple],restored).read())
+        expected = [
+            Task(None,(0,triple[1]),None),
+            Task((0,triple[0]),(0,triple[1]),(2,triple[2]))
         ]
+        self.assertEqual(expected, actual)
 
-        unfinished_tasks = list(ResumeTasks(restored).filter(tasks))
+    def test_unfinished_environment_and_interactions(self):
 
-        self.assertEqual(5, len(unfinished_tasks))
+        restored = Result(
+            [['environment_id','a'],[0,0]],
+            [['learner_id','b'],[1,1]],
+            [['evaluator_id','c'],[2,2]],
+            None)
 
-    def test_restored_none(self):
-
-        restored = None
-
-        tasks = [
-            Task(None, (0,'a'), None),
-            Task(None, (1,'a'), None),
-            Task((0,'a'), None, None),
-            Task((1,'a'), None, None),
-            Task(None, None, (2,'a')),
-            Task((0,'a'), (0,'a'), (2,'a')),
-            Task((1,'a'), (0,'a'), (2,'a')),
-            Task((0,'a'), (1,'a'), (2,'a')),
-            Task((1,'a'), (1,'a'), (2,'a')),
+        triple   = (ParamObj(a=1),ParamObj(b=1),ParamObj(c=2))
+        actual   = list(MakeTasks([triple],restored).read())
+        expected = [
+            Task((1,triple[0]),None,None),
+            Task((1,triple[0]),(1,triple[1]),(2,triple[2]))
         ]
-
-        unfinished_tasks = list(ResumeTasks(restored).filter(tasks))
-
-        self.assertEqual(9, len(unfinished_tasks))
+        self.assertEqual(expected, actual)
 
 class ChunkTasks_Tests(unittest.TestCase):
 

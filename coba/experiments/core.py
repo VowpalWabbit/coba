@@ -13,7 +13,7 @@ from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLo
 from coba.exceptions import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 
-from coba.experiments.process import MakeTasks,  ResumeTasks, ChunkTasks, MaxChunk, ProcessTasks
+from coba.experiments.process import MakeTasks, ChunkTasks, MaxChunk, ProcessTasks
 from coba.experiments.results import Result, TransactionDecode, TransactionEncode, TransactionResult
 
 class Experiment:
@@ -147,8 +147,7 @@ class Experiment:
 
         meta = {'n_learners':n_given_learners,'n_environments':n_given_environments,'description':self._description,'seed':seed}
 
-        workitems  = MakeTasks(self._triples)
-        unfinished = ResumeTasks(restored)
+        workitems  = MakeTasks(self._triples,restored)
         chunker    = ChunkTasks(mp)
         max_chunk  = MaxChunk(mt)
         process    = CobaMultiprocessor(ProcessTasks(), mp, mc, False)
@@ -160,7 +159,7 @@ class Experiment:
         preamble   = Identity() if restored else Insert([["T0",meta]])
 
         try:
-            Pipes.join(workitems, unfinished, chunker, max_chunk, process, preamble, encode, sink).run()
+            Pipes.join(workitems, chunker, max_chunk, process, preamble, encode, sink).run()
             CobaContext.logger.log("Experiment Finished")
         except KeyboardInterrupt: #pragma: no cover
             CobaContext.logger.log("Experiment Aborted (aborted via Ctrl-C)")

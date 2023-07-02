@@ -430,9 +430,15 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_restore(self):
+        
+        class MyBrokenLearner:
+            @property
+            def params(self):
+                return {"family":"Modulo", "p":'0'}
+
         env             = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         working_learner = ModuloLearner()
-        broken_learner  = BrokenLearner()
+        broken_learner  = MyBrokenLearner()
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -440,7 +446,6 @@ class Experiment_Single_Tests(unittest.TestCase):
         #we're resuming from the first experiment's transaction.log
         try:
             first_result  = Experiment([env],[working_learner]).run("coba/tests/.temp/transactions.log")
-            #second_result = first_result
             second_result = Experiment([env],[broken_learner ]).run("coba/tests/.temp/transactions.log")
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
@@ -460,6 +465,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)
 
+        self.assertTrue(not any('exception' in i for i in CobaContext.logger.sink.items))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, second_result.experiment)
         self.assertCountEqual(second_result.environments.to_dicts(), expected_environments)
         self.assertCountEqual(second_result.learners.to_dicts()    , expected_learners)
