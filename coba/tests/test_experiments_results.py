@@ -24,21 +24,81 @@ class TestPlotter:
 class TransactionResult_Tests(unittest.TestCase):
 
     def test_empty(self):
-        res = TransactionResult().filter([["version",4]])
+        transactions = [
+            ["version",4]
+        ]
+
+        res = TransactionResult().filter(transactions)
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
+
+    def test_multirow(self):
+        transactions = [
+            ["version",4],
+            ["E",0,{'a':1}],
+            ["E",0,{'b':2}]
+        ]
+        res = TransactionResult().filter(transactions)
+        self.assertEqual(res.environments,Table(columns=['environment_id','a','b']).insert([[0,1,2]]))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
+
+    def test_environments(self):
+        transactions = [
+            ["version",4],
+            ["E",0,{'a':1,'b':2}]
+        ]
+        res = TransactionResult().filter(transactions)
+        self.assertEqual(res.environments,Table(columns=['environment_id','a','b']).insert([[0,1,2]]))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
+
+    def test_learners(self):
+        transactions = [
+            ["version",4],
+            ["L",0,{'a':1,'b':2}]
+        ]
+        res = TransactionResult().filter(transactions)
+        self.assertEqual(res.environments,Table(columns=['environment_id']))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id','a','b']).insert([[0,1,2]]))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
+
+    def test_evaluators(self):
+        transactions = [
+            ["version",4],
+            ["V",0,{'a':1,'b':2}]
+        ]
+        res = TransactionResult().filter(transactions)
+        self.assertEqual(res.environments,Table(columns=['environment_id']))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id','a','b']).insert([[0,1,2]]))
         self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
 
     def test_same_columns(self):
-        res = TransactionResult().filter([["version",4],["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"reward":[1,4]}}]])
+        transactions = [
+            ["version",4],
+            ["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"reward":[1,4]}}]
+        ]
+        res = TransactionResult().filter(transactions)
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
         self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index', 'reward']).insert([(0,1,0,1,1),(0,1,0,2,3),(0,2,0,1,1),(0,2,0,2,4)]))
 
     def test_diff_columns(self):
-        res = TransactionResult().filter([["version",4],["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"z":[1,4]}}]])
+        transactions = [
+            ["version",4],
+            ["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"z":[1,4]}}]
+        ]
+        res = TransactionResult().filter(transactions)
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
         self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index', 'reward', 'z']).insert([(0,1,0,1,1,None),(0,1,0,2,3,None),(0,2,0,1,None,1),(0,2,0,2,None,4)]))
 
     def test_old_version(self):

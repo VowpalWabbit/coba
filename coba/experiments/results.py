@@ -443,9 +443,9 @@ class TransactionEncode:
 class TransactionResult:
 
     def filter(self, transactions:Iterable[Any]) -> 'Result':
-        env_rows = {}
-        lrn_rows = {}
-        val_rows = {}
+        env_rows = collections.defaultdict(dict)
+        lrn_rows = collections.defaultdict(dict)
+        val_rows = collections.defaultdict(dict)
         int_rows = {}
         exp_dict = {}
 
@@ -466,19 +466,18 @@ class TransactionResult:
                 exp_dict = trx[1]
 
             if trx[0] == "E":
-                env_rows[trx[1]] = trx[2]
+                env_rows[trx[1]].update(trx[2])
 
             if trx[0] == "L":
-                lrn_rows[trx[1]] = trx[2]
+                lrn_rows[trx[1]].update(trx[2]) 
 
             if trx[0] == "V":
-                val_rows[trx[1]] = trx[2]
+                val_rows[trx[1]].update(trx[2])
 
             if trx[0] == "I":
                 if len(trx[1]) ==2: trx[1] = [*trx[1],0]
                 int_rows[tuple(trx[1])] = trx[2]
 
-        if not val_rows: val_rows[0] = {'eval_type': 'unknown'}
         rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
 
         env_table = Table(columns=['environment_id'                                    ]          )
@@ -807,9 +806,9 @@ class Result:
         self._evaluators  .index(                              'evaluator_id'        )
         self._interactions.index('environment_id','learner_id','evaluator_id','index')
 
-        self._env_cache = { d['environment_id']:d for d in self._environments.to_dicts()}
-        self._lrn_cache = { d['learner_id'    ]:d for d in self._learners    .to_dicts()}
-        self._val_cache = { d['evaluator_id'  ]:d for d in self._evaluators  .to_dicts()}
+        self._env_cache = {d['environment_id']:d for d in self._environments.to_dicts()}
+        self._lrn_cache = {d['learner_id'    ]:d for d in self._learners    .to_dicts()}
+        self._val_cache = {d['evaluator_id'  ]:d for d in self._evaluators  .to_dicts()}
 
         for value in self._lrn_cache.values():
             lrn_id = value['learner_id']
@@ -1333,9 +1332,9 @@ class Result:
         indexed_tables = []
 
         for (env_id,lrn_id,val_id), table in self.interactions.groupby(3):
-            e = self._env_cache[env_id]
-            l = self._lrn_cache[lrn_id]
-            v = self._val_cache[val_id]
+            e = self._env_cache.get(env_id,{})
+            l = self._lrn_cache.get(lrn_id,{})
+            v = self._val_cache.get(val_id,{})
 
             indexed_table = []
             for K in indexes:
