@@ -20,7 +20,7 @@ def main():
     lrn = cb.VowpalLearner(offline_vw_args)
 
     #offline performance, no need to call predict in this scenario
-    cb.Experiment(env, lrn, evaluation_task=cb.OffPolicyEvaluator(predict=False)).run()
+    cb.Experiment(env, lrn, cb.OffPolicyEvaluator(predict=False)).run()
     lrn.finish()
 
     #online performance
