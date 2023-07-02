@@ -49,6 +49,14 @@ class Experiment:
     def __init__(self, *args,**kwargs) -> None:
         """Instantiate an Experiment."""
 
+        if 'evaluation_task' in kwargs:
+            raise CobaException(
+                "The `evaluation_task` argument has been deprecated. Instead of `Experiment(x,y,evaluation_task=t)` "
+                "you should call `Experiment(x,y,t)`. Additionally if you are using a custom evaluator then the "
+                "main evaluation method should be `def evaluate(self, learner, environment)` rather than "
+                "`def process(self,learner,interactions)`."
+            )
+
         args = list(args)
         if len(args) > 0 and not isinstance(args[0],(abc.Sequence,abc.Iterable)): args[0] = [args[0]]
 

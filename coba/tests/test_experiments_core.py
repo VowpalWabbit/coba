@@ -146,6 +146,12 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.experiment.processes = 1
         CobaContext.experiment.maxchunksperchild = 0
 
+    def test_deprecation(self):
+        with self.assertRaises(CobaException) as e:
+            Experiment(1,2,evaluation_task=3)
+
+        self.assertIn("The `evaluation_task` argument has been deprecated.", str(e.exception))
+
     def test_init_tuples(self):
         exp = Experiment([(1,2,'a')], 'd')
         self.assertEqual(exp._triples, [(1,2,'a')])
