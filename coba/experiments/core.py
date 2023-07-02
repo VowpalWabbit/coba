@@ -13,7 +13,7 @@ from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLo
 from coba.exceptions import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 
-from coba.experiments.process import MakeTasks, ChunkTasks, MaxChunk, ProcessTasks
+from coba.experiments.process import MakeTasks, ChunkTasks, ProcessTasks
 from coba.experiments.results import Result, TransactionDecode, TransactionEncode, TransactionResult
 
 class Experiment:
@@ -147,19 +147,18 @@ class Experiment:
 
         meta = {'n_learners':n_given_learners,'n_environments':n_given_environments,'description':self._description,'seed':seed}
 
-        workitems  = MakeTasks(self._triples,restored)
-        chunker    = ChunkTasks(mp)
-        max_chunk  = MaxChunk(mt)
-        process    = CobaMultiprocessor(ProcessTasks(), mp, mc, False)
-        encode     = TransactionEncode()
-        sink       = DiskSink(result_file,batch=1) if result_file else ListSink(foreach=True)
-        source     = DiskSource(result_file) if result_file else ListSource(sink.items)
-        decode     = TransactionDecode()
-        result     = TransactionResult()
-        preamble   = Identity() if restored else Insert([["T0",meta]])
+        workitems = MakeTasks(self._triples,restored)
+        chunker   = ChunkTasks(mt)
+        process   = CobaMultiprocessor(ProcessTasks(), mp, mc, False)
+        encode    = TransactionEncode()
+        sink      = DiskSink(result_file,batch=1) if result_file else ListSink(foreach=True)
+        source    = DiskSource(result_file) if result_file else ListSource(sink.items)
+        decode    = TransactionDecode()
+        result    = TransactionResult()
+        preamble  = Identity() if restored else Insert([["T0",meta]])
 
         try:
-            Pipes.join(workitems, chunker, max_chunk, process, preamble, encode, sink).run()
+            Pipes.join(workitems, chunker, process, preamble, encode, sink).run()
             CobaContext.logger.log("Experiment Finished")
         except KeyboardInterrupt: #pragma: no cover
             CobaContext.logger.log("Experiment Aborted (aborted via Ctrl-C)")

@@ -10,10 +10,7 @@ from coba.learners     import Learner
 from coba.evaluators   import OnPolicyEvaluator
 
 from coba.experiments.results import Result
-from coba.experiments.process import (
-    Task, MakeTasks,
-    ChunkTasks, ProcessTasks, MaxChunk
-)
+from coba.experiments.process import Task, MakeTasks, ChunkTasks, ProcessTasks
 
 #for testing purposes
 class ModuloLearner(Learner):
@@ -203,7 +200,7 @@ class MakeTasks_Tests(unittest.TestCase):
 
 class ChunkTasks_Tests(unittest.TestCase):
 
-    def test_no_chunks_single(self):
+    def test_no_chunks(self):
         src1 = Environments.from_linear_synthetic(10)
         src2 = Environments.from_linear_synthetic(10)
 
@@ -220,29 +217,7 @@ class ChunkTasks_Tests(unittest.TestCase):
             Task((0,envs[1]), (1,None), None),
         ]
 
-        groups = list(ChunkTasks(1).filter(tasks))
-
-        self.assertEqual(len(groups), 1)
-        self.assertEqual(groups[0], tasks)
-
-    def test_no_chunks_multi(self):
-        src1 = Environments.from_linear_synthetic(10)
-        src2 = Environments.from_linear_synthetic(10)
-
-        envs = (src1+src2)
-
-        tasks = [
-            Task(None, (0,None), None),
-            Task(None, (1,None), None),
-            Task((1,envs[0]), None, None),
-            Task((0,envs[1]), None, None),
-            Task((1,envs[0]), (1,None), None),
-            Task((0,envs[1]), (0,None), None),
-            Task((2,envs[1]), (0,None), None),
-            Task((0,envs[1]), (1,None), None),
-        ]
-
-        groups = list(ChunkTasks(2).filter(tasks))
+        groups = list(ChunkTasks().filter(tasks))
 
         self.assertEqual(len(groups), 8)
         self.assertEqual(groups[0], tasks[0:1])
@@ -254,7 +229,7 @@ class ChunkTasks_Tests(unittest.TestCase):
         self.assertEqual(groups[6], tasks[6:7])
         self.assertEqual(groups[7], tasks[7:8])
 
-    def test_two_chunks_multi(self):
+    def test_two_chunks(self):
         src1 = Environments.from_linear_synthetic(10)
         src2 = Environments.from_linear_synthetic(10)
 
@@ -271,7 +246,7 @@ class ChunkTasks_Tests(unittest.TestCase):
             Task((0,envs[1]), (1,None), None),
         ]
 
-        groups = list(ChunkTasks(2).filter(tasks))
+        groups = list(ChunkTasks().filter(tasks))
 
         self.assertEqual(len(groups), 4)
         self.assertEqual(groups[0], tasks[0:1])
@@ -279,7 +254,31 @@ class ChunkTasks_Tests(unittest.TestCase):
         self.assertEqual(groups[2], [tasks[3],tasks[5],tasks[7],tasks[6]])
         self.assertCountEqual(groups[3], [tasks[2],tasks[4]])
 
-    def test_two_chunks_two_shuffles_multi(self):
+    def test_two_chunks_two_shuffles(self):
+        src1 = Environments.from_linear_synthetic(10)
+        src2 = Environments.from_linear_synthetic(10)
+        envs = (src1+src2).chunk().shuffle(n=2)
+
+        tasks = [
+            Task(None, (0,None), None),
+            Task(None, (1,None), None),
+            Task((1,envs[0]), None, None),
+            Task((0,envs[1]), None, None),
+            Task((1,envs[2]), (1,None), None),
+            Task((0,envs[1]), (0,None), None),
+            Task((2,envs[3]), (0,None), None),
+            Task((0,envs[3]), (1,None), None),
+        ]
+
+        groups = list(ChunkTasks().filter(tasks))
+
+        self.assertEqual(len(groups), 4)
+        self.assertEqual(groups[0], tasks[0:1])
+        self.assertEqual(groups[1], tasks[1:2])
+        self.assertCountEqual(groups[2], [tasks[3],tasks[5],tasks[7],tasks[6]])
+        self.assertCountEqual(groups[3], [tasks[2],tasks[4]])
+
+    def test_max_size_two(self):
         src1 = Environments.from_linear_synthetic(10)
         src2 = Environments.from_linear_synthetic(10)
         envs = (src1+src2).chunk().shuffle(n=2)
@@ -297,28 +296,12 @@ class ChunkTasks_Tests(unittest.TestCase):
 
         groups = list(ChunkTasks(2).filter(tasks))
 
-        self.assertEqual(len(groups), 4)
+        self.assertEqual(len(groups), 5)
         self.assertEqual(groups[0], tasks[0:1])
         self.assertEqual(groups[1], tasks[1:2])
-        self.assertCountEqual(groups[2], [tasks[3],tasks[5],tasks[7],tasks[6]])
-        self.assertCountEqual(groups[3], [tasks[2],tasks[4]])
-
-class MaxChunk_Tests(unittest.TestCase):
-
-    def test_max_size_0(self):
-        actual   = list(MaxChunk(0).filter([[1,2,3],[4,5],[6]]))
-        expected = [[1,2,3],[4,5],[6]]
-        self.assertEqual(expected, actual)
-
-    def test_max_size_1(self):
-        actual   = list(MaxChunk(1).filter([[1,2,3],[4,5],[6]]))
-        expected = [[1],[2],[3],[4],[5],[6]]
-        self.assertEqual(expected, actual)
-
-    def test_max_size_2(self):
-        actual   = list(MaxChunk(2).filter([[1,2,3],[4,5],[6]]))
-        expected = [[1,2],[3],[4,5],[6]]
-        self.assertEqual(expected, actual)
+        self.assertCountEqual(groups[2], [tasks[3],tasks[5]])
+        self.assertCountEqual(groups[3], [tasks[7],tasks[6]])
+        self.assertCountEqual(groups[4], [tasks[2],tasks[4]])
 
 class ProcessWorkItems_Tests(unittest.TestCase):
 

@@ -106,14 +106,11 @@ class MakeTasks(Source[Iterable[Task]]):
 
 class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
 
-    def __init__(self, n_processes: int) -> None:
-        self._n_processes = n_processes
+    def __init__(self, max_tasks: int = None) -> None:
+        self._max_tasks = max_tasks or None
 
     def filter(self, items: Iterable[Task]) -> Iterable[Sequence[Task]]:
-        if self._n_processes ==1:
-            return [sum(self._chunks(items),[])]
-        else:
-            return self._chunks(items)
+        return self._chunks(items)
 
     def _chunks(self, items: Iterable[Task]) -> Iterable[Sequence[Task]]:
         items  = list(items)
@@ -128,14 +125,14 @@ class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
         for task in tasks_sans_env:
             yield [task]
 
-        for tasks in chunks.pop('not_chunked',[]):
-            yield [tasks]
+        for task in chunks.pop('not_chunked',[]):
+            yield [task]
 
         chunks_sorter = lambda c: min([c.env_id for c in c])
         chunk_sorter  = lambda t: (t.env_id, t.lrn_id if t.lrn else -1)
 
         for chunk in sorted(chunks.values(), key=chunks_sorter):
-            yield list(sorted(chunk, key=chunk_sorter))
+            yield from self._max_chunker(sorted(chunk, key=chunk_sorter), self._max_tasks)
 
     def _get_last_chunk(self, env):
         if isinstance(env, SourceFilters):
@@ -144,18 +141,12 @@ class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
                     return pipe
         return 'not_chunked'
 
-class MaxChunk(Filter[Iterable[Sequence[Task]], Iterable[Sequence[Task]]]):
-    def __init__(self, max_tasks) -> None:
-        self._max_tasks = max_tasks
-
-    def filter(self, chunks: Iterable[Sequence[Task]]) -> Iterable[Sequence[Task]]:
-
-        for chunk in chunks:
-            chunk = iter(chunk)
-            max_task_chunk = list(islice(chunk,self._max_tasks or None))
-            while max_task_chunk:
-                yield max_task_chunk
-                max_task_chunk = list(islice(chunk,self._max_tasks or None))
+    def _max_chunker(self, chunk, max_tasks):
+        chunk = iter(chunk)
+        batch = list(islice(chunk,max_tasks))
+        while batch != []:
+            yield batch
+            batch = list(islice(chunk,max_tasks))
 
 class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
 
