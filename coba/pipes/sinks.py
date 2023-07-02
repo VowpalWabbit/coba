@@ -2,7 +2,8 @@ import gzip
 
 from queue import Queue
 from collections.abc import Iterator
-from typing import Callable, Any, List, Union, Sequence
+from itertools import islice
+from typing import Callable, Any, List, Union, Sequence, Iterable
 
 from coba.pipes.primitives import Sink
 
@@ -24,23 +25,23 @@ class DiskSink(Sink[Union[str,Sequence[str]]]):
     In order to make this distinction gzip files must end with a gz extension.
     """
 
-    def __init__(self, filename:str, mode:str='a+') -> None:
+    def __init__(self, filename:str, mode:str='a+', batch:int=None) -> None:
         """Instantiate a DiskSink.
 
         Args:
             filename: The path to the file to write.
             mode: The mode with which the file should be written.
+            batch: The number of lines to write before closing and reopening the file.
         """
 
-        #If you are using the gzip functionality of disk sink
-        #then you should note that this implementation isn't optimal
-        #in terms of compression since it compresses one line at a time.
+        #Gzip compression performance is relative to batch size
         #see https://stackoverflow.com/a/18109797/1066291 for more info.
 
         self._filename = filename
         self._count    = 0
         self._file     = None
         self._mode     = mode
+        self._batch    = batch
 
     def __enter__(self) -> 'DiskSink':
         self._count += 1
@@ -59,12 +60,29 @@ class DiskSink(Sink[Union[str,Sequence[str]]]):
             self._file.close()
             self._file = None
 
-    def write(self, item: Union[str,Sequence[str]]) -> None:
-        if isinstance(item,str): item = [item]
-        with self:
-            for i in item:
-                self._file.write((i + '\n').encode('utf-8'))
-                self._file.flush()
+    def write(self, lines: Union[str,Iterable[str]]) -> None:
+        if isinstance(lines,str): 
+            lines = [lines]
+
+        lines = iter(lines)
+        batch = None
+
+        while self._unfinished(batch):
+            batch = self._get_batch(lines)
+            with self:
+                for line in batch:
+                    self._file.write((line + '\n').encode('utf-8'))
+                    self._file.flush()
+
+    def _get_batch(self, lines: Iterable[str]) -> Iterable[str]:
+        batch = islice(lines,self._batch)
+        if self._batch: batch = list(batch)
+        return batch
+
+    def _unfinished(self, batch:Any) -> bool:
+        not_started  = batch is None
+        not_finished = isinstance(batch,list) and len(batch) == self._batch
+        return not_started or not_finished
 
 class ListSink(Sink[Any]):
     """A sink which appends written items to a list."""

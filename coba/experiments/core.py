@@ -153,7 +153,7 @@ class Experiment:
         max_chunk  = MaxChunk(mt)
         process    = CobaMultiprocessor(ProcessTasks(), mp, mc, False)
         encode     = TransactionEncode()
-        sink       = DiskSink(result_file) if result_file else ListSink(foreach=True)
+        sink       = DiskSink(result_file,batch=1) if result_file else ListSink(foreach=True)
         source     = DiskSource(result_file) if result_file else ListSource(sink.items)
         decode     = TransactionDecode()
         result     = TransactionResult()
