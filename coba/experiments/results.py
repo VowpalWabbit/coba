@@ -790,10 +790,10 @@ class Result:
         else:
             env_rows,lrn_rows,val_rows,int_rows = tuple([None]*4)
 
-        env_rows = env_rows or Table(columns=['environment_id'                                    ])
-        lrn_rows = lrn_rows or Table(columns=[                 'learner_id'                       ])
-        val_rows = val_rows or Table(columns=[                              'evaluator_id'        ])
-        int_rows = int_rows or Table(columns=['environment_id','learner_id','evaluator_id','index'])
+        env_rows = env_rows if env_rows is not None else Table(columns=['environment_id'                                    ])
+        lrn_rows = lrn_rows if lrn_rows is not None else Table(columns=[                 'learner_id'                       ])
+        val_rows = val_rows if val_rows is not None else Table(columns=[                              'evaluator_id'        ])
+        int_rows = int_rows if int_rows is not None else Table(columns=['environment_id','learner_id','evaluator_id','index'])
 
         self.experiment = args[4] if len(args) == 5 else {}
 
