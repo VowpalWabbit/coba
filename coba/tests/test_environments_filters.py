@@ -166,7 +166,7 @@ class Take_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Take((-1,5))
 
-    def test_take_exact_1(self):
+    def test_take_1_not_strict(self):
 
         items = [ 1,2,3 ]
         take_items = list(Take(1).filter(items))
@@ -174,25 +174,32 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual([1    ], take_items)
         self.assertEqual([1,2,3], items     )
 
-    def test_take_exact_2(self):
+    def test_take_2_not_strict(self):
         items = [ 1,2,3 ]
         take_items = list(Take(2).filter(items))
 
         self.assertEqual([1,2  ], take_items)
         self.assertEqual([1,2,3], items     )
 
-    def test_take_exact_3(self):
+    def test_take_3_not_strict(self):
         items = [ 1,2,3 ]
         take_items = list(Take(3).filter(items))
 
         self.assertEqual([1,2,3], take_items)
         self.assertEqual([1,2,3], items     )
 
-    def test_take_exact_4(self):
+    def test_take_4_not_strict(self):
         items = [ 1,2,3 ]
         take_items = list(Take(4).filter(items))
 
         self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_take_4_strict(self):
+        items = [ 1,2,3 ]
+        take_items = list(Take(4,strict=True).filter(items))
+
+        self.assertEqual([]     , take_items)
         self.assertEqual([1,2,3], items     )
 
 class Resevoir_Tests(unittest.TestCase):
@@ -207,12 +214,12 @@ class Resevoir_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Reservoir((-1,5))
 
-    def test_take_exacts(self):
+    def test_not_strict(self):
         items = [1,2,3,4,5]
 
         take_items = list(Reservoir(2,seed=1).filter(items))
         self.assertEqual([1,2,3,4,5], items)
-        self.assertEqual([4, 2], take_items)
+        self.assertEqual([4,2]      , take_items)
 
         take_items = list(Reservoir(None,seed=1).filter(items))
         self.assertEqual([1,2,3,4,5], items)
@@ -227,6 +234,29 @@ class Resevoir_Tests(unittest.TestCase):
         self.assertEqual([1,5,4,3,2], take_items)
 
         take_items = list(Reservoir(0,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+    def test_strict(self):
+        items = [1,2,3,4,5]
+
+        take_items = list(Reservoir(2,strict=True,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([4,2]      , take_items)
+
+        take_items = list(Reservoir(None,strict=True,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(5,strict=True,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(6,strict=True,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+        take_items = list(Reservoir(0,strict=True,seed=1).filter(items))
         self.assertEqual([1,2,3,4,5], items)
         self.assertEqual([]         , take_items)
 
@@ -1536,7 +1566,7 @@ class Riffle_Tests(unittest.TestCase):
 
 class Flatten_Tests(unittest.TestCase):
     def test_flatten_context(self):
-        
+
         interactions = [
             SimulatedInteraction((7,(1,0)), [(1,"def"),2], [.2,.3]),
             SimulatedInteraction((1,(0,1)), [(1,"ghi"),3], [.1,.5]),
@@ -1554,7 +1584,7 @@ class Flatten_Tests(unittest.TestCase):
         self.assertEqual([.1,.5]      , actual_interactions[1]['rewards'])
 
     def test_flatten_actions(self):
-        
+
         interactions = [
             SimulatedInteraction((7,1,0), [(1,("d",1)),(1,("j",1))], [.2,.3]),
             SimulatedInteraction((1,0,1), [(1,("g",2)),(1,("l",1))], [.1,.5]),
@@ -1575,7 +1605,7 @@ class Flatten_Tests(unittest.TestCase):
         self.assertEqual({'flat':True}, Flatten().params)
 
 class Params_Tests(unittest.TestCase):
-    def test_params(self): 
+    def test_params(self):
         params_filter = Params({'a':123})
         self.assertEqual({'a':123}, params_filter.params)
         self.assertEqual(1, params_filter.filter(1))
@@ -1651,7 +1681,7 @@ class Grounded_Tests(unittest.TestCase):
         sim_interactions = [ SimulatedInteraction({'a':1},[1,2,3],[1,0,0]) ]
         igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
         self.assertEqual(igl_interactions[0]['context'], {'userid':igl_interactions[0]['userid'], 'a':1})
-    
+
     def test_01_reward(self):
         sim_interactions = [ SimulatedInteraction(0,[1,2,3],[1,0,0]) ]
         igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
@@ -1709,7 +1739,7 @@ class Grounded_Tests(unittest.TestCase):
             f1 = [interaction['feedbacks'].eval(a) for a in interaction['actions'] ]
             f2 = [interaction['feedbacks'].eval(a) for a in interaction['actions'] ]
             self.assertEqual(f1,f2)
-    
+
     def test_params(self):
         params = Grounded(10,5,4,2,1).params
 
@@ -1735,7 +1765,7 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual([1,2,3],out['context'])
         self.assertEqual([1,2]  ,out['actions'])
         self.assertEqual([1,2]  ,out['rewards'])
-    
+
     def test_context_categorical_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,Categorical('1',['1','2'])],[1,2],[1,2])]))
 
@@ -1896,7 +1926,7 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], [1,2])
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
-        
+
     def test_logged_with_action_int(self):
         interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[1,2,3], rewards=[1,2,3])]
 
@@ -1989,20 +2019,20 @@ class Batch_Tests(unittest.TestCase):
 
 class Unbatch_Tests(unittest.TestCase):
 
-    def test_not_batched(self):        
+    def test_not_batched(self):
         interaction = {'a':1,'b':2}
 
         unbatched = list(Unbatch().filter([interaction]*3))
         self.assertEqual(unbatched, [interaction]*3)
 
-    def test_batched(self):        
+    def test_batched(self):
         interaction = {'a':1,'b':2}
 
         batched   = Batch(3).filter([interaction]*3)
         unbatched = list(Unbatch().filter(batched))
         self.assertEqual(unbatched, [interaction]*3)
 
-    def test_mixed(self):        
+    def test_mixed(self):
         interaction = {'b':2,'a':primitives.Batch([1,2])}
 
         unbatched = list(Unbatch().filter([interaction]))
@@ -2103,7 +2133,7 @@ class Cache_Tests(unittest.TestCase):
         self.assertEqual(list(Cache(3).filter([])), [])
 
 class Logged_Tests(unittest.TestCase):
-    
+
     def test_not_batched(self):
         initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
@@ -2303,7 +2333,7 @@ class OpeRewards_Tests(unittest.TestCase):
         ]
 
         new_interactions = list(OpeRewards("DM").filter(interactions))
-        
+
         self.assertAlmostEqual(new_interactions[0]['rewards'].eval('c'),.79699, places=4)
         self.assertAlmostEqual(new_interactions[0]['rewards'].eval('d'),.32049, places=4)
         self.assertAlmostEqual(new_interactions[1]['rewards'].eval('e'),.18374, places=4)

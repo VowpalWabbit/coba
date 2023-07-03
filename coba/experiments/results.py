@@ -490,7 +490,7 @@ class TransactionResult:
         val_table.insert([{                                  "evaluator_id":v, **r} for v,r in val_rows.items()])
 
         for (env_id, lrn_id, val_id), results in int_rows.items():
-            if '_packed' in results:
+            if '_packed' in results and results['_packed']:
 
                 packed = results['_packed']
                 N = len(packed[next(iter(packed))])

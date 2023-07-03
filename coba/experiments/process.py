@@ -51,58 +51,37 @@ class MakeTasks(Source[Iterable[Task]]):
         #is always in the exact same order we should be fine. In the future we may want to consider.
         #adding a better check for environments other than assigning an index based on their order.
 
-        #we rely on ids to make sure we don't do duplicate work. So long as self.evaluation_pairs
-        #is always in the exact same order we should be fine. In the future we may want to consider.
-        #adding a better check for environments other than assigning an index based on their order.
+        envs = {None:None}
+        lrns = {None:None}
+        vals = {None:None}
 
-        restored_envs = {d['environment_id']:d for d in self._restored.environments.to_dicts()}
-        restored_lrns = {d['learner_id'    ]:d for d in self._restored.learners    .to_dicts()}
-        restored_vals = {d['evaluator_id'  ]:d for d in self._restored.evaluators  .to_dicts()}
+        restored_lrns = set(self._restored.learners['learner_id'])
+        restored_envs = set(self._restored.environments['environment_id'])
+        restored_vals = set(self._restored.evaluators['evaluator_id'])
+        restored_outs = set(zip(*self._restored.interactions[['environment_id','learner_id','evaluator_id']]))
 
-        envs = self._init_ids(map(itemgetter(0),self._triples), restored_envs)
-        lrns = self._init_ids(map(itemgetter(1),self._triples), restored_lrns)
-        vals = self._init_ids(map(itemgetter(2),self._triples), restored_vals)
-
-        max_eid = max([*restored_envs.keys(),-1])
-        max_lid = max([*restored_lrns.keys(),-1])
-        max_vid = max([*restored_vals.keys(),-1])
-
-        finished_evals = set(map(itemgetter(0),self._restored.interactions.groupby(3)))
         learner_counts = Counter([l for _,l,_ in self._triples])
 
         for env, lrn, val in self._triples:
 
             if env not in envs:
-                envs[env] = max_eid + 1
-                max_eid   = max_eid + 1
-                yield Task((max_eid,env), None, None)
+                envs[env] = len(envs)-1
+                if envs[env] not in restored_envs:
+                    yield Task((envs[env],env),None,None)
 
             if lrn not in lrns:
-                lrns[lrn] = max_lid + 1
-                max_lid   = max_lid + 1
-                yield Task(None, (max_lid,lrn), None)
+                lrns[lrn] = len(lrns)-1
+                if lrns[lrn] not in restored_lrns:
+                    yield Task(None,(lrns[lrn],lrn),None)
 
             if val not in vals:
-                vals[val] = max_vid + 1
-                max_vid   = max_vid + 1
-                yield Task(None, None, (max_vid,val))
+                vals[val] = len(vals)-1
+                if vals[val] not in restored_vals:
+                    yield Task(None,None,(vals[val],val))
 
             eid,lid,vid = (envs[env],lrns[lrn],vals[val])
-
-            if val and (eid,lid,vid) not in finished_evals:
+            if val and (eid,lid,vid) not in restored_outs:
                 yield Task((eid,env),(lid,lrn),(vid,val),copy=learner_counts[lrn]>1)
-
-    def _init_ids(self, items:Iterable, restored:Mapping[int,dict]) -> Mapping[object,int]:
-        item_ids = {None:None}
-
-        for item in items:
-            if item not in item_ids:
-                for id,given in restored.items():
-                    if item.params.items() <= given.items():
-                        item_ids[item] = id
-                        break
-
-        return item_ids
 
 class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
 
@@ -161,8 +140,7 @@ class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
 
             if len(chunk) > 1:
                 #We sort to make sure cached envs are grouped. Sorting means we can free envs from memory as we go.
-                chunk = sorted(chunk, key=lambda item: self._env_ids(item)+self._lrn_ids(item))
-                chunk = list(reversed(chunk))
+                chunk = sorted(chunk, key=lambda item: self._env_ids(item)+self._lrn_ids(item), reverse=True)
 
             with CobaContext.logger.log(f"Processing chunk..."):
 
@@ -201,7 +179,7 @@ class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
                             class dummy_env:
                                 _env = env
                                 @property
-                                def params(self): return SafeEnvironment(env).params #pragma: no cover
+                                def params(self): return SafeEnvironment(dummy_env._env).params #pragma: no cover
                                 def read(self): return BatchSafe(Finalize()).filter(interactions)
 
                             with CobaContext.logger.time(f"Evaluating Learner {lrn_id} on Environment {env_id}..."):

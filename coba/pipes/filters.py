@@ -48,11 +48,12 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
 class Take(Filter[Iterable[Any], Sequence[Any]]):
     """Take a fixed number of items from an iterable."""
 
-    def __init__(self, count: Optional[int] ) -> None:
+    def __init__(self, count: Optional[int], strict:bool = False) -> None:
         """Instantiate a Take filter.
 
         Args:
             count: The number of items we wish to take from an iterable.
+            strict: Whether we want to take anything up to count or only count exactly.
         """
 
         is_valid_count = (count is None) or (isinstance(count,int) and count >= 0)
@@ -61,9 +62,12 @@ class Take(Filter[Iterable[Any], Sequence[Any]]):
             raise ValueError(f"Invalid value for Take: {count}. A positive integer or None was expected.")
 
         self._count = count
+        self._strict = strict
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        return islice(items, self._count)
+        out = islice(items, self._count)
+        if self._strict: out = list(out)
+        return [] if self._strict and len(out) < self._count else out
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -111,11 +115,12 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
     """
 
-    def __init__(self, count: Optional[int], seed: float = 1) -> None:
+    def __init__(self, count: Optional[int], strict: bool = False, seed: float = 1) -> None:
         """Instantiate a Reservoir filter.
 
         Args:
             count: The number of items we wish to sample from an iterable (expressed as either an exact value or range).
+            strict: Whether we want to take anything up to count or only count exactly.
             seed : The seed which determines which random items to take.
         """
 
@@ -124,8 +129,9 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         if not is_valid_count:
             raise ValueError(f"Invalid value for Reservoir: {count}. A positive integer or None was expected.")
 
-        self._count = count
-        self._seed  = seed
+        self._count  = count
+        self._seed   = seed
+        self._strict = strict
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -140,22 +146,36 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
 
         elif self._count is None:
             yield from rng.shuffle(items)
-        
+
         else:
             W         = 1
             items     = iter(items)
             reservoir = rng.shuffle(list(islice(items,self._count)))
 
-            try:
-                while True:
-                    [r1,r2,r3] = rng.randoms(3)
-                    W = W * math.exp(math.log(r1)/ (self._count or 1) )
-                    S = math.floor(math.log(r2)/math.log(1-W))
-                    reservoir[int(r3*self._count-.001)] = next(islice(items,S,S+1))
-            except StopIteration:
-                pass
+            if len(reservoir) < self._count:
+                yield from ([] if self._strict else reservoir)
 
-            yield from reservoir
+            else:
+                count = self._count or 1
+                log   = math.log
+                floor = math.floor
+                x     = 1/count
+
+                def batched_randoms_forever(batch_size):
+                    while True:
+                        randoms = rng.randoms(3*batch_size)
+                        for i in range(0,3*batch_size,3):
+                            yield randoms[i:i+3]
+
+                try:
+                    for r1,r2,r3 in batched_randoms_forever(20):
+                        W = W*r1**x
+                        S = floor(log(r2,1-W))
+                        reservoir[int(r3*count)] = next(islice(items,S,S+1))
+                except StopIteration:
+                    pass
+
+                yield from reservoir
 
 class JsonEncode(Filter[Any, str]):
     """A filter which turn a Python object into JSON strings."""
@@ -247,7 +267,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
         def flatter_list(row):
             for f,r in zip(flattable,row):
-                if f: yield from r 
+                if f: yield from r
                 else: yield r
 
         if not any_flattable or first_type is None:

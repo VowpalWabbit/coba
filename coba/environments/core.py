@@ -331,7 +331,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]=1) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""
         if isinstance(seeds,int): seeds = [seeds]
-        return self.filter([Reservoir(n_interactions,seed) for seed in seeds])
+        return self.filter([Reservoir(n_interactions,seed=seed) for seed in seeds])
 
     def scale(self,
         shift: Union[float,Literal["min","mean","med"]] = "min",

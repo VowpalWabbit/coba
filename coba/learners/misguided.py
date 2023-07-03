@@ -11,7 +11,7 @@ class MisguidedLearner(Learner):
 
     @property
     def params(self):
-        return {**self._learner.params, 'misguided': (self._shifter,self._scaler)}
+        return {**self._learner.params, 'misguided': [self._shifter,self._scaler]}
 
     def request(self, context, actions, request):
         return self._learner.request(context, actions, request)

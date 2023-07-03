@@ -144,57 +144,86 @@ class MakeTasks_Tests(unittest.TestCase):
 
         restored = Result(
             [['environment_id','a'],[0,0]],
-            [['learner_id','b'],[1,1]],
-            [['evaluator_id','c'],[2,2]],
-            [['environment_id','learner_id','evaluator_id','index'],[0,1,2,1]])
+            [['learner_id','b'],[0,1]],
+            [['evaluator_id','c'],[0,2]],
+            [['environment_id','learner_id','evaluator_id','index'],[0,0,0,1]])
 
         triples   = [ (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))]
         new_tasks = list(MakeTasks(triples,restored).read())
 
         self.assertEqual([], new_tasks)
 
-    def test_unfinished_interactions(self):
+    def test_unfinished_environment(self):
 
         restored = Result(
-            [['environment_id','a'],[0,0]],
-            [['learner_id','b'],[1,1]],
-            [['evaluator_id','c'],[2,2]],
-            None)
+            None,
+            [['learner_id','b'],[0,1]],
+            [['evaluator_id','c'],[0,2]],
+            [['environment_id','learner_id','evaluator_id','index'],[0,0,0,1]])
 
-        triple    = (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))
-        new_tasks = list(MakeTasks([triple],restored).read())
+        triple   = (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))
+        actual   = list(MakeTasks([triple],restored).read())
+        expected = [
+            Task((0,triple[0]),None,None),
+        ]
+        self.assertEqual(expected, actual)
 
-        self.assertEqual([Task((0,triple[0]),(1,triple[1]),(2,triple[2]))], new_tasks)
-
-    def test_unfinished_learner_and_interactions(self):
+    def test_unfinished_learner(self):
 
         restored = Result(
             [['environment_id','a'],[0,0]],
             None,
-            [['evaluator_id','c'],[2,2]],
-            None)
+            [['evaluator_id','c'],[0,2]],
+            [['environment_id','learner_id','evaluator_id','index'],[0,0,0,1]])
 
         triple   = (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))
         actual   = list(MakeTasks([triple],restored).read())
         expected = [
             Task(None,(0,triple[1]),None),
-            Task((0,triple[0]),(0,triple[1]),(2,triple[2]))
         ]
         self.assertEqual(expected, actual)
+
+    def test_unfinished_evaluator(self):
+
+        restored = Result(
+            [['environment_id','a'],[0,0]],
+            [['learner_id','b'],[0,1]],
+            None,
+            [['environment_id','learner_id','evaluator_id','index'],[0,0,0,1]])
+
+        triple   = (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))
+        actual   = list(MakeTasks([triple],restored).read())
+        expected = [
+            Task(None,None,(0,triple[2])),
+        ]
+        self.assertEqual(expected, actual)
+
+    def test_unfinished_interactions(self):
+
+        restored = Result(
+            [['environment_id','a'],[0,0]],
+            [['learner_id','b'],[0,1]],
+            [['evaluator_id','c'],[0,2]],
+            None)
+
+        triple    = (ParamObj(a=0),ParamObj(b=1),ParamObj(c=2))
+        new_tasks = list(MakeTasks([triple],restored).read())
+
+        self.assertEqual([Task((0,triple[0]),(0,triple[1]),(0,triple[2]))], new_tasks)
 
     def test_unfinished_environment_and_interactions(self):
 
         restored = Result(
-            [['environment_id','a'],[0,0]],
-            [['learner_id','b'],[1,1]],
-            [['evaluator_id','c'],[2,2]],
+            None,
+            [['learner_id','b'],[0,1]],
+            [['evaluator_id','c'],[0,2]],
             None)
 
         triple   = (ParamObj(a=1),ParamObj(b=1),ParamObj(c=2))
         actual   = list(MakeTasks([triple],restored).read())
         expected = [
-            Task((1,triple[0]),None,None),
-            Task((1,triple[0]),(1,triple[1]),(2,triple[2]))
+            Task((0,triple[0]),None,None),
+            Task((0,triple[0]),(0,triple[1]),(0,triple[2]))
         ]
         self.assertEqual(expected, actual)
 

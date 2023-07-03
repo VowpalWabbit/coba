@@ -8,7 +8,7 @@ class MisguidedLearner_Tests(unittest.TestCase):
         class MyLearner:
             params = {'a':1}
 
-        self.assertEqual(MisguidedLearner(MyLearner(),0,0).params,{'a':1,'misguided':(0,0)})
+        self.assertEqual(MisguidedLearner(MyLearner(),0,0).params,{'a':1,'misguided':[0,0]})
 
     def test_request(self):
         request_args = []

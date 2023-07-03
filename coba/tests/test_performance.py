@@ -178,7 +178,7 @@ class Performance_Tests(unittest.TestCase):
         res = Reservoir(2,seed=1)
         x = list(range(500))
 
-        self._assert_scale_time(x, lambda x:list(res.filter(x)), .04, print_time, number=1000)
+        self._assert_scale_time(x, lambda x:list(res.filter(x)), .03, print_time, number=1000)
 
     def test_jsonencode_performance(self):
         enc = JsonEncode()
