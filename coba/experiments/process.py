@@ -129,66 +129,62 @@ class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
 
 class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
 
-    def filter(self, chunks: Iterable[Iterable[Task]]) -> Iterable[Any]:
+    def filter(self, chunk: Iterable[Task]) -> Iterable[Any]:
 
-        for chunk in chunks:
+        chunk = list(chunk)
+        empty_envs = set()
 
-            chunk = list(chunk)
-            empty_envs = set()
+        if not chunk: return
 
-            if not chunk: return
+        if len(chunk) > 1:
+            #We sort to make sure cached envs are grouped. Sorting means we can free envs from memory as we go.
+            chunk = sorted(chunk, key=lambda item: self._env_ids(item)+self._lrn_ids(item), reverse=True)
 
-            if len(chunk) > 1:
-                #We sort to make sure cached envs are grouped. Sorting means we can free envs from memory as we go.
-                chunk = sorted(chunk, key=lambda item: self._env_ids(item)+self._lrn_ids(item), reverse=True)
+        while chunk:
+            try:
+                task = chunk.pop()
 
-            with CobaContext.logger.log(f"Processing chunk..."):
+                env_id,env = (task.env_id,task.env)
+                lrn_id,lrn = (task.lrn_id,task.lrn)
+                val_id,val = (task.val_id,task.val)
 
-                while chunk:
-                    try:
-                        task = chunk.pop()
+                if task.copy: lrn = deepcopy(lrn)
 
-                        env_id,env = (task.env_id,task.env)
-                        lrn_id,lrn = (task.lrn_id,task.lrn)
-                        val_id,val = (task.val_id,task.val)
+                if env and not lrn and not val:
+                    with CobaContext.logger.time(f"Recording Environment {env_id} parameters..."):
+                        yield ["T1", env_id, SafeEnvironment(env).params]
 
-                        if task.copy: lrn = deepcopy(lrn)
+                if lrn and not env and not val:
+                    with CobaContext.logger.time(f"Recording Learner {lrn_id} parameters..."):
+                        yield ["T2", lrn_id, SafeLearner(lrn).params]
 
-                        if env and not lrn and not val:
-                            with CobaContext.logger.time(f"Recording Environment {env_id} parameters..."):
-                                yield ["T1", env_id, SafeEnvironment(env).params]
+                if val and not env and not lrn:
+                    with CobaContext.logger.time(f"Recording Evaluator {val_id} parameters..."):
+                        yield ["T3", val_id, SafeEvaluator(val).params]
 
-                        if lrn and not env and not val:
-                            with CobaContext.logger.time(f"Recording Learner {lrn_id} parameters..."):
-                                yield ["T2", lrn_id, SafeLearner(lrn).params]
+                if env and lrn and val and env_id not in empty_envs:
 
-                        if val and not env and not lrn:
-                            with CobaContext.logger.time(f"Recording Evaluator {val_id} parameters..."):
-                                yield ["T3", val_id, SafeEvaluator(val).params]
+                    with CobaContext.logger.time(f"Peeking at Environment {env_id}..."):
+                        interactions = peek_first(env.read())[1]
 
-                        if env and lrn and val and env_id not in empty_envs:
+                    if not interactions:
+                        CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is likely due to having too few interactions).")
+                        empty_envs.add(env_id)
+                        continue
 
-                            with CobaContext.logger.time(f"Peeking at Environment {env_id}..."):
-                                interactions = peek_first(env.read())[1]
+                    class dummy_env:
+                        _env = env
+                        @property
+                        def params(self): return SafeEnvironment(dummy_env._env).params #pragma: no cover
+                        def read(self): return BatchSafe(Finalize()).filter(interactions)
 
-                            if not interactions:
-                                CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is likely due to having too few interactions).")
-                                empty_envs.add(env_id)
-                                continue
+                    with CobaContext.logger.time(f"Evaluating Learner {lrn_id} on Environment {env_id}..."):
+                        env = dummy_env()
+                        yield ["T4", (env_id, lrn_id, val_id), list(SafeEvaluator(val).evaluate(env,lrn))]
+                        if hasattr(lrn,'finish') and task.copy: lrn.finish()
 
-                            class dummy_env:
-                                _env = env
-                                @property
-                                def params(self): return SafeEnvironment(dummy_env._env).params #pragma: no cover
-                                def read(self): return BatchSafe(Finalize()).filter(interactions)
-
-                            with CobaContext.logger.time(f"Evaluating Learner {lrn_id} on Environment {env_id}..."):
-                                env = dummy_env()
-                                yield ["T4", (env_id, lrn_id, val_id), list(SafeEvaluator(val).evaluate(env,lrn))]
-                                if hasattr(lrn,'finish') and task.copy: lrn.finish()
-
-                    except Exception as e:
-                        CobaContext.logger.log(e)
+            except Exception as e:
+                CobaContext.logger.log(e)
 
     def _env_ids(self, item: Task):
         return (item.env_id if item.env else -1,)

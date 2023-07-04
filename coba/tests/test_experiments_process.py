@@ -346,7 +346,7 @@ class ProcessWorkItems_Tests(unittest.TestCase):
 
         tasks = [Task((1,env1), (1,lrn1), (1,evl1))]
 
-        transactions = list(ProcessTasks().filter([tasks]))
+        transactions = list(ProcessTasks().filter(tasks))
 
         self.assertIs(evl1.observed[0]._env, env1)
         self.assertIs(evl1.observed[1]     , lrn1)
@@ -368,7 +368,7 @@ class ProcessWorkItems_Tests(unittest.TestCase):
             Task((0,sim1), (1,lrn2), (1,val2))
         ]
 
-        transactions = list(ProcessTasks().filter([tasks]))
+        transactions = list(ProcessTasks().filter(tasks))
 
         self.assertIs(val1.observed[0]._env, sim1)
         self.assertIs(val1.observed[1]     , lrn1)
@@ -394,7 +394,7 @@ class ProcessWorkItems_Tests(unittest.TestCase):
 
         tasks = [ Task((0,sim1), (0,lrn1), (0,val1), True), Task((1,sim2), (0,lrn1), (1,val2), True) ]
 
-        list(ProcessTasks().filter([tasks]))
+        list(ProcessTasks().filter(tasks))
 
         self.assertIsNot(val1.observed[1], lrn1)
         self.assertIsNot(val2.observed[1], lrn1)
@@ -413,7 +413,7 @@ class ProcessWorkItems_Tests(unittest.TestCase):
 
         tasks = [ Task((0,sim1), (0,lrn1), (0,task1), False), Task((1,sim2), (0,lrn1), (1,task2), False) ]
 
-        list(ProcessTasks().filter([tasks]))
+        list(ProcessTasks().filter(tasks))
 
         self.assertIs(task1.observed[1], lrn1)
         self.assertIs(task2.observed[1], lrn1)
@@ -427,7 +427,7 @@ class ProcessWorkItems_Tests(unittest.TestCase):
 
         tasks = [ Task((0,src1), (0,lrn1), (0,task1)) ]
 
-        transactions = list(ProcessTasks().filter([tasks]))
+        transactions = list(ProcessTasks().filter(tasks))
 
         self.assertEqual(len(task1.observed), 0)
         self.assertEqual(len(transactions), 0)
@@ -442,18 +442,15 @@ class ProcessWorkItems_Tests(unittest.TestCase):
 
         CobaContext.logger.sink = ListSink()
 
-        tasks = [ Task((0,env1), None, None), Task((0,env1),(0,lrn1), (1,val2)), Task((1,env2),(0,lrn1), (2,val3)) ]
+        tasks = [Task((0,env1), None, None), Task((0,env1),(0,lrn1), (1,val2)), Task((1,env2),(0,lrn1), (2,val3)) ]
 
-        expected_transactions = [
-            ["T4", (1,0,2), [] ]
-        ]
-
-        actual_transactions = list(ProcessTasks().filter([tasks]))
+        expected = [ ["T4", (1,0,2), [] ] ]
+        actual   = list(ProcessTasks().filter(tasks))
 
         self.assertIs(val3.observed[1], lrn1)
-        self.assertEqual(expected_transactions, actual_transactions)
-        self.assertEqual('ExceptionSimulation.params', str(CobaContext.logger.sink.items[3]))
-        self.assertEqual('ExceptionSimulation.read', str(CobaContext.logger.sink.items[6]))
+        self.assertEqual(expected, actual)
+        self.assertEqual('ExceptionSimulation.params', str(CobaContext.logger.sink.items[2]))
+        self.assertEqual('ExceptionSimulation.read', str(CobaContext.logger.sink.items[5]))
 
 if __name__ == '__main__':
     unittest.main()

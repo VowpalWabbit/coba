@@ -12,14 +12,11 @@ from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 
 class OpenmlSemaphoreFilter:
-    def filter(self,items):
-        items = list(items)
-
-        if items:
-            sem = CobaContext.store.get('openml_semaphore')
-            sem.acquire()
-            sem.release()
-            yield from items
+    def filter(self,item):
+        sem = CobaContext.store.get('openml_semaphore')
+        sem.acquire()
+        sem.release()
+        yield item
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -35,20 +32,18 @@ class SleepingFilter(Filter):
         yield second
 
 class ProcessNameFilter(Filter):
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        for item in items:
-            process_name = f"pid-{current_process().pid}"
-            CobaContext.logger.log(process_name)
-            yield process_name
+    def filter(self, item: Iterable[Any]) -> Iterable[Any]:
+        process_name = f"pid-{current_process().pid}"
+        CobaContext.logger.log(process_name)
+        yield process_name
 
 class ExceptionFilter(Filter):
     def __init__(self, exc = Exception("Exception Filter")):
         self._exc = exc
 
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        for _ in items:
-            raise self._exc
-            yield None
+    def filter(self, item: Iterable[Any]) -> Iterable[Any]:
+        raise self._exc
+        yield None
 
 class CobaMultiprocessor_Tests(unittest.TestCase):
 
