@@ -146,14 +146,10 @@ class Experiment:
         else:
             restored = None
 
-        n_given_learners     = len(set([l for _,l,_ in self._triples]))
-        n_given_environments = len(set([e for e,_,_ in self._triples]))
+        n_given_lrns = len(set([l for _,l,_ in self._triples]))
+        n_given_envs = len(set([e for e,_,_ in self._triples]))
 
-        if restored:
-            assert n_given_learners     == restored.experiment.get('n_learners',n_given_learners)        , "The current experiment doesn't match the given transaction log."
-            assert n_given_environments == restored.experiment.get('n_environments',n_given_environments), "The current experiment doesn't match the given transaction log."
-
-        meta = {'n_learners':n_given_learners,'n_environments':n_given_environments,'description':self._description,'seed':seed}
+        meta = {'n_learners':n_given_lrns,'n_environments':n_given_envs,'description':self._description,'seed':seed}
 
         workitems = MakeTasks(self._triples,restored)
         chunker   = ChunkTasks(mt)
@@ -166,13 +162,17 @@ class Experiment:
         preamble  = Identity() if restored else Insert([["T0",meta]])
 
         try:
+            lrn_mismatch = restored and n_given_lrns != restored.experiment.get('n_learners',n_given_lrns)
+            env_mismatch = restored and n_given_envs != restored.experiment.get('n_environments',n_given_envs)
+            if lrn_mismatch or env_mismatch: raise CobaException("The experiment does not match the given logs")
             Pipes.join(workitems, chunker, process, preamble, encode, sink).run()
-            CobaContext.logger.log("Experiment Finished")
         except KeyboardInterrupt: #pragma: no cover
             CobaContext.logger.log("Experiment Aborted (aborted via Ctrl-C)")
         except Exception as ex: #pragma: no cover
             CobaContext.logger.log(ex)
             CobaContext.logger.log("Experiment Failed")
+        else:
+            CobaContext.logger.log("Experiment Finished")
 
         CobaContext.logger = old_logger
         del CobaContext.store['experiment_seed']

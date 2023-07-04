@@ -551,8 +551,9 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(3,exp.maxtasksperchunk)
 
     def test_restore_not_matched_environments(self):
-        path = Path("coba/tests/.temp/experiment.log")
+        
 
+        path = Path("coba/tests/.temp/experiment.log")
         if path.exists(): path.unlink()
         path.write_text('["version",4]\n["experiment",{"n_environments":1,"n_learners":1}]')
 
@@ -562,11 +563,15 @@ class Experiment_Single_Tests(unittest.TestCase):
             lrn1 = ModuloLearner()
             lrn2 = ModuloLearner()
 
-            with self.assertRaises(AssertionError) as e:
-                result = Experiment([env1,env2], [lrn1]).run(str(path))
+            CobaContext.logger = BasicLogger(ListSink())
+            Experiment([env1,env2], [lrn1]).run(str(path))
+            self.assertIn("The experiment does not match the given logs", CobaContext.logger.sink.items[2])
+            self.assertIn("Experiment Failed", CobaContext.logger.sink.items[3])
 
-            with self.assertRaises(AssertionError) as e:
-                result = Experiment([env1], [lrn1,lrn2]).run(str(path))
+            CobaContext.logger = BasicLogger(ListSink())
+            Experiment([env1], [lrn1,lrn2]).run(str(path))
+            self.assertIn("The experiment does not match the given logs", CobaContext.logger.sink.items[2])
+            self.assertIn("Experiment Failed", CobaContext.logger.sink.items[3])
 
         finally:
             path.unlink()
