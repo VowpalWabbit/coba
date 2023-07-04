@@ -24,7 +24,7 @@ from coba.environments.synthetics import KernelSyntheticSimulation, MLPSynthetic
 from coba.environments.supervised import SupervisedSimulation
 
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
-from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch, Slice
+from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Reservoir, Cycle, Scale, Unbatch, Slice
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.filters   import MappingToInteraction, OpeRewards
 
@@ -269,7 +269,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     def sparse(self, context:bool = True, action:bool = False) -> 'Environments':
         """Convert an environment from a dense representation to sparse. This has little utility beyond debugging."""
-        return self.filter(Sparse(context,action))
+        return self.filter(Sparsify(context,action))
 
     @overload
     def shuffle(self, seed: int = 1) -> 'Environments':

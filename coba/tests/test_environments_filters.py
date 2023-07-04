@@ -14,7 +14,7 @@ from coba.learners     import FixedLearner
 from coba.utilities    import peek_first
 
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-from coba.environments.filters    import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
+from coba.environments.filters    import Sparsify, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice
 from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable, OpeRewards
 
@@ -1246,7 +1246,7 @@ class Binary_Tests(unittest.TestCase):
 class Sparse_Tests(unittest.TestCase):
     def test_sparse_simulated_no_context_and_action(self):
 
-        sparse_interactions = list(Sparse(action=True).filter([SimulatedInteraction(None, [1,2], [0,1]) ]))
+        sparse_interactions = list(Sparsify(action=True).filter([SimulatedInteraction(None, [1,2], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual(None, sparse_interactions[0]['context'])
@@ -1255,7 +1255,7 @@ class Sparse_Tests(unittest.TestCase):
 
     def test_sparse_simulated_str_context(self):
 
-        sparse_interactions = list(Sparse().filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
+        sparse_interactions = list(Sparsify().filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual({'context':"a"}, sparse_interactions[0]['context'])
@@ -1264,7 +1264,7 @@ class Sparse_Tests(unittest.TestCase):
 
     def test_sparse_simulated_str_not_context_not_action(self):
 
-        sparse_interactions = list(Sparse(context=False).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
+        sparse_interactions = list(Sparsify(context=False).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual("a", sparse_interactions[0]['context'])
@@ -1273,7 +1273,7 @@ class Sparse_Tests(unittest.TestCase):
 
     def test_sparse_simulated_with_sparse_actions(self):
 
-        sparse_interactions = list(Sparse(context=False,action=True).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
+        sparse_interactions = list(Sparsify(context=False,action=True).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual("a", sparse_interactions[0]['context'])
@@ -1282,41 +1282,50 @@ class Sparse_Tests(unittest.TestCase):
 
     def test_sparse_simulated_tuple_context(self):
 
-        sparse_interactions = list(Sparse().filter([SimulatedInteraction((1,2,3), [{1:2},{3:4}], [0,1]) ]))
+        sparse_interactions = list(Sparsify().filter([SimulatedInteraction((1,2,3), [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
-        self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0]['context'])
+        self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
     def test_sparse_logged_tuple_context_and_action(self):
 
-        sparse_interactions = list(Sparse(action=True).filter([LoggedInteraction((1,2,3), 2, 0)]))
+        sparse_interactions = list(Sparsify(action=True).filter([LoggedInteraction((1,2,3), 2, 0)]))
 
         self.assertEqual(1, len(sparse_interactions))
-        self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0]['context'])
+        self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
         self.assertEqual({'action':2}, sparse_interactions[0]['action'])
         self.assertEqual(0, sparse_interactions[0]['reward'])
 
     def test_sparse_logged_tuple_context_and_not_action(self):
 
-        sparse_interactions = list(Sparse().filter([LoggedInteraction((1,2,3), 2, 0)]))
+        sparse_interactions = list(Sparsify().filter([LoggedInteraction((1,2,3), 2, 0)]))
 
         self.assertEqual(1, len(sparse_interactions))
-        self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0]['context'])
+        self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
         self.assertEqual(2, sparse_interactions[0]['action'])
         self.assertEqual(0, sparse_interactions[0]['reward'])
 
     def test_sparse_context_with_header(self):
 
         context = HeadDense([1,2,3],{'a':0,'b':1,'c':2})
-        sparse_interactions = list(Sparse().filter([{'context':context}]))
+        sparse_interactions = list(Sparsify().filter([{'context':context}]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual({'a':1,'b':2,'c':3}, sparse_interactions[0]['context'])
 
+    def test_sparse_context_without_header(self):
+
+        context = LazyDense([1,2,3])
+        sparse_interactions = list(Sparsify().filter([{'context':context}]))
+
+        self.assertEqual(1, len(sparse_interactions))
+        self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
+
+
     def test_params(self):
-        self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
+        self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparsify().params)
 
 class Noise_Tests(unittest.TestCase):
 

@@ -405,11 +405,8 @@ class Impute(EnvironmentFilter):
         except:
             return None
 
-class Sparse(EnvironmentFilter):
-    """Sparsify an environment's feature representation.
-
-    This has little utility beyond debugging.
-    """
+class Sparsify(EnvironmentFilter):
+    """Sparsify an environment's feature representation."""
 
     def __init__(self, context:bool = True, action:bool = False):
         """Instantiate a Sparse filter.
@@ -445,18 +442,24 @@ class Sparse(EnvironmentFilter):
                 new['actions'] = list(map(self._make_sparse,new['actions'],repeat(actions_has_headers),repeat('action')))
 
             if self._action and 'action' in new:
-                new['action'] = self._make_sparse(new['action'],action_has_headers, 'action')
+                new['action'] = self._make_sparse(new['action'],action_has_headers,'action')
 
             yield new
 
     def _make_sparse(self, value, has_headers:bool, default_header:str) -> Optional[dict]:
         if value is None:
             return value
+
         if isinstance(value,primitives.Dense):
-            value_list = list(value)
-            return {k:value_list[i] for k,i in value.headers.items() if i < len(value_list) and value_list[i] != 0} if has_headers else {k:v for k,v in enumerate(value) if v != 0 }
+            if has_headers:
+                value_list = list(value)
+                return {k:value_list[i] for k,i in value.headers.items() if i < len(value_list) and value_list[i] != 0}
+            else:
+                return {str(k):v for k,v in enumerate(value) if v != 0 }
+
         if isinstance(value,primitives.Sparse):
             return value
+
         return {default_header:value}
 
 class Cycle(EnvironmentFilter):
