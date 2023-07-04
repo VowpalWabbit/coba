@@ -17,7 +17,7 @@ class EnvironmentToAndFromBytes_Tests(unittest.TestCase):
                 yield {'b':2}
 
         input_env  = SimpleEnvironment()
-        output_env = EnvironmentFromObjects(IterableSource(list(next(EnvironmentsToObjects().filter([input_env])))))
+        output_env = EnvironmentFromObjects(IterableSource(list(next(EnvironmentsToObjects().filter(input_env)))))
 
         self.assertEqual(input_env.params, output_env.params)
         self.assertEqual(list(input_env.read()), list(output_env.read()))
