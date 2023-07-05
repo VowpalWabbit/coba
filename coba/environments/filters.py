@@ -1234,26 +1234,29 @@ class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
 
 class OpeRewards(EnvironmentFilter):
 
-    def __init__(self, rwds_type:Literal['IPS','DM','DR']=None):
-        if rwds_type in ['DM','DR']:
+    def __init__(self, rwd_type:Literal['IPS','DM','DR']=None):
+        if rwd_type in ['DM','DR']:
             PackageChecker.vowpalwabbit("Rewards.__init__")
-        self._rwds_type = rwds_type
+        self._rwd_type = rwd_type
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'ope_reward': self._rwds_type or 'None'}
+        return {'ope_reward': self._rwd_type or 'None'}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        if self._rwds_type is None:
+        interactions = list(interactions)
+        rwd_type = self._rwd_type
+
+        if rwd_type is None:
             yield from interactions
 
-        elif self._rwds_type == "IPS":
+        elif rwd_type == "IPS":
             for log in interactions:
                 log = log.copy()
                 log['rewards'] = IPSReward(log['reward'], log['action'], log.get('probability'))
                 yield log
 
-        elif self._rwds_type in ["DM","DR"]:
+        elif rwd_type in ["DM","DR"]:
             from coba.learners.vowpal import VowpalMediator
 
             rng = CobaRandom(1)
@@ -1276,45 +1279,23 @@ class OpeRewards(EnvironmentFilter):
                 #correlation is strong, we will over estimate
                 #the downstream VW learner's performance.
                 L = list(islice(interactions,4000))
-                R = [ [] for _ in range(len(L)) ]
-                X = []
 
                 if not L: break
 
-                for log, rewards in rng.shuffle(list(zip(L,R)), inplace=True):
-                    log_context = log['context']
-                    log_action  = log['action']
-                    log_reward  = log['reward']
-                    log_prob    = log['probability']
+                for log in rng.shuffle(L):
+                    features = {"x": log['context'], "a": log['action']}
+                    label    = f"{log['reward']} {1/(log['probability'] or 1)}"
+                    vw.learn(vw.make_example(features,label))
 
-                    #type-4
-                    #labels            = [None]*len(log_actions)
-                    #labels[log_index] = f"{log_index+1}:{log_reward}:{log_prob}"
-                    #vw.learn(vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions], labels))
+                for log in L:
 
-                    #type-1
-                    vw.learn(vw.make_example({"x":log_context, "a": log_action}, f"{log_reward} {1/log_prob}"))
+                    examples = vw.make_examples({"x":log['context']}, [{"a":a} for a in log['actions']])
+                    rewards = list(map(vw.predict,examples))
 
-                for log, rewards in rng.shuffle(list(zip(L,R)), inplace=True):
-                    log_context = log['context']
-                    log_actions = log['actions']
-                    log_action  = log['action']
-                    log_reward  = log['reward']
-                    log_prob    = log['probability']
-                    log_index   = log_actions.index(log_action)
+                    if rwd_type=="DR":
+                        log_index = log['actions'].index(log['action'])
+                        rewards[log_index] += (log['reward']-rewards[log_index])/(log['probability'] or 1)
 
-                    #type-4
-                    #examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions])
-                    #rewards.extend(vw.predict(examples))
-
-                    #type-1
-                    examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions])
-                    rewards.extend(vw.predict(e) for e in examples)
-
-                    if self._rwds_type=="DR":
-                        rewards[log_index] = rewards[log_index] + (log_reward-rewards[log_index])/log_prob
-
-                for log,rewards in zip(L,R):
                     log = log.copy()
 
                     try:
