@@ -95,7 +95,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(i:int,c:int,a:int):
             return a-c
 
-        self.assertEqual({"type": "LambdaSimulation"}, LambdaSimulation(2,C,A,R).params)
+        self.assertEqual({"env_type": "LambdaSimulation"}, LambdaSimulation(2,C,A,R).params)
 
     def test_pickle_n_interactions_2(self):
         def C(i:int):
@@ -111,7 +111,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         interactions = list(simulation.read())
 
         self.assertEqual("LambdaSimulation",str(simulation))
-        self.assertEqual({"type": "LambdaSimulation"}, simulation.params)
+        self.assertEqual({"env_type": "LambdaSimulation"}, simulation.params)
 
         self.assertEqual(len(interactions), 2)
 
@@ -435,7 +435,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         env = KernelSyntheticSimulation(20,n_exemplars=10,kernel='exponential',seed=2)
 
         expected = {
-            'type'       : "KernelSynthetic",
+            'env_type'   : "KernelSynthetic",
             'seed'       : 2,
             'n_exemplars': 10,
             'kernel'     : 'exponential',
@@ -450,7 +450,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         env = KernelSyntheticSimulation(20,n_exemplars=10,kernel='gaussian',seed=2)
 
         expected = {
-            'type'       : "KernelSynthetic",
+            'env_type'   : "KernelSynthetic",
             'seed'       : 2,
             'n_exemplars': 10,
             'kernel'     : 'gaussian',
@@ -464,7 +464,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         env = KernelSyntheticSimulation(20,n_exemplars=10,seed=2,kernel='polynomial',degree=3)
 
         expected = {
-            'type'       : "KernelSynthetic",
+            'env_type'   : "KernelSynthetic",
             'seed'       : 2,
             'n_exemplars': 10,
             'kernel'     : 'polynomial',
@@ -478,7 +478,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         env = KernelSyntheticSimulation(20,n_exemplars=10,seed=2,kernel='linear')
 
         expected = {
-            'type'       : "KernelSynthetic",
+            'env_type'   : "KernelSynthetic",
             'seed'       : 2,
             'n_exemplars': 10,
             'kernel'     : 'linear',

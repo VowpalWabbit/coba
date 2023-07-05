@@ -2,7 +2,7 @@
 import unittest
 
 from coba.pipes.rows import EncodeRows, HeadRows, LabelRows, DropRows, EncodeCatRows, Categorical
-from coba.pipes.rows import LazyDense, EncodeDense, HeadDense, LabelDense, KeepDense
+from coba.pipes.rows import LazyDense, EncodeDense, HeadDense, LabelDense, KeepDense, SparseDense
 from coba.pipes.rows import LazySparse, EncodeSparse, HeadSparse, LabelSparse, DropSparse, DropOne
 
 class EncodeCatRows_Tests(unittest.TestCase):
@@ -153,7 +153,7 @@ class EncodeRows_Tests(unittest.TestCase):
         self.assertEqual([], EncodeRows([int,str]).filter([]))
 
 class HeadRows_Tests(unittest.TestCase):
-    
+
     def test_list(self):
         row = next(HeadRows(['a','b']).filter([[1,2]]))
         self.assertEqual(row.headers, {'a':0,'b':1})
@@ -161,7 +161,7 @@ class HeadRows_Tests(unittest.TestCase):
         self.assertEqual(2, row['b'])
         self.assertEqual(1, row[0])
         self.assertEqual(2, row[1])
-    
+
     def test_dict(self):
         row = next(HeadRows({'a':0,'b':1}).filter([{0:1,1:2}]))
         self.assertCountEqual(['a','b'], list(row))
@@ -170,7 +170,7 @@ class HeadRows_Tests(unittest.TestCase):
         self.assertEqual(2, row['b'])
 
 class LabelRows_Tests(unittest.TestCase):
-    
+
     def test_lazy_dense(self):
         row = next(LabelRows(1,'c').filter([LazyDense([1,2,3])]))
         self.assertEqual([1,2,3],row)
@@ -200,7 +200,7 @@ class LabelRows_Tests(unittest.TestCase):
         row = next(LabelRows('b','c').filter([{'a':1,'b':2}]))
         self.assertEqual({'a':1,'b':2},row)
         self.assertEqual(({'a':1},2,'c'),row.labeled)
-    
+
     def test_dict_with_encode(self):
         row = next(LabelRows('b','c').filter([{'a':1,'b':2}]))
         self.assertEqual({'a':1,'b':2},row)
@@ -362,29 +362,6 @@ class LazyDense_Tests(unittest.TestCase):
         self.assertNotEqual([1,2],LazyDense(lambda:[1,2,3]))
         self.assertNotEqual(1,LazyDense(lambda:[1,2,3]))
 
-class HeadDense_Tests(unittest.TestCase):
-
-    def test_get(self):
-        r = HeadDense([1,2,3], {'a':0,'b':1,'c':2})
-        self.assertEqual(1,r["a"])
-        self.assertEqual(2,r["b"])
-        self.assertEqual(3,r["c"])
-        self.assertEqual(1,r[0])
-        self.assertEqual(2,r[1])
-        self.assertEqual(3,r[2])
-
-    def test_iter(self):
-        r = HeadDense([1,2,3], ['a','b','c'])
-        self.assertEqual([1,2,3],list(r))
-
-    def test_len(self):
-        r = HeadDense([1,2,3], ['a','b','c'])
-        self.assertEqual(3,len(r))
-
-    def test_eq(self):
-        r = HeadDense([1,2,3], ['a','b','c'])
-        self.assertEqual([1,2,3],r)
-
 class EncodeDense_Tests(unittest.TestCase):
 
     def test_get(self):
@@ -412,6 +389,71 @@ class EncodeDense_Tests(unittest.TestCase):
         self.assertEqual(3,r[2])
         self.assertEqual([1,2,3],r)
         self.assertEqual([1,2,3],list(r))
+
+class HeadDense_Tests(unittest.TestCase):
+
+    def test_get(self):
+        r = HeadDense([1,2,3], {'a':0,'b':1,'c':2})
+        self.assertEqual(1,r["a"])
+        self.assertEqual(2,r["b"])
+        self.assertEqual(3,r["c"])
+        self.assertEqual(1,r[0])
+        self.assertEqual(2,r[1])
+        self.assertEqual(3,r[2])
+
+    def test_iter(self):
+        r = HeadDense([1,2,3], ['a','b','c'])
+        self.assertEqual([1,2,3],list(r))
+
+    def test_len(self):
+        r = HeadDense([1,2,3], ['a','b','c'])
+        self.assertEqual(3,len(r))
+
+    def test_eq(self):
+        r = HeadDense([1,2,3], ['a','b','c'])
+        self.assertEqual([1,2,3],r)
+
+class LabelDense_Tests(unittest.TestCase):
+
+    @unittest.skip("This functionality was removed for performance reasons")
+    def test_header_get(self):
+        r = LabelDense(HeadDense([1,2,3],['a','b','c']), 1, 'c', 'b')
+        self.assertEqual(1, r[0])
+        self.assertEqual(2, r[1])
+        self.assertEqual(3, r[2])
+        self.assertEqual(1, r['a'])
+        self.assertEqual(2, r['b'])
+        self.assertEqual(3, r['c'])
+
+    @unittest.skip("This functionality was removed for performance reasons")
+    def test_header_labeled(self):
+        r = LabelDense(HeadDense([1,2,3],['a','b','c']), 1, 'c', 'b')
+        feats,label,tipe = r.labeled
+
+        self.assertEqual(([1,3],2,'c'),(feats,label,tipe))
+        self.assertEqual(3, feats[1])
+        self.assertEqual(1, feats['a'])
+        self.assertEqual(3, feats['c'])
+        with self.assertRaises(KeyError):
+            feats['b']
+
+    def test_get(self):
+        r = LabelDense([1,2,3],1,'c')
+        self.assertEqual(r[0],1)
+        self.assertEqual(r[1],2)
+        self.assertEqual(r[2],3)
+
+    def test_labeled(self):
+        self.assertEqual(([1,2],3,'c'),LabelDense([1,2,3], 2, 'c').labeled)
+
+    def test_iter(self):
+        self.assertEqual([1,2,3], list(LabelDense([1,2,3],  2, 'c')))
+
+    def test_len(self):
+        self.assertEqual(3, len(LabelDense([1,2,3], 2, 'c')))
+
+    def test_eq(self):
+        self.assertEqual([1,2,3], LabelDense([1,2,3], 2, 'c'))
 
 class KeepDense_Tests(unittest.TestCase):
 
@@ -445,47 +487,66 @@ class KeepDense_Tests(unittest.TestCase):
         r = KeepDense([1,2,3], [0,2], [True,False,True], 2, None)
         self.assertEqual([1,3],r)
 
-class LabelDense_Tests(unittest.TestCase):
+class SparseDense_Tests(unittest.TestCase):
 
-    @unittest.skip("This functionality was removed for performance reasons")
-    def test_header_get(self):
-        r = LabelDense(HeadDense([1,2,3],['a','b','c']), 1, 'c', 'b') 
-        self.assertEqual(1, r[0])
-        self.assertEqual(2, r[1])
-        self.assertEqual(3, r[2])
-        self.assertEqual(1, r['a'])
-        self.assertEqual(2, r['b'])
-        self.assertEqual(3, r['c'])
+    def test_getitem(self):
+        row = SparseDense({1:2},3)
 
-    @unittest.skip("This functionality was removed for performance reasons")
-    def test_header_labeled(self):
-        r = LabelDense(HeadDense([1,2,3],['a','b','c']), 1, 'c', 'b')
-        feats,label,tipe = r.labeled
-        
-        self.assertEqual(([1,3],2,'c'),(feats,label,tipe))
-        self.assertEqual(3, feats[1])
-        self.assertEqual(1, feats['a'])
-        self.assertEqual(3, feats['c'])
-        with self.assertRaises(KeyError):
-            feats['b']
+        self.assertEqual(0,row[0])
+        self.assertEqual(2,row[1])
+        self.assertEqual(0,row[2])
+        self.assertEqual(0,row[-1])
+        self.assertEqual(2,row[-2])
+        self.assertEqual(0,row[-3])
 
-    def test_get(self):
-        r = LabelDense([1,2,3],1,'c')
-        self.assertEqual(r[0],1)
-        self.assertEqual(r[1],2)
-        self.assertEqual(r[2],3)
+        with self.assertRaises(IndexError):
+            row[4]
 
-    def test_labeled(self):
-        self.assertEqual(([1,2],3,'c'),LabelDense([1,2,3], 2, 'c').labeled)
+        with self.assertRaises(IndexError):
+            row[-4]
+
+    def test_setitem(self):
+        row    = SparseDense({1:2},3)
+        row[0] = 3
+
+        self.assertEqual(3,row[0])
+        self.assertEqual(2,row[1])
+
+        row     = SparseDense({1:2},3)
+        row[-2] = 3
+
+        self.assertEqual(0,row[0])
+        self.assertEqual(3,row[1])
+
+        with self.assertRaises(IndexError):
+            row[4] = 3
+
+        with self.assertRaises(IndexError):
+            row[-4] = 3
+
 
     def test_iter(self):
-        self.assertEqual([1,2,3], list(LabelDense([1,2,3],  2, 'c')))
+        row = SparseDense({5:3,1:2},10)
+
+        expected    = [0]*10
+        expected[1] = 2
+        expected[5] = 3
+
+        self.assertEqual(expected,list(row))
+
+    def test_copy(self):
+        row = SparseDense({1:2},3)
+        copy = row.copy()
+
+        self.assertIsNot(row,copy)
+
+        copy[2] = 5
+
+        self.assertEqual(5, copy[2])
+        self.assertEqual(0, row[2])
 
     def test_len(self):
-        self.assertEqual(3, len(LabelDense([1,2,3], 2, 'c')))
-
-    def test_eq(self):
-        self.assertEqual([1,2,3], LabelDense([1,2,3], 2, 'c'))
+        self.assertEqual(2,len(SparseDense({1:1},2)))
 
 class LazySparse_Tests(unittest.TestCase):
 
@@ -526,7 +587,7 @@ class LazySparse_Tests(unittest.TestCase):
     def test_keys(self):
         l = LazySparse(lambda:{'a':1,'b':2})
         self.assertEqual(l.keys(), {'a', 'b'})
-    
+
     def test_items(self):
         l = LazySparse(lambda:{'a':1,'b':2})
         self.assertEqual((('a',1),('b',2)),l.items())
@@ -593,7 +654,7 @@ class EncodeSparse_Tests(unittest.TestCase):
     def test_get_with_non_zero_sparse_encoding(self):
         r = EncodeSparse({0:'1',1:2}, {0:int,1:str,2:str}, {1,2})
         self.assertEqual(1  ,r[0])
-        self.assertEqual('2',r[1]) 
+        self.assertEqual('2',r[1])
         self.assertEqual('0',r[2])
 
     def test_len(self):
@@ -636,8 +697,8 @@ class DropSparse_Tests(unittest.TestCase):
 
     def test_get(self):
         r = DropSparse({0:'1',1:2}, {0,5})
-        self.assertEqual(2,r[1]) 
-        
+        self.assertEqual(2,r[1])
+
         with self.assertRaises(KeyError):
             r[0]
 

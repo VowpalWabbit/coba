@@ -9,7 +9,7 @@ from typing import Iterable, Any
 from coba.exceptions import CobaException
 from coba.pipes import Filter, ListSink, Identity, QueueSink, IterableSource, QueueSource
 
-from coba.pipes.multiprocessing import Multiprocessor, AsyncableLine, Unchunker, Pickler, Unpickler, EventSetter
+from coba.pipes.multiprocessing import Multiprocessor, AsyncableLine, Pickler, Unpickler, EventSetter
 
 spawn_context = mp.get_context("spawn")
 
@@ -30,20 +30,15 @@ class ParamsFilter(Filter):
 
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        try:
-            for item in items:
-                yield f"pid-{spawn_context.current_process().pid}"
-        except Exception as e:
-            raise
+        return f"pid-{spawn_context.current_process().pid}"
 
 class BarrierNameFilter(Filter):
     def __init__(self, n):
         self._barrier = spawn_context.Barrier(n)
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        for item in items:
-            self._barrier.wait()
-            yield f"pid-{spawn_context.current_process().pid}"
+        self._barrier.wait()
+        yield f"pid-{spawn_context.current_process().pid}"
 
 class ExceptionFilter(Filter):
     def __init__(self, exc = Exception("Exception Filter")):
@@ -63,28 +58,20 @@ class EventFilter:
 class Multiprocessor_Tests(unittest.TestCase):
 
     def test_single_process(self):
-        items = list(Multiprocessor(Identity(), 1, None, False).filter([[0,1,2,3]]))
+        items = list(Multiprocessor(Identity(), 1, None).filter([[0,1,2,3]]))
         self.assertEqual(items, [[0,1,2,3]])
-
-    def test_chunk_false(self):
-        items = list(Multiprocessor(Identity(), 1, 1, False).filter([[0,1,2,3]]))
-        self.assertEqual(items, [[0,1,2,3]])
-
-    def test_chunk_true(self):
-        items = list(Multiprocessor(Identity(), 1, 1, True).filter([[0,1,2,3]]))
-        self.assertEqual(items, [0,1,2,3])
 
     def test_params(self):
         expected = ParamsFilter().params
-        actual   = Multiprocessor(ParamsFilter(), 1, 1, False).params
+        actual   = Multiprocessor(ParamsFilter(), 1, 1).params
         self.assertEqual(expected,actual)
 
     def test_singleprocess_singleperchild(self):
-        items = list(Multiprocessor(ProcessNameFilter(), 1, 1, False).filter([0,1,2,3]))
+        items = list(Multiprocessor(ProcessNameFilter(), 1, 1).filter([0,1,2,3]))
         self.assertEqual(len(set(items)), 4)
 
     def test_singleprocess_multiperchild(self):
-        items = list(Multiprocessor(ProcessNameFilter(), 1, 0, False).filter(range(4)))
+        items = list(Multiprocessor(ProcessNameFilter(), 1, 0).filter(range(4)))
         self.assertEqual(len(set(items)), 1)
 
     def test_multiprocess_singleperchild(self):
@@ -113,7 +100,7 @@ class Multiprocessor_Tests(unittest.TestCase):
 
     def test_class_definitions_not_loaded_in_main(self):
 
-        #this makes Test picklable but not loadable by the process 
+        #this makes Test picklable but not loadable by the process
         global Test
         class Test:
             pass
@@ -124,7 +111,7 @@ class Multiprocessor_Tests(unittest.TestCase):
         self.assertIn("unable to find", str(e.exception))
 
 class ProcessLine_Tests(unittest.TestCase):
-    
+
     def setUp(self) -> None:
         self.mode = 'process'
 
@@ -138,7 +125,7 @@ class ProcessLine_Tests(unittest.TestCase):
 
         pipeline = AsyncableLine(QueueSource(queue1), QueueSink(queue2,True))
         proc     = pipeline.run_async(mode=self.mode)
-        
+
         proc.join()
 
         self.assertEqual([1,2], [queue2.get(True),queue2.get(True)])
@@ -149,7 +136,7 @@ class ProcessLine_Tests(unittest.TestCase):
 
     def test_run_async_process_with_callback(self):
         queue  = spawn_context.Queue()
-        event  = mt.Event() 
+        event  = mt.Event()
         holder = []
 
         def callback(item):
@@ -158,10 +145,10 @@ class ProcessLine_Tests(unittest.TestCase):
 
         pipeline = AsyncableLine(IterableSource([1,2]), QueueSink(queue,True))
         proc     = pipeline.run_async(callback=callback,mode=self.mode)
-        
+
         proc.join()
         event.wait()
-        
+
         self.assertEqual([1,2], [queue.get(True),queue.get(True)])
         self.assertEqual(None, holder[0])
         self.assertIsNone(proc.exception)
@@ -211,19 +198,9 @@ class ProcessLine_Tests(unittest.TestCase):
             AsyncableLine(IterableSource([1,2]), ListSink()).run_async(None,mode="foobar")
 
 class ThreadLine_Tests(ProcessLine_Tests):
-    
+
     def setUp(self) -> None:
         self.mode = 'thread'
-
-class Unchunker_Tests(unittest.TestCase):
-
-    def test_chunked(self):
-        unchunker = Unchunker(True)
-        self.assertEqual(list(unchunker.filter([[1,2,3],[4,5,6]])), [1,2,3,4,5,6])
-
-    def test_not_chunked(self):
-        unchunker = Unchunker(False)
-        self.assertEqual(list(unchunker.filter([[1,2,3],[4,5,6]])), [[1,2,3],[4,5,6]])
 
 class Pickler_Tests(unittest.TestCase):
 
@@ -237,7 +214,7 @@ class Unpickler_Tests(unittest.TestCase):
 
 class EventSetter_Tests(unittest.TestCase):
     def test_simple(self):
-        event = mt.Event()    
+        event = mt.Event()
         setter = EventSetter(event)
 
         self.assertFalse(event.is_set())

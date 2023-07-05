@@ -292,7 +292,7 @@ class ExplorationEvaluator(Evaluator):
             ope: Indicates whether off-policy estimates should be included from rejected training examples.
             qpct: The unbiased case is q = 0. Smaller values give better estimates but reject more data.
             cmax: The maximum value that the evaluator is allowed to use for `c` (the rejection sampling multiplier).
-                To get an unbiased estimate we need a `c` value such that c*on_prob/log_prob <= 1 for all 
+                To get an unbiased estimate we need a `c` value such that c*on_prob/log_prob <= 1 for all
                 on_prob/log_prob. The value `cmax` determines the maximum value `c` can be in order to guarantee `c`
                 will be an unbiased estimate. In practice, it is often better to not modify this value and instead
                 change `qpct` to control the biasedness of the estimate.

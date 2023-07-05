@@ -33,7 +33,7 @@ class ConsoleSink_Tests(unittest.TestCase):
             ConsoleSink().write("abc")
             mock.assert_called_with("abc")
 
-class DiskIO_Tests(unittest.TestCase):
+class DiskSink_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
         if Path("coba/tests/.temp/test.log").exists(): Path("coba/tests/.temp/test.log").unlink()

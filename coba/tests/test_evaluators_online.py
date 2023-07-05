@@ -430,9 +430,9 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
             SimulatedInteraction(1, ["action_1", "action_2", "action_3"], [1,0,0]),
             SimulatedInteraction(2, ["action_1", "action_2", "action_3"], [0,0,2]),
         ]
-        
+
         results = list(task.evaluate(SimpleEnvironment(Batch(2).filter(interactions)), learner))
-        
+
         self.assertEqual(2, len(results))
         self.assertEqual(1,results[0]['reward'])
         self.assertEqual(2,results[1]['reward'])
@@ -787,7 +787,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
                 pass
 
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ] * 6
-        
+
         with self.assertRaises(CobaException) as e:
             list(ExplorationEvaluator().evaluate(SimpleEnvironment(interactions),TestLearner()))
 

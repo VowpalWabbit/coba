@@ -518,11 +518,27 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).sparse(False,True)
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(False, envs[0].params['sparse_C'])
-        self.assertEqual(True , envs[0].params['sparse_A'])
+        self.assertEqual(False, envs[0].params['sparse_c'])
+        self.assertEqual(True , envs[0].params['sparse_a'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(False, envs[1].params['sparse_C'])
-        self.assertEqual(True, envs[1].params['sparse_A'])
+        self.assertEqual(False, envs[1].params['sparse_c'])
+        self.assertEqual(True, envs[1].params['sparse_a'])
+
+    def test_dense(self):
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).dense(10,'hashing',False,True)
+        self.assertEqual(2   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(10, envs[0].params['dense_n'])
+        self.assertEqual('hashing', envs[0].params['dense_m'])
+        self.assertEqual(False, envs[0].params['dense_c'])
+        self.assertEqual(True , envs[0].params['dense_a'])
+        self.assertEqual('B' , envs[1].params['id'])
+        self.assertEqual(10, envs[1].params['dense_n'])
+        self.assertEqual('hashing', envs[1].params['dense_m'])
+        self.assertEqual(False, envs[1].params['dense_c'])
+        self.assertEqual(True, envs[1].params['dense_a'])
+
+        self.assertIsNot(envs[0][-1],envs[1][-1])
 
     def test_take(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).take(1)

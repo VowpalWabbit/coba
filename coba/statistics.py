@@ -1,8 +1,8 @@
-from math import hypot, isnan, erf, sqrt
+from math import hypot, isnan, erf, sqrt, fsum
 from sys import version_info
 from operator import mul, sub
-from bisect import bisect_left 
-from itertools import repeat, accumulate
+from bisect import bisect_left
+from itertools import repeat, accumulate, compress
 from abc import abstractmethod, ABC
 from typing import Sequence, Tuple, Union, Callable
 from coba.backports import Literal
@@ -20,7 +20,18 @@ def iqr(values: Sequence[float]) -> float:
 
     return p75-p25
 
-def weighted_percentile(values: Sequence[float], weights: Sequence[float], percentiles: Union[float,Sequence[float]], sort: bool = True) -> Union[float, Tuple[float,...]]:
+def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]], weights: Sequence[float] = None, sort: bool = True) -> Union[float, Tuple[float,...]]:
+
+    if len(values) == 1:
+        if isinstance(percentiles,int):
+            return values[0]
+        else:
+            return list(values)*len(percentiles)
+
+    if weights:
+        VW = compress(zip(values,weights),weights)
+    else:
+        VW = zip(values,repeat(1))
 
     def _percentile(values: Sequence[float], weights:Sequence[float], percentile: float) -> float:
         assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
@@ -38,9 +49,11 @@ def weighted_percentile(values: Sequence[float], weights: Sequence[float], perce
         return LP*values[L] + (1-LP)*values[R]
 
     if sort:
-        values, weights = zip(*sorted(zip(values,weights)))
+        values, weights = zip(*sorted(VW))
+    else:
+        values, weights = zip(*VW)
 
-    weights = (0,)+weights[1:]
+    weights    = (0,)+weights[1:]
     weight_sum = sum(weights)
     weights    = [w/weight_sum for w in accumulate(weights) ]
 
@@ -49,35 +62,13 @@ def weighted_percentile(values: Sequence[float], weights: Sequence[float], perce
     else:
         return tuple([_percentile(values, weights, p) for p in percentiles ])
 
-def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]], sort: bool = True) -> Union[float, Tuple[float,...]]:
-
-    def _percentile(values: Sequence[float], percentile: float) -> float:
-        assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
-
-        i = percentile*(len(values)-1)
-        I = int(i)
-
-        if i == I:
-            return values[I]
-        else:
-            w = (i-I)
-            return (1-w)*values[I] + w*values[I+1]
-
-    if sort:
-        values = sorted(values)
-
-    if isinstance(percentiles,(float,int)):
-        return _percentile(values, percentiles)
-    else:
-        return tuple([_percentile(values, p) for p in percentiles ])
-
 def phi(x: float) -> float:
     'Cumulative distribution function for the standard normal distribution'
     return (1.0 + erf(x / sqrt(2.0))) / 2.0
 
 def mean(sample: Sequence[float]) -> float:
     #If precision is needed use a true statistics package
-    return sum(sample)/len(sample)
+    return fsum(sample)/len(sample)
 
 def var(sample: Sequence[float]) -> float:
     n = len(sample)

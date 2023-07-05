@@ -28,16 +28,33 @@ class Evaluator(ABC):
         """
         ...
 
-class LambdaEvaluator(Evaluator):
-    def __init__(self, func: Callable[[Optional[Environment],Optional[Learner]], Union[Mapping, Iterable[Mapping]]]) -> None:
-        self._func = func
+class SafeEvaluator(Evaluator):
+    def __init__(self, evaluator: Union[Evaluator, Callable[[Environment,Learner], Union[Mapping, Iterable[Mapping]]]]) -> None:
+        self.evaluator = evaluator if not isinstance(evaluator, SafeEvaluator) else evaluator.evaluator
+
+    @property
+    def params(self):
+        try:
+            params = self.evaluator.params
+        except:
+            params = {}
+
+        if type(self.evaluator).__name__ == 'function':
+            params['eval_type'] = self.evaluator.__name__
+        else:
+            params['eval_type'] = type(self.evaluator).__name__
+
+        return params
 
     def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Union[Mapping, Iterable[Mapping]]:
-        return self._func(environment,learner)
+        if callable(self.evaluator):
+            return self.evaluator(environment,learner)
+        else:
+            return self.evaluator.evaluate(environment,learner)
 
 def get_ope_loss(learner) -> float:
     # OPE loss metric is only available for VW models
     try:
-        return learner._learner._vw._vw.get_sum_loss()
+        return learner.learner._vw._vw.get_sum_loss()
     except AttributeError:
         return float("nan")

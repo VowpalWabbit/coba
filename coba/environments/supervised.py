@@ -177,7 +177,7 @@ class SupervisedSimulation(Environment):
 
         self._label_type = label_type
         self._source     = source
-        self._params     = {**params, "label_type": self._label_type, "type": "SupervisedSimulation" }
+        self._params     = {**params, "label_type": self._label_type, "env_type": "SupervisedSimulation" }
 
     @property
     def params(self) -> Dict[str,Any]:
@@ -203,7 +203,7 @@ class SupervisedSimulation(Environment):
         if label_type == "r":
             actions = []
             reward  = L1Reward
-        
+
         elif label_type == "c" and isinstance(first_label, Categorical):
             #Handling the categoricals separately allows for a performance optimization
             #since we can use the Categorical's as_int property rather than action_indexes

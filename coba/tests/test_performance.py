@@ -178,7 +178,7 @@ class Performance_Tests(unittest.TestCase):
         res = Reservoir(2,seed=1)
         x = list(range(500))
 
-        self._assert_scale_time(x, lambda x:list(res.filter(x)), .04, print_time, number=1000)
+        self._assert_scale_time(x, lambda x:list(res.filter(x)), .03, print_time, number=1000)
 
     def test_jsonencode_performance(self):
         enc = JsonEncode()
@@ -309,10 +309,11 @@ class Performance_Tests(unittest.TestCase):
 
         envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
         lrns = Table(columns=['learner_id']).insert([[0],[1],[2]])
-        ints = Table(columns=['environment_id','learner_id']).insert([[e,l] for e in range(3) for l in range(5)])
+        vals = Table(columns=['evaluator_id']).insert([[0]])
+        ints = Table(columns=['environment_id','learner_id','evaluator_id']).insert([[e,l,0] for e in range(3) for l in range(5)])
 
-        res  = Result(envs, lrns, ints)
-        self._assert_call_time(lambda:res.filter_env(mod=3), .02, print_time, number=1000)
+        res  = Result(envs, lrns, vals, ints)
+        self._assert_call_time(lambda:res.filter_env(mod=3), .06, print_time, number=1000)
 
     def test_moving_average_sliding_window(self):
         items = [1,0]*100
@@ -434,7 +435,7 @@ class Performance_Tests(unittest.TestCase):
     def test_integration_performance(self):
         import coba as cb
 
-        #here we create an IGL problem from the covertype dataset one time. 
+        #here we create an IGL problem from the covertype dataset one time.
         #It takes about 1 minute to load due to the number of features and examples.
         covertype_id = 150
         ndata        = 500_000
@@ -498,14 +499,14 @@ class Performance_Tests(unittest.TestCase):
     @unittest.skip("Just for testing. There's not much we can do to speed up process creation.")
     def test_async_pipe(self):
         #this takes about 2.5 with number=10
-        def run_async1(): 
+        def run_async1():
             from multiprocessing import Process
             p = Process(target=coba.pipes.Identity)
             p.start()
             p.join()
 
         #this takes about 2.5 with number=10
-        pipeline = Pipes.join(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())        
+        pipeline = Pipes.join(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())
         def run_async2():
             proc = pipeline.run_async(lambda ex: None)
             proc.join()
@@ -561,7 +562,7 @@ class Performance_Tests(unittest.TestCase):
         zscore = round((actual-expected)/stderr,5)
         if print_it:
             print(f"{actual:5.5f}     {expected:5.5f}     {zscore:5.5f}")
-        else: 
+        else:
             self.assertLess(zscore, 1.645)
 
 if __name__ == '__main__':

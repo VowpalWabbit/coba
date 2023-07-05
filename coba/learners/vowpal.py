@@ -6,7 +6,7 @@ from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
 from coba.backports import Literal
 from coba.exceptions import CobaException
 from coba.learners.primitives import Learner, PMF, Prob
-from coba.primitives import Sparse, Context, Action, Actions
+from coba.primitives import Sparse, Context, Action, Actions, Batch
 from coba.utilities import PackageChecker
 
 Feature       = Union[str,int,float]
@@ -289,6 +289,9 @@ class VowpalLearner(Learner):
         return probs if actions == request else list(map(probs.__getitem__,map(actions.index,request)))
 
     def predict(self, context: Context, actions: Sequence[Action]) -> PMF:
+
+        if not self._vw.is_initialized and isinstance(context,Batch):#pragma: no cover
+            raise CobaException("VW learner does not support batched calls.")
 
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)

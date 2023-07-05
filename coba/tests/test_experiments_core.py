@@ -1,5 +1,6 @@
 import unittest
 
+from itertools import product
 from pathlib import Path
 from typing import cast
 
@@ -145,16 +146,26 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.experiment.processes = 1
         CobaContext.experiment.maxchunksperchild = 0
 
+    def test_deprecation(self):
+        with self.assertRaises(CobaException) as e:
+            Experiment(1,2,evaluation_task=3)
+
+        self.assertIn("The `evaluation_task` argument has been deprecated.", str(e.exception))
+
     def test_init_tuples(self):
-        exp = Experiment([(1,2)], 'a', 'd')
+        exp = Experiment([(1,2,'a')], 'd')
         self.assertEqual(exp._triples, [(1,2,'a')])
         self.assertEqual(exp._description, 'd')
 
-        exp = Experiment(eval_pairs=[(1,2)], evaluator='a', description='d')
+        exp = Experiment(eval_tuples=[(1,2,'a')], description='d')
         self.assertEqual(exp._triples, [(1,2,'a')])
         self.assertEqual(exp._description, 'd')
 
-    def test_init_prod(self):
+        exp = Experiment(product([1],[2],['a']), description='d')
+        self.assertEqual(exp._triples, [(1,2,'a')])
+        self.assertEqual(exp._description, 'd')
+
+    def test_init_args(self):
         exp = Experiment(1, 2, 'a', 'd')
         self.assertEqual(exp._triples, [(1,2,'a')])
         self.assertEqual(exp._description, 'd')
@@ -176,14 +187,14 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(exp._triples, [])
         self.assertEqual(exp._description, 'd')
 
-        exp = Experiment([], 'a', 'd')
+        exp = Experiment([], 'd')
         self.assertEqual(exp._triples, [])
         self.assertEqual(exp._description, 'd')
 
     def test_init_incomplete(self):
-        with self.assertRaises(CobaException):
+        with self.assertRaises(TypeError):
             exp = Experiment()
-        with self.assertRaises(CobaException):
+        with self.assertRaises(TypeError):
             exp = Experiment(evaluators='a')
         with self.assertRaises(TypeError):
             exp = Experiment(environments=1)
@@ -197,26 +208,27 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         CobaContext.logger = IndentLogger(ListSink())
 
-        result              = experiment.run()
-        actual_learners     = list(result.learners.to_dicts())
-        actual_environments = list(result.environments.to_dicts())
-        actual_interactions = list(result.interactions.to_dicts())
+        result = experiment.run()
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'}
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'}
+        expected_evaluators = [
+            {"evaluator_id":0, "eval_type": "test_eval"}
         ]
         expected_interactions = [
-            { 'environment_id':0, 'learner_id':0, 'index':1, "learner_type": str(type(learner)), "n_interactions": len(list(env1.read()))}
+            { 'environment_id':0, 'learner_id':0, "evaluator_id":0, 'index':1, "learner_type": str(type(learner)), "n_interactions": len(list(env1.read()))}
         ]
 
-        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
+        self.assertTrue(not any([ "Restoring Results..." in i for i in CobaContext.logger.sink.items]))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, 'seed':1}, result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts(), expected_learners)
+        self.assertCountEqual(result.evaluators.to_dicts(), expected_evaluators)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
         if CobaContext.experiment.processes == 1:
             self.assertEqual(0, learner._learn_calls)
@@ -230,27 +242,28 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         CobaContext.logger = IndentLogger(ListSink())
 
-        result              = experiment.run()
-        actual_learners     = result.learners.to_dicts()
-        actual_environments = result.environments.to_dicts()
-        actual_interactions = result.interactions.to_dicts()
+        result = experiment.run()
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'}
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'}
+        expected_evaluators = [
+            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1}
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1}
         ]
 
-        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
+        self.assertTrue(not any([ "Restoring Results..." in i for i in CobaContext.logger.sink.items]))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, 'seed':1}, result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.evaluators.to_dicts()  , expected_evaluators)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
         if CobaContext.experiment.processes == 1:
             self.assertEqual(2, learner._learn_calls)
@@ -264,27 +277,28 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         CobaContext.logger = IndentLogger(ListSink())
 
-        result              = experiment.run()
-        actual_learners     = result.learners.to_dicts()
-        actual_environments = result.environments.to_dicts()
-        actual_interactions = result.interactions.to_dicts()
+        result = experiment.run()
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'}
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'}
+        expected_evaluators = [
+            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1}
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1}
         ]
 
-        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
+        self.assertTrue(not any([ "Restoring Results..." in i for i in CobaContext.logger.sink.items]))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.evaluators.to_dicts()  , expected_evaluators)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
         if CobaContext.experiment.processes == 1:
             self.assertEqual(2, learner._learn_calls)
@@ -297,59 +311,56 @@ class Experiment_Single_Tests(unittest.TestCase):
         learner    = ModuloLearner()
         experiment = Experiment([env1,env2], [learner], description="abc")
 
-        result              = experiment.run()
-        actual_learners     = result.learners.to_dicts()
-        actual_environments = result.environments.to_dicts()
-        actual_interactions = result.interactions.to_dicts()
+        result = experiment.run()
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+            {"environment_id":1, "env_type":'LambdaSimulation'}
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
-            {"environment_id":1, "type":'LambdaSimulation'}
+        expected_evaluators = [
+            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
-            {"environment_id":1, "learner_id":0, "index":1, "reward":3},
-            {"environment_id":1, "learner_id":0, "index":2, "reward":4},
-            {"environment_id":1, "learner_id":0, "index":3, "reward":5}
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":1, "reward":3},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":2, "reward":4},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":3, "reward":5}
         ]
 
         self.assertDictEqual({"description":"abc", "n_learners":1, "n_environments":2, "seed":1}, result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.evaluators.to_dicts()  , expected_evaluators)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_categorical_actions(self):
-
         CobaContext.logger = IndentLogger(ListSink())
 
         env1       = CategoricalActionEnv()
         learner    = ModuloLearner()
         experiment = Experiment(env1, learner)
 
-        result              = experiment.run()
-        actual_learners     = result.learners.to_dicts()
-        actual_environments = result.environments.to_dicts()
-        actual_interactions = result.interactions.to_dicts()
+        result = experiment.run()
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'CategoricalActionEnv'},
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'CategoricalActionEnv'},
-        ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1},
         ]
 
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_learners(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -357,87 +368,83 @@ class Experiment_Single_Tests(unittest.TestCase):
         learner2   = ModuloLearner("1")
         experiment = Experiment([env], [learner1, learner2])
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'},
             {"learner_id":1, "family":"Modulo", "p":'1'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
-        ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
-            {"environment_id":0, "learner_id":1, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":1, "index":2, "reward":1},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1},
+            {"environment_id":0, "learner_id":1, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":1, "evaluator_id":0, "index":2, "reward":1},
         ]
 
-        result              = experiment.run()
-        actual_learners     = list(result._learners.to_dicts())
-        actual_environments = list(result._environments.to_dicts())
-        actual_interactions = list(result.interactions.to_dicts())
+        result = experiment.run()
 
         self.assertDictEqual({"description":None, "n_learners":2, "n_environments":1, "seed":1}, result.experiment)
-        self.assertEqual(actual_learners, expected_learners)
-        self.assertEqual(actual_environments, expected_environments)
-        self.assertEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_learner_info(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = LearnInfoLearner("0")
         experiment = Experiment([env],[learner1])
 
-        actual_result       = experiment.run()
-        actual_learners     = actual_result._learners.to_dicts()
-        actual_environments = actual_result._environments.to_dicts()
-        actual_interactions = actual_result.interactions.to_dicts()
+        result = experiment.run()
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
-        ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "Modulo":"0"},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "Modulo":"0"},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0, "Modulo":"0"},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1, "Modulo":"0"},
         ]
 
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, actual_result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_predict_info(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = PredictInfoLearner("0")
         experiment = Experiment([env],[learner1])
 
-        actual_result       = experiment.run()
+        result       = experiment.run()
 
-        actual_learners     = actual_result._learners.to_dicts()
-        actual_environments = actual_result._environments.to_dicts()
-        actual_interactions = actual_result.interactions.to_dicts()
-
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
-        ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1},
         ]
 
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, actual_result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_restore(self):
+        
+        class MyBrokenLearner:
+            @property
+            def params(self):
+                return {"family":"Modulo", "p":'0'}
+
         env             = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         working_learner = ModuloLearner()
-        broken_learner  = BrokenLearner()
+        broken_learner  = MyBrokenLearner()
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -445,100 +452,88 @@ class Experiment_Single_Tests(unittest.TestCase):
         #we're resuming from the first experiment's transaction.log
         try:
             first_result  = Experiment([env],[working_learner]).run("coba/tests/.temp/transactions.log")
-            #second_result = first_result
             second_result = Experiment([env],[broken_learner ]).run("coba/tests/.temp/transactions.log")
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
 
         CobaContext.logger
 
-        actual_learners     = second_result.learners.to_dicts()
-        actual_environments = second_result.environments.to_dicts()
-        actual_interactions = second_result.interactions.to_dicts()
-
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
-        ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1},
         ]
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)
 
+        self.assertTrue(not any('exception' in i for i in CobaContext.logger.sink.items))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, second_result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(second_result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(second_result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(second_result.interactions.to_dicts(), expected_interactions)
 
     def test_no_params(self):
         env1       = NoParamsEnvironment()
         learner    = NoParamsLearner()
         experiment = Experiment([env1], [learner])
 
-        result              = experiment.run()
-        actual_learners     = result.learners.to_dicts()
-        actual_environments = result.environments.to_dicts()
-        actual_interactions = result.interactions.to_dicts()
+        result = experiment.run()
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'NoParamsEnvironment'},
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"NoParamsLearner"}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'NoParamsEnvironment'},
-        ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1},
         ]
 
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_ignore_raise(self):
-
         CobaContext.logger = IndentLogger(ListSink())
 
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         env2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         experiment = Experiment([env1,env2], [ModuloLearner(), BrokenLearner()])
 
-        result              = experiment.run()
-        actual_learners     = result.learners.to_dicts()
-        actual_environments = result.environments.to_dicts()
-        actual_interactions = result.interactions.to_dicts()
+        result = experiment.run()
 
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+            {"environment_id":1, "env_type":'LambdaSimulation'},
+        ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0' },
             {"learner_id":1, "family":"Broken", "p":None}
         ]
-        expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
-            {"environment_id":1, "type":'LambdaSimulation'},
-        ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
-            {"environment_id":1, "learner_id":0, "index":1, "reward":3},
-            {"environment_id":1, "learner_id":0, "index":2, "reward":4},
-            {"environment_id":1, "learner_id":0, "index":3, "reward":5}
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":1, "reward":3},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":2, "reward":4},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":3, "reward":5}
         ]
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in CobaContext.logger.sink.items]))
 
         self.assertDictEqual({"description":None, "n_learners":2, "n_environments":2, "seed":1}, result.experiment)
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_config_set(self):
-
         exp = Experiment([], [])
 
         CobaContext.experiment.processes = 10
@@ -556,9 +551,9 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(3,exp.maxtasksperchunk)
 
     def test_restore_not_matched_environments(self):
+        
 
         path = Path("coba/tests/.temp/experiment.log")
-
         if path.exists(): path.unlink()
         path.write_text('["version",4]\n["experiment",{"n_environments":1,"n_learners":1}]')
 
@@ -568,11 +563,15 @@ class Experiment_Single_Tests(unittest.TestCase):
             lrn1 = ModuloLearner()
             lrn2 = ModuloLearner()
 
-            with self.assertRaises(AssertionError) as e:
-                result = Experiment([env1,env2], [lrn1]).run(str(path))
+            CobaContext.logger = BasicLogger(ListSink())
+            Experiment([env1,env2], [lrn1]).run(str(path))
+            self.assertIn("The experiment does not match the given logs", CobaContext.logger.sink.items[2])
+            self.assertIn("Experiment Failed", CobaContext.logger.sink.items[3])
 
-            with self.assertRaises(AssertionError) as e:
-                result = Experiment([env1], [lrn1,lrn2]).run(str(path))
+            CobaContext.logger = BasicLogger(ListSink())
+            Experiment([env1], [lrn1,lrn2]).run(str(path))
+            self.assertIn("The experiment does not match the given logs", CobaContext.logger.sink.items[2])
+            self.assertIn("Experiment Failed", CobaContext.logger.sink.items[3])
 
         finally:
             path.unlink()
@@ -590,7 +589,6 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual("A Learner was given whose value was None, which can't be processed.", str(raised.exception))
 
     def test_quiet(self):
-
         env      = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1 = PredictInfoLearner("0")
         logger   = BasicLogger(ListSink())
@@ -602,7 +600,6 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual([],logger.sink.items)
 
     def test_quiet_exception(self):
-
         env      = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1 = BrokenLearner()
         logger   = BasicLogger(ListSink())

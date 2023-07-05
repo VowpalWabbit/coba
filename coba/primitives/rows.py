@@ -5,7 +5,7 @@ from typing import Sequence, Iterator, Iterable, Any
 
 class Dense(ABC):
     __slots__=()
-    
+
     @abstractmethod
     def __getitem__(self, key) -> Any:
         ...

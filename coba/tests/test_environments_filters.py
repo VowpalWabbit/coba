@@ -14,8 +14,8 @@ from coba.learners     import FixedLearner
 from coba.utilities    import peek_first
 
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-from coba.environments.filters    import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
-from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice
+from coba.environments.filters    import Sparsify, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
+from coba.environments.filters    import Densify, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice
 from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable, OpeRewards
 
 class TestEnvironment:
@@ -166,7 +166,7 @@ class Take_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Take((-1,5))
 
-    def test_take_exact_1(self):
+    def test_take_1_not_strict(self):
 
         items = [ 1,2,3 ]
         take_items = list(Take(1).filter(items))
@@ -174,25 +174,32 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual([1    ], take_items)
         self.assertEqual([1,2,3], items     )
 
-    def test_take_exact_2(self):
+    def test_take_2_not_strict(self):
         items = [ 1,2,3 ]
         take_items = list(Take(2).filter(items))
 
         self.assertEqual([1,2  ], take_items)
         self.assertEqual([1,2,3], items     )
 
-    def test_take_exact_3(self):
+    def test_take_3_not_strict(self):
         items = [ 1,2,3 ]
         take_items = list(Take(3).filter(items))
 
         self.assertEqual([1,2,3], take_items)
         self.assertEqual([1,2,3], items     )
 
-    def test_take_exact_4(self):
+    def test_take_4_not_strict(self):
         items = [ 1,2,3 ]
         take_items = list(Take(4).filter(items))
 
         self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_take_4_strict(self):
+        items = [ 1,2,3 ]
+        take_items = list(Take(4,strict=True).filter(items))
+
+        self.assertEqual([]     , take_items)
         self.assertEqual([1,2,3], items     )
 
 class Resevoir_Tests(unittest.TestCase):
@@ -207,12 +214,12 @@ class Resevoir_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Reservoir((-1,5))
 
-    def test_take_exacts(self):
+    def test_not_strict(self):
         items = [1,2,3,4,5]
 
         take_items = list(Reservoir(2,seed=1).filter(items))
         self.assertEqual([1,2,3,4,5], items)
-        self.assertEqual([4, 2], take_items)
+        self.assertEqual([4,2]      , take_items)
 
         take_items = list(Reservoir(None,seed=1).filter(items))
         self.assertEqual([1,2,3,4,5], items)
@@ -227,6 +234,29 @@ class Resevoir_Tests(unittest.TestCase):
         self.assertEqual([1,5,4,3,2], take_items)
 
         take_items = list(Reservoir(0,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+    def test_strict(self):
+        items = [1,2,3,4,5]
+
+        take_items = list(Reservoir(2,strict=True,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([4,2]      , take_items)
+
+        take_items = list(Reservoir(None,strict=True,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(5,strict=True,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(6,strict=True,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+        take_items = list(Reservoir(0,strict=True,seed=1).filter(items))
         self.assertEqual([1,2,3,4,5], items)
         self.assertEqual([]         , take_items)
 
@@ -1213,80 +1243,133 @@ class Binary_Tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({'binary':True}, Binary().params)
 
-class Sparse_Tests(unittest.TestCase):
-    def test_sparse_simulated_no_context_and_action(self):
+class Sparsify_Tests(unittest.TestCase):
+    def test_simulated_no_context_and_action(self):
 
-        sparse_interactions = list(Sparse(action=True).filter([SimulatedInteraction(None, [1,2], [0,1]) ]))
+        sparse_interactions = list(Sparsify(action=True).filter([SimulatedInteraction(None, [1,2], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual(None, sparse_interactions[0]['context'])
         self.assertEqual([{'action':1},{'action':2}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_simulated_str_context(self):
+    def test_simulated_str_context(self):
 
-        sparse_interactions = list(Sparse().filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
+        sparse_interactions = list(Sparsify().filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual({'context':"a"}, sparse_interactions[0]['context'])
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_simulated_str_not_context_not_action(self):
+    def test_simulated_str_not_context_not_action(self):
 
-        sparse_interactions = list(Sparse(context=False).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
-
-        self.assertEqual(1, len(sparse_interactions))
-        self.assertEqual("a", sparse_interactions[0]['context'])
-        self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
-        self.assertEqual([0,1], sparse_interactions[0]['rewards'])
-
-    def test_sparse_simulated_with_sparse_actions(self):
-
-        sparse_interactions = list(Sparse(context=False,action=True).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
+        sparse_interactions = list(Sparsify(context=False).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual("a", sparse_interactions[0]['context'])
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_simulated_tuple_context(self):
+    def test_simulated_with_sparse_actions(self):
 
-        sparse_interactions = list(Sparse().filter([SimulatedInteraction((1,2,3), [{1:2},{3:4}], [0,1]) ]))
+        sparse_interactions = list(Sparsify(context=False,action=True).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
-        self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0]['context'])
+        self.assertEqual("a", sparse_interactions[0]['context'])
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_logged_tuple_context_and_action(self):
+    def test_simulated_tuple_context(self):
 
-        sparse_interactions = list(Sparse(action=True).filter([LoggedInteraction((1,2,3), 2, 0)]))
+        sparse_interactions = list(Sparsify().filter([SimulatedInteraction((1,2,3), [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
-        self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0]['context'])
+        self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
+        self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
+        self.assertEqual([0,1], sparse_interactions[0]['rewards'])
+
+    def test_logged_tuple_context_and_action(self):
+
+        sparse_interactions = list(Sparsify(action=True).filter([LoggedInteraction((1,2,3), 2, 0)]))
+
+        self.assertEqual(1, len(sparse_interactions))
+        self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
         self.assertEqual({'action':2}, sparse_interactions[0]['action'])
         self.assertEqual(0, sparse_interactions[0]['reward'])
 
-    def test_sparse_logged_tuple_context_and_not_action(self):
+    def test_logged_tuple_context_and_not_action(self):
 
-        sparse_interactions = list(Sparse().filter([LoggedInteraction((1,2,3), 2, 0)]))
+        sparse_interactions = list(Sparsify().filter([LoggedInteraction((1,2,3), 2, 0)]))
 
         self.assertEqual(1, len(sparse_interactions))
-        self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0]['context'])
+        self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
         self.assertEqual(2, sparse_interactions[0]['action'])
         self.assertEqual(0, sparse_interactions[0]['reward'])
 
-    def test_sparse_context_with_header(self):
+    def test_context_with_header(self):
 
         context = HeadDense([1,2,3],{'a':0,'b':1,'c':2})
-        sparse_interactions = list(Sparse().filter([{'context':context}]))
+        sparse_interactions = list(Sparsify().filter([{'context':context}]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual({'a':1,'b':2,'c':3}, sparse_interactions[0]['context'])
 
+    def test_context_without_header(self):
+
+        context = LazyDense([1,2,3])
+        sparse_interactions = list(Sparsify().filter([{'context':context}]))
+
+        self.assertEqual(1, len(sparse_interactions))
+        self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
+
     def test_params(self):
-        self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
+        self.assertEqual({'sparse_c':True, 'sparse_a':False}, Sparsify().params)
+
+class Densify_Tests(unittest.TestCase):
+
+    def test_dense_context(self):
+
+        d = Densify(context=True,action=False)
+
+        self.assertEqual(None , next(d.filter([{'context':None}]))['context'] )
+        self.assertEqual(1    , next(d.filter([{'context':1}]))['context'] )
+        self.assertEqual([1,2], next(d.filter([{'context':[1,2]}]))['context'] )
+
+    def test_dense_action(self):
+
+        d = Densify(context=False,action=True)
+
+        self.assertEqual(None , next(d.filter([{'action':None }]))['action'] )
+        self.assertEqual(1    , next(d.filter([{'action':1    }]))['action'] )
+        self.assertEqual([1,2], next(d.filter([{'action':[1,2]}]))['action'] )
+
+    def test_dense_actions(self):
+
+        d = Densify(context=False,action=True)
+
+        self.assertEqual([None,1,[1,2]], next(d.filter([{'actions':[None,1,[1,2]]}]))['actions'] )
+
+    def test_lookup(self):
+
+        d = Densify(2, method='lookup')
+
+        self.assertEqual([1,0], list(next(d.filter([{'context':{'a':1}}]))['context']) )
+        self.assertEqual([2,0], list(next(d.filter([{'context':{'a':2}}]))['context']) )
+        self.assertEqual([0,3], list(next(d.filter([{'context':{'b':3}}]))['context']) )
+        self.assertEqual([5,4], list(next(d.filter([{'context':{'b':1,'c':4,'d':5}}]))['context']) )
+
+    def test_hashing(self):
+
+        d = Densify(2, method='hashing')
+
+        self.assertEqual([0,1], list(next(d.filter([{'context':{'a':1}}]))['context']) )
+        self.assertEqual([0,2], list(next(d.filter([{'context':{'b':2}}]))['context']) )
+        self.assertEqual([0,3], list(next(d.filter([{'context':{'c':3}}]))['context']) )
+        self.assertEqual([4,1], list(next(d.filter([{'context':{'c':1,'d':4}}]))['context']) )
+
+    def test_params(self):
+        self.assertEqual({ 'dense_m': 'lookup', 'dense_n':400, 'dense_c':True, 'dense_a':False}, Densify().params)
 
 class Noise_Tests(unittest.TestCase):
 
@@ -1536,7 +1619,7 @@ class Riffle_Tests(unittest.TestCase):
 
 class Flatten_Tests(unittest.TestCase):
     def test_flatten_context(self):
-        
+
         interactions = [
             SimulatedInteraction((7,(1,0)), [(1,"def"),2], [.2,.3]),
             SimulatedInteraction((1,(0,1)), [(1,"ghi"),3], [.1,.5]),
@@ -1554,7 +1637,7 @@ class Flatten_Tests(unittest.TestCase):
         self.assertEqual([.1,.5]      , actual_interactions[1]['rewards'])
 
     def test_flatten_actions(self):
-        
+
         interactions = [
             SimulatedInteraction((7,1,0), [(1,("d",1)),(1,("j",1))], [.2,.3]),
             SimulatedInteraction((1,0,1), [(1,("g",2)),(1,("l",1))], [.1,.5]),
@@ -1575,7 +1658,7 @@ class Flatten_Tests(unittest.TestCase):
         self.assertEqual({'flat':True}, Flatten().params)
 
 class Params_Tests(unittest.TestCase):
-    def test_params(self): 
+    def test_params(self):
         params_filter = Params({'a':123})
         self.assertEqual({'a':123}, params_filter.params)
         self.assertEqual(1, params_filter.filter(1))
@@ -1651,7 +1734,7 @@ class Grounded_Tests(unittest.TestCase):
         sim_interactions = [ SimulatedInteraction({'a':1},[1,2,3],[1,0,0]) ]
         igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
         self.assertEqual(igl_interactions[0]['context'], {'userid':igl_interactions[0]['userid'], 'a':1})
-    
+
     def test_01_reward(self):
         sim_interactions = [ SimulatedInteraction(0,[1,2,3],[1,0,0]) ]
         igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
@@ -1709,7 +1792,7 @@ class Grounded_Tests(unittest.TestCase):
             f1 = [interaction['feedbacks'].eval(a) for a in interaction['actions'] ]
             f2 = [interaction['feedbacks'].eval(a) for a in interaction['actions'] ]
             self.assertEqual(f1,f2)
-    
+
     def test_params(self):
         params = Grounded(10,5,4,2,1).params
 
@@ -1735,7 +1818,7 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual([1,2,3],out['context'])
         self.assertEqual([1,2]  ,out['actions'])
         self.assertEqual([1,2]  ,out['rewards'])
-    
+
     def test_context_categorical_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,Categorical('1',['1','2'])],[1,2],[1,2])]))
 
@@ -1896,7 +1979,7 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], [1,2])
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
-        
+
     def test_logged_with_action_int(self):
         interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[1,2,3], rewards=[1,2,3])]
 
@@ -1989,20 +2072,20 @@ class Batch_Tests(unittest.TestCase):
 
 class Unbatch_Tests(unittest.TestCase):
 
-    def test_not_batched(self):        
+    def test_not_batched(self):
         interaction = {'a':1,'b':2}
 
         unbatched = list(Unbatch().filter([interaction]*3))
         self.assertEqual(unbatched, [interaction]*3)
 
-    def test_batched(self):        
+    def test_batched(self):
         interaction = {'a':1,'b':2}
 
         batched   = Batch(3).filter([interaction]*3)
         unbatched = list(Unbatch().filter(batched))
         self.assertEqual(unbatched, [interaction]*3)
 
-    def test_mixed(self):        
+    def test_mixed(self):
         interaction = {'b':2,'a':primitives.Batch([1,2])}
 
         unbatched = list(Unbatch().filter([interaction]))
@@ -2103,7 +2186,7 @@ class Cache_Tests(unittest.TestCase):
         self.assertEqual(list(Cache(3).filter([])), [])
 
 class Logged_Tests(unittest.TestCase):
-    
+
     def test_not_batched(self):
         initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
@@ -2303,7 +2386,7 @@ class OpeRewards_Tests(unittest.TestCase):
         ]
 
         new_interactions = list(OpeRewards("DM").filter(interactions))
-        
+
         self.assertAlmostEqual(new_interactions[0]['rewards'].eval('c'),.79699, places=4)
         self.assertAlmostEqual(new_interactions[0]['rewards'].eval('d'),.32049, places=4)
         self.assertAlmostEqual(new_interactions[1]['rewards'].eval('e'),.18374, places=4)

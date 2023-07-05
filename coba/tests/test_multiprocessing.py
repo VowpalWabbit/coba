@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from multiprocessing import current_process, Semaphore, get_context
+from multiprocessing import current_process
 from typing import Iterable, Any
 
 from coba.contexts        import CobaContext, NullLogger
@@ -12,14 +12,11 @@ from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 
 class OpenmlSemaphoreFilter:
-    def filter(self,items):
-        items = list(items)
-        
-        if items:
-            sem = CobaContext.store.get('openml_semaphore')
-            sem.acquire()
-            sem.release()
-            yield from items
+    def filter(self,item):
+        sem = CobaContext.store.get('openml_semaphore')
+        sem.acquire()
+        sem.release()
+        yield item
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -35,20 +32,18 @@ class SleepingFilter(Filter):
         yield second
 
 class ProcessNameFilter(Filter):
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        for item in items:
-            process_name = f"pid-{current_process().pid}"
-            CobaContext.logger.log(process_name)
-            yield process_name
+    def filter(self, item: Iterable[Any]) -> Iterable[Any]:
+        process_name = f"pid-{current_process().pid}"
+        CobaContext.logger.log(process_name)
+        yield process_name
 
 class ExceptionFilter(Filter):
     def __init__(self, exc = Exception("Exception Filter")):
         self._exc = exc
 
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        for _ in items:
-            raise self._exc
-            yield None
+    def filter(self, item: Iterable[Any]) -> Iterable[Any]:
+        raise self._exc
+        yield None
 
 class CobaMultiprocessor_Tests(unittest.TestCase):
 
@@ -57,7 +52,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.store = {}
 
     def test_openml_semaphore(self):
-        items = list(CobaMultiprocessor(OpenmlSemaphoreFilter(), 2, 1, False).filter(range(1)))
+        items = list(CobaMultiprocessor(OpenmlSemaphoreFilter(), 2, 1).filter(range(1)))
         self.assertEqual(items, [0])
 
     def test_logging(self):
@@ -67,7 +62,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.logger = logger
         CobaContext.cacher = NullCacher()
 
-        items = list(CobaMultiprocessor(ProcessNameFilter(), 2, 1, False).filter(range(4)))
+        items = list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter(range(4)))
 
         self.assertEqual(len(logger_sink.items), 4)
         self.assertCountEqual(items, [ l.split(' ')[ 3] for l in logger_sink.items ] )
@@ -78,7 +73,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.cacher = NullCacher()
 
         with self.assertRaises(Exception) as e:
-            list(CobaMultiprocessor(ExceptionFilter(), 2, 1, False).filter(range(4)))
+            list(CobaMultiprocessor(ExceptionFilter(), 2, 1).filter(range(4)))
 
         self.assertIn("Exception Filter", str(e.exception))
 

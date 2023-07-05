@@ -10,8 +10,9 @@ from coba.learners import EpsilonBanditLearner, UcbBanditLearner
 from coba.learners import CorralLearner, LinUCBLearner
 from coba.learners import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
 from coba.learners import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
+from coba.learners import MisguidedLearner
 
-from coba.evaluators import OnPolicyEvaluator, OffPolicyEvaluator, ClassMetaEvaluator
+from coba.evaluators import OnPolicyEvaluator, OffPolicyEvaluator, ClassMetaEvaluator, ExplorationEvaluator
 
 from coba.experiments  import Experiment, Result
 

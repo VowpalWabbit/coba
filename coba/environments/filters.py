@@ -6,8 +6,9 @@ import copy
 from math import isnan
 from statistics import median, stdev, mode
 from numbers import Number
+from zlib import crc32
 from operator import eq, getitem, methodcaller, itemgetter
-from collections import defaultdict, deque
+from collections import defaultdict
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
 from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping
@@ -22,7 +23,7 @@ from coba.primitives import BinaryReward, SequenceReward, BatchReward, argmax
 from coba.primitives import IPSReward, SequenceFeedback, MappingReward, MulticlassReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
-from coba.pipes      import Filter
+from coba.pipes      import Filter, SparseDense
 
 from coba.environments.primitives import Interaction, EnvironmentFilter, SimpleEnvironment
 
@@ -364,9 +365,9 @@ class Impute(EnvironmentFilter):
             if is_dense:
                 is_missing = [0]*len(impute_binary)
                 for k,v in enumerate(context):
-                    if v is None and k in imputations: 
+                    if v is None and k in imputations:
                         context[k] = imputations[k]
-                        if k in impute_binary: 
+                        if k in impute_binary:
                             is_missing[impute_binary[k]] = 1
                 context += is_missing
 
@@ -405,14 +406,11 @@ class Impute(EnvironmentFilter):
         except:
             return None
 
-class Sparse(EnvironmentFilter):
-    """Sparsify an environment's feature representation.
-
-    This has little utility beyond debugging.
-    """
+class Sparsify(EnvironmentFilter):
+    """Sparsify an environment's feature representation."""
 
     def __init__(self, context:bool = True, action:bool = False):
-        """Instantiate a Sparse filter.
+        """Instantiate a Sparsify filter.
 
         Args:
             context: If True then contexts should be made sparse otherwise leave them alone.
@@ -424,7 +422,7 @@ class Sparse(EnvironmentFilter):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "sparse_C": self._context, "sparse_A": self._action }
+        return { "sparse_c": self._context, "sparse_a": self._action }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -445,19 +443,128 @@ class Sparse(EnvironmentFilter):
                 new['actions'] = list(map(self._make_sparse,new['actions'],repeat(actions_has_headers),repeat('action')))
 
             if self._action and 'action' in new:
-                new['action'] = self._make_sparse(new['action'],action_has_headers, 'action')
+                new['action'] = self._make_sparse(new['action'],action_has_headers,'action')
 
             yield new
 
     def _make_sparse(self, value, has_headers:bool, default_header:str) -> Optional[dict]:
         if value is None:
             return value
+
         if isinstance(value,primitives.Dense):
-            value_list = list(value)
-            return {k:value_list[i] for k,i in value.headers.items() if i < len(value_list) and value_list[i] != 0} if has_headers else {k:v for k,v in enumerate(value) if v != 0 }
+            if has_headers:
+                value_list = list(value)
+                return {k:value_list[i] for k,i in value.headers.items() if i < len(value_list) and value_list[i] != 0}
+            else:
+                return {str(k):v for k,v in enumerate(value) if v != 0 }
+
         if isinstance(value,primitives.Sparse):
             return value
+
         return {default_header:value}
+
+class Densify(EnvironmentFilter):
+    """Densify an environment's feature representation."""
+
+    def __init__(self,
+        n_feats: int = 400,
+        method : Literal['lookup','hashing'] = 'lookup',
+        context: bool = True,
+        action : bool = False):
+        """Instantiate a Densify filter.
+
+        Args:
+            n_feats: The number of features to use when densifying a sparse entry.
+            method: The method used to convert sparse representation to dense representation.
+            The "lookup" method produces a more efficient feature representation but its memory
+            usage expand to the cardinality of the sparse features. The "hashing" method utilizes
+            a less efficient feature representation but does not use any memory beyond the features.
+            When using the 'hashing' method `n_feats` should be set to a large number such as 2**18.
+            context: If True then contexts should be made sparse otherwise leave them alone.
+            action: If True then actions should be made sparse otherwise leave them alone.
+        """
+
+        self._n_feats = n_feats
+        self._context = context
+        self._action  = action
+        self._method  = method
+
+        def generator():
+            rng = CobaRandom(seed=1)
+            while True:
+                for i in rng.shuffle(range(n_feats)):
+                    yield i
+
+        def factory(g=generator()):
+            return next(g)
+
+        self._lookup  = defaultdict(factory)
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return { "dense_m": self._method, "dense_n": self._n_feats, "dense_c": self._context, "dense_a": self._action }
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        for interaction in interactions:
+
+            new = interaction.copy()
+
+            if self._context:
+                new['context'] = self._make_dense(new['context'])
+
+            if self._action and 'actions' in new:
+                new['actions'] = list(map(self._make_dense,new['actions']))
+
+            if self._action and 'action' in new:
+                new['action'] = self._make_dense(new['action'])
+
+            yield new
+
+    def _make_dense(self, value) -> Optional[dict]:
+
+        #For this conversion we use the hashing trick. Based on many tests we go with crc32:
+        #   > It is fast
+        #   > It has few collisions
+        #   > It is deterministic between runs
+
+        # Hashing Algorithms We Tested:
+        #   from hashlib import md5, sha1, sha256, sha3_128, sha3_256, shake_128, shake_256, blake2b
+        #   from zlib import adler32, crc32
+        #   from mmh3 import hash as mmh3_hash #(aka, MurmurHash3, requires pip install mmh3)
+        #   from builtins import hash
+
+        # Performance Findings:
+            # hashlib algorithms took between 0.5 to 0.75 seconds to produce 1 million hashes
+            # zlib and mmh3 algorithms took about .16 seconds to produce 1 million hashes
+            # builtin hash algorithm took about .09 seconds to produce 1 million hashes
+
+        # Collision Findings:
+            # we used the code below to count collisions for 1,000,000 randomly generated strings:
+                #random_strings = lambda n: (''.join(map(str,[r*1,r*2,r*3,r*4,r*5])) for r in cb.random.randoms(n))
+                #hashed_values  = [<hash-algo>(s.encode('ascii')) for s in random_strings(1_000_000)]
+                #Counter(Counter(hashed_values).values())
+
+            # hashlib and the builtin hash had 0 collisions
+            # mmh3 and crc32 had ~130 collisions (i.e., 0.013%)
+            # adler32 had ~250k collisions (i.e., 24.00%)
+
+        #Final decisions:
+            # crc32:
+            #   > It is considerably faster than the hashlib algorithms
+            #   > It has equal performance and collisions to MurmurHash3
+            #   > It is deterministic across runs
+
+        if not isinstance(value,primitives.Sparse):
+            return value
+
+        else:
+            if self._method == 'lookup':
+                values = { self._lookup[k]:v for k,v in value.items() }
+            else:
+                values = { crc32(k.encode('ascii')) % self._n_feats: v for k,v in value.items() }
+
+            return SparseDense(values, self._n_feats)
 
 class Cycle(EnvironmentFilter):
     """Cycle all rewards associated with actions by one place.
@@ -479,38 +586,37 @@ class Cycle(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        underlying_iterable     = iter(interactions)
-        sans_cycle_interactions = islice(underlying_iterable, self._after)
-        with_cycle_interactions = underlying_iterable
+        first, interactions = peek_first(interactions)
 
-        yield from sans_cycle_interactions
+        has_actions = first and 'actions' in first
+        has_rewards = first and 'rewards' in first
 
-        first, with_cycle_interactions = peek_first(with_cycle_interactions)
+        one_hot = lambda n,N: tuple([0]*n+[1]+[0]*(N-n-1))
+        rotate  = lambda l: l[-1%n_actions:] + l[:-1%n_actions]
 
-        if with_cycle_interactions:
+        n_actions      = len(first['actions']) if has_actions else 0
+        is_discrete    = 0 < n_actions and n_actions < float('inf')
+        onehot_actions = set(map(one_hot,range(n_actions),repeat(n_actions)))
+        is_onehot      = has_actions and set(first['actions']) == onehot_actions
+        is_categorical = has_actions and all(map(isinstance,first['actions'],repeat(str)))
 
-            action_set = set(first['actions'])
-            n_actions  = len(action_set)
+        is_cyclable = has_actions and has_rewards and is_discrete and (is_onehot or is_categorical)
 
-            onehot_actions  = {tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)}
-            is_discrete     = 0 < n_actions and n_actions < float('inf')
-            is_onehots      = action_set == onehot_actions
-            is_categoricals = all([isinstance(a,str) for a in action_set])
+        if not is_cyclable:
+            warnings.warn("Cycle only works for discrete environments without action features. It will be ignored in this case.")
+            yield from interactions
 
-            is_cyclable = is_discrete and (is_onehots or is_categoricals)
+        else:
+            for i,interaction in enumerate(interactions):
 
-            if not is_cyclable:
-                warnings.warn("Cycle only works for discrete environments without action features. It will be ignored in this case.")
-                yield from with_cycle_interactions
-            else:
-                for interaction in with_cycle_interactions:
-                    rewards = deque(map(interaction['rewards'].eval,interaction['actions']))
-                    rewards.rotate(1)
+                new = interaction.copy()
 
-                    new = interaction.copy()
-                    new['rewards'] = SequenceReward(interaction['actions'],list(rewards))
+                if i >= self._after:
+                    actions = interaction['actions']
+                    rewards = interaction['rewards']
+                    new['rewards'] = SequenceReward(actions,rotate(list(map(rewards.eval,actions))))
 
-                    yield new
+                yield new
 
 class Flatten(EnvironmentFilter):
     """Flatten the context and action features for interactions."""
@@ -862,7 +968,7 @@ class Grounded(EnvironmentFilter):
         raise CobaException(f"{value_name} must be a whole number and not {value}.")
 
 class Repr(EnvironmentFilter):
-    def __init__(self, 
+    def __init__(self,
         categorical_context:Literal["onehot","onehot_tuple","string"] = None,
         categorical_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
         self._cat_context = categorical_context
@@ -1098,7 +1204,7 @@ class Mutable(EnvironmentFilter):
         first_is_dense   = isinstance(first['context'], primitives.Dense)
         first_is_sparse  = isinstance(first['context'], primitives.Sparse)
         first_is_value   = not (first_is_dense or first_is_sparse)
-        first_is_mutable = isinstance(first['context'], (list,dict))
+        first_is_mutable = isinstance(first['context'], (list,dict,SparseDense))
 
         if first_is_mutable:
             for interaction in interactions:
@@ -1128,26 +1234,29 @@ class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
 
 class OpeRewards(EnvironmentFilter):
 
-    def __init__(self, rwds_type:Literal['IPS','DM','DR']=None):
-        if rwds_type in ['DM','DR']:
+    def __init__(self, rwd_type:Literal['IPS','DM','DR']=None):
+        if rwd_type in ['DM','DR']:
             PackageChecker.vowpalwabbit("Rewards.__init__")
-        self._rwds_type = rwds_type
+        self._rwd_type = rwd_type
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'ope_reward': self._rwds_type or 'None'}
+        return {'ope_reward': self._rwd_type or 'None'}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        if self._rwds_type is None:
+        interactions = list(interactions)
+        rwd_type = self._rwd_type
+
+        if rwd_type is None:
             yield from interactions
 
-        elif self._rwds_type == "IPS":
+        elif rwd_type == "IPS":
             for log in interactions:
                 log = log.copy()
                 log['rewards'] = IPSReward(log['reward'], log['action'], log.get('probability'))
                 yield log
 
-        elif self._rwds_type in ["DM","DR"]:
+        elif rwd_type in ["DM","DR"]:
             from coba.learners.vowpal import VowpalMediator
 
             rng = CobaRandom(1)
@@ -1170,45 +1279,23 @@ class OpeRewards(EnvironmentFilter):
                 #correlation is strong, we will over estimate
                 #the downstream VW learner's performance.
                 L = list(islice(interactions,4000))
-                R = [ [] for _ in range(len(L)) ]
-                X = []
 
                 if not L: break
 
-                for log, rewards in rng.shuffle(list(zip(L,R)), inplace=True):
-                    log_context = log['context']
-                    log_action  = log['action']
-                    log_reward  = log['reward']
-                    log_prob    = log['probability']
+                for log in rng.shuffle(L):
+                    features = {"x": log['context'], "a": log['action']}
+                    label    = f"{log['reward']} {1/(log['probability'] or 1)}"
+                    vw.learn(vw.make_example(features,label))
 
-                    #type-4
-                    #labels            = [None]*len(log_actions)
-                    #labels[log_index] = f"{log_index+1}:{log_reward}:{log_prob}"
-                    #vw.learn(vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions], labels))
+                for log in L:
 
-                    #type-1
-                    vw.learn(vw.make_example({"x":log_context, "a": log_action}, f"{log_reward} {1/log_prob}"))
+                    examples = vw.make_examples({"x":log['context']}, [{"a":a} for a in log['actions']])
+                    rewards = list(map(vw.predict,examples))
 
-                for log, rewards in rng.shuffle(list(zip(L,R)), inplace=True):
-                    log_context = log['context']
-                    log_actions = log['actions']
-                    log_action  = log['action']
-                    log_reward  = log['reward']
-                    log_prob    = log['probability']
-                    log_index   = log_actions.index(log_action)
+                    if rwd_type=="DR":
+                        log_index = log['actions'].index(log['action'])
+                        rewards[log_index] += (log['reward']-rewards[log_index])/(log['probability'] or 1)
 
-                    #type-4
-                    #examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions])
-                    #rewards.extend(vw.predict(examples))
-
-                    #type-1
-                    examples = vw.make_examples({"x":log_context}, [{"a":a} for a in log_actions])
-                    rewards.extend(vw.predict(e) for e in examples)
-
-                    if self._rwds_type=="DR":
-                        rewards[log_index] = rewards[log_index] + (log_reward-rewards[log_index])/log_prob
-
-                for log,rewards in zip(L,R):
                     log = log.copy()
 
                     try:
