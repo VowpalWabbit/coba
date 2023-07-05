@@ -6,8 +6,9 @@ import copy
 from math import isnan
 from statistics import median, stdev, mode
 from numbers import Number
+from zlib import crc32
 from operator import eq, getitem, methodcaller, itemgetter
-from collections import defaultdict, deque
+from collections import defaultdict
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
 from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping
@@ -22,7 +23,7 @@ from coba.primitives import BinaryReward, SequenceReward, BatchReward, argmax
 from coba.primitives import IPSReward, SequenceFeedback, MappingReward, MulticlassReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
-from coba.pipes      import Filter
+from coba.pipes      import Filter, SparseDense
 
 from coba.environments.primitives import Interaction, EnvironmentFilter, SimpleEnvironment
 
@@ -409,7 +410,7 @@ class Sparsify(EnvironmentFilter):
     """Sparsify an environment's feature representation."""
 
     def __init__(self, context:bool = True, action:bool = False):
-        """Instantiate a Sparse filter.
+        """Instantiate a Sparsify filter.
 
         Args:
             context: If True then contexts should be made sparse otherwise leave them alone.
@@ -421,7 +422,7 @@ class Sparsify(EnvironmentFilter):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "sparse_C": self._context, "sparse_A": self._action }
+        return { "sparse_c": self._context, "sparse_a": self._action }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -461,6 +462,109 @@ class Sparsify(EnvironmentFilter):
             return value
 
         return {default_header:value}
+
+class Densify(EnvironmentFilter):
+    """Densify an environment's feature representation."""
+
+    def __init__(self,
+        n_feats: int = 400,
+        method : Literal['lookup','hashing'] = 'lookup',
+        context: bool = True,
+        action : bool = False):
+        """Instantiate a Densify filter.
+
+        Args:
+            n_feats: The number of features to use when densifying a sparse entry.
+            method: The method used to convert sparse representation to dense representation.
+            The "lookup" method produces a more efficient feature representation but its memory
+            usage expand to the cardinality of the sparse features. The "hashing" method utilizes
+            a less efficient feature representation but does not use any memory beyond the features.
+            When using the 'hashing' method `n_feats` should be set to a large number such as 2**18.
+            context: If True then contexts should be made sparse otherwise leave them alone.
+            action: If True then actions should be made sparse otherwise leave them alone.
+        """
+
+        self._n_feats = n_feats
+        self._context = context
+        self._action  = action
+        self._method  = method
+
+        def generator():
+            rng = CobaRandom(seed=1)
+            while True:
+                for i in rng.shuffle(range(n_feats)):
+                    yield i
+
+        def factory(g=generator()):
+            return next(g)
+
+        self._lookup  = defaultdict(factory)
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return { "dense_m": self._method, "dense_n": self._n_feats, "dense_c": self._context, "dense_a": self._action }
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        for interaction in interactions:
+
+            new = interaction.copy()
+
+            if self._context:
+                new['context'] = self._make_dense(new['context'])
+
+            if self._action and 'actions' in new:
+                new['actions'] = list(map(self._make_dense,new['actions']))
+
+            if self._action and 'action' in new:
+                new['action'] = self._make_dense(new['action'])
+
+            yield new
+
+    def _make_dense(self, value) -> Optional[dict]:
+
+        #For this conversion we use the hashing trick. Based on many tests we go with crc32:
+        #   > It is fast
+        #   > It has few collisions
+        #   > It is deterministic between runs
+
+        # Hashing Algorithms We Tested:
+        #   from hashlib import md5, sha1, sha256, sha3_128, sha3_256, shake_128, shake_256, blake2b
+        #   from zlib import adler32, crc32
+        #   from mmh3 import hash as mmh3_hash #(aka, MurmurHash3, requires pip install mmh3)
+        #   from builtins import hash
+
+        # Performance Findings:
+            # hashlib algorithms took between 0.5 to 0.75 seconds to produce 1 million hashes
+            # zlib and mmh3 algorithms took about .16 seconds to produce 1 million hashes
+            # builtin hash algorithm took about .09 seconds to produce 1 million hashes
+
+        # Collision Findings:
+            # we used the code below to count collisions for 1,000,000 randomly generated strings:
+                #random_strings = lambda n: (''.join(map(str,[r*1,r*2,r*3,r*4,r*5])) for r in cb.random.randoms(n))
+                #hashed_values  = [<hash-algo>(s.encode('ascii')) for s in random_strings(1_000_000)]
+                #Counter(Counter(hashed_values).values())
+
+            # hashlib and the builtin hash had 0 collisions
+            # mmh3 and crc32 had ~130 collisions (i.e., 0.013%)
+            # adler32 had ~250k collisions (i.e., 24.00%)
+
+        #Final decisions:
+            # crc32:
+            #   > It is considerably faster than the hashlib algorithms
+            #   > It has equal performance and collisions to MurmurHash3
+            #   > It is deterministic across runs
+
+        if not isinstance(value,primitives.Sparse):
+            return value
+
+        else:
+            if self._method == 'lookup':
+                values = { self._lookup[k]:v for k,v in value.items() }
+            else:
+                values = { crc32(k.encode('ascii')) % self._n_feats: v for k,v in value.items() }
+
+            return SparseDense(values, self._n_feats)
 
 class Cycle(EnvironmentFilter):
     """Cycle all rewards associated with actions by one place.
@@ -1100,7 +1204,7 @@ class Mutable(EnvironmentFilter):
         first_is_dense   = isinstance(first['context'], primitives.Dense)
         first_is_sparse  = isinstance(first['context'], primitives.Sparse)
         first_is_value   = not (first_is_dense or first_is_sparse)
-        first_is_mutable = isinstance(first['context'], (list,dict))
+        first_is_mutable = isinstance(first['context'], (list,dict,SparseDense))
 
         if first_is_mutable:
             for interaction in interactions:

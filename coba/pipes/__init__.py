@@ -14,7 +14,7 @@ from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache, Slice, Ins
 
 from coba.pipes.rows    import LabelRows, EncodeRows, HeadRows, DropRows, EncodeCatRows
 from coba.pipes.rows    import LazyDense, EncodeDense, LabelDense, KeepDense, HeadDense
-from coba.pipes.rows    import LazySparse, EncodeSparse, LabelSparse, DropSparse
+from coba.pipes.rows    import LazySparse, EncodeSparse, LabelSparse, DropSparse, SparseDense
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
 from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableSource
 from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource, ListSource

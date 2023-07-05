@@ -24,8 +24,8 @@ from coba.environments.synthetics import KernelSyntheticSimulation, MLPSynthetic
 from coba.environments.supervised import SupervisedSimulation
 
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
-from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Reservoir, Cycle, Scale, Unbatch, Slice
-from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
+from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Densify, Reservoir, Cycle, Scale, Unbatch
+from coba.environments.filters   import Slice, Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.filters   import MappingToInteraction, OpeRewards
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
@@ -268,8 +268,13 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return self.filter(Binary())
 
     def sparse(self, context:bool = True, action:bool = False) -> 'Environments':
-        """Convert an environment from a dense representation to sparse. This has little utility beyond debugging."""
+        """Convert all environments to a sparse representation."""
         return self.filter(Sparsify(context,action))
+
+    def dense(self, n_feats:int, method:Literal['lookup','hashing'], context:bool = True, action:bool = False) -> 'Environments':
+        """Convert all environments to a dense representation."""
+        make_dense = lambda: Densify(n_feats=n_feats, method=method, context=context, action=action)
+        return Environments([Pipes.join(env, make_dense()) for env in self])
 
     @overload
     def shuffle(self, seed: int = 1) -> 'Environments':
@@ -323,7 +328,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def take(self, n_interactions: int) -> 'Environments':
         """Take a fixed number of interactions from the Environments."""
         return self.filter(Take(n_interactions))
-    
+
     def slice(self, start: Optional[int], stop: Optional[int]=None, step:int = 1) -> 'Environments':
         """Take a slice of interactions from an Environment."""
         return self.filter(Slice(start,stop,step))
@@ -363,7 +368,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> 'Environments':
         """Add noise to an environment's context, actions and rewards."""
-        return Environments(*self).filter(Noise(context,action,reward,seed))
+        return self.filter(Noise(context,action,reward,seed))
 
     def flat(self) -> 'Environments':
         """Flatten environment's context and actions."""
@@ -371,12 +376,12 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     def materialize(self) -> 'Environments':
         """Materialize the environments in memory. Ideal for stateful environments such as Jupyter Notebook."""
-        #we use pipes.cache directly because the environment cache will copy 
+        #we use pipes.cache directly because the environment cache will copy
         #which we don't need when we materialize an environment in memory
         envs = Environments([Pipes.join(env, Finalize(apply_repr=False), pipes.Cache(25,True)) for env in self])
-        
+
         for env in envs: list(env.read()) #force read to pre-load cache
-            
+
         for env in envs:
             for i in range(len(env)-1):
                 pipe = env[i]
@@ -389,7 +394,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Convert from simulated environments to interaction grounded environments."""
         return self.filter(Grounded(n_users, n_normal, n_words, n_good, seed))
 
-    def repr(self, 
+    def repr(self,
         cat_context:Literal["onehot","onehot_tuple","string"] = "onehot",
         cat_actions:Literal["onehot","onehot_tuple","string"] = "onehot") -> 'Environments':
         """Determine how certain types of data is represented."""

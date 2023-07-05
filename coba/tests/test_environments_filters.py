@@ -15,7 +15,7 @@ from coba.utilities    import peek_first
 
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments.filters    import Sparsify, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
-from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice
+from coba.environments.filters    import Densify, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice
 from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable, OpeRewards
 
 class TestEnvironment:
@@ -1243,8 +1243,8 @@ class Binary_Tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({'binary':True}, Binary().params)
 
-class Sparse_Tests(unittest.TestCase):
-    def test_sparse_simulated_no_context_and_action(self):
+class Sparsify_Tests(unittest.TestCase):
+    def test_simulated_no_context_and_action(self):
 
         sparse_interactions = list(Sparsify(action=True).filter([SimulatedInteraction(None, [1,2], [0,1]) ]))
 
@@ -1253,7 +1253,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual([{'action':1},{'action':2}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_simulated_str_context(self):
+    def test_simulated_str_context(self):
 
         sparse_interactions = list(Sparsify().filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
@@ -1262,7 +1262,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_simulated_str_not_context_not_action(self):
+    def test_simulated_str_not_context_not_action(self):
 
         sparse_interactions = list(Sparsify(context=False).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
@@ -1271,7 +1271,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_simulated_with_sparse_actions(self):
+    def test_simulated_with_sparse_actions(self):
 
         sparse_interactions = list(Sparsify(context=False,action=True).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
@@ -1280,7 +1280,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_simulated_tuple_context(self):
+    def test_simulated_tuple_context(self):
 
         sparse_interactions = list(Sparsify().filter([SimulatedInteraction((1,2,3), [{1:2},{3:4}], [0,1]) ]))
 
@@ -1289,7 +1289,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
-    def test_sparse_logged_tuple_context_and_action(self):
+    def test_logged_tuple_context_and_action(self):
 
         sparse_interactions = list(Sparsify(action=True).filter([LoggedInteraction((1,2,3), 2, 0)]))
 
@@ -1298,7 +1298,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual({'action':2}, sparse_interactions[0]['action'])
         self.assertEqual(0, sparse_interactions[0]['reward'])
 
-    def test_sparse_logged_tuple_context_and_not_action(self):
+    def test_logged_tuple_context_and_not_action(self):
 
         sparse_interactions = list(Sparsify().filter([LoggedInteraction((1,2,3), 2, 0)]))
 
@@ -1307,7 +1307,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual(2, sparse_interactions[0]['action'])
         self.assertEqual(0, sparse_interactions[0]['reward'])
 
-    def test_sparse_context_with_header(self):
+    def test_context_with_header(self):
 
         context = HeadDense([1,2,3],{'a':0,'b':1,'c':2})
         sparse_interactions = list(Sparsify().filter([{'context':context}]))
@@ -1315,7 +1315,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual({'a':1,'b':2,'c':3}, sparse_interactions[0]['context'])
 
-    def test_sparse_context_without_header(self):
+    def test_context_without_header(self):
 
         context = LazyDense([1,2,3])
         sparse_interactions = list(Sparsify().filter([{'context':context}]))
@@ -1323,9 +1323,53 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual({'0':1,'1':2,'2':3}, sparse_interactions[0]['context'])
 
+    def test_params(self):
+        self.assertEqual({'sparse_c':True, 'sparse_a':False}, Sparsify().params)
+
+class Densify_Tests(unittest.TestCase):
+
+    def test_dense_context(self):
+
+        d = Densify(context=True,action=False)
+
+        self.assertEqual(None , next(d.filter([{'context':None}]))['context'] )
+        self.assertEqual(1    , next(d.filter([{'context':1}]))['context'] )
+        self.assertEqual([1,2], next(d.filter([{'context':[1,2]}]))['context'] )
+
+    def test_dense_action(self):
+
+        d = Densify(context=False,action=True)
+
+        self.assertEqual(None , next(d.filter([{'action':None }]))['action'] )
+        self.assertEqual(1    , next(d.filter([{'action':1    }]))['action'] )
+        self.assertEqual([1,2], next(d.filter([{'action':[1,2]}]))['action'] )
+
+    def test_dense_actions(self):
+
+        d = Densify(context=False,action=True)
+
+        self.assertEqual([None,1,[1,2]], next(d.filter([{'actions':[None,1,[1,2]]}]))['actions'] )
+
+    def test_lookup(self):
+
+        d = Densify(2, method='lookup')
+
+        self.assertEqual([1,0], list(next(d.filter([{'context':{'a':1}}]))['context']) )
+        self.assertEqual([2,0], list(next(d.filter([{'context':{'a':2}}]))['context']) )
+        self.assertEqual([0,3], list(next(d.filter([{'context':{'b':3}}]))['context']) )
+        self.assertEqual([5,4], list(next(d.filter([{'context':{'b':1,'c':4,'d':5}}]))['context']) )
+
+    def test_hashing(self):
+
+        d = Densify(2, method='hashing')
+
+        self.assertEqual([0,1], list(next(d.filter([{'context':{'a':1}}]))['context']) )
+        self.assertEqual([0,2], list(next(d.filter([{'context':{'b':2}}]))['context']) )
+        self.assertEqual([0,3], list(next(d.filter([{'context':{'c':3}}]))['context']) )
+        self.assertEqual([4,1], list(next(d.filter([{'context':{'c':1,'d':4}}]))['context']) )
 
     def test_params(self):
-        self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparsify().params)
+        self.assertEqual({ 'dense_m': 'lookup', 'dense_n':400, 'dense_c':True, 'dense_a':False}, Densify().params)
 
 class Noise_Tests(unittest.TestCase):
 

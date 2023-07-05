@@ -1,6 +1,6 @@
 from collections import abc
 from itertools import count, compress, chain, filterfalse, islice, repeat
-from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
+from typing import Dict, Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
 from coba.backports import Literal
 
 from coba.primitives import Sparse, Dense, Categorical
@@ -58,7 +58,7 @@ class LazyDense(Dense_):
             try:
                 yield e(v)
             except:
-                if v in ['?','']: 
+                if v in ['?','']:
                     yield None
                 else:
                     raise
@@ -121,7 +121,7 @@ class LazySparse(Sparse_):
             return tuple((inv.get(k,k), v) for k,v in row.items())
         else:
             return tuple(row.items())
-        
+
     def _enc_items(self)->Iterator:
         enc   = self._enc
         inv   = self._inv
@@ -136,6 +136,47 @@ class LazySparse(Sparse_):
                 else: raise
 
             yield (inv.get(k,k) if inv else k,v)
+
+class SparseDense(Dense_):
+    __slots__=('_values','_length')
+
+    def __init__(self, values: Dict[int,Any], length:int) -> None:
+        self._values = values
+        self._length = length
+
+    def copy(self) -> 'SparseDense':
+        return SparseDense(self._values.copy(), self._length)
+
+    def __setitem__(self, key:int, value:Any):
+        key = key if key >= 0 else key+self._length
+
+        if key < 0 or key >= self._length:
+            raise IndexError("list index out of range")
+
+        self._values[key] = value
+
+    def __getitem__(self, key: int):
+        key = key if key >= 0 else key+self._length
+
+        if key < 0 or key >= self._length:
+            raise IndexError("list index out of range")
+
+        return self._values.get(key,0)
+
+    def __iter__(self) -> Iterator:
+        sort = sorted(self._values.items())
+
+        yield from repeat(0,sort[0][0])
+        yield sort[0][1]
+
+        for p,n in zip(sort,sort[1:]):
+            yield from repeat(0,n[0]-p[0]-1)
+            yield n[1]
+
+        yield from repeat(0,self._length-sort[-1][0]-1)
+
+    def __len__(self) -> int:
+        return self._length
 
 class HeadDense(Dense_):
     __slots__=('_row','headers')
@@ -172,11 +213,11 @@ class HeadSparse(Sparse_):
         return len(self._row)
 
     def keys(self) -> abc.KeysView:
-        head_map_inv_get = self._inv.__getitem__ 
+        head_map_inv_get = self._inv.__getitem__
         return set(map(head_map_inv_get, self._row.keys()))
 
     def items(self) -> Sequence:
-        head_map_inv_get = self._inv.__getitem__ 
+        head_map_inv_get = self._inv.__getitem__
         return tuple((head_map_inv_get(k),v) for k,v in self._row.items())
 
 class HeadRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
@@ -309,7 +350,7 @@ class KeepDense(Dense_):
 
 class DropSparse(Sparse_):
     __slots__=('_row','_drop_set')
-    
+
     def __init__(self, row: Sparse, drop_set: set = None) -> None:
         self._row      = row
         self._drop_set = drop_set
@@ -333,7 +374,7 @@ class DropSparse(Sparse_):
 
     def items(self) -> Sequence:
         drop = self._drop_set
-        yield from (item for item in self._row.items() if item[0] not in drop) 
+        yield from (item for item in self._row.items() if item[0] not in drop)
 
 class DropRows(Filter[Iterable[Union[Dense,Sparse]], Iterable[Union[Dense,Sparse]]]):
     """A filter which drops rows and columns from in table shaped data."""
@@ -366,7 +407,7 @@ class DropRows(Filter[Iterable[Union[Dense,Sparse]], Iterable[Union[Dense,Sparse
             mapping = {k:v for k,v in chain(enumerate(indexes),headers)}
             length  = len(indexes)
 
-            if headers: 
+            if headers:
                 external_indexes = dict(zip(indexes,count()))
                 external_headers = { h: external_indexes[i] for h,i in headers if i in external_indexes }
             else:
