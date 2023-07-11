@@ -141,7 +141,7 @@ class OffPolicyEvaluator(Evaluator):
     IMPLICIT_EXCLUDE = {"actions", "rewards", "action", "reward", "probability", "ope_loss"}
 
     def __init__(self,
-        record: Sequence[Literal['reward','time','ope_loss']] = ['reward'],
+        record: Sequence[Literal['reward','time','ope_loss','probability','action','context','actions','rewards']] = ['reward'],
         learn: bool = True,
         predict: bool = True,
         seed: float = None) -> None:
@@ -192,9 +192,14 @@ class OffPolicyEvaluator(Evaluator):
         else:
             implements_request = True
 
-        record_time     = 'time'     in self._record
-        record_reward   = 'reward'   in self._record and self._predict and 'actions' in first
-        record_ope_loss = 'ope_loss' in self._record and self._predict and 'actions' in first
+        record_time     = 'time'        in self._record
+        record_reward   = 'reward'      in self._record and self._predict and 'actions' in first
+        record_ope_loss = 'ope_loss'    in self._record and self._predict and 'actions' in first
+        record_action   = 'action'      in self._record
+        record_prob     = 'probability' in self._record
+        record_context  = 'context'     in self._record
+        record_actions  = 'actions'     in self._record
+        record_rewards  = 'rewards'     in self._record and discrete
 
         request = learner.request
         predict = learner.predict
@@ -258,9 +263,14 @@ class OffPolicyEvaluator(Evaluator):
                 if self._learn: learn(log_context, log_actions, log_action, log_reward, log_prob)
                 learn_time = time.time() - start_time
 
-            if record_time  : out['predict_time'] = predict_time
-            if record_time  : out['learn_time']   = learn_time
-            if record_reward: out['reward']       = ope_reward
+            if record_time  :  out['predict_time'] = predict_time
+            if record_time  :  out['learn_time']   = learn_time
+            if record_reward:  out['reward']       = ope_reward
+            if record_action:  out['action']       = log_action
+            if record_prob:    out['probability']  = log_prob
+            if record_context: out['context']      = log_context
+            if record_actions: out['actions']      = log_actions
+            if record_rewards: out['rewards']      = log_rewards
 
             out.update({k: interaction[k] for k in interaction.keys()-OffPolicyEvaluator.IMPLICIT_EXCLUDE})
 
