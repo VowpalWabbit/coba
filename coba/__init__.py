@@ -19,4 +19,7 @@ from coba.experiments  import Experiment, Result
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
 
+from coba.primitives.rewards import L1Reward, HammingReward, BinaryReward, IPSReward
+from coba.primitives.rewards import SequenceReward, MappingReward, MulticlassReward, BatchReward
+
 __version__ = "6.5.0"
