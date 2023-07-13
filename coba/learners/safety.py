@@ -129,7 +129,8 @@ class SafeLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         try:
             params = self.learner.params
-            params = params if isinstance(params,dict) else params()
+            params = params if not callable(params) else params()               
+            params = params if isinstance(params,dict) else {'params':str(params)}
         except AttributeError:
             params = {}
 

@@ -42,6 +42,19 @@ def moving_average(values:Sequence[float], span:int=None, exponential:bool=False
 
         return map(truediv,window_sums,window_sizes)
 
+def comparer(item1,item2):
+    try:
+        if item1[:-1]<item2[:-1]:
+            return -1
+        if item1[:-1]>item2[:-1]:
+            return 1
+        return 0
+    except TypeError as e:
+        if 'NoneType' in str(e):
+            return -1 if str(e).endswith("'NoneType'") else 1
+        if 'str' in str(e):
+            return -1 if str(e).endswith("'str'") else 1
+
 #this adds one more check on average but avoids the worst case
 #scenario, which can be common for certain types of experiments.
 def my_bisect_left(c,a,l,h): return l if c[l  ]==a else bisect_left(c,a,l,h)
@@ -469,7 +482,7 @@ class TransactionResult:
                 env_rows[trx[1]].update(trx[2])
 
             if trx[0] == "L":
-                lrn_rows[trx[1]].update(trx[2]) 
+                lrn_rows[trx[1]].update(trx[2])
 
             if trx[0] == "V":
                 val_rows[trx[1]].update(trx[2])
@@ -1136,7 +1149,7 @@ class Result:
                         L2.extend(map(itemgetter(slice(1,None)),group))
 
                 X_Y_YE = []
-                for _xi, (_x, group) in enumerate(groupby(sorted(plottable._pairings(p,L1,L2),key=itemgetter(0)),key=itemgetter(0))):
+                for _xi, (_x, group) in enumerate(groupby(sorted(plottable._pairings(p,L1,L2),key=cmp_to_key(comparer)),key=itemgetter(0))):
                     _x = f"{_x[0]}" if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
                     _Y = [contraster(*pair) for _,pair in group]
                     if _Y: X_Y_YE.append((_x,) + err(_Y,_xi))
@@ -1264,7 +1277,7 @@ class Result:
 
         return 'None' if label is None else label
 
-    def _pairings(self, p:Sequence[str], C1: Sequence[Tuple[int,int,float]], C2: Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
+    def _pairings(self, p:Sequence[str], L1: Sequence[Tuple[int,int,float]], L2: Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
 
         if isinstance(p,str): p = [p]
 
@@ -1275,8 +1288,8 @@ class Result:
         lrn_eq_vals = { row[0]:row[1:] for row in zip(*self.learners    [['learner_id'    ]+lrn_eq_cols]) }
 
         #could this be made faster? I could think of special cases but not a general solution to speed it up.
-        for e1,l1,x1,y1 in C1:
-            for e2,l2,x2,y2 in C2:
+        for e1,l1,x1,y1 in L1:
+            for e2,l2,x2,y2 in L2:
                 if env_eq_vals[e1] == env_eq_vals[e2] and lrn_eq_vals[l1] == lrn_eq_vals[l2]:
                     yield ((x1,x2),(y1,y2))
 
@@ -1345,19 +1358,6 @@ class Result:
 
             indexed_table.append(table)
             indexed_tables.append(indexed_table)
-
-        def comparer(item1,item2):
-            try:
-                if item1[:-1]<item2[:-1]:
-                    return -1
-                if item1[:-1]>item2[:-1]:
-                    return 1
-                return 0
-            except TypeError as e:
-                if 'NoneType' in str(e):
-                    return -1 if str(e).endswith("'NoneType'") else 1
-                if 'str' in str(e):
-                    return -1 if str(e).endswith("'str'") else 1
 
         return sorted(map(tuple,indexed_tables),key=cmp_to_key(comparer))
 
