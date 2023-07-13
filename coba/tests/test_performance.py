@@ -8,7 +8,7 @@ from typing import Callable, Any
 import coba.pipes
 import coba.random
 
-from coba.statistics import mean,var
+from coba.statistics import mean,var,percentile
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
@@ -326,6 +326,22 @@ class Performance_Tests(unittest.TestCase):
     def test_mean(self):
         items = [1,0]*3000
         self._assert_scale_time(items, lambda x:mean(x), .1, print_time, number=1000)
+
+    def test_percentile_no_sort(self):
+        items = [1,1]*3000
+        self._assert_scale_time(items, lambda x:percentile(x,[0,.5,1],sort=False), .005, print_time, number=1000)
+
+    def test_percentile_sort(self):
+        items = [1,1]*3000
+        self._assert_scale_time(items, lambda x:percentile(x,[0,.5,1],sort=True), .048, print_time, number=1000)
+
+    def test_percentile_no_sort_weights(self):
+        items = [1,1]*3000
+        self._assert_scale_time(items, lambda x:percentile(x,[0,.5,1],weights=[1]*len(x),sort=False), .008, print_time, number=10)
+
+    def test_percentile_sort_weights(self):
+        items = [1,1]*3000
+        self._assert_scale_time(items, lambda x:percentile(x,[0,.5,1],weights=[1]*len(x),sort=True), .015, print_time, number=10)
 
     def test_var(self):
         items = [1,0]*300
