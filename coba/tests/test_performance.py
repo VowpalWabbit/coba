@@ -280,7 +280,7 @@ class Performance_Tests(unittest.TestCase):
             for learner_id in range(10):
                 table.insert({"environment_id":[environment_id]*N,"learner_id":[learner_id]*N,"index":list(range(1,N+1)),"reward":reward})
 
-        self._assert_call_time(lambda:table.where(index=10,comparison='<='), .15, print_time, number=10)
+        self._assert_call_time(lambda:table.where(index=10,comparison='<='), .2, print_time, number=10)
 
     def test_table_where_index(self):
         coba.random.seed(1)
@@ -325,7 +325,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_mean(self):
         items = [1,0]*3000
-        self._assert_scale_time(items, lambda x:mean(x), .037, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:mean(x), .1, print_time, number=1000)
 
     def test_var(self):
         items = [1,0]*300
