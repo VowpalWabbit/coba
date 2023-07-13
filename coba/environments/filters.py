@@ -1244,7 +1244,6 @@ class OpeRewards(EnvironmentFilter):
         return {'ope_reward': self._rwd_type or 'None'}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        interactions = list(interactions)
         rwd_type = self._rwd_type
 
         if rwd_type is None:
