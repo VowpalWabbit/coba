@@ -728,6 +728,18 @@ class ExploreEvaluation_Tests(unittest.TestCase):
 
         self.assertIn("ExplorationEvaluator requires Learners to implement a `request` method",str(r.exception))
 
+    def test_probability_one(self):
+        class FixedRequestLearner:
+            def request(self,*args):
+                return [1,0,0]
+            def learn(self,*args):
+                pass
+        task         = ExplorationEvaluator()
+        learner      = FixedRequestLearner()
+        interactions = [LoggedInteraction(1, 2, 3, probability=1, actions=[1,2,3])]
+
+        task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))
+
     def test_ope(self):
 
         request_returns = [
@@ -789,7 +801,7 @@ class ExploreEvaluation_Tests(unittest.TestCase):
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ] * 6
 
         with self.assertRaises(CobaException) as e:
-            list(ExplorationEvaluator().evaluate(SimpleEnvironment(interactions),TestLearner()))
+            list(ExplorationEvaluator(ope=True).evaluate(SimpleEnvironment(interactions),TestLearner()))
 
         self.assertIn('interactions do not have an ope rewards', str(e.exception))
 

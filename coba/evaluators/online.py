@@ -291,7 +291,7 @@ class ExplorationEvaluator(Evaluator):
 
     def __init__(self,
         record: Sequence[Literal['context','actions','action','reward','probability','time']] = ['reward'],
-        ope: bool = True,
+        ope: bool = None,
         qpct: float = .005,
         cmax: float = 1.0,
         cinit: float = None,
@@ -335,6 +335,8 @@ class ExplorationEvaluator(Evaluator):
         batched = first and isinstance(first['context'], Batch)
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
+        if self._ope is None: self._ope = ('rewards' in first)
+
         if not all(k in first.keys() for k in ['context', 'action', 'reward', 'actions', 'probability']):
             raise CobaException("ExplorationEvaluator requires interactions with `['context', 'action', 'reward', 'actions', 'probability']`")
 
@@ -375,7 +377,7 @@ class ExplorationEvaluator(Evaluator):
         first_probs = [i['probability'] for i in first_100] + [(1-i['probability'])/(len(i['actions'])-1) for i in first_100]
         ope_rewards = []
         Q           = []
-        c           = self._cinit or min(first_probs+[self._cmax])
+        c           = self._cinit or min(list(filter(None,first_probs))+[self._cmax])
         t           = 0
 
         for interaction in interactions:
