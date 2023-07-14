@@ -1251,6 +1251,40 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.interactions))
         self.assertEqual(["No evaluators matched the given filter."], CobaContext.logger.sink.items)
 
+    def test_where(self):
+        envs = [['environment_id'],[1],[2],[3],[4]]
+        lrns = [['learner_id'    ],[1],[2],[3],[4]]
+        vals = [['evaluator_id'  ],[1],[2],[3],[4]]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,2,2],[3,3,3],[4,4,4]]
+
+        result = Result(envs, lrns, vals, ints)
+
+        self.assertEqual(4, len(result.environments))
+        self.assertEqual(4, len(result.learners))
+        self.assertEqual(4, len(result.evaluators))
+        self.assertEqual(4, len(result.interactions))
+
+        result = result.where(environment_id={'!=':1})
+
+        self.assertEqual(3, len(result.environments))
+        self.assertEqual(3, len(result.learners))
+        self.assertEqual(3, len(result.evaluators))
+        self.assertEqual(3, len(result.interactions))
+
+        result = result.where(learner_id={'!=':2})
+
+        self.assertEqual(2, len(result.environments))
+        self.assertEqual(2, len(result.learners))
+        self.assertEqual(2, len(result.evaluators))
+        self.assertEqual(2, len(result.interactions))
+
+        result = result.where(evaluator_id={'!=':3})
+
+        self.assertEqual(1, len(result.environments))
+        self.assertEqual(1, len(result.learners))
+        self.assertEqual(1, len(result.evaluators))
+        self.assertEqual(1, len(result.interactions))
+
     def test_copy(self):
 
         envs = [['environment_id'],[1],[2]    ]

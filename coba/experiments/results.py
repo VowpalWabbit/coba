@@ -971,6 +971,28 @@ class Result:
 
         return Result(environments,learners,evaluators,interactions)
 
+    def where(self, **kwargs) -> 'Result':
+
+        env_kwargs = {}
+        lrn_kwargs = {}
+        val_kwargs = {}
+
+        for key,arg in kwargs.items():
+            if key in self.environments.columns:
+                env_kwargs[key] = arg
+            elif key in self.learners.columns:
+                lrn_kwargs[key] = arg
+            else:
+                val_kwargs[key] = arg
+
+        out = self
+
+        if env_kwargs: out = out.filter_env(**env_kwargs)
+        if lrn_kwargs: out = out.filter_lrn(**lrn_kwargs)
+        if val_kwargs: out = out.filter_val(**val_kwargs)
+
+        return out
+
     def plot_learners(self,
         x       : Union[str, Sequence[str]] = 'index',
         y       : str = "reward",
