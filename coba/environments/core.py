@@ -314,7 +314,8 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     def cycle(self, after: int) -> 'Environments':
         """Cycle all rewards associated with actions by one place."""
-        return self.filter(Cycle(after))
+        if isinstance(after,(int,float)): after = [after]
+        return self.filter([Cycle(a) for a in after])
 
     def params(self, params: Mapping[str,Any]) -> 'Environments':
         """Add params to the environments."""

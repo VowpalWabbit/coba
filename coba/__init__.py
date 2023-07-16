@@ -15,6 +15,7 @@ from coba.evaluators import OnPolicyEvaluator, OffPolicyEvaluator, ClassMetaEval
 
 from coba.experiments  import Experiment, Result
 
+from coba.encodings import InteractionsEncoder
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
 

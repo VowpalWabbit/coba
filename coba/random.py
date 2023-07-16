@@ -309,14 +309,15 @@ def choice(seq: Sequence[Any], weights:Sequence[float]=None) -> Any:
 
     return _random.choice(seq, weights)
 
-def shuffle(array_like: Sequence[Any]) -> Sequence[Any]:
+def shuffle(array_like: Sequence[Any], inplace:bool=False) -> Sequence[Any]:
     """Shuffle the order of items in a sequence.
 
     Args:
         sequence: The sequence of items that are to be shuffled.
+        inplace: The sequence of items should be shuffled within the given sequence.
 
     Returns:
         A new sequence with the order of items shuffled.
     """
 
-    return _random.shuffle(array_like)
+    return _random.shuffle(array_like, inplace)
