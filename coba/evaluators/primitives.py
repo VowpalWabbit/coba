@@ -40,9 +40,9 @@ class SafeEvaluator(Evaluator):
             params = {}
 
         if type(self.evaluator).__name__ == 'function':
-            params['type'] = self.evaluator.__name__
+            params['eval_type'] = self.evaluator.__name__
         else:
-            params['type'] = type(self.evaluator).__name__
+            params['eval_type'] = type(self.evaluator).__name__
 
         return params
 

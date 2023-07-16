@@ -2,6 +2,7 @@ import pickle
 import threading as mt
 import multiprocessing as mp
 
+from collections.abc import Iterator
 from queue import Empty
 from traceback import format_tb
 from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any
@@ -164,7 +165,7 @@ class ThreadLine(mt.Thread):
 
 class AsyncableLine(SourceSink):
 
-    def run_async(self, 
+    def run_async(self,
         callback:Callable[['AsyncableLine',Optional[Exception],Optional[str]],None]=None,
         mode:Literal['process','thread']='process') -> Union[ThreadLine,ProcessLine]:
         """Run the pipeline asynchronously."""
@@ -181,12 +182,15 @@ class AsyncableLine(SourceSink):
         worker.start()
         return worker
 
-class Unchunker:
-    def __init__(self, chunked: bool) -> None:
-        self._chunked = chunked
+class Foreach:
+    def __init__(self,pipe:Filter) -> None:
+        self._pipe = pipe
+
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        if not self._chunked: items = [items]
-        for item in items: yield from item
+        for item in items:
+            out = self._pipe.filter(item)
+            out = out if isinstance(out,Iterator) else [out]
+            yield from out
 
 class Pickler:
 
@@ -236,18 +240,15 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
     def __init__(self,
             filter: Filter[Iterable[Any], Iterable[Any]],
             n_processes: int = 1,
-            maxtasksperchild: int = 0,
-            chunked: bool = False,) -> None:
+            maxtasksperchild: int = 0) -> None:
         """Instantiate a Multiprocessor.
 
         Args:
             filter: The inner pipe that will be executed on multiple processes.
             n_processes: The number of processes that should be created to filter items.
             maxtasksperchild: The number of items/chunks a process should filter before restarting.
-            chunked: Indicates that the given items have been chunked.
         """
         self._filter           = filter
-        self._chunked          = chunked
         self._max_processes    = n_processes
         self._maxtasksperchild = maxtasksperchild or None
 
@@ -261,7 +262,8 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         if not items: return []
 
         if self._max_processes == 1 and self._maxtasksperchild is None:
-            yield from self._filter.filter(Unchunker(self._chunked).filter(items))
+            yield from Foreach(self._filter).filter(items)
+
         else:
             event = spawn_context.Event()
 
@@ -274,9 +276,8 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             out_put   = QueueSink(out_queue,foreach=True)
             out_get   = QueueSource(out_queue)
             pickler   = Pickler()
-            unpickler = Unpickler() 
+            unpickler = Unpickler()
             get_max   = Slice(None,self._maxtasksperchild)
-            unchunk   = Unchunker(self._chunked)
             setter    = EventSetter(event)
 
             self._n_procs      = self._max_processes
@@ -286,7 +287,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             self._load_stopper = Stopper() #this works because the loader is a thread which means we have shared memory
 
             load_line   = SourceSink(IterableSource(items), self._load_stopper, pickler, in_put)
-            filter_line = SourceSink(in_get, setter, unpickler, get_max, unchunk, self._filter, out_put)
+            filter_line = SourceSink(in_get, setter, unpickler, get_max, Foreach(self._filter), out_put)
 
             def loader_finished_or_failed(worker: Union[ThreadLine,ProcessLine]):
                 if worker.exception: self._exceptions.append(worker.exception)
@@ -344,7 +345,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                     while True: in_queue.get_nowait()
                 except Empty:
                     pass
-                    #closing can cause exceptions 
+                    #closing can cause exceptions
                     #and doesn't seem to help anything
                     #in_queue.close()
 

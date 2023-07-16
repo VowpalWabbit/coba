@@ -4,7 +4,7 @@ import importlib.util
 from math import isnan
 
 from coba.exceptions import CobaException
-from coba.statistics import mean, stdev, var, iqr, percentile, phi, weighted_percentile
+from coba.statistics import mean, stdev, var, iqr, percentile, phi
 from coba.statistics import OnlineVariance, OnlineMean
 from coba.statistics import StdDevCI, StdErrCI, BootstrapCI, BinomialCI
 
@@ -13,6 +13,14 @@ class iqr_Tests(unittest.TestCase):
         self.assertEqual(1, iqr([1,2,3]))
 
 class percentile_Tests(unittest.TestCase):
+
+    def test_one_value(self):
+        self.assertEqual(2, percentile([2], 0))
+        self.assertEqual(2., percentile([2.], 0.))
+        
+        self.assertEqual([2,2], percentile([2], [0,1]))
+        self.assertEqual([2,2], percentile([2.], [0.,1.]))
+
     def test_simple_0_00(self):
         self.assertEqual(1, percentile([3,2,1], 0))
 
@@ -25,25 +33,27 @@ class percentile_Tests(unittest.TestCase):
     def test_simple_00_50_01(self):
         self.assertEqual((1,2,3), percentile([3,2,1], [0,.5,1]))
 
-class weighted_percentile_Tests(unittest.TestCase):
-    def test_simple_0_00(self):
-        self.assertEqual(1, weighted_percentile([3,2,1],[1,1,1], 0))
+    def test_weighted_0_00(self):
+        self.assertEqual(2, percentile([3,2,1], 0, [1,1,0]))
 
-    def test_simple_1_00(self):
-        self.assertEqual(3, weighted_percentile([3,2,1],[1,1,1], 1))
+    def test_weighted_1_00(self):
+        self.assertEqual(3, percentile([3,2,1], 1, [1,1,1]))
 
-    def test_simple_0_50(self):
-        self.assertEqual(2, weighted_percentile([3,2,1],[1,1,1], .5))
+    def test_weighted_0_50(self):
+        self.assertEqual(2, percentile([3,2,1], .5, [1,1,1]))
 
-    def test_simple_00_50_01(self):
-        self.assertEqual((1,2,3), weighted_percentile([3,2,1], [1,1,1], [0,.5,1]))
+    def test_weighted_00_50_01(self):
+        self.assertEqual((1,2,3), percentile([3,2,1], [0,.5,1], [1,1,1]))
 
-    def test_simple_25(self):
-        self.assertEqual(1.5, weighted_percentile([3,2,1], [1,1,1], .25))
+    def test_weighted_25(self):
+        self.assertEqual(1.5, percentile([3,2,1], .25, [1,1,1]))
 
 class mean_Tests(unittest.TestCase):
     def test(self):
         self.assertEqual(2,mean([1,2,3]))
+
+    def test_extreme(self):
+        self.assertEqual(1,mean([1e30, 1, 3, -1e30]))
 
 class stddev_Tests(unittest.TestCase):
     def test(self):

@@ -67,14 +67,14 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, write_stdlog)
 
             try:
-                yield from Multiprocessor(filter, self._processes, self._maxtasksperchild, self._chunked).filter(items)
+                yield from Multiprocessor(filter, self._processes, self._maxtasksperchild).filter(items)
 
             except Exception as e:
                 # If the error was due to an uncaught exception in the given filter it could be the case that the user 
                 # is expecting it therefore we don't want to supress it. On the other hand, if the error is due to the
                 # act of multiprocessing then we know the user is not expecting it and we log it in a friendly way.
 
-                #I have sense changed my mind. We should raise it regardless.
+                #I have since changed my mind. We should raise it regardless.
                 raise
 
             finally:

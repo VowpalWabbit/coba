@@ -1,10 +1,10 @@
-from math import hypot, isnan, erf, sqrt
+from math import hypot, isnan, erf, sqrt, fsum
 from sys import version_info
 from operator import mul, sub
-from bisect import bisect_left 
-from itertools import repeat, accumulate
+from bisect import bisect_left
+from itertools import repeat, accumulate, compress, chain
 from abc import abstractmethod, ABC
-from typing import Sequence, Tuple, Union, Callable
+from typing import Sequence, Tuple, Union, Callable, Optional
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
@@ -20,9 +20,16 @@ def iqr(values: Sequence[float]) -> float:
 
     return p75-p25
 
-def weighted_percentile(values: Sequence[float], weights: Sequence[float], percentiles: Union[float,Sequence[float]], sort: bool = True) -> Union[float, Tuple[float,...]]:
+def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]], weights: Sequence[float] = None, sort: bool = True) -> Union[float, Tuple[float,...]]:
 
-    def _percentile(values: Sequence[float], weights:Sequence[float], percentile: float) -> float:
+    if len(values) == 1:
+        if isinstance(percentiles,(int,float)):
+            return values[0]
+        else:
+            return list(values)*len(percentiles)
+
+    def _percentile(values: Sequence[float], weights:Optional[Sequence[float]], percentile: float) -> float:
+
         assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
 
         if percentile == 0:
@@ -31,45 +38,38 @@ def weighted_percentile(values: Sequence[float], weights: Sequence[float], perce
         if percentile == 1:
             return values[-1]
 
-        R = bisect_left(weights,percentile)
-        L = R-1
-        LP = (weights[R]-percentile)/(weights[R]-weights[L])
+        if weights:
+            R = bisect_left(weights,percentile)
+            L = R-1
+            LP = (weights[R]-percentile)/(weights[R]-weights[L])
 
-        return LP*values[L] + (1-LP)*values[R]
+            return LP*values[L] + (1-LP)*values[R]
+        else:
+            i = percentile*(len(values)-1)
+            I = int(i)
+            
+            if i == I:
+                return values[I]
+            else:
+                w = (i-I)
+                return (1-w)*values[I] + w*values[I+1]
 
     if sort:
-        values, weights = zip(*sorted(zip(values,weights)))
+        if weights:
+            values, weights = zip(*sorted(zip(values,weights)))
+        else:
+            values = sorted(values)
 
-    weights = (0,)+weights[1:]
-    weight_sum = sum(weights)
-    weights    = [w/weight_sum for w in accumulate(weights) ]
+    if weights:
+        if any(not w for w in weights):
+            values = list(compress(values,weights))
+        weight_sum = sum(weights[1:])
+        weights    = [w/weight_sum for w in accumulate(chain([0],compress(weights[1:],weights)))]
 
     if isinstance(percentiles,(float,int)):
         return _percentile(values, weights, percentiles)
     else:
         return tuple([_percentile(values, weights, p) for p in percentiles ])
-
-def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]], sort: bool = True) -> Union[float, Tuple[float,...]]:
-
-    def _percentile(values: Sequence[float], percentile: float) -> float:
-        assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
-
-        i = percentile*(len(values)-1)
-        I = int(i)
-
-        if i == I:
-            return values[I]
-        else:
-            w = (i-I)
-            return (1-w)*values[I] + w*values[I+1]
-
-    if sort:
-        values = sorted(values)
-
-    if isinstance(percentiles,(float,int)):
-        return _percentile(values, percentiles)
-    else:
-        return tuple([_percentile(values, p) for p in percentiles ])
 
 def phi(x: float) -> float:
     'Cumulative distribution function for the standard normal distribution'
@@ -77,7 +77,7 @@ def phi(x: float) -> float:
 
 def mean(sample: Sequence[float]) -> float:
     #If precision is needed use a true statistics package
-    return sum(sample)/len(sample)
+    return fsum(sample)/len(sample)
 
 def var(sample: Sequence[float]) -> float:
     n = len(sample)

@@ -191,6 +191,10 @@ class SafeLearner_Tests(unittest.TestCase):
         learner = SafeLearner(NoParamsLearner())
         self.assertEqual("NoParamsLearner", learner.params["family"])
 
+    def test_params_not_dict(self):
+        learner = SafeLearner(ParamsLearner([]))
+        self.assertDictEqual({"params":"[]", "family":"ParamsLearner"}, learner.params)
+
     def test_params_not_property(self):
         learner = SafeLearner(ParamsNotPropertyLearner({'a':"A"}))
         self.assertDictEqual({"family":"ParamsNotPropertyLearner", "a":"A"}, learner.params)

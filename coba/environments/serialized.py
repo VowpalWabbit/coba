@@ -46,11 +46,9 @@ class ZipMemberToObjects(Source[Iterable[object]]):
             pass
 
 class EnvironmentsToObjects(Filter[Environment, Iterable]):
-    def filter(self, envs: Union[Environment,Sequence[Environment]]) -> Iterable[Iterable[object]]:
-        if not isinstance(envs,(abc.Iterable)): envs = [envs]
-        for env in envs:
-            with CobaContext.logger.time("Materializing environment..."):
-                yield list(self._env_to_objects(env))
+    def filter(self, env: Union[Environment,Sequence[Environment]]) -> Iterable[Iterable[object]]:        
+        with CobaContext.logger.time("Materializing environment..."):
+            yield list(self._env_to_objects(env))
 
     def _env_to_objects(self,env):
         from coba import __version__ #imported here to avoid circular dependency

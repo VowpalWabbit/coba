@@ -58,7 +58,7 @@ class LambdaSimulation(Environment):
 
     @property
     def params(self) -> Dict[str, Any]:
-        params = { "type": "LambdaSimulation" }
+        params = { "env_type": "LambdaSimulation" }
 
         if hasattr(self, '_seed'):
             params["seed"] = self._seed
@@ -181,7 +181,7 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {**super().params, "type": "NeighborsSynthetic", "n_neighborhoods": self._n_neighborhoods }
+        return {**super().params, "env_type": "NeighborsSynthetic", "n_neighborhoods": self._n_neighborhoods }
 
     def __str__(self) -> str:
         return f"NeighborsSynth(A={self._n_actions},c={self._n_context_feats},a={self._n_action_feats},N={self._n_neighborhoods},seed={self._seed})"
@@ -273,7 +273,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {**super().params, "type":"LinearSynthetic", "reward_features": self._reward_features }
+        return {**super().params, "env_type":"LinearSynthetic", "reward_features": self._reward_features }
 
     def __reduce__(self) -> Tuple[object, ...]:
         return (LinearSyntheticSimulation, self._args)
@@ -385,7 +385,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        params = {**super().params, "type": "KernelSynthetic", "n_exemplars": self._n_exemplars, 'kernel': self._kernel}
+        params = {**super().params, "env_type": "KernelSynthetic", "n_exemplars": self._n_exemplars, 'kernel': self._kernel}
 
         if self._kernel == "polynomial":
             params['degree'] = self._degree
@@ -504,7 +504,7 @@ class MLPSyntheticSimulation(LambdaSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {**super().params, "type": "MLPSynthetic" }
+        return {**super().params, "env_type": "MLPSynthetic" }
 
     def __reduce__(self) -> Tuple[object, ...]:
         return (MLPSyntheticSimulation, self._args)

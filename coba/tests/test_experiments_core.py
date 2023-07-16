@@ -1,5 +1,6 @@
 import unittest
 
+from itertools import product
 from pathlib import Path
 from typing import cast
 
@@ -145,16 +146,26 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.experiment.processes = 1
         CobaContext.experiment.maxchunksperchild = 0
 
+    def test_deprecation(self):
+        with self.assertRaises(CobaException) as e:
+            Experiment(1,2,evaluation_task=3)
+
+        self.assertIn("The `evaluation_task` argument has been deprecated.", str(e.exception))
+
     def test_init_tuples(self):
-        exp = Experiment([(1,2)], 'a', 'd')
+        exp = Experiment([(1,2,'a')], 'd')
         self.assertEqual(exp._triples, [(1,2,'a')])
         self.assertEqual(exp._description, 'd')
 
-        exp = Experiment(eval_pairs=[(1,2)], evaluator='a', description='d')
+        exp = Experiment(eval_tuples=[(1,2,'a')], description='d')
         self.assertEqual(exp._triples, [(1,2,'a')])
         self.assertEqual(exp._description, 'd')
 
-    def test_init_prod(self):
+        exp = Experiment(product([1],[2],['a']), description='d')
+        self.assertEqual(exp._triples, [(1,2,'a')])
+        self.assertEqual(exp._description, 'd')
+
+    def test_init_args(self):
         exp = Experiment(1, 2, 'a', 'd')
         self.assertEqual(exp._triples, [(1,2,'a')])
         self.assertEqual(exp._description, 'd')
@@ -176,14 +187,14 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(exp._triples, [])
         self.assertEqual(exp._description, 'd')
 
-        exp = Experiment([], 'a', 'd')
+        exp = Experiment([], 'd')
         self.assertEqual(exp._triples, [])
         self.assertEqual(exp._description, 'd')
 
     def test_init_incomplete(self):
-        with self.assertRaises(CobaException):
+        with self.assertRaises(TypeError):
             exp = Experiment()
-        with self.assertRaises(CobaException):
+        with self.assertRaises(TypeError):
             exp = Experiment(evaluators='a')
         with self.assertRaises(TypeError):
             exp = Experiment(environments=1)
@@ -200,19 +211,19 @@ class Experiment_Single_Tests(unittest.TestCase):
         result = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'}
+            {"environment_id":0, "env_type":'LambdaSimulation'}
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_evaluators = [
-            {"evaluator_id":0, "type": "test_eval"}
+            {"evaluator_id":0, "eval_type": "test_eval"}
         ]
         expected_interactions = [
             { 'environment_id':0, 'learner_id':0, "evaluator_id":0, 'index':1, "learner_type": str(type(learner)), "n_interactions": len(list(env1.read()))}
         ]
 
-        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
+        self.assertTrue(not any([ "Restoring Results..." in i for i in CobaContext.logger.sink.items]))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, 'seed':1}, result.experiment)
         self.assertCountEqual(result.environments.to_dicts(), expected_environments)
         self.assertCountEqual(result.learners.to_dicts(), expected_learners)
@@ -234,20 +245,20 @@ class Experiment_Single_Tests(unittest.TestCase):
         result = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'}
+            {"environment_id":0, "env_type":'LambdaSimulation'}
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_evaluators = [
-            {'evaluator_id': 0, "type": "OnPolicyEvaluator"}
+            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
         ]
         expected_interactions = [
             {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
             {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1}
         ]
 
-        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
+        self.assertTrue(not any([ "Restoring Results..." in i for i in CobaContext.logger.sink.items]))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, 'seed':1}, result.experiment)
         self.assertCountEqual(result.environments.to_dicts(), expected_environments)
         self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
@@ -269,20 +280,20 @@ class Experiment_Single_Tests(unittest.TestCase):
         result = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'}
+            {"environment_id":0, "env_type":'LambdaSimulation'}
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_evaluators = [
-            {'evaluator_id': 0, "type": "OnPolicyEvaluator"}
+            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
         ]
         expected_interactions = [
             {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
             {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1}
         ]
 
-        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
+        self.assertTrue(not any([ "Restoring Results..." in i for i in CobaContext.logger.sink.items]))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
         self.assertCountEqual(result.environments.to_dicts(), expected_environments)
         self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
@@ -303,14 +314,14 @@ class Experiment_Single_Tests(unittest.TestCase):
         result = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
-            {"environment_id":1, "type":'LambdaSimulation'}
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+            {"environment_id":1, "env_type":'LambdaSimulation'}
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_evaluators = [
-            {'evaluator_id': 0, "type": "OnPolicyEvaluator"}
+            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
         ]
         expected_interactions = [
             {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
@@ -336,7 +347,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         result = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'CategoricalActionEnv'},
+            {"environment_id":0, "env_type":'CategoricalActionEnv'},
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
@@ -358,7 +369,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         experiment = Experiment([env], [learner1, learner2])
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
+            {"environment_id":0, "env_type":'LambdaSimulation'},
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'},
@@ -386,7 +397,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         result = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
+            {"environment_id":0, "env_type":'LambdaSimulation'},
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
@@ -409,7 +420,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         result       = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
+            {"environment_id":0, "env_type":'LambdaSimulation'},
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
@@ -425,9 +436,15 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_restore(self):
+        
+        class MyBrokenLearner:
+            @property
+            def params(self):
+                return {"family":"Modulo", "p":'0'}
+
         env             = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         working_learner = ModuloLearner()
-        broken_learner  = BrokenLearner()
+        broken_learner  = MyBrokenLearner()
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -435,7 +452,6 @@ class Experiment_Single_Tests(unittest.TestCase):
         #we're resuming from the first experiment's transaction.log
         try:
             first_result  = Experiment([env],[working_learner]).run("coba/tests/.temp/transactions.log")
-            #second_result = first_result
             second_result = Experiment([env],[broken_learner ]).run("coba/tests/.temp/transactions.log")
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
@@ -443,7 +459,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.logger
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
+            {"environment_id":0, "env_type":'LambdaSimulation'},
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0'}
@@ -455,6 +471,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)
 
+        self.assertTrue(not any('exception' in i for i in CobaContext.logger.sink.items))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, second_result.experiment)
         self.assertCountEqual(second_result.environments.to_dicts(), expected_environments)
         self.assertCountEqual(second_result.learners.to_dicts()    , expected_learners)
@@ -468,7 +485,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         result = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'NoParamsEnvironment'},
+            {"environment_id":0, "env_type":'NoParamsEnvironment'},
         ]
         expected_learners     = [
             {"learner_id":0, "family":"NoParamsLearner"}
@@ -493,8 +510,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         result = experiment.run()
 
         expected_environments = [
-            {"environment_id":0, "type":'LambdaSimulation'},
-            {"environment_id":1, "type":'LambdaSimulation'},
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+            {"environment_id":1, "env_type":'LambdaSimulation'},
         ]
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "p":'0' },
@@ -534,8 +551,9 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(3,exp.maxtasksperchunk)
 
     def test_restore_not_matched_environments(self):
-        path = Path("coba/tests/.temp/experiment.log")
+        
 
+        path = Path("coba/tests/.temp/experiment.log")
         if path.exists(): path.unlink()
         path.write_text('["version",4]\n["experiment",{"n_environments":1,"n_learners":1}]')
 
@@ -545,11 +563,15 @@ class Experiment_Single_Tests(unittest.TestCase):
             lrn1 = ModuloLearner()
             lrn2 = ModuloLearner()
 
-            with self.assertRaises(AssertionError) as e:
-                result = Experiment([env1,env2], [lrn1]).run(str(path))
+            CobaContext.logger = BasicLogger(ListSink())
+            Experiment([env1,env2], [lrn1]).run(str(path))
+            self.assertIn("The experiment does not match the given logs", CobaContext.logger.sink.items[2])
+            self.assertIn("Experiment Failed", CobaContext.logger.sink.items[3])
 
-            with self.assertRaises(AssertionError) as e:
-                result = Experiment([env1], [lrn1,lrn2]).run(str(path))
+            CobaContext.logger = BasicLogger(ListSink())
+            Experiment([env1], [lrn1,lrn2]).run(str(path))
+            self.assertIn("The experiment does not match the given logs", CobaContext.logger.sink.items[2])
+            self.assertIn("Experiment Failed", CobaContext.logger.sink.items[3])
 
         finally:
             path.unlink()

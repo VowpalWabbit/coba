@@ -24,21 +24,81 @@ class TestPlotter:
 class TransactionResult_Tests(unittest.TestCase):
 
     def test_empty(self):
-        res = TransactionResult().filter([["version",4]])
+        transactions = [
+            ["version",4]
+        ]
+
+        res = TransactionResult().filter(transactions)
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
+
+    def test_multirow(self):
+        transactions = [
+            ["version",4],
+            ["E",0,{'a':1}],
+            ["E",0,{'b':2}]
+        ]
+        res = TransactionResult().filter(transactions)
+        self.assertEqual(res.environments,Table(columns=['environment_id','a','b']).insert([[0,1,2]]))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
+
+    def test_environments(self):
+        transactions = [
+            ["version",4],
+            ["E",0,{'a':1,'b':2}]
+        ]
+        res = TransactionResult().filter(transactions)
+        self.assertEqual(res.environments,Table(columns=['environment_id','a','b']).insert([[0,1,2]]))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
+
+    def test_learners(self):
+        transactions = [
+            ["version",4],
+            ["L",0,{'a':1,'b':2}]
+        ]
+        res = TransactionResult().filter(transactions)
+        self.assertEqual(res.environments,Table(columns=['environment_id']))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id','a','b']).insert([[0,1,2]]))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
+
+    def test_evaluators(self):
+        transactions = [
+            ["version",4],
+            ["V",0,{'a':1,'b':2}]
+        ]
+        res = TransactionResult().filter(transactions)
+        self.assertEqual(res.environments,Table(columns=['environment_id']))
+        self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id','a','b']).insert([[0,1,2]]))
         self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index']))
 
     def test_same_columns(self):
-        res = TransactionResult().filter([["version",4],["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"reward":[1,4]}}]])
+        transactions = [
+            ["version",4],
+            ["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"reward":[1,4]}}]
+        ]
+        res = TransactionResult().filter(transactions)
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners    ,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
         self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index', 'reward']).insert([(0,1,0,1,1),(0,1,0,2,3),(0,2,0,1,1),(0,2,0,2,4)]))
 
     def test_diff_columns(self):
-        res = TransactionResult().filter([["version",4],["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"z":[1,4]}}]])
+        transactions = [
+            ["version",4],
+            ["I",(0,1),{"_packed":{"reward":[1,3]}}],["I",(0,2),{"_packed":{"z":[1,4]}}]
+        ]
+        res = TransactionResult().filter(transactions)
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners,Table(columns=['learner_id']))
+        self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
         self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index', 'reward', 'z']).insert([(0,1,0,1,1,None),(0,1,0,2,3,None),(0,2,0,1,None,1),(0,2,0,2,None,4)]))
 
     def test_old_version(self):
@@ -76,6 +136,19 @@ class TransactionDecode_Tests(unittest.TestCase):
         self.assertEqual(list(TransactionDecode().filter(['["version",4]','{"a":1}'])), [["version",4],{"a":1}])
 
 class View_Tests(unittest.TestCase):
+
+    def test_listview(self):
+        listview = View.ListView([1,2,3,4],[0,2,3])
+        self.assertEqual([1,3], list(listview[:2]))
+        self.assertEqual(1, listview[0])
+        self.assertEqual(3, len(listview))
+
+    def test_sliceview(self):
+        sliceview = View.SliceView([1,2,3,4],slice(3))
+        self.assertEqual([1,2], list(sliceview[:2]))
+        self.assertEqual(1, sliceview[0])
+        self.assertEqual(3, len(sliceview))
+
     def test_getitem_seq(self):
         view = View({"a":[1,2,3]},[0,2])
         self.assertSequenceEqual(view['a'],(1,3))
@@ -100,6 +173,22 @@ class View_Tests(unittest.TestCase):
         view = View({"a":[1,2,3],'b':[4,5,6]},[0,2])
         with self.assertRaises(CobaException):
             view['a'] = [3,4]
+
+    def test_view_of_view(self):
+        view = View(View({"a":[1,2,3],'b':[4,5,6]},[0,2]),[0,1])
+        self.assertEqual([1,3],list(view['a']))
+
+    def test_view_of_view_slice_slice(self):
+        view = View(View({"a":[1,2,3],'b':[4,5,6]},slice(0,2)),slice(1,2))
+        self.assertEqual([2],list(view['a']))
+
+    def test_view_of_view_list_slice(self):
+        view = View(View({"a":[1,2,3],'b':[4,5,6]},[0,1]),slice(1,2))
+        self.assertEqual([2],list(view['a']))
+
+    def test_view_of_view_slice_list(self):
+        view = View(View({"a":[1,2,3],'b':[4,5,6]},slice(0,2)),[1])
+        self.assertEqual([2],list(view['a']))
 
 class Table_Tests(unittest.TestCase):
 
@@ -300,6 +389,19 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(4, len(table))
         self.assertEqual(2, len(filtered_table))
 
+    def test_where_ne(self):
+        table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
+
+        filtered_table = table.where(a=1,comparison='!=')
+
+        self.assertEqual(4, len(table))
+        self.assertEqual(2, len(filtered_table))
+
+        filtered_table = table.index('a').where(a=1,comparison='!=')
+
+        self.assertEqual(4, len(table))
+        self.assertEqual(2, len(filtered_table))
+
     def test_where_match_number_number(self):
         table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
 
@@ -338,6 +440,14 @@ class Table_Tests(unittest.TestCase):
 
         index_where = table.index('a').where(a=list(reversed([0,10,20,30,40,50,60])))
         self.assertSequenceEqual(index_where['a'],[0,10,20,30,40,50,60])
+
+    def test_where_lt_multilevel_index(self):
+        table = Table({'a':[1,1,1,2,2,2],'b':[1,2,3,1,2,3]}).index('a','b')
+
+        filtered_table = table.where(b={'<':3})
+
+        self.assertEqual(6, len(table))
+        self.assertEqual(4, len(filtered_table))
 
     def test_multilevel_index(self):
         table = Table(columns=['a','b','c','d']).insert([(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
@@ -796,7 +906,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
 class Result_Tests(unittest.TestCase):
 
     def test_set_plotter(self):
-        result = Result(None,None,None,None)
+        result = Result()
         self.assertIsNotNone(result._plotter)
         result.set_plotter(None)
         self.assertIsNone(result._plotter)
@@ -807,11 +917,11 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual( [(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)], list(result.interactions))
 
     def test_has_preamble(self):
-        self.assertDictEqual(Result(None,None,None,None,exp_dict={"n_learners":1, "n_environments":2}).experiment, {"n_learners":1, "n_environments":2})
+        self.assertDictEqual(Result(None,None,None,None,{"n_learners":1, "n_environments":2}).experiment, {"n_learners":1, "n_environments":2})
 
     def test_exception_when_no_file(self):
         with self.assertRaises(Exception):
-            Result.from_file("abcd")
+            Result().from_file("abcd")
 
     def test_from_logged_envs(self):
         class Logged1:
@@ -857,7 +967,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         expected_vals = [
-            {'evaluator_id':0, 'type':'unknown'}
+            {'evaluator_id':0, 'eval_type':'unknown'}
         ]
 
         expected_ints = [
@@ -871,7 +981,7 @@ class Result_Tests(unittest.TestCase):
             {'environment_id': 1, 'learner_id': 1, 'evaluator_id': 0, 'index':2, 'reward': 2 },
         ]
 
-        res = Result.from_logged_envs([Logged1(),Logged2(),Logged3(),Logged4()])
+        res = Result().from_logged_envs([Logged1(),Logged2(),Logged3(),Logged4()])
         self.assertCountEqual(res.environments.to_dicts(), expected_envs)
         self.assertCountEqual(res.learners.to_dicts()    , expected_lrns)
         self.assertCountEqual(res.evaluators.to_dicts()  , expected_vals)
@@ -884,7 +994,7 @@ class Result_Tests(unittest.TestCase):
         ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[1,2,1,0],[2,1,1,0]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin()
+        filtered_result = original_result.filter_fin(l='learner_id',p='environment_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -896,7 +1006,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_result.evaluators))
         self.assertEqual(2, len(filtered_result.interactions))
 
-    def test_filter_fin_with_n_interactions(self):
+    def test_filter_fin_with_n_and_default(self):
         envs = [['environment_id'],[1],[2]]
         lrns = [['learner_id'    ],[1],[2]]
         vals = [['evaluator_id'  ],[1]]
@@ -918,6 +1028,28 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(4, len(filtered_result.interactions))
 
+    def test_filter_fin_with_n_and_Nones(self):
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [1,1,1,1,1],[1,1,1,2,2],
+            [1,2,1,1,1],[1,2,1,2,2],[1,2,1,3,3],
+            [2,1,1,1,1],[2,1,1,2,1],
+            [2,2,1,1,1]
+        ]
+
+        original_result = Result(envs, lrns, vals, ints)
+        filtered_result = original_result.filter_fin(2,None,None)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(8, len(original_result.interactions))
+
+        self.assertEqual(2, len(filtered_result.environments))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(6, len(filtered_result.interactions))
+
     def test_filter_fin_no_finished(self):
 
         CobaContext.logger = IndentLogger()
@@ -926,10 +1058,10 @@ class Result_Tests(unittest.TestCase):
         envs = [['environment_id'],[1],[2]]
         lrns = [['learner_id'    ],[1],[2]]
         vals = [['evaluator_id'  ],[1]]
-        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[2,1,1,0]]
+        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[2,2,1,0]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin()
+        filtered_result = original_result.filter_fin(l='learner_id',p='environment_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -938,7 +1070,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.environments))
         self.assertEqual(0, len(filtered_result.learners))
         self.assertEqual(0, len(filtered_result.interactions))
-        self.assertEqual(["There was no environment which was finished for every learner."], CobaContext.logger.sink.items)
+        self.assertEqual(["There was no environment_id which was finished for every learner_id."], CobaContext.logger.sink.items)
 
     def test_filter_env(self):
 
@@ -1119,6 +1251,40 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.interactions))
         self.assertEqual(["No evaluators matched the given filter."], CobaContext.logger.sink.items)
 
+    def test_where(self):
+        envs = [['environment_id'],[1],[2],[3],[4]]
+        lrns = [['learner_id'    ],[1],[2],[3],[4]]
+        vals = [['evaluator_id'  ],[1],[2],[3],[4]]
+        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,2,2],[3,3,3],[4,4,4]]
+
+        result = Result(envs, lrns, vals, ints)
+
+        self.assertEqual(4, len(result.environments))
+        self.assertEqual(4, len(result.learners))
+        self.assertEqual(4, len(result.evaluators))
+        self.assertEqual(4, len(result.interactions))
+
+        result = result.where(environment_id={'!=':1})
+
+        self.assertEqual(3, len(result.environments))
+        self.assertEqual(3, len(result.learners))
+        self.assertEqual(3, len(result.evaluators))
+        self.assertEqual(3, len(result.interactions))
+
+        result = result.where(learner_id={'!=':2})
+
+        self.assertEqual(2, len(result.environments))
+        self.assertEqual(2, len(result.learners))
+        self.assertEqual(2, len(result.evaluators))
+        self.assertEqual(2, len(result.interactions))
+
+        result = result.where(evaluator_id={'!=':3})
+
+        self.assertEqual(1, len(result.environments))
+        self.assertEqual(1, len(result.learners))
+        self.assertEqual(1, len(result.evaluators))
+        self.assertEqual(1, len(result.interactions))
+
     def test_copy(self):
 
         envs = [['environment_id'],[1],[2]    ]
@@ -1130,7 +1296,7 @@ class Result_Tests(unittest.TestCase):
         result_copy = result.copy()
 
         self.assertIsNot(result, result_copy)
-        
+
         self.assertIsNot(result.environments, result_copy.environments)
         self.assertIsNot(result.learners, result_copy.learners)
         self.assertIsNot(result.evaluators, result_copy.evaluators)
@@ -1165,10 +1331,10 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_bad_x_index(self):
         CobaContext.logger.sink = ListSink()
-        Result(None,None,None,None).plot_learners(x=['index','a'])
+        Result().plot_learners(x=['index','a'])
         self.assertIn("The x-axis cannot contain", CobaContext.logger.sink.items[0])
 
-    def test_plot_learners_one_environment_all_default(self):
+    def test_plot_learners_all_default(self):
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         vals = [['evaluator_id'],[0]]
@@ -1183,6 +1349,72 @@ class Result_Tests(unittest.TestCase):
         expected_lines = [
             Points([1,2],[1,1.5],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[1,1.5],[],[0,0],1,1,'2. learner_2','-', 1)
+        ]
+
+        self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Interaction", plotter.plot_calls[0][3])
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_learners_all_str_to_none(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,None]]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, vals, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(l='family')
+
+        expected_lines = [
+            Points([1,2],[1,1.5],[],[0,0],0,1,'learner_1','-', 1),
+            Points([1,2],[1,1.5],[],[0,0],1,1,'None','-', 1)
+        ]
+
+        self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Interaction", plotter.plot_calls[0][3])
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_learners_all_str_to_int(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,1337]]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, vals, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(l='family')
+
+        expected_lines = [
+            Points([1,2],[1,1.5],[],[0,0],0,1,1337       ,'-', 1),
+            Points([1,2],[1,1.5],[],[0,0],1,1,'learner_1','-', 1),
+        ]
+
+        self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Interaction", plotter.plot_calls[0][3])
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_learners_with_l_sequence(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family','a','b'],[1,'learner_1',1,2],[2,'learner_2',3,4]]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, vals, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(l=['a','b'])
+
+        expected_lines = [
+            Points([1,2],[1,1.5],[],[0,0],0,1,(1,2),'-', 1),
+            Points([1,2],[1,1.5],[],[0,0],1,1,(3,4),'-', 1)
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -1238,14 +1470,14 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_one_environment_val_params(self):
         envs = [['environment_id'],[0]]
         lrns = [['learner_id'],[1]]
-        vals = [['evaluator_id','type'],[0,'a'],[1,'b']]
+        vals = [['evaluator_id','eval_type'],[0,'a'],[1,'b']]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,0,1],[0,1,0,1,2],[0,1,1,0,1],[0,1,1,1,2]]
 
         plotter = TestPlotter()
         result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
-        result.plot_learners(l='type')
+        result.plot_learners(l='eval_type')
 
         expected_lines = [
             Points([0,1],[1.,1.5],[],[0,0],0,1,'a','-', 1),
@@ -1299,14 +1531,14 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
-        result.plot_learners(x=['environment_id'])
+        result.plot_learners(x='environment_id')
 
         expected_lines = [
             Points(['0'],[1.5],[],[0],0,1,'1. learner_1','.',1),
             Points(['0'],[1.5],[],[0],1,1,'2. learner_2','.',1)
         ]
 
-        self.assertEqual("Final Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Total Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
         self.assertEqual("environment_id", plotter.plot_calls[0][3])
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1358,7 +1590,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this call <result>.filter_fin() before plotting."
+        expected_log = "Every environment_id not present for all full_name has been excluded."
         expected_lines = [
             Points([1,2],[2,5/2],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[2,5/2],[],[0,0],1,1,'2. learner_2','-', 1)
@@ -1389,7 +1621,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting."
+        expected_log = 'Interactions beyond the shortest environment_id have been excluded.'
         expected_lines = [
             Points([1,2],[3/2,4/2],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[3/2,4/2],[],[0,0],1,1,'2. learner_2','-', 1)
@@ -1666,7 +1898,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_empty_results(self):
         plotter = TestPlotter()
-        result = Result(None,None,None,None)
+        result = Result()
 
         result.set_plotter(plotter)
 
@@ -1676,13 +1908,13 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_contrast_no_data(self):
         CobaContext.logger.sink = ListSink()
-        Result(None,None,None,None).plot_contrast(0, 1, x=['a'])
+        Result().plot_contrast(0, 1, x=['a'])
         self.assertEqual(["This result does not contain any data to plot."],CobaContext.logger.sink.items)
 
     def test_shared_c(self):
         CobaContext.logger.sink = ListSink()
-        Result(None,None,None,None).plot_contrast(1, 1, x=['a'])
-        self.assertEqual(["A value cannot be in both `c1` and `c2`. Please make a change and run it again."],CobaContext.logger.sink.items)
+        Result().plot_contrast(1, 1, x=['a'])
+        self.assertEqual(["A value cannot be in both `l1` and `l2`. Please make a change and run it again."],CobaContext.logger.sink.items)
 
     def test_plot_contrast_no_pairings(self):
         envs = [['environment_id'],[0],[1]]
@@ -1698,7 +1930,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
         Result(envs, lrns, vals, ints).plot_contrast(0, 1, x='index')
 
-        self.assertEqual(f"We were unable to create any pairings to contrast. Make sure c1=0 and c2=1 is correct.",CobaContext.logger.sink.items[0])
+        self.assertEqual(f"We were unable to create any pairings to contrast. Make sure l1=0 and l2=1 is correct.",CobaContext.logger.sink.items[0])
 
     def test_plot_contrast_index(self):
         envs = [['environment_id'],[0],[1]]
@@ -1718,7 +1950,7 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(1, 2, x='index')
 
         expected_lines = [
-            Points((1,2,3), (0, 0, -1), None, (0,0,0), 0     , 1, 'c2-c1', '-', 1.),
+            Points((1,2,3), (0, 0, -1), None, (0,0,0), 0     , 1, 'l2-l1', '-', 1.),
             Points((1,3)  , (0, 0    ), None,  None  , "#888", 1, None   , '-', .5),
         ]
 
@@ -1747,8 +1979,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1)
 
         expected_lines = [
-            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'c1 (2)', '.', 1.),
-            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'c2 (2)', '.', 1.),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'l1 (2)', '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'l2 (2)', '.', 1.),
             Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None    , '-', .5),
         ]
 
@@ -1776,8 +2008,36 @@ class Result_Tests(unittest.TestCase):
 
         expected_lines = [
             Points(('2',)   , (0, ), None, (0, ), 1     , 1, 'Tie (1)', '.', 1.),
-            Points(('3','1'), (1,2), None, (0,0), 2     , 1, 'c2 (2)' , '.', 1.),
+            Points(('3','1'), (1,2), None, (0,0), 2     , 1, 'l2 (2)' , '.', 1.),
             Points(('2','1'), (0,0), None, None , "#888", 1, None     , '-', .5)
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_contrast_one_environment_env_not_index_mode_prob_mixed_x(self):
+        envs = [['environment_id','a'],[0,1],[1,2],[2,None]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,12],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,0],[1,1,0,2,3],[1,1,0,3,6],
+            [1,2,0,1,1],[1,2,0,2,2],[1,2,0,3,6],
+            [2,1,0,1,0],[2,1,0,2,3],[2,1,0,3,9],
+            [2,2,0,1,1],[2,2,0,2,2],[2,2,0,3,6],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, vals, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast(2,1,x='a',mode='prob')
+
+        expected_lines = [
+            Points(('2',)      , (0,   ), None, (0, ), 0     , 1, 'l1 (1)', '.', 1.),
+            Points(('1','None'), (1,1  ), None, (0,0), 2     , 1, 'l2 (2)', '.', 1.),
+            Points(('2','None'), (.5,.5), None, None , "#888", 1, None    , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1803,8 +2063,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, 'c1 (1)', '.', 1.),
-            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, 'c2 (2)', '.', 1.),
+            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, 'l1 (1)', '.', 1.),
+            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, 'l2 (2)', '.', 1.),
             Points(('2','3'), (.5,.5), None, None , "#888", 1, None    , '-', .5)
         ]
 
@@ -1825,17 +2085,17 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
-        result.plot_contrast(2,1,c='a')
+        result.plot_contrast(2,1,l='a',p='learner_id')
 
         expected_lines = [
-            Points(('0-1',     ), (2, ), None, (0, ), 2     , 1, 'c2 (1)', '.', 1.),
+            Points(('0-1',     ), (2, ), None, (0, ), 2     , 1, 'l2 (1)', '.', 1.),
             Points(('0-1','0-1'), (0,0), None, None , "#888", 1, None    , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
-    def test_plot_contrast_x_eq_c_multi_c1(self):
+    def test_plot_contrast_x_eq_l_multi_l1(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         vals = [['evaluator_id'],[0]]
@@ -1852,7 +2112,7 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
-        result.plot_contrast([2,3],1,c='a',x='a',boundary=False)
+        result.plot_contrast([2,3],1,x='a',l='a',p='learner_id',boundary=False)
 
         expected_lines = [
             Points(('1-2','1-3'), (1,.5), None, (0, 0), 0, 1, None, '.', 1.),
@@ -1861,7 +2121,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
-    def test_plot_contrast_x_eq_c_multi_c2(self):
+    def test_plot_contrast_x_eq_l_multi_l2(self):
         envs = [['environment_id','a'],[0,1],[1,2],[2,3]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         vals = [['evaluator_id'],[0]]
@@ -1878,7 +2138,7 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
-        result.plot_contrast(1,[3,2],c='a',x='a',boundary=False)
+        result.plot_contrast(1,[3,2],x='a',l='a',p='learner_id',boundary=False)
 
         expected_lines = [
             Points(('3-1','2-1'), (-.5,-1), None, (0, 0), 0, 1, None, '.', 1.),
@@ -1904,7 +2164,7 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, vals, ints)
 
         result.set_plotter(plotter)
-        result.plot_contrast(1,2,c='a',x='a',boundary=False)
+        result.plot_contrast(1,2,x='a',l='a',p='learner_id',boundary=False)
 
         expected_lines = [
             Points(('2-1',), (-1,), None, (0,), 0, 1, None, '.', 1.),
@@ -1919,12 +2179,12 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id'],[0]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1]]
         result = Result(envs, lrns, vals, ints)
 
-        self.assertEqual(result, result._plottable(['index'],'reward'))
+        self.assertEqual(result, result._plottable('index','reward','learner_id','environment_id'))
         self.assertEqual([], CobaContext.logger.sink.items)
 
     def test_plottable_all_env_finished_with_unequal_lengths_and_x_index(self):
@@ -1933,17 +2193,17 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id'],[0],[1]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
         result = Result(envs, lrns, vals, ints)
 
         expected_rows = [(0,0,0,1,1),(0,1,0,1,1),(1,0,0,1,1),(1,1,0,1,1)]
 
-        plottable = result._plottable(['index'],'reward')
+        plottable = result._plottable('index','reward','learner_id','environment_id')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
-        self.assertEqual(["This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting."], CobaContext.logger.sink.items)
+        self.assertEqual(["Interactions beyond the shortest environment_id have been excluded."], CobaContext.logger.sink.items)
 
     def test_plottable_not_all_env_finished_with_unequal_lengths_and_x_index(self):
 
@@ -1951,17 +2211,17 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id'],[0],[1]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
         result = Result(envs, lrns, vals, ints)
 
         expected_rows = [(1,0,0,1,1),(1,1,0,1,1)]
-        plottable = result._plottable(['index'],'reward')
+        plottable = result._plottable('index','reward','learner_id','environment_id')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
-        self.assertIn("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this call <result>.filter_fin() before plotting.", CobaContext.logger.sink.items)
-        self.assertIn("This result contains environments of varying lengths. Interactions beyond the shortest environment have been excluded. To supress this warning in the future call <result>.filter_fin(<n_interactions>) before plotting.", CobaContext.logger.sink.items)
+        self.assertEqual("Every environment_id not present for all learner_id has been excluded.", CobaContext.logger.sink.items[0])
+        self.assertEqual("Interactions beyond the shortest environment_id have been excluded.", CobaContext.logger.sink.items[1])
 
     def test_plottable_no_env_finished_for_all_learners(self):
 
@@ -1969,15 +2229,15 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id'],[0],[1]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[1,1,0,1,1],[1,1,0,2,1]]
         result = Result(envs, lrns, vals, ints)
 
         with self.assertRaises(CobaException) as e:
-            result._plottable(['index'], "reward")
+            result._plottable('index','reward','learner_id','environment_id')
 
-        self.assertEqual(str(e.exception),"This result does not contain an environment that has been finished for every learner.")
+        self.assertEqual(str(e.exception),"This result does not contain a environment_id that has been finished for every learner_id.")
 
     def test_plottable_all_env_finished_with_unequal_lengths_and_not_x_index(self):
 
@@ -1985,7 +2245,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id'],[0],[1]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
         result = Result(envs, lrns, vals, ints)
@@ -1997,7 +2257,7 @@ class Result_Tests(unittest.TestCase):
            (1,1,0,1,1),(1,1,0,2,1)
         ]
 
-        plottable = result._plottable(['openml_task'],'reward')
+        plottable = result._plottable('openml_task','reward','learner_id','environment_id')
         self.assertEqual(expected_rows,list(plottable.interactions))
 
     def test_plottable_no_data(self):
@@ -2006,7 +2266,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         with self.assertRaises(CobaException) as e:
-            Result(None,None,None,None)._plottable(['index'], "reward")
+            Result()._plottable('index','reward','learner_id','environment_id')
 
         self.assertEqual(str(e.exception),"This result does not contain any data to plot.")
 
@@ -2016,39 +2276,39 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id'],[0]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1]]
         result = Result(envs, lrns, vals, ints)
 
         with self.assertRaises(CobaException) as e:
-            result._plottable(['index'], "a")
+            result._plottable('index','a','learner_id','environment_id')
 
         self.assertEqual(str(e.exception),"This result does not contain column 'a' in interactions.")
 
     def test_confidence_skip_err(self):
-        self.assertEqual((2,(0,0)),Result._confidence('sd',2)([1,2,3],0))
-        self.assertEqual((2,(1,1)),Result._confidence('sd',2)([1,2,3],1))
+        self.assertEqual((2,(0,0)),Result()._confidence('sd',2)([1,2,3],0))
+        self.assertEqual((2,(1,1)),Result()._confidence('sd',2)([1,2,3],1))
 
     def test_confidence_sd(self):
-        self.assertEqual((2,(1,1)),Result._confidence('sd')([1,2,3]))
+        self.assertEqual((2,(1,1)),Result()._confidence('sd')([1,2,3]))
 
     def test_confidence_se(self):
-        self.assertEqual((2,(1.96,1.96)),Result._confidence('se')([1,3]))
+        self.assertEqual((2,(1.96,1.96)),Result()._confidence('se')([1,3]))
 
     @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_confidence_bs(self):
-        self.assertEqual((2.5, (1.5,0.5)),Result._confidence('bs')([1,2,3,4]))
+        self.assertEqual((2.5, (1.0,1.0)),Result()._confidence('bs')([1,2,3,4]))
 
     @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
     def test_confidence_ci(self):
-        self.assertEqual((2.5, (1.5,0.5)),Result._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
+        self.assertEqual((2.5, (1.5,0.5)),Result()._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
 
     def test_confidence_none(self):
-        self.assertEqual((2,0),Result._confidence(None)([1,2,3]))
+        self.assertEqual((2,0),Result()._confidence(None)([1,2,3]))
 
     def test_confidence_bi(self):
-        mu,(l,h) = Result._confidence('bi')([0,0,1,1])
+        mu,(l,h) = Result()._confidence('bi')([0,0,1,1])
 
         self.assertEqual(.5,mu)
         self.assertAlmostEqual(l,0.34996429)

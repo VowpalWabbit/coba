@@ -292,7 +292,7 @@ class OpenmlSimulation(SupervisedSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {**super().params, "type": "OpenmlSimulation" }
+        return {**super().params, "env_type": "OpenmlSimulation" }
 
     def __str__(self) -> str:
 
