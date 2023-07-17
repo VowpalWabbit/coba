@@ -686,7 +686,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
         self.assertEqual(1.5,task_results[0]['reward'])
         self.assertEqual(2.0,task_results[1]['reward'])
 
-class ExploreEvaluation_Tests(unittest.TestCase):
+class ExploreEvaluator_Tests(unittest.TestCase):
 
     def test_partial_interactions(self):
         task         = ExplorationEvaluator()
