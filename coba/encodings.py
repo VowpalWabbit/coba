@@ -310,7 +310,10 @@ class CobaJsonEncoder(json.JSONEncoder):
         try:
             return o.to_json()
         except AttributeError:
-            return vars(o)
+            try:
+                return vars(o)
+            except TypeError:
+                return super().default(o)
 
 class CobaJsonDecoder(json.JSONDecoder):
     """A json decoder that allows for potential COBA extensions in the future."""
