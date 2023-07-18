@@ -148,7 +148,7 @@ class OffPolicyEvaluator(Evaluator):
         """
         Args:
             record: The datapoints to record for each interaction.
-            learn: Indicates that off-policy learning should occur as parrt of the off-policy task.
+            learn: Indicates that off-policy learning should occur as part of the off-policy task.
             evals: Indicates that off-policy evaluation should occur as part of the off-policy task.
             seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """

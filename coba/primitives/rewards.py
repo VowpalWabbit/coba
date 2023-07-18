@@ -22,10 +22,13 @@ class Reward(ABC):
     def eval(self, action: Action) -> float:
         ...
 
+    def to_json(self) -> Mapping[str, str]:
+        return {key.lstrip('_'): getattr(self, key, None) for key in self.__slots__}
+
 class IPSReward(Reward):
     __slots__ = ('_reward','_action')
 
-    def __init__(self, reward: float, action: Action, probability: Optional[float]) -> None:
+    def __init__(self, reward: float, action: Action, probability: Optional[float] = None) -> None:
         self._reward = reward/(probability or 1)
         self._action = action
 
