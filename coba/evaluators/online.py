@@ -50,7 +50,7 @@ class OnPolicyEvaluator(Evaluator):
             if key not in first:
                 raise CobaException(f"OnPolicyEvaluator requires every interaction to have '{key}'")
 
-        batched  = first and (isinstance(first['context'],Batch) or isinstance(first['actions'],Batch))
+        batched  = first and (isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch))
 
         for key in ['rewards','actions']:
             if (first[key][0] if batched else first[key]) is None:
@@ -72,8 +72,8 @@ class OnPolicyEvaluator(Evaluator):
         record_regret   = 'regret'      in self._record
         record_ope_loss = 'ope_loss'    in self._record
 
-        get_reward = lambda reward                  : reward
-        get_regret = lambda reward, rewards, actions: rewards.eval(argmax(actions,rewards))-reward
+        get_reward = lambda reward                  : float(reward)
+        get_regret = lambda reward, rewards, actions: float(rewards.eval(argmax(actions,rewards))-reward)
         get_rank   = lambda reward, rewards, actions: sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
 
         get_reward_list  = lambda rewards,actions: list(map(rewards.eval, actions))
@@ -172,7 +172,7 @@ class OffPolicyEvaluator(Evaluator):
 
         if not interactions:return []
 
-        batched  = first and isinstance(first['context'], Batch)
+        batched  = isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch)
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
         first_rewards = first.get('rewards',[None])[0] if batched else first.get('rewards',None)
@@ -233,9 +233,9 @@ class OffPolicyEvaluator(Evaluator):
                         on_probs     = request(log_context,log_actions,log_actions)
                         predict_time = time.time()-start_time
                         if not batched:
-                            ope_reward = sum(p*log_rewards.eval(a) for p,a in zip(on_probs,log_actions))
+                            ope_reward = sum(p*float(log_rewards.eval(a)) for p,a in zip(on_probs,log_actions))
                         else:
-                            ope_reward = [ sum(p*R.eval(a) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
+                            ope_reward = [ sum(p*float(R.eval(a)) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
                     else:
                         start_time   = time.time()
                         if not batched:
@@ -244,9 +244,9 @@ class OffPolicyEvaluator(Evaluator):
                             on_prob = request(log_context,log_actions,log_action)
                         predict_time = time.time()-start_time
                         if not batched:
-                            ope_reward   = on_prob*log_rewards.eval(log_action)
+                            ope_reward = on_prob*float(log_rewards.eval(log_action))
                         else:
-                            ope_reward   = [p*r for p,r in zip(on_prob,log_rewards.eval(log_action))]
+                            ope_reward = [p*float(r) for p,r in zip(on_prob,log_rewards.eval(log_action))]
                 else:
                     start_time        = time.time()
                     on_action,on_prob = predict(log_context, log_actions)[:2]
@@ -330,8 +330,8 @@ class ExplorationEvaluator(Evaluator):
 
         if not interactions: return []
 
-        first = first_100[0]
-        batched = first and isinstance(first['context'], Batch)
+        first    = first_100[0]
+        batched  = first and (isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch))
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
         if self._ope is None: self._ope = ('rewards' in first)
@@ -400,7 +400,7 @@ class ExplorationEvaluator(Evaluator):
             on_prob = on_probs[log_action_index]
             predict_time = time.time()-start_time
 
-            if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(log_rewards.eval,log_actions))))
+            if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(float,map(log_rewards.eval,log_actions)))))
 
             #I tested many techniques for both maintaining Q and estimating its qpct percentile...
             #Implemented here is the insort method because it provided the best runtime by far.
@@ -437,7 +437,6 @@ class ExplorationEvaluator(Evaluator):
                 if record_prob    : out['probability']  = on_prob
                 if record_ope_loss: out['ope_loss']     = get_ope_loss(learner)
                 if record_rewards : out['rewards']      = ope_rewards
-
 
                 if info: out.update(info)
                 if out : yield out
