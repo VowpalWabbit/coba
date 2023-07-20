@@ -11,8 +11,7 @@ from operator import eq, getitem, methodcaller, itemgetter
 from collections import defaultdict
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
-from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping
-from coba.backports import Literal
+from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping, Literal
 
 from coba            import pipes, primitives
 from coba.random     import CobaRandom
@@ -1044,8 +1043,9 @@ class Batch(EnvironmentFilter):
             yield new
 
     def _batched(self, iterable, n):
-        "Batch data into lists of length n. The last batch may be shorter."
-        #taken from python itertools recipes
+        #Batch data into lists of length n.
+        #The last batch may be shorter.
+        #Taken from python itertools recipes.
         it = iter(iterable)
         batch = list(islice(it, n))
         while (batch):

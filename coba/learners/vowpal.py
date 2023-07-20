@@ -1,9 +1,8 @@
 import re
 from itertools import repeat, compress
 from sys import platform
-from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
+from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple, Literal
 
-from coba.backports import Literal
 from coba.exceptions import CobaException
 from coba.learners.primitives import Learner, PMF, Prob
 from coba.primitives import Sparse, Context, Action, Actions, Batch

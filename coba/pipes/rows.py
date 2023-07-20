@@ -1,7 +1,6 @@
 from collections import abc
 from itertools import count, compress, chain, filterfalse, islice, repeat
-from typing import Dict, Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
-from coba.backports import Literal
+from typing import Dict, Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple, Literal
 
 from coba.primitives import Sparse, Dense, Categorical
 from coba.primitives.rows import Dense_, Sparse_

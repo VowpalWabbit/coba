@@ -1,7 +1,6 @@
 import math
 
-from typing import Any, Sequence, Optional, Mapping, Tuple
-from coba.backports import Literal
+from typing import Any, Sequence, Optional, Mapping, Tuple, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom

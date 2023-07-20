@@ -1,8 +1,6 @@
 from collections import abc
 from math import isclose
-from itertools import repeat
-from typing import Any, Sequence, Tuple, Mapping
-from coba.backports import Literal
+from typing import Any, Sequence, Tuple, Mapping, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
@@ -157,7 +155,7 @@ class SafeLearner(Learner):
             try:
                 self._method[key] = 2
                 return self._safe_call(key, method, args, kwargs)
-            except:
+            except Exception as ex:
                 del self._method[key]
             raise
 

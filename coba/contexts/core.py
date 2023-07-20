@@ -4,8 +4,7 @@ import collections
 import traceback
 
 from pathlib import Path
-from typing import Iterable, Dict, Any, Sequence, Union
-from coba.backports import Literal
+from typing import Iterable, Dict, Any, Sequence, Union, Literal
 
 from coba.exceptions import CobaException
 from coba.registry import JsonMakerV1, CobaRegistry

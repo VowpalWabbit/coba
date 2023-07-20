@@ -2,8 +2,7 @@ import math
 
 from statistics import mean
 from itertools import count, islice, cycle
-from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable
-from coba.backports import Literal
+from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom

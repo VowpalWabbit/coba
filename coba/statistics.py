@@ -4,8 +4,7 @@ from operator import mul, sub
 from bisect import bisect_left
 from itertools import repeat, accumulate, compress, chain
 from abc import abstractmethod, ABC
-from typing import Sequence, Tuple, Union, Callable, Optional
-from coba.backports import Literal
+from typing import Sequence, Tuple, Union, Callable, Optional, Literal
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker

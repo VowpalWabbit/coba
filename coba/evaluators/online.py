@@ -4,8 +4,7 @@ import warnings
 from operator import __mul__
 from statistics import mean
 from bisect import insort
-from typing import Any, Iterable, Sequence, Mapping, Optional
-from coba.backports import Literal
+from typing import Any, Iterable, Sequence, Mapping, Optional, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom

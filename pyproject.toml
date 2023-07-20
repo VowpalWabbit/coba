@@ -16,7 +16,7 @@ authors = [
 ]
 description = "A contextual bandit research package"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = {text = "BSD-3-Clause"}
 classifiers = [
     "Intended Audience :: Science/Research",
@@ -27,8 +27,6 @@ classifiers = [
 ]
 dependencies = [
     'requests>=2',
-    'importlib-metadata>=1.0;python_version<"3.8"',
-    'typing-extensions>=4.1,<4.2;python_version<"3.8"'
 ]
 
 [project.urls]

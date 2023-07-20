@@ -5,8 +5,7 @@ import multiprocessing as mp
 from collections.abc import Iterator
 from queue import Empty
 from traceback import format_tb
-from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any
-from coba.backports import Literal
+from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any, Literal
 
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
@@ -201,7 +200,7 @@ class Pickler:
             if "pickle" in str(e) or "Pickling" in str(e):
                 message = (
                     f"We attempted to process your code on multiple processes but were unable to do so due to a pickle "
-                    f"error. The exact error received was '{str(e)}'. Errors this kind can often be fixed in one of two "
+                    f"error. The exact error received was '{str(e)}'. Errors of this kind can often be fixed in one of two "
                     f"ways: 1) evaluate the experiment in question on a single process with no limit on the tasks per child "
                     f"or 2) modify the named class to be picklable. The easiest way to make a given class picklable is to "
                     f"add `def __reduce__(self): return (<the class in question>, (<tuple of constructor arguments>))` to "

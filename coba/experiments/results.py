@@ -10,8 +10,7 @@ from functools import cmp_to_key
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby
-from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload
-from coba.backports import Literal
+from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
 from coba.primitives import Batch
 from coba.environments import Environment
