@@ -306,6 +306,14 @@ class FactorEncoder(Encoder[int]):
 
 class CobaJsonEncoder(json.JSONEncoder):
     """A json encoder that allows for potential COBA extensions in the future."""
+    def default(self, o: Any) -> Any:
+        try:
+            return o.to_json()
+        except AttributeError:
+            try:
+                return vars(o)
+            except TypeError:
+                return super().default(o)
 
 class CobaJsonDecoder(json.JSONDecoder):
     """A json decoder that allows for potential COBA extensions in the future."""
