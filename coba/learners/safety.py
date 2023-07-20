@@ -66,7 +66,7 @@ def pred_format(pred:Prediction, batch_order:Literal['not','row','col'], has_kwa
 
 def batch_order(predictor, pred: Prediction, context, actions) -> Literal['not','col','row']:
 
-    if not isinstance(actions,Batch) or not isinstance(context,Batch): return 'not'
+    if not isinstance(actions,Batch) and not isinstance(context,Batch): return 'not'
 
     n_rows = len(actions)
     n_dim1 = len(pred)

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Sequence, Optional, Mapping, overload
+from typing import Sequence, Optional, Mapping
 
 from coba.exceptions import CobaException
 from coba.primitives.semantic import Action, Batch

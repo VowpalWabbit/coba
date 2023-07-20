@@ -46,11 +46,11 @@ class OnPolicyEvaluator(Evaluator):
 
         if not interactions: return []
 
-        batched  = first and isinstance(first['context'], Batch)
-
         for key in ['rewards','context','actions']:
             if key not in first:
                 raise CobaException(f"OnPolicyEvaluator requires every interaction to have '{key}'")
+
+        batched  = first and (isinstance(first['context'],Batch) or isinstance(first['actions'],Batch))
 
         for key in ['rewards','actions']:
             if (first[key][0] if batched else first[key]) is None:
@@ -94,7 +94,7 @@ class OnPolicyEvaluator(Evaluator):
             rewards   = interaction.pop('rewards')
             feedbacks = interaction.pop('feedbacks',None)
 
-            batched  = isinstance(context, Batch)
+            batched  = isinstance(context,Batch) or isinstance(actions,Batch)
             discrete = len(actions[0] if batched else actions) > 0
 
             if record_context: out['context'] = context
