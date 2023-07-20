@@ -1,5 +1,7 @@
 import unittest
+import unittest.mock
 import pickle
+import importlib.util
 
 import multiprocessing as mp
 import threading as mt
@@ -9,7 +11,7 @@ from typing import Iterable, Any
 from coba.exceptions import CobaException
 from coba.pipes import Filter, ListSink, Identity, QueueSink, IterableSource, QueueSource
 
-from coba.pipes.multiprocessing import Multiprocessor, AsyncableLine, Pickler, Unpickler, EventSetter
+from coba.pipes.multiprocessing import Multiprocessor, AsyncableLine, Pickler, Unpickler, EventSetter, Safe
 
 spawn_context = mp.get_context("spawn")
 
@@ -19,6 +21,10 @@ class NotPicklableFilter(Filter):
 
     def filter(self, item):
         return 'a'
+
+class LiteralFilter(Filter):
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        yield "A"
 
 class ParamsFilter(Filter):
     @property
@@ -30,7 +36,7 @@ class ParamsFilter(Filter):
 
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        return f"pid-{spawn_context.current_process().pid}"
+        yield f"pid-{spawn_context.current_process().pid}"
 
 class BarrierNameFilter(Filter):
     def __init__(self, n):
@@ -87,28 +93,56 @@ class Multiprocessor_Tests(unittest.TestCase):
             list(Multiprocessor(ExceptionFilter(), 2, 1).filter(range(4)))
         self.assertIn("Exception Filter", str(e.exception))
 
-    def test_items_not_picklable(self):
-
-        with self.assertRaises(CobaException) as e:
-            list(Multiprocessor(ProcessNameFilter(), 2, 1).filter([NotPicklableFilter()]))
-
-        self.assertIn("pickle", str(e.exception))
-
     def test_empty_list(self):
         items = list(Multiprocessor(ProcessNameFilter(), 1, 1).filter([]))
         self.assertEqual(len(items), 0)
 
-    def test_class_definitions_not_loaded_in_main(self):
+    def test_items_not_picklable_fails_without_cloudpickle(self):
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            with self.assertRaises(CobaException) as e:
+                list(Multiprocessor(ProcessNameFilter(), 2, 1).filter([NotPicklableFilter()]))
+            self.assertIn("pickle", str(e.exception))
 
-        #this makes Test picklable but not loadable by the process
-        global Test
+    @unittest.skipUnless(importlib.util.find_spec("cloudpickle"), "Cloudpickle is not installed.")
+    def test_items_not_picklable_passes_with_cloudpickle(self):
+        out = list(Multiprocessor(LiteralFilter(), 2, 1).filter([lambda: 1]))
+        self.assertEqual(out,['A'])
+
+    @unittest.skip("This throws ugly warning messages so we skip")
+    def test_filter_not_picklable_fails_without_cloudpickle(self):
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            with self.assertRaises(AttributeError):
+                class TestFilter:
+                    def filter(self, items):
+                        yield 'B'
+                out = list(Multiprocessor(TestFilter(), 2, 1).filter([lambda: 1]))
+                self.assertEqual(out,['B'])
+
+    @unittest.skipUnless(importlib.util.find_spec("cloudpickle"), "Cloudpickle is not installed.")
+    def test_filter_not_picklable_passes_with_cloudpickle(self):
+        class TestFilter:
+            def filter(self, items):
+                yield 'B'
+        out = list(Multiprocessor(TestFilter(), 2, 1).filter([lambda: 1]))
+        self.assertEqual(out,['B'])
+
+    def test_class_definitions_not_loaded_in_main_fails_without_cloudpickle(self):
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            #this makes Test picklable but not loadable by the process
+            global Test
+            class Test:
+                pass
+
+            with self.assertRaises(Exception) as e:
+                list(Multiprocessor(ProcessNameFilter(), 2, 1).filter([Test()]*2))
+
+            self.assertIn("unable to find", str(e.exception))
+
+    @unittest.skipUnless(importlib.util.find_spec("cloudpickle"), "Cloudpickle is not installed.")
+    def test_class_definitions_not_loaded_in_main_pass_with_cloudpickle(self):
         class Test:
-            pass
-
-        with self.assertRaises(Exception) as e:
-            list(Multiprocessor(ProcessNameFilter(), 2, 1).filter([Test()]*2))
-
-        self.assertIn("unable to find", str(e.exception))
+            _a = 'A'
+        list(Multiprocessor(ProcessNameFilter(), 2, 1).filter([Test()]*2))
 
 class ProcessLine_Tests(unittest.TestCase):
 
@@ -204,13 +238,25 @@ class ThreadLine_Tests(ProcessLine_Tests):
 
 class Pickler_Tests(unittest.TestCase):
 
-    def test_simple(self):
-        self.assertEqual(list(Pickler().filter([1,2])), [pickle.dumps(1),pickle.dumps(2)])
+    def test_simple_without_cloudpickle(self):
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            self.assertEqual(list(Pickler().filter([1,2])), [pickle.dumps(1),pickle.dumps(2)])
+
+    @unittest.skipUnless(importlib.util.find_spec("cloudpickle"), "Cloudpickle is not installed.")
+    def test_simple_with_cloudpickle(self):
+        import cloudpickle
+        self.assertEqual(list(Pickler().filter([1,2])), [cloudpickle.dumps(1),cloudpickle.dumps(2)])
 
 class Unpickler_Tests(unittest.TestCase):
 
-    def test_simple(self):
-        self.assertEqual(list(Unpickler().filter([pickle.dumps(1),pickle.dumps(2)])), [1,2])
+    def test_simple_without_cloudpickle(self):
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            self.assertEqual(list(Unpickler().filter([pickle.dumps(1),pickle.dumps(2)])), [1,2])
+
+    @unittest.skipUnless(importlib.util.find_spec("cloudpickle"), "Cloudpickle is not installed.")
+    def test_simple_with_cloudpickle(self):
+        import cloudpickle
+        self.assertEqual(list(Unpickler().filter([cloudpickle.dumps(1),cloudpickle.dumps(2)])), [1,2])
 
 class EventSetter_Tests(unittest.TestCase):
     def test_simple(self):
@@ -221,6 +267,21 @@ class EventSetter_Tests(unittest.TestCase):
         self.assertEqual(setter.filter([1,2]),[1,2])
         self.assertTrue(event.is_set())
 
+class Safe_Tests(unittest.TestCase):
+
+    @unittest.skipUnless(importlib.util.find_spec("cloudpickle"), "Cloudpickle is not installed.")
+    def test_simple_with_cloudpickle(self):
+        out = list(Safe(LiteralFilter()).filter([1]))
+        self.assertEqual(['A'], out)
+
+    @unittest.skipUnless(importlib.util.find_spec("cloudpickle"), "Cloudpickle is not installed.")
+    def test_simple_with_cloudpickle_and_barrier(self):
+        out = list(Safe(BarrierNameFilter(1)).filter([1]))
+
+    def test_simple_without_cloudpickle(self):
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            out = list(Safe(LiteralFilter()).filter([1]))
+            self.assertEqual(['A'], out)
 
 if __name__ == '__main__':
     unittest.main()

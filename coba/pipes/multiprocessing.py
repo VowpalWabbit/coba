@@ -1,4 +1,5 @@
 import pickle
+import importlib.util
 import threading as mt
 import multiprocessing as mp
 
@@ -54,6 +55,7 @@ class ProcessLine(spawn_context.Process):
         self._callback         = None
         self._recv, self._send = spawn_context.Pipe(False)
         self._lock             = spawn_context.Lock()
+
         super().start()
 
         if callback:
@@ -71,10 +73,11 @@ class ProcessLine(spawn_context.Process):
                     "We attempted to evaluate your code in multiple processes but we were unable to find all the code "
                     "definitions needed to pass the tasks to the processes. The two most common causes of this error are: "
                     "1) a learner or simulation is defined in a Jupyter Notebook cell or 2) a necessary class definition "
-                    "exists inside the `__name__=='__main__'` code block in the main execution script. In either case "
-                    "you can choose one of three simple solutions: 1) evaluate your code on a single process with no limit on "
-                    "child tasks, 2) if in Jupyter notebook define all necessary classes in a separate file and include the "
-                    "classes via import statements, or 3) move your class definitions outside the `__name__=='__main__'` check."
+                    "exists inside the `__name__=='__main__'` code block in the main execution script. In either case you "
+                    "can choose one of four simple solutions: 1) pip install cloudpickle into your python environment, 2) "
+                    "evaluate your code on a single process, 3) if in Jupyter notebook define all necessary classes in a "
+                    "separate file and include the classes via import statements, or 4) move your class definitions outside "
+                    "the `__name__ == '__main__'` check."
                 ),None
             else:
                 ex,tb = e,format_tb(e.__traceback__)
@@ -181,6 +184,26 @@ class AsyncableLine(SourceSink):
         worker.start()
         return worker
 
+class Safe:
+    def __init__(self, filter: Filter):
+        if importlib.util.find_spec('cloudpickle'):
+            import cloudpickle
+            try:
+                self._filter = cloudpickle.dumps(filter)
+            except:
+                self._filter = filter
+        else:
+            self._filter = filter
+
+    def filter(self,items):
+        if importlib.util.find_spec('cloudpickle') and isinstance(self._filter,bytes):
+            import cloudpickle
+            filter = cloudpickle.loads(self._filter)
+        else:
+            filter = self._filter
+
+        yield from filter.filter(items)
+
 class Foreach:
     def __init__(self,pipe:Filter) -> None:
         self._pipe = pipe
@@ -192,19 +215,23 @@ class Foreach:
             yield from out
 
 class Pickler:
-
     def filter(self, items) -> Iterable[bytes]:
         try:
-            yield from map(pickle.dumps,items)
+            if importlib.util.find_spec('cloudpickle'):
+                import cloudpickle
+                yield from map(cloudpickle.dumps,items)
+            else:
+                yield from map(pickle.dumps,items)
         except Exception as e:
             if "pickle" in str(e) or "Pickling" in str(e):
                 message = (
                     f"We attempted to process your code on multiple processes but were unable to do so due to a pickle "
-                    f"error. The exact error received was '{str(e)}'. Errors of this kind can often be fixed in one of two "
-                    f"ways: 1) evaluate the experiment in question on a single process with no limit on the tasks per child "
-                    f"or 2) modify the named class to be picklable. The easiest way to make a given class picklable is to "
-                    f"add `def __reduce__(self): return (<the class in question>, (<tuple of constructor arguments>))` to "
-                    f"the class. For more information see https://docs.python.org/3/library/pickle.html#object.__reduce__."
+                    f"error. The exact error received was '{str(e)}'. Errors of this kind can often be fixed in one of three "
+                    f"ways: 1) pip install cloudpickle in your conda environment, 2) evaluate the experiment in question on "
+                    f"a single process with no limit on the tasks per child or 3) modify the named class to be picklable. "
+                    f"The easiest way to make a given class picklable is to add `def __reduce__(self): return (<the class "
+                    f"in question>, (<tuple of constructor arguments>))` to the class. For more information see "
+                    f"https://docs.python.org/3/library/pickle.html#object.__reduce__."
                 )
                 raise CobaException(message)
             else: #pragma: no cover
@@ -212,7 +239,11 @@ class Pickler:
 
 class Unpickler:
     def filter(self, items):
-        yield from map(pickle.loads,items)
+        if importlib.util.find_spec('cloudpickle'):
+            import cloudpickle
+            yield from map(cloudpickle.loads,items)
+        else:
+            yield from map(pickle.loads,items)
 
 class EventSetter:
     def __init__(self, event: mt.Event) -> None:
@@ -286,7 +317,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             self._load_stopper = Stopper() #this works because the loader is a thread which means we have shared memory
 
             load_line   = SourceSink(IterableSource(items), self._load_stopper, pickler, in_put)
-            filter_line = SourceSink(in_get, setter, unpickler, get_max, Foreach(self._filter), out_put)
+            filter_line = SourceSink(in_get, setter, unpickler, get_max, Safe(Foreach(self._filter)), out_put)
 
             def loader_finished_or_failed(worker: Union[ThreadLine,ProcessLine]):
                 if worker.exception: self._exceptions.append(worker.exception)

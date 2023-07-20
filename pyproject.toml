@@ -42,5 +42,6 @@ full = [
     "pandas",
     "matplotlib",
     "numpy",
-    "scipy"
+    "scipy",
+    "cloudpickle"
 ]

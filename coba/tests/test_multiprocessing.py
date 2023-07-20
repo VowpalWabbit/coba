@@ -1,5 +1,6 @@
 import time
 import unittest
+import unittest.mock
 
 from multiprocessing import current_process
 from typing import Iterable, Any
@@ -98,17 +99,18 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
             list(CobaMultiprocessor(ExceptionFilter(KeyboardInterrupt()), 2, 1).filter([1,2,3]))
 
     def test_not_picklable_logging(self):
-        logger_sink = ListSink()
-        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(logger_sink),[])
-        CobaContext.cacher = NullCacher()
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            logger_sink = ListSink()
+            CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(logger_sink),[])
+            CobaContext.cacher = NullCacher()
 
-        with self.assertRaises(CobaException) as e:
-            list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter([lambda a:1]))
-        self.assertIn("pickle", str(e.exception))
+            with self.assertRaises(CobaException) as e:
+                list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter([lambda a:1]))
+            self.assertIn("pickle", str(e.exception))
 
-        #Code for the old way when we didn't log these exceptions
-        #self.assertEqual(1, len(logger_sink.items))
-        #self.assertIn("pickle", logger_sink.items[0])
+            #Code for the old way when we didn't log these exceptions
+            #self.assertEqual(1, len(logger_sink.items))
+            #self.assertIn("pickle", logger_sink.items[0])
 
     def test_class_definitions_not_found(self):
         #this makes Test picklable but not loadable by the process

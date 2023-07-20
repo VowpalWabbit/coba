@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock
 
 from itertools import product
 from pathlib import Path
@@ -436,7 +437,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
 
     def test_restore(self):
-        
+
         class MyBrokenLearner:
             @property
             def params(self):
@@ -551,8 +552,6 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(3,exp.maxtasksperchunk)
 
     def test_restore_not_matched_environments(self):
-        
-
         path = Path("coba/tests/.temp/experiment.log")
         if path.exists(): path.unlink()
         path.write_text('["version",4]\n["experiment",{"n_environments":1,"n_learners":1}]')
@@ -620,28 +619,30 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
         CobaContext.experiment.maxchunksperchild = 0
 
     def test_not_picklable_learner_sans_reduce(self):
-        env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        learner    = NotPicklableLearner()
-        experiment = Experiment([env1],[learner])
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+            learner    = NotPicklableLearner()
+            experiment = Experiment([env1],[learner])
 
-        CobaContext.logger = BasicLogger(ListSink())
+            CobaContext.logger = BasicLogger(ListSink())
 
-        experiment.evaluate()
+            experiment.evaluate()
 
-        self.assertEqual(3, len(CobaContext.logger.sink.items))
-        self.assertIn("pickle", CobaContext.logger.sink.items[1])
+            self.assertEqual(3, len(CobaContext.logger.sink.items))
+            self.assertIn("pickle", CobaContext.logger.sink.items[1])
 
     def test_wrapped_not_picklable_learner_sans_reduce(self):
-        env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        learner    = WrappedLearner(NotPicklableLearner())
-        experiment = Experiment([env1],[learner])
+        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+            env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+            learner    = WrappedLearner(NotPicklableLearner())
+            experiment = Experiment([env1],[learner])
 
-        CobaContext.logger = BasicLogger(ListSink())
+            CobaContext.logger = BasicLogger(ListSink())
 
-        experiment.run()
+            experiment.run()
 
-        self.assertEqual(3, len(CobaContext.logger.sink.items))
-        self.assertIn("pickle", CobaContext.logger.sink.items[1])
+            self.assertEqual(3, len(CobaContext.logger.sink.items))
+            self.assertIn("pickle", CobaContext.logger.sink.items[1])
 
     def test_not_picklable_learner_with_reduce(self):
         env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
