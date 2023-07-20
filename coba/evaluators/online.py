@@ -147,7 +147,7 @@ class OffPolicyEvaluator(Evaluator):
         """
         Args:
             record: The datapoints to record for each interaction.
-            learn: Indicates that off-policy learning should occur as parrt of the off-policy task.
+            learn: Indicates that off-policy learning should occur as part of the off-policy task.
             evals: Indicates that off-policy evaluation should occur as part of the off-policy task.
             seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """
@@ -289,7 +289,7 @@ class OffPolicyEvaluator(Evaluator):
 class ExplorationEvaluator(Evaluator):
 
     def __init__(self,
-        record: Sequence[Literal['context','actions','action','reward','probability','time']] = ['reward'],
+        record: Sequence[Literal['context','actions','action','reward','probability','time','rewards']] = ['reward'],
         ope: bool = None,
         qpct: float = .005,
         cmax: float = 1.0,
@@ -366,6 +366,7 @@ class ExplorationEvaluator(Evaluator):
         record_context  = 'context'     in self._record
         record_prob     = 'probability' in self._record
         record_ope_loss = 'ope_loss'    in self._record
+        record_rewards  = 'rewards'     in self._record
 
         request = learner.request
         learn   = learner.learn
@@ -393,10 +394,6 @@ class ExplorationEvaluator(Evaluator):
             log_prob         = interaction.pop('probability')
             log_rewards      = interaction.pop('rewards',None)
             log_action_index = log_actions.index(log_action)
-
-            if record_time:
-                predict_time = 0
-                learn_time   = 0
 
             start_time = time.time()
             on_probs = request(log_context,log_actions,log_actions)
@@ -439,6 +436,8 @@ class ExplorationEvaluator(Evaluator):
                 if record_reward  : out['reward']       = mean(ope_rewards)
                 if record_prob    : out['probability']  = on_prob
                 if record_ope_loss: out['ope_loss']     = get_ope_loss(learner)
+                if record_rewards : out['rewards']      = ope_rewards
+
 
                 if info: out.update(info)
                 if out : yield out
