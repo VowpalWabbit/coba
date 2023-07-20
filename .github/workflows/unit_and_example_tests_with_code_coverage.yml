@@ -40,7 +40,7 @@ jobs:
         run: python -m unittest
       - name: Max Dependency Installs
         run: |
-          pip install -r coba/tests/requirements-soft.txt
+          pip install .[full]
           pip install -r coba/tests/requirements-test.txt
           pip list
       - name: Max Dependency Unit Tests with Coverage
