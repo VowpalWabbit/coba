@@ -24,4 +24,4 @@ from coba.primitives.semantic import Batch
 from coba.primitives.rewards import L1Reward, HammingReward, BinaryReward, IPSReward
 from coba.primitives.rewards import SequenceReward, MappingReward, MulticlassReward, BatchReward
 
-__version__ = "7.0.0"
+__version__ = "7.0.1"
