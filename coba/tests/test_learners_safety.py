@@ -314,6 +314,17 @@ class SafeLearner_Tests(unittest.TestCase):
 
         self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ([3,1,2],[1,.5,1],{}))
 
+    def test_predict_throws_inner_exception_when_str_context_and_empty_action(self):
+        class MyException(Exception):
+            pass
+
+        class MyLearner:
+            def predict(self,context,actions):
+                raise MyException()
+
+        with self.assertRaises(MyException):
+            SafeLearner(MyLearner()).predict('abc',[])
+
     def test_predict_AP_batchcol_kw_dimension_check_then_shortcut(self):
         class MyLearner:
             def __init__(self) -> None:

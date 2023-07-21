@@ -146,6 +146,7 @@ class SafeLearner(Learner):
                 return method(*args,**(kwargs or {}))
 
             if prev_method==2:
+                if isinstance(args[0],str): raise Exception() #We don't care which exception we raise.
                 return [ method(*a,**{k:v[i] for k,v in kwargs.items()}) for i,a in enumerate(zip(*args)) ]
 
         try:
@@ -155,7 +156,7 @@ class SafeLearner(Learner):
             try:
                 self._method[key] = 2
                 return self._safe_call(key, method, args, kwargs)
-            except Exception as ex:
+            except:
                 del self._method[key]
             raise
 
