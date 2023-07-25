@@ -2184,7 +2184,7 @@ class Result_Tests(unittest.TestCase):
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1]]
         result = Result(envs, lrns, vals, ints)
 
-        self.assertEqual(result, result._plottable('index','reward','learner_id','environment_id'))
+        self.assertEqual(result, result._plottable('index','reward')._finished('index','reward','learner_id','environment_id'))
         self.assertEqual([], CobaContext.logger.sink.items)
 
     def test_plottable_all_env_finished_with_unequal_lengths_and_x_index(self):
@@ -2200,7 +2200,7 @@ class Result_Tests(unittest.TestCase):
 
         expected_rows = [(0,0,0,1,1),(0,1,0,1,1),(1,0,0,1,1),(1,1,0,1,1)]
 
-        plottable = result._plottable('index','reward','learner_id','environment_id')
+        plottable = result._plottable('index','reward')._finished('index','reward','learner_id','environment_id')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
         self.assertEqual(["Interactions beyond the shortest environment_id have been excluded."], CobaContext.logger.sink.items)
@@ -2217,7 +2217,7 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, vals, ints)
 
         expected_rows = [(1,0,0,1,1),(1,1,0,1,1)]
-        plottable = result._plottable('index','reward','learner_id','environment_id')
+        plottable = result._plottable('index','reward')._finished('index','reward','learner_id','environment_id')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
         self.assertEqual("Every environment_id not present for all learner_id has been excluded.", CobaContext.logger.sink.items[0])
@@ -2235,7 +2235,7 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, vals, ints)
 
         with self.assertRaises(CobaException) as e:
-            result._plottable('index','reward','learner_id','environment_id')
+            result._plottable('index','reward')._finished('index','reward','learner_id','environment_id')
 
         self.assertEqual(str(e.exception),"This result does not contain a environment_id that has been finished for every learner_id.")
 
@@ -2257,7 +2257,7 @@ class Result_Tests(unittest.TestCase):
            (1,1,0,1,1),(1,1,0,2,1)
         ]
 
-        plottable = result._plottable('openml_task','reward','learner_id','environment_id')
+        plottable = result._plottable('openml_task','reward')._finished('openml_task','reward','learner_id','environment_id')
         self.assertEqual(expected_rows,list(plottable.interactions))
 
     def test_plottable_no_data(self):
@@ -2266,7 +2266,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         with self.assertRaises(CobaException) as e:
-            Result()._plottable('index','reward','learner_id','environment_id')
+            Result()._plottable('index','reward')._finished('index','reward','learner_id','environment_id')
 
         self.assertEqual(str(e.exception),"This result does not contain any data to plot.")
 
@@ -2282,7 +2282,7 @@ class Result_Tests(unittest.TestCase):
         result = Result(envs, lrns, vals, ints)
 
         with self.assertRaises(CobaException) as e:
-            result._plottable('index','a','learner_id','environment_id')
+            result._plottable('index','a')._finished('index','a','learner_id','environment_id')
 
         self.assertEqual(str(e.exception),"This result does not contain column 'a' in interactions.")
 

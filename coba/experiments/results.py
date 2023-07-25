@@ -1040,7 +1040,7 @@ class Result:
 
             if isinstance(labels,str): labels = [labels]
 
-            plottable = self._plottable(x,y,l,p)
+            plottable = self._plottable(x,y)._finished(x,y,l,p)
             n_interactions = len(next(plottable.interactions.groupby(3))[1])
 
             errevery = errevery or max(int(n_interactions*0.05),1) if x == 'index' else 1
@@ -1139,9 +1139,13 @@ class Result:
 
             og_l = (l1,l2)
 
-            if not isinstance(l1,(list,tuple)): l1     = [l1]
-            if not isinstance(l2,(list,tuple)): l2     = [l2]
-            if     isinstance(labels,str)     : labels = [labels]
+            list_like=(list,tuple)
+
+            if isinstance(l,list_like) and not isinstance(l1[0],list_like): l1 = [l1]
+            if isinstance(l,list_like) and not isinstance(l2[0],list_like): l2 = [l2]
+            if not isinstance(l,list_like) and not isinstance(l1,list_like): l1 = [l1]
+            if not isinstance(l,list_like) and not isinstance(l2,list_like): l2 = [l2]
+            if isinstance(labels,str): labels = [labels]
 
             if any(_l1 in l2 for _l1 in l1):
                 raise CobaException("A value cannot be in both `l1` and `l2`. Please make a change and run it again.")
@@ -1149,7 +1153,7 @@ class Result:
             contraster = (lambda x,y: y-x) if mode == 'diff' else (lambda x,y: int(y-x>0)) if mode=='prob' else mode
             _boundary  = 0 if mode == 'diff' else .5
 
-            plottable = self._plottable(x,y,l,p)
+            plottable = self._plottable(x,y)
             eid       = 'environment_id'
             lid       = 'learner_id'
 
@@ -1314,7 +1318,7 @@ class Result:
                 if env_eq_vals[e1] == env_eq_vals[e2] and lrn_eq_vals[l1] == lrn_eq_vals[l2]:
                     yield ((x1,x2),(y1,y2))
 
-    def _plottable(self, x:Sequence[str], y:str, l: Sequence[str], p: Sequence[str]) -> 'Result':
+    def _plottable(self, x:Sequence[str], y:str) -> 'Result':
 
         if not isinstance(x,str) and 'index' in x and len(x) > 1:
             raise CobaException('The x-axis cannot contain both indexes and parameters.')
@@ -1325,6 +1329,9 @@ class Result:
         if y not in self.interactions.columns:
             raise CobaException(f"This result does not contain column '{y}' in interactions.")
 
+        return self
+
+    def _finished(self,x:Sequence[str], y:str, l: Sequence[str], p: Sequence[str]) -> 'Result':
         only_finished = self._filter_fin('min' if x == 'index' else None, l, p)
 
         if len(only_finished.learners) == 0:
