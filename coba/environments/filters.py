@@ -1165,7 +1165,8 @@ class Logged(EnvironmentFilter):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"learner": SafeLearner(self._learner).params, "logged":True, "log_seed":self._seed}
+        learner_params = SafeLearner(self._learner).params
+        return { **learner_params, "learner": learner_params, "logged":True, "log_seed":self._seed}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
