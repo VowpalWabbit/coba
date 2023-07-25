@@ -26,4 +26,4 @@ from coba.primitives.rewards import SequenceReward, MappingReward, MulticlassRew
 
 from coba.statistics import BootstrapCI, mean
 
-__version__ = "7.0.2"
+__version__ = "7.0.3"
