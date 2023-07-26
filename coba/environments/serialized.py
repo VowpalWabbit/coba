@@ -1,7 +1,6 @@
 import pickle
 
 from pathlib import Path
-from collections import abc
 from zipfile import ZipFile, ZIP_DEFLATED
 from itertools import islice, repeat, chain
 from typing import Union, Sequence, Mapping, Iterable, Any
