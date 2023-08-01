@@ -174,6 +174,10 @@ class batch_order_Tests(unittest.TestCase):
     def test_PM_matching_dims_row(self):
         self.assertEqual(batch_order(lambda x,a:[[0,1]], [[0,0],[1,1]], Batch([1,1]), Batch([[1,2],[1,2]])), 'row')
 
+    def test_simple(self):
+        pred = {'action_prob': [(1,2),(3,4)]}
+        self.assertEqual(batch_order(None, pred, Batch([1,1]), [[],[]]), 'col')
+
 class has_kwargs_Tests(unittest.TestCase):
     def test_batch_not(self):
         self.assertTrue(has_kwargs((0,1,{}), 'not'))
@@ -253,7 +257,7 @@ class pred_format_Tests(unittest.TestCase):
 
     def test_PM_size3_explicit(self):
         actual = pred_format({'pmf':[1,0,0]},['a','b','c'])
-        expected = 'PM'
+        expected = 'PM*'
         self.assertEqual(actual,expected)
 
     def test_PM_size3_list_and_pmf_not_in_actions(self):
@@ -295,7 +299,7 @@ class pred_format_Tests(unittest.TestCase):
 
     def test_AP_explicit(self):
         actual = pred_format({'action_prob':('a',1)},['a','b','c'])
-        expected = 'AP'
+        expected = 'AP*'
         self.assertEqual(actual,expected)
 
     def test_AP(self):
@@ -310,7 +314,7 @@ class pred_format_Tests(unittest.TestCase):
 
     def test_AX_explicit(self):
         actual = pred_format({'action':'a'},['a','b','c'])
-        expected = 'AX'
+        expected = 'AX*'
         self.assertEqual(actual,expected)
 
     def test_AX_character(self):
@@ -543,14 +547,14 @@ class SafeLearner_Tests(unittest.TestCase):
                 else:
                     return [(actions[0][2],1,{}),(actions[1][0],.5,{}),(actions[2][1],1,{})]
 
-        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ([3,1,2],[1,.5,1],{}))
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{}))
 
-    def test_predict_AP_batchrow_no_kw(self):
+    def test_predict_AP_batchrow(self):
         class MyLearner:
             def predict(self,context,actions):
                 return [(3,1),(1,.5),(2,1)]
 
-        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ([3,1,2],[1,.5,1],{}))
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{}))
 
     def test_predict_AX_batchrow_no_kw(self):
         class MyLearner:
@@ -624,9 +628,9 @@ class SafeLearner_Tests(unittest.TestCase):
         safe_learner = SafeLearner(MyLearner())
 
         #test initial call
-        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ([3,1,2],[1,.5,1],{'a':[1,2,3]}))
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{'a':[1,2,3]}))
         #test shortcut logic after initial
-        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ([3,1,2],[1,.5,1],{'a':[1,2,3]}))
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{'a':[1,2,3]}))
 
     def test_predict_not_batched_learner_first_exception_thrown(self):
 
@@ -774,6 +778,47 @@ class SafeLearner_Tests(unittest.TestCase):
             SafeLearner(MyLearner()).request(None,[],[])
 
         self.assertIn("TEST", str(ex.exception))
+
+    def test_predict_explicit_AX_batchcol(self):
+        #this breaks the interface patter but is provided
+        #anyway as a convenience to users... We assume this
+        #will be the default behavior.
+        class MyLearner:
+            def predict(self,context,actions):
+                return {'action':[(3,1),(1,.5),(2,1)]}
+
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), [[],[],[]]), ([(3,1),(1,.5),(2,1)],[None,None,None],{}))
+
+    def test_predict_explicit_AP_batchcol(self):
+        #this breaks the interface patter but is provided
+        #anyway as a convenience to users... We assume this
+        #will be the default behavior.
+        class MyLearner:
+            def predict(self,context,actions):
+                return {'action_prob':[(3,1),(1,.5),(2,1)]}
+
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), [[],[],[]]), ((3,1,2),(1,.5,1),{}))
+
+    def test_predict_explicit_AP_batchrow(self):
+        #this breaks the interface patter but is provided
+        #anyway as a convenience to users... We assume this
+        #will be the default behavior.
+        class MyLearner:
+            def predict(self,context,actions):
+                return {'action_prob':(3,1)},{'action_prob':(1,.5)},{'action_prob':(2,1)}
+
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), [[],[],[]]), ((3,1,2),(1,.5,1),{}))
+
+    def test_predict_explicit_AP_batchnot(self):
+        #this breaks the interface patter but is provided
+        #anyway as a convenience to users... We assume this
+        #will be the default behavior.
+        class MyLearner:
+            def predict(self,context,actions):
+                return {'action_prob':(3,1)}
+
+        self.assertEqual(SafeLearner(MyLearner()).predict(None,[]), (3,1,{}))
+
 
 if __name__ == '__main__':
     unittest.main()

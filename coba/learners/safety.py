@@ -76,56 +76,56 @@ def pred_format(std_pred:Prediction, actions:Actions, og_pred:Prediction = None)
             pmf = std_pred['pmf']
             if not actions: raise no_act_pmf
             if no_len(pmf) or len(pmf) != len(actions): raise bad_len_pmf
-            return 'PM'
+            return 'PM*'
         if 'action' in std_pred:
-            return 'AX'
+            return 'AX*'
         if 'action_prob' in std_pred:
             ap = std_pred['action_prob']
             if no_len(ap) or len(ap) != 2:
                 raise bad_len_ap(ap)
-            return 'AP'
-    else:
-        if no_len(std_pred) or isinstance(std_pred,str):
-            #action
-            std_pred = [std_pred]
-        elif len(std_pred) > 2:
+            return 'AP*'
+
+    if no_len(std_pred) or isinstance(std_pred,str):
+        #action
+        std_pred = [std_pred]
+    elif len(std_pred) > 2:
+        #pmf or action
+        std_pred = [std_pred]
+    elif len(std_pred) == 2:
+        #pmf, action or [action,prob]
+        if not actions:
+            raise no_act_two
+        elif any(std_pred[0] is a for a in actions):
+            #[action,prob] (this should always be correct due to _safe_actions)
+            #when could pred[0] be identified as action but it isn't?
+            #see, https://stackoverflow.com/a/306353/1066291
+            pass
+        else:
             #pmf or action
             std_pred = [std_pred]
-        elif len(std_pred) == 2:
-            #pmf, action or [action,prob]
-            if not actions:
-                raise no_act_two
-            elif any(std_pred[0] is a for a in actions):
-                #[action,prob] (this should always be correct due to _safe_actions)
-                #when could pred[0] be identified as action but it isn't?
-                #see, https://stackoverflow.com/a/306353/1066291
-                pass
-            else:
-                #pmf or action
-                std_pred = [std_pred]
 
-        #at this point pred should be
-            #[pmf], [action], [action,prob]
+    #at this point pred should be
+        #[pmf], [action], [action,prob]
 
-        if len(std_pred) == 2:
-            #only [action,prob] has two items
-            return 'AP'
+    if len(std_pred) == 2:
+        #only [action,prob] has two items
+        return 'AP'
 
-        #now it is [pmf] or [action]
+    #now it is [pmf] or [action]
 
-        if actions == [] or actions is None:
-            #a continuous action problem
-            #so they had to return action
-            return 'AX'
+    if actions == [] or actions is None:
+        #a continuous action problem
+        #so they had to return action
+        return 'AX'
 
-        if any(std_pred[0] is action for action in actions):
-            return 'AX'
+    if any(std_pred[0] is action for action in actions):
+        return 'AX'
 
-        if possible_pmf(std_pred[0],actions):
-            return 'PM'
+    if possible_pmf(std_pred[0],actions):
+        return 'PM'
 
-        if possible_action(std_pred[0],actions):
-            return 'AX'
+    if possible_action(std_pred[0],actions):
+        return 'AX'
 
     raise unclear_format
 
@@ -262,14 +262,17 @@ class SafeLearner(Learner):
             kwargs = pred[-1] if self._pred_kwargs else {}
             pred   = pred[ 0] if self._pred_kwargs and len(pred)==2 else pred
 
-            if self._pred_format == 'PM':
+            if self._pred_format.endswith('*'):
+                pred = list(pred.values())[0]
+
+            if self._pred_format[:2] == 'PM':
                 i = self._get_pmf_index(pred)
                 a,p = actions[i], pred[i]
 
-            if self._pred_format == 'AP':
-                a,p = pred[0],pred[1]
+            if self._pred_format[:2] == 'AP':
+                a,p = pred[:2]
 
-            if self._pred_format == 'AX':
+            if self._pred_format[:2] == 'AX':
                 a,p = pred,None
 
             return a,p,kwargs
@@ -279,19 +282,21 @@ class SafeLearner(Learner):
             kwargs = {k: [kw[k] for kw in kwargs] for k in kwargs[0] }
             pred   = [p[0] if len(p)==2 else p[:-1] for p in pred] if self._pred_kwargs else pred
 
+            if self._pred_format.endswith('*'):
+                pred = [list(p.values())[0] for p in pred]
+
             A,P = [],[]
-            if self._pred_format == 'PM':
+            if self._pred_format[:2] == 'PM':
                 I = [self._get_pmf_index(p) for p in pred]
                 A = [ a[i] for a,i in zip(actions,I) ]
                 P = [ p[i] for p,i in zip(pred,I) ]
 
-            if self._pred_format == 'AX':
-                A = [p for p in pred]
+            if self._pred_format[:2] == 'AX':
+                A = pred
                 P = [None]*len(pred)
 
-            if self._pred_format == 'AP':
-                A = [p[0] for p in pred]
-                P = [p[1] for p in pred]
+            if self._pred_format[:2] == 'AP':
+                A,P = zip(*pred)
 
             return A,P,kwargs
 
@@ -299,14 +304,23 @@ class SafeLearner(Learner):
             kwargs = pred[-1] if self._pred_kwargs else {}
             pred   = pred[:-1] if self._pred_kwargs else pred
 
-            if self._pred_format == 'PM':
+            if self._pred_format.endswith('*'):
+                pred = list(pred.values())[0]
+
+            if self._pred_format[:2] == 'PM':
                 I = [self._get_pmf_index(p) for p in zip(*pred)]
                 A = [ a[i] for a,i in zip(actions,I) ]
                 P = [ p[i] for p,i in zip(pred,I) ]
 
-            if self._pred_format == 'AP':
-                A = pred[0]
-                P = pred[1]
+            if self._pred_format[:2] == 'AX':
+                A = pred
+                P = [None]*len(pred)
+
+            if self._pred_format[:2] == 'AP':
+                if self._pred_format.endswith('*'):
+                    A,P = zip(*pred)
+                else:
+                    A,P = pred
 
             return A,P,kwargs
 
