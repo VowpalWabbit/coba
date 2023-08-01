@@ -422,7 +422,7 @@ class Performance_Tests(unittest.TestCase):
             def learn(*args): pass
 
         learn = SafeLearner(DummyLearner())
-        self._assert_call_time(lambda:learn.predict(1,[1,2,3]), .0035, print_time, number=1000)
+        self._assert_call_time(lambda:learn.predict(1,[1,2,3]), .003, print_time, number=1000)
 
     def test_safe_learner_learn(self):
 
@@ -431,7 +431,7 @@ class Performance_Tests(unittest.TestCase):
             def learn(*args): pass
 
         learn = SafeLearner(DummyLearner())
-        self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5), .0008, print_time, number=1000)
+        self._assert_call_time(lambda:learn.learn(1, [1], 1, .5), .0007, print_time, number=1000)
 
     def test_simulated_interaction_init(self):
         self._assert_call_time(lambda: SimulatedInteraction(1,[1,2],[0,1]), .012, print_time, number=10000)

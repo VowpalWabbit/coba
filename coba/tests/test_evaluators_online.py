@@ -8,7 +8,7 @@ from coba.exceptions import CobaException
 from coba.contexts import CobaContext
 from coba.environments import Batch, OpeRewards, SimpleEnvironment
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction
-from coba.learners import Learner, VowpalSoftmaxLearner, PMF
+from coba.learners import Learner, VowpalSoftmaxLearner
 from coba.primitives import SequenceReward, Batch as BatchType
 
 from coba.evaluators import OnPolicyEvaluator, OffPolicyEvaluator, ExplorationEvaluator
@@ -23,21 +23,25 @@ class BatchFixedLearner(Learner):
     def predict(self, context, actions):
         return [[1,0,0],[0,0,1]]
 
-    def learn(self, context, actions, action, reward, probability, **kwargs):
+    def learn(self, context, action, reward, probability, **kwargs):
         pass
 
 class FixedActionProbLearner(Learner):
-    def __init__(self, actions):
+    def __init__(self, actions, probs):
         self._actions = actions
+        self._probs   = probs
 
     @property
     def params(self):
         return {"family": "Recording"}
 
     def predict(self, context, actions):
-        return self._actions.pop(0), None
+        has_p = bool(self._probs)
+        a = self._actions.pop(0)
+        p = self._probs.pop(0) if has_p else None
+        return (a, p) if has_p else (a)
 
-    def learn(self, context, actions, action, reward, probability, **kwargs):
+    def learn(self, context, action, reward, probability, **kwargs):
         pass
 
 class RecordingLearner(Learner):
@@ -65,15 +69,15 @@ class RecordingLearner(Learner):
         self.predict_calls.append((context, actions))
 
         probs = [ int(i == action_index) for i in range(len(actions)) ]
-        self.predict_returns.append((PMF(probs), {'i':self._i}) if self._with_info else probs)
+        self.predict_returns.append((probs, {'i':self._i}) if self._with_info else probs)
         return self.predict_returns[-1]
 
-    def learn(self, context, actions, action, reward, probability, **kwargs):
+    def learn(self, context, action, reward, probability, **kwargs):
 
         if self._with_log:
             CobaContext.learning_info.update(learn=self._i)
 
-        self.learn_calls.append((context, actions, action, reward, probability, kwargs))
+        self.learn_calls.append((context, action, reward, probability, kwargs))
 
 class DummyIglLearner(Learner):
 
@@ -148,7 +152,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
+        expected_learn_calls     = [(None,1,7,1,{}),(None,5,5,1,{}),(None,9,3,1,{})]
         expected_task_results    = [
             {"reward":7},
             {"reward":5},
@@ -173,7 +177,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
+        expected_learn_calls     = [(None,1,7,1,{}),(None,5,5,1,{}),(None,9,3,1,{})]
         expected_task_results    = [
             {"reward":7,'rank':0.,'regret':2},
             {"reward":5,'rank':.5,'regret':1},
@@ -198,7 +202,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
+        expected_learn_calls     = [(None,1,7,1,{}),(None,5,5,1,{}),(None,9,3,1,{})]
         expected_task_results    = [
             {"reward":7},
             {"reward":5},
@@ -222,7 +226,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [({'c':1},[{'a':1},{'a':2},{'a':2}]),({'c':2},[{'a':4},{'a':5},{'a':2}])]
         expected_predict_returns = [[1,0,0],[0,1,0]]
-        expected_learn_calls     = [({'c':1},[{'a':1},{'a':2},{'a':2}],{'a':1},7,1,{}),({'c':2},[{'a':4},{'a':5},{'a':2}],{'a':5},5,1,{})]
+        expected_learn_calls     = [({'c':1},{'a':1},7,1,{}),({'c':2},{'a':5},5,1,{})]
         expected_task_results    = [
             {"reward":7},
             {"reward":5},
@@ -246,7 +250,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,[1,2,3],1,7,1,{}),(2,[4,5,6],5,5,1,{}),(3,[7,8,9],9,3,1,{})]
+        expected_learn_calls     = [(1,1,7,1,{}),(2,5,5,1,{}),(3,9,3,1,{})]
         expected_task_results    = [
             {"reward":7},
             {"reward":5},
@@ -260,7 +264,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
     def test_continuous_no_info_no_logs_no_kwargs(self):
         task         = OnPolicyEvaluator(["reward","rank"])
-        learner      = FixedActionProbLearner([0,1,2])
+        learner      = FixedActionProbLearner([0,1,2],None)
         interactions = [
             SimulatedInteraction(1,[],SequenceReward([0,1,2],[7,8,9])),
             SimulatedInteraction(2,[],SequenceReward([0,1,2],[4,5,6])),
@@ -278,14 +282,14 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         # test warning about rewards metric
         task         = OnPolicyEvaluator(["reward","rewards"])
-        learner      = FixedActionProbLearner([0,1,2])
+        learner      = FixedActionProbLearner([0,1,2],None)
         with self.assertWarns(UserWarning) as w:
             list(task.evaluate(SimpleEnvironment(interactions),learner))
         self.assertEqual("The rewards metric can only be calculated for discrete environments", str(w.warning))
 
         # test warnings for both rank and rewards
         task         = OnPolicyEvaluator(["reward","rewards","rank"])
-        learner      = FixedActionProbLearner([0,1,2])
+        learner      = FixedActionProbLearner([0,1,2],None)
         with self.assertWarns(UserWarning) as w:
             list(task.evaluate(SimpleEnvironment(interactions),learner))
 
@@ -295,7 +299,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         # test for neither
         task         = OnPolicyEvaluator(["reward","actions","context"])
-        learner      = FixedActionProbLearner([0,1,2])
+        learner      = FixedActionProbLearner([0,1,2],None)
         with self.assertWarns(UserWarning) as w:
             # Adding a dummy warning log to test the absence of any actual warning
             # Should use assertNoLogs when switching to Python 3.10+"
@@ -317,7 +321,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
-        expected_learn_calls     = [(1,[1,2,3],1,7,1,{'i':1}),(2,[4,5,6],5,5,1,{'i':2}),(3,[7,8,9],9,3,1,{'i':3})]
+        expected_learn_calls     = [(1,1,7,1,{'i':1}),(2,5,5,1,{'i':2}),(3,9,3,1,{'i':3})]
         expected_task_results    = [
             {"reward":7,'learn':1,'predict':1,'I':1},
             {"reward":5,'learn':2,'predict':2,'I':2},
@@ -342,7 +346,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
-        expected_learn_calls     = [(1,[1,2,3],1,7,1,{'i':1}),(2,[4,5,6],5,5,1,{'i':2}),(3,[7,8,9],9,3,1,{'i':3})]
+        expected_learn_calls     = [(1,1,7,1,{'i':1}),(2,5,5,1,{'i':2}),(3,9,3,1,{'i':3})]
         expected_task_results    = [
             {"reward":7,'learn':1,'predict':1,            },
             {"reward":5,'learn':2,'predict':2,'letter':'d'},
@@ -368,8 +372,8 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
         ]
 
         expected_learn_calls = [
-            (0,[1,2,3],1,4,1,{}),
-            (1,[1,2,3],3,9,1,{})
+            (0,1,4,1,{}),
+            (1,3,9,1,{})
         ]
 
         expected_results = [
@@ -413,7 +417,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
 
     def test_rewards_logging(self):
         task         = OnPolicyEvaluator(['reward','rewards'])
-        learner      = FixedActionProbLearner(["action_1","action_2"])
+        learner      = FixedActionProbLearner(["action_1","action_2"],[None,None])
         interactions = [
             SimulatedInteraction(1, ["action_1", "action_2", "action_3"], [1,0,0]),
             SimulatedInteraction(2, ["action_1", "action_2", "action_3"], [0,2,0]),
@@ -461,7 +465,7 @@ class OnPolicyEvaluator_Tests(unittest.TestCase):
         task_results = list(task.evaluate(SimpleEnvironment(Batch(3).filter(interactions)), learner))
 
         expected_predict_call = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]])
-        expected_learn_call   = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]],[1,5,9],[7,5,3],[1,1,1])
+        expected_learn_call   = ([1,2,3],[1,5,9],[7,5,3],[1,1,1])
         expected_task_results  = [ {"reward":7},{"reward":5},{"reward":3} ]
 
         self.assertEqual(expected_predict_call, learner.predict_call[0])
@@ -513,7 +517,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = []
         expected_predict_returns = []
-        expected_learn_calls     = [(1,None,2,3,None,{}),(2,None,3,4,None,{}),(3,None,4,5,None,{})]
+        expected_learn_calls     = [(1,2,3,None,{}),(2,3,4,None,{}),(3,4,5,None,{})]
         expected_task_results    = []
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -534,7 +538,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,[2,5,8],2,3,None,{}),(2,[3,6,9],3,4,None,{}),(3,[4,7,0],4,5,None,{})]
+        expected_learn_calls     = [(1,2,3,None,{}),(2,3,4,None,{}),(3,4,5,None,{})]
         expected_task_results    = [{'reward': 3.0}, {'reward': 0.0}, {'reward': 0.0}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -555,7 +559,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,[2,5,8],2,3,.2,{}),(2,[3,6,9],3,4,.3,{}),(3,[4,7,0],4,5,.4,{})]
+        expected_learn_calls     = [(1,2,3,.2,{}),(2,3,4,.3,{}),(3,4,5,.4,{})]
         expected_task_results    = [{'reward':3/.2},{'reward':0},{'reward':0}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -576,7 +580,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
-        expected_learn_calls     = [(1,[2,5,8],2,3,.2,{}),(2,[3,6,9],3,4,.3,{}),(3,[4,7,0],4,5,.4,{})]
+        expected_learn_calls     = [(1,2,3,.2,{}),(2,3,4,.3,{}),(3,4,5,.4,{})]
         expected_task_results    = [
             {'reward':3/.2, 'learn':1, 'predict':1, 'L':'a'},
             {'reward':0   , 'learn':2, 'predict':2, 'L':'b'},
@@ -610,7 +614,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
         #VW learner
         task_results = list(task.evaluate(SimpleEnvironment(OpeRewards("IPS").filter(interactions)),VowpalSoftmaxLearner()))
         ope_losses = [result['ope_loss'] for result in task_results]
-        self.assertListEqual(ope_losses, [0.0, -0.5, -0.5])
+        self.assertListEqual(ope_losses, [0.0, -1.0, -1.0])
 
         # Non-VW learner
         task_results = list(task.evaluate(SimpleEnvironment(OpeRewards("IPS").filter(interactions)),RecordingLearner()))
@@ -783,7 +787,7 @@ class ExploreEvaluator_Tests(unittest.TestCase):
         task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))
 
         expected_request_call    = [(1,[2,5,8],[2,5,8])] * 7
-        expected_learn_calls     = [(1,[2,5,8],2,3,.25)] * 6
+        expected_learn_calls     = [(1,2,3,.25)] * 6
         expected_task_results    = [{'reward': 3.0}] * 6
 
         self.assertEqual(expected_request_call, request_calls)

@@ -4,7 +4,7 @@ from coba.contexts import CobaContext, NullLogger
 from coba.environments import Environments, ArffSource, CsvSource, LibSvmSource, ManikSource
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, LambdaSimulation
 
-from coba.learners import Learner, ActionProb, PMF
+from coba.learners import Learner
 from coba.learners import SafeLearner, FixedLearner, RandomLearner
 from coba.learners import EpsilonBanditLearner, UcbBanditLearner
 from coba.learners import CorralLearner, LinUCBLearner

@@ -81,9 +81,9 @@ class LinUCBLearner(Learner):
         action_values = point_estimate + self._alpha*np.sqrt(point_bounds)
         max_indexes   = np.where(action_values == np.amax(action_values))[0]
 
-        return PMF([int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))])
+        return [int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
 
-    def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
         import numpy as np
 
         if isinstance(action, dict) or isinstance(context, dict):

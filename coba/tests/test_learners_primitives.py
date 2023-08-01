@@ -1,7 +1,7 @@
 import unittest
 
 from coba.exceptions import CobaException
-from coba.learners import Learner, ActionProb, PMF
+from coba.learners import Learner
 
 class Learner_Tests(unittest.TestCase):
 
@@ -34,22 +34,9 @@ class Learner_Tests(unittest.TestCase):
             pass
 
         with self.assertRaises(CobaException) as ex:
-            MyLearner().learn(None,None,None,None,None)
+            MyLearner().learn(None,None,None,None)
 
         self.assertIn("`learn`", str(ex.exception))
-
-
-class ActionProb_Tests(unittest.TestCase):
-
-    def test_simple(self):
-        self.assertEqual((1,.5), ActionProb(1,.5))
-        self.assertIsInstance(ActionProb(1,2), ActionProb)
-
-class Probs_Tests(unittest.TestCase):
-
-    def test_simple(self):
-        self.assertEqual([1/4,1/2,1/4], PMF([1/4,1/2,1/4]))
-        self.assertIsInstance(PMF([1/4,1/2,1/4]), PMF)
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,7 +24,7 @@ class VowpalMediator:
         self._args = ""
         self._ns_keys = {}
         self._ns_keys_cnt = 0
- 
+
         PackageChecker.vowpalwabbit('VowpalMediator.__init__')
 
     @property
@@ -98,7 +98,7 @@ class VowpalMediator:
     def finish(self):
         if self.is_initialized:
             self._vw.finish()
-    
+
     # override to transform example before they get pushed down to VW
     # i.e. change namespaces from the default 'x' in shared to any other namespace
     def transform_example(self, vw_shared, vw_uniques, labels):
@@ -109,7 +109,7 @@ class VowpalMediator:
 
         Args:
             shared: The features grouped by namespace in this example.
-            separates: The features, grouped by namespace, unique to each each example. 
+            separates: The features, grouped by namespace, unique to each each example.
             label: An optional label (required if this example will be used for learning).
         """
 
@@ -274,7 +274,7 @@ class VowpalLearner(Learner):
         if not self._adf:
             n_action_str = re.match("--cb.*?\s*(\d*)\\b.*", args).group(1)
             self._n_actions = int(n_action_str) if n_action_str else None
-            #useful for removing the n_actions from args 
+            #useful for removing the n_actions from args
             #re.sub("(--cb)\s*(\d+)", '\g<1>', "--cb 123", count=1)
 
         self._vw = vw or VowpalMediator()
@@ -284,7 +284,7 @@ class VowpalLearner(Learner):
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        probs = self.predict(context,actions)
+        probs = self.predict(context,actions)[0]
         return probs if actions == request else list(map(probs.__getitem__,map(actions.index,request)))
 
     def predict(self, context: Context, actions: Sequence[Action]) -> PMF:
@@ -336,9 +336,9 @@ class VowpalLearner(Learner):
             index = self._vw.predict(self._vw.make_example(context, None))
             probs = [ int(i==index) for i in range(1,len(actions)+1) ]
 
-        return PMF(probs)
+        return probs, {'actions':actions}
 
-    def learn(self, context: Context, actions:Actions, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, actions: Actions = None) -> None:
 
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
@@ -348,6 +348,8 @@ class VowpalLearner(Learner):
 
         if not self._vw.is_initialized and not self._adf and not self._n_actions:
             raise CobaException("When using `cb` without `adf` predict must be called before learn to initialize the vw learner")
+
+        if actions is None: actions = [action]
 
         index   = actions.index(action)
         labels  = self._labels(actions, index, reward, probability)
@@ -648,8 +650,8 @@ class VowpalOffPolicyLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
-        This wrapper performs policy learning without any exploration. This is only correct 
-        when training examples come from a logging policy so that any exploration on our 
+        This wrapper performs policy learning without any exploration. This is only correct
+        when training examples come from a logging policy so that any exploration on our
         part would be irrelevant.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms

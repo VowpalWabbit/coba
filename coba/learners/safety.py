@@ -5,68 +5,40 @@ from typing import Any, Sequence, Tuple, Mapping, Literal
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.primitives import Batch, Context, Action, Actions
-from coba.learners.primitives import Learner, PMF, ActionProb, Actions, Prob, kwargs, Prediction
+from coba.learners.primitives import Learner, Actions, Prob, kwargs, Prediction
 
-def pred_format(pred:Prediction, batch_order:Literal['not','row','col'], has_kwarg:bool, actions:Actions):
+def first_row(pred: Prediction, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Prediction]:
+    if batch_order == 'col':
+        if has_kwargs and isinstance(pred[0],dict):
+            pred = pred[0]
+        if isinstance(pred,dict):
+            return {k:v[0] for k,v in pred.items()}
+        else:
+            row = [p[0] for p in (pred[:-1] if has_kwargs else pred) ]
+            return row[0] if len(row) == 1 else row
+    else:
+        if batch_order == 'row': pred = pred[0]
+        return (pred[0] if len(pred)==2 else pred[:-1]) if has_kwargs else pred
 
-    #allowed:
-        #PMF,
-        #ActionProb,
-        #Tuple[PMF        , kwargs]
-        #Tuple[ActionProb , kwargs]
-        #Tuple[Action,Prob, kwargs]
-
-    if batch_order == 'row':
-        pred = pred[0]
-
-    if batch_order == 'col' and not has_kwarg:
-        pred = [p[0] for p in pred]
-
-    if batch_order == 'col' and has_kwarg:
-        pred = [p[0] for p in pred[:-1]] + [{k:v[0] for k,v in pred[-1].items()}]
-
-    if batch_order !='not':
-        actions = actions[0]
-
-    if has_kwarg:
-        pred = pred[0] if len(pred)==2 else pred[:-1]
-
-    #at this point pred should be flattened, unbatched and not have kwargs so it is
-        #PMF
-        #ActionProb
-        #Tuple[Prob,...]
-        #Tuple[Action,Prob]
-
-    if isinstance(pred,PMF):
-        return 'PM'
-
-    if isinstance(pred,ActionProb):
-        return 'AP'
-
-    if len(pred) == len(actions) and len(actions) != 2:
-        return 'PM'
-
-    _possible_pmf = possible_pmf(pred,actions)
-    _possible_act = possible_action(pred[0],actions)
-
-    if _possible_pmf and not _possible_act and len(pred) == len(actions):
-        return 'PM'
-
-    if _possible_act and not _possible_pmf and len(pred) == 2:
-        return 'AP'
-
-    raise CobaException("We were unable to parse the given prediction format."
-        " This is likely because action features were returned for a discrete"
-        " problem. When the action space is discrete, and you wish to directly"
-        " return the selected action rather than a PMF, please provide the"
-        " action index (i.e., actions.index(action)). Alternatively, this can"
-        " also happen for two action problems. In this case we suggest using"
-        " coba.learners.PMF or coba.learners.ActionProb to provide explicit"
-        " type information (e.g., return coba.learners.PMF([1,0])).")
+def has_kwargs(pred: Prediction, batch_order:Literal['not','row','col']) -> bool:
+    try:
+        return isinstance(pred[-1] if batch_order != 'row' else pred[0][-1], abc.Mapping)
+    except:
+        return False
 
 def batch_order(predictor, pred: Prediction, context, actions) -> Literal['not','col','row']:
 
     if not isinstance(actions,Batch) and not isinstance(context,Batch): return 'not'
+
+    no_len         = lambda item: not hasattr(item,'__len__')
+    is_all_dicts   = all(isinstance(p,dict) for p in pred)
+    is_dict_col    = isinstance(pred,dict)
+    is_dict_col_kw = is_all_dicts and pred[0].keys() != pred[-1].keys() and len(pred)==2
+    is_dict_row    = is_all_dicts and pred[0].keys() == pred[-1].keys()
+
+    if is_dict_col or is_dict_col_kw: return 'col'
+    if is_dict_row or no_len(pred[0]): return 'row'
+    #if isinstance(pred[0],dict)
 
     n_rows = len(actions)
     n_dim1 = len(pred)
@@ -80,6 +52,82 @@ def batch_order(predictor, pred: Prediction, context, actions) -> Literal['not',
         n_rows = 1
 
     return 'row' if len(pred) == n_rows else 'col'
+
+def pred_format(std_pred:Prediction, actions:Actions, og_pred:Prediction = None):
+
+    unclear_format = CobaException("We were unable to determine the prediction format from the "
+    f"given value: {og_pred}. To work around this you can provide explicit format information by "
+    "returnning a dict wrapper: {'pmf':<pred>}, {'action':<pred>}, or {'action_prob':<pred>}.")
+    no_act_two  = CobaException("We were given a two item pred without actions. We cannot tell "
+    "if this is an action or action_prob. Please use explicit hints to let us know by returning "
+    "either {'action':<pred>} or {'action_prob':<pred>}.")
+    no_act_pmf  = CobaException("We were given a PMF but there are no actions to choose from.")
+    bad_len_pmf = CobaException("We were given a PMF whose length did match len(actions).")
+    bad_len_ap  = lambda ap: CobaException("An explicit action_prob was passed but it is not "
+    "a two piece tuple. A valid format has the form (<action>,<prob>). We were given {ap}.")
+
+    no_len = lambda item: not hasattr(item,'__len__')
+
+    #possible std_pred:
+        #pmf, action, [action,prob], {'pmf':...}, {'action':...}, {'action_prob':...}
+
+    if isinstance(std_pred, dict):
+        if 'pmf' in std_pred:
+            pmf = std_pred['pmf']
+            if not actions: raise no_act_pmf
+            if no_len(pmf) or len(pmf) != len(actions): raise bad_len_pmf
+            return 'PM'
+        if 'action' in std_pred:
+            return 'AX'
+        if 'action_prob' in std_pred:
+            ap = std_pred['action_prob']
+            if no_len(ap) or len(ap) != 2:
+                raise bad_len_ap(ap)
+            return 'AP'
+    else:
+        if no_len(std_pred) or isinstance(std_pred,str):
+            #action
+            std_pred = [std_pred]
+        elif len(std_pred) > 2:
+            #pmf or action
+            std_pred = [std_pred]
+        elif len(std_pred) == 2:
+            #pmf, action or [action,prob]
+            if not actions:
+                raise no_act_two
+            elif any(std_pred[0] is a for a in actions):
+                #[action,prob] (this should always be correct due to _safe_actions)
+                #when could pred[0] be identified as action but it isn't?
+                #see, https://stackoverflow.com/a/306353/1066291
+                pass
+            else:
+                #pmf or action
+                std_pred = [std_pred]
+
+        #at this point pred should be
+            #[pmf], [action], [action,prob]
+
+        if len(std_pred) == 2:
+            #only [action,prob] has two items
+            return 'AP'
+
+        #now it is [pmf] or [action]
+
+        if actions == [] or actions is None:
+            #a continuous action problem
+            #so they had to return action
+            return 'AX'
+
+        if any(std_pred[0] is action for action in actions):
+            return 'AX'
+
+        if possible_pmf(std_pred[0],actions):
+            return 'PM'
+
+        if possible_action(std_pred[0],actions):
+            return 'AX'
+
+    raise unclear_format
 
 def possible_pmf(item, actions):
     try:
@@ -111,6 +159,9 @@ class SafeLearner(Learner):
         self._pred_batch  = None
         self._pred_format = None
 
+        self._prev_actions = None
+        self._safe_actions = None
+
     @property
     def full_name(self) -> str:
         """A user-friendly name created from a learner's params for reporting purposes."""
@@ -127,7 +178,7 @@ class SafeLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         try:
             params = self.learner.params
-            params = params if not callable(params) else params()               
+            params = params if not callable(params) else params()
             params = params if isinstance(params,dict) else {'params':str(params)}
         except AttributeError:
             params = {}
@@ -143,27 +194,43 @@ class SafeLearner(Learner):
             prev_method = self._method[key]
 
             if prev_method==1:
-                return method(*args,**(kwargs or {}))
+                return method(*args,**kwargs)
 
             if prev_method==2:
-                if isinstance(args[0],str): raise Exception() #We don't care which exception we raise.
-                return [ method(*a,**{k:v[i] for k,v in kwargs.items()}) for i,a in enumerate(zip(*args)) ]
+                if isinstance(args[0],str): 
+                    raise CobaException(
+                        f"Context ({args[0]}) was not an array like so we couldn't use fallback methods. "
+                        "See the exception above for the reason why fallback methods were attempted."
+                    )
+
+                pred = [ method(*a,**{k:v[i] for k,v in kwargs.items()}) for i,a in enumerate(zip(*args)) ]
+
+                if not pred: 
+                    raise CobaException(
+                        f"Something went wrong. No prediction was returned when using batch fallback methods "
+                        f"on the args: {args}. See the exception above for the reason why fallback methods "
+                        "were attempted."
+                    )
+
+                return pred
 
         try:
             self._method[key] = 1
             return self._safe_call(key, method, args, kwargs)
-        except:
-            try:
-                self._method[key] = 2
-                return self._safe_call(key, method, args, kwargs)
-            except:
-                del self._method[key]
-            raise
+        except Exception as outer_e:
+            if not any(isinstance(a,Batch) for a in args):
+                raise
+            else:
+                try:
+                    self._method[key] = 2
+                    return self._safe_call(key, method, args, kwargs)
+                except Exception as inner_e:
+                    del self._method[key]
+                    raise inner_e from outer_e
 
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-
         try:
-            return self._safe_call('request', self.learner.request, (context,actions,request))
+            return self._safe_call('request', self.learner.request,(context,actions,request))
         except AttributeError as ex:
             if "'request'" in str(ex):
                 raise CobaException(("The `request` method is not implemented for this learner."))
@@ -171,14 +238,25 @@ class SafeLearner(Learner):
 
     def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:
 
+        #this logic should guarantee that we can differentiate prediction formats
+        if self._prev_actions != actions:
+            self._prev_actions = actions
+            all_safe = 0 not in actions and 1 not in actions
+            make_safe = lambda a: float(a) if a in [0,1] else a
+            self._safe_actions = actions if all_safe else [ make_safe(a) for a in actions]
+
+        actions = self._safe_actions
+
         pred = self._safe_call('predict', self.learner.predict, (context,actions))
 
         if self._pred_batch is None: # first call only
-            predictor = lambda X,A: self._safe_call('predict', self.learner.predict, (X,A))
-
-            self._pred_batch  = batch_order(predictor,pred,context,actions)
-            self._pred_kwargs = isinstance(pred[-1] if self._pred_batch != 'row' else pred[0][-1],abc.Mapping)
-            self._pred_format = pred_format(pred, self._pred_batch, self._pred_kwargs, actions)
+            predictor         = lambda X,A: self._safe_call('predict', self.learner.predict, (X,A))
+            is_fallback       = self._method['predict'] == 2
+            self._pred_batch  = batch_order(predictor,pred,context,actions) if not is_fallback else 'row'
+            self._pred_kwargs = has_kwargs(pred,self._pred_batch)
+            first_pred_row    = first_row(pred,self._pred_batch,self._pred_kwargs)
+            first_actions     = actions[0] if self._pred_batch != 'not' else actions
+            self._pred_format = pred_format(first_pred_row, first_actions, pred)
 
         if self._pred_batch == 'not':
             kwargs = pred[-1] if self._pred_kwargs else {}
@@ -190,6 +268,9 @@ class SafeLearner(Learner):
 
             if self._pred_format == 'AP':
                 a,p = pred[0],pred[1]
+
+            if self._pred_format == 'AX':
+                a,p = pred,None
 
             return a,p,kwargs
 
@@ -203,6 +284,10 @@ class SafeLearner(Learner):
                 I = [self._get_pmf_index(p) for p in pred]
                 A = [ a[i] for a,i in zip(actions,I) ]
                 P = [ p[i] for p,i in zip(pred,I) ]
+
+            if self._pred_format == 'AX':
+                A = [p for p in pred]
+                P = [None]*len(pred)
 
             if self._pred_format == 'AP':
                 A = [p[0] for p in pred]
@@ -225,10 +310,10 @@ class SafeLearner(Learner):
 
             return A,P,kwargs
 
-    def learn(self, context, actions, action, reward, probability, **kwargs) -> None:
+    def learn(self, context, action, reward, probability, **kwargs) -> None:
 
         try:
-            self._safe_call('learn', self.learner.learn, (context,actions,action,reward,probability), kwargs)
+            self._safe_call('learn', self.learner.learn, (context,action,reward,probability), kwargs)
         except TypeError as ex:
             if 'got an unexpected' in str(ex):
                 raise CobaException("It appears that learner.predict returned kwargs but learner.learn did not accept them.") from ex

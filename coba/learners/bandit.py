@@ -45,9 +45,9 @@ class EpsilonBanditLearner(Learner):
         prob_selected_randomly = [1/len(actions) * self._epsilon] * len(actions)
         prob_selected_greedily = [ int(i in max_indexes)/len(max_indexes) * (1-self._epsilon) for i in range(len(actions))]
 
-        return PMF([p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)])
+        return [p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
 
-    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
 
         alpha = 1/(self._N[action]+1)
         old_Q = self._Q[action] or 0.0
@@ -77,7 +77,6 @@ class UcbBanditLearner(Learner):
 
     @property
     def params(self) -> Mapping[str, Any]:
-
         return { "family": "UCB_bandit" }
 
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
@@ -103,10 +102,10 @@ class UcbBanditLearner(Learner):
             max_value   = max(values)
             max_actions = [ a for a,v in zip(actions,values) if v==max_value ]
 
-        return PMF([int(action in max_actions)/len(max_actions) for action in actions])
+        return [int(action in max_actions)/len(max_actions) for action in actions]
 
-    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
-        
+    def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
+
         self._t += 1
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
@@ -170,15 +169,15 @@ class FixedLearner(Learner):
     @property
     def params(self) -> Mapping[str, Any]:
         return {"family":"fixed"}
-    
+
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
         probs = self._pmf
         return [ probs[actions.index(a)] for a in request ]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
-        return PMF(self._pmf)
+        return self._pmf
 
-    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, prob: float) -> None:
         pass
 
 class RandomLearner(Learner):
@@ -191,12 +190,12 @@ class RandomLearner(Learner):
     @property
     def params(self) -> Mapping[str, Any]:
         return {"family":"random"}
-    
+
     def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
         return [1/len(actions)]*len(request)
 
     def predict(self, context: Context, actions: Actions) -> PMF:
-        return PMF([1/len(actions)]*len(actions))
+        return [1/len(actions)]*len(actions)
 
-    def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
         pass

@@ -1,9 +1,8 @@
 import math
 import importlib.util
-from typing import Any, Iterable, Mapping, Optional, Union
 import unittest
-from coba.environments import Environment
 
+from coba.environments import Environment
 from coba.learners import EpsilonBanditLearner, Learner, VowpalSoftmaxLearner, SafeLearner
 from coba.evaluators.primitives import Evaluator, SafeEvaluator, get_ope_loss
 
@@ -29,7 +28,7 @@ class Helper_Tests(unittest.TestCase):
 
         #VW learner
         learner = VowpalSoftmaxLearner()
-        learner.learn(1, [1], 1, 1, 1.0)
+        learner.learn(1, 1, 1, 1.0)
         self.assertEqual(get_ope_loss(SafeLearner(learner)), -1.0)
 
         # Non-VW learner

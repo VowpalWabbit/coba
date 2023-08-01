@@ -36,9 +36,9 @@ class MisguidedLearner_Tests(unittest.TestCase):
             def learn(self,*args):
                 learn_args.extend(args)
 
-        MisguidedLearner(MyLearner(),1,-1).learn(1,[3,4], 3, 1, 0)
+        MisguidedLearner(MyLearner(),1,-1).learn(1, 3, 1, 0)
 
-        self.assertEqual(learn_args,[1,[3,4], 3, 0, 0])
+        self.assertEqual(learn_args,[1, 3, 0, 0])
 
 if __name__ == '__main__':
     unittest.main()

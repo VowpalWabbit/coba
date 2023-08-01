@@ -1,5 +1,5 @@
 """
-This is an example script that creates and execuates an Experiment.
+This is an example script that creates and executes an Experiment.
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 

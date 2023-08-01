@@ -109,7 +109,7 @@ class OnPolicyEvaluator(Evaluator):
             feedback = feedbacks.eval(action) if feedbacks else None
 
             start_time = time.time()
-            if self._learn: learn(context, actions, action, feedback if feedbacks else reward, prob, **kwargs)
+            if self._learn: learn(context, action, feedback if feedbacks else reward, prob, **kwargs)
             learn_time = time.time() - start_time
 
             if record_time    : out['predict_time'] = predict_time
@@ -259,7 +259,7 @@ class OffPolicyEvaluator(Evaluator):
 
             if self._learn:
                 start_time = time.time()
-                if self._learn: learn(log_context, log_actions, log_action, log_reward, log_prob)
+                if self._learn: learn(log_context, log_action, log_reward, log_prob)
                 learn_time = time.time() - start_time
 
             if record_time  :  out['predict_time'] = predict_time
@@ -425,7 +425,7 @@ class ExplorationEvaluator(Evaluator):
                     ope_rewards.append(log_reward)
 
                 start_time = time.time()
-                learn(log_context, log_actions, log_action, log_reward, on_prob)
+                learn(log_context, log_action, log_reward, on_prob)
                 learn_time = time.time() - start_time
 
                 if record_time    : out['predict_time'] = predict_time

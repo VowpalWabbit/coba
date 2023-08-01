@@ -12,8 +12,8 @@ class ReceivedLearnFixedLearner(FixedLearner):
         self.key            = key
         super().__init__(fixed_pmf)
 
-    def learn(self, context, actions, action, reward, probability) -> None:
-        self.received_learn = (context, actions, action, reward, probability)
+    def learn(self, context, action, reward, probability) -> None:
+        self.received_learn = (context, action, reward, probability)
         CobaContext.learning_info.update({self.key:1})
 
 class FamilyLearner:
@@ -54,10 +54,10 @@ class CorralLearner_Tests(unittest.TestCase):
         probability = predict[0]
         reward      = 1/2
 
-        learner.learn(None, actions, actions[0], reward, probability, **info)
+        learner.learn(None, actions[0], reward, probability, **info)
 
-        self.assertEqual((None, actions, actions[0], 1, 1), base1.received_learn)
-        self.assertEqual((None, actions, actions[1], 0, 1), base2.received_learn)
+        self.assertEqual((None, actions[0], 1, 1), base1.received_learn)
+        self.assertEqual((None, actions[1], 0, 1), base2.received_learn)
 
     def test_off_policy_request(self):
 
@@ -89,10 +89,10 @@ class CorralLearner_Tests(unittest.TestCase):
         probability = predict[0]
         reward      = 1
 
-        learner.learn(None, actions, action, reward, probability, **info)
+        learner.learn(None, action, reward, probability, **info)
 
-        self.assertEqual((None, actions, action, reward, predict[0]), base1.received_learn)
-        self.assertEqual((None, actions, action, reward, predict[0]), base2.received_learn)
+        self.assertEqual((None, action, reward, predict[0]), base1.received_learn)
+        self.assertEqual((None, action, reward, predict[0]), base2.received_learn)
 
     def test_params(self):
 

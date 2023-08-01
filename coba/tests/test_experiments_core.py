@@ -7,7 +7,7 @@ from typing import cast
 
 from coba.environments import Environment, LambdaSimulation, SimulatedInteraction
 from coba.pipes import Source, ListSink
-from coba.learners import Learner, PMF
+from coba.learners import Learner
 from coba.contexts import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
@@ -16,7 +16,7 @@ from coba.primitives import Categorical, MulticlassReward
 class NoParamsLearner:
     def predict(self, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
-    def learn(self, context, action, reward, probability, info):
+    def learn(self, context, action, reward, probability):
         pass
 
 class NoParamsEnvironment:
@@ -33,9 +33,9 @@ class ModuloLearner(Learner):
         return {"family": "Modulo", "p":self._param}
 
     def predict(self, context, actions):
-        return PMF([int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions))])
+        return [int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions))]
 
-    def learn(self, context, actions, action, reward, probability):
+    def learn(self, context, action, reward, probability):
         self._learn_calls += 1
 
 class BrokenLearner(Learner):
@@ -47,7 +47,7 @@ class BrokenLearner(Learner):
     def predict(self, context, actions):
         raise Exception("Broken Learner")
 
-    def learn(self, context, actions, action, reward, probability):
+    def learn(self, context, action, reward, probability):
         pass
 
 class PredictInfoLearner(Learner):
@@ -61,7 +61,7 @@ class PredictInfoLearner(Learner):
     def predict(self, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ], {'info':(0,1)}
 
-    def learn(self, context, actions, action, reward, probability, info):
+    def learn(self, context, action, reward, probability, info):
         assert info == (0,1)
 
 class LearnInfoLearner(Learner):
@@ -75,7 +75,7 @@ class LearnInfoLearner(Learner):
     def predict(self, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
-    def learn(self, context, actions, action, reward, probability):
+    def learn(self, context, action, reward, probability):
         CobaContext.learning_info.update({"Modulo": self._param})
 
 class NotPicklableLearner(ModuloLearner):
@@ -103,8 +103,8 @@ class WrappedLearner(Learner):
     def predict(self, context, actions):
         return self._learner.predict(context, actions)
 
-    def learn(self, context, actions, action, reward, probability) -> None:
-        return self._learner.learn(context, actions, action, reward, probability)
+    def learn(self, context, action, reward, probability) -> None:
+        return self._learner.learn(context, action, reward, probability)
 
 class OneTimeSource(Source):
 

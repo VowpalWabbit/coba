@@ -1,5 +1,4 @@
 
-from abc import ABC, abstractmethod
 from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Type
 
 from coba.exceptions import CobaException
@@ -9,19 +8,14 @@ from coba.primitives import Dense, Sparse, HashableDense, HashableSparse
 kwargs = Mapping[str,Any]
 Prob   = float
 PDF    = Callable[[Action],float]
-
-class PMF(list):
-    pass
-
-class ActionProb(tuple):
-    def __new__(self, action: Action, prob: Prob):
-        return tuple.__new__(ActionProb, (action, prob))
+PMF    = Sequence[float]
 
 Prediction = Union[
     PMF,
-    ActionProb,
+    Action,
+    Tuple[Action,Prob],
     Tuple[PMF        , kwargs],
-    Tuple[ActionProb , kwargs],
+    Tuple[Action     , kwargs],
     Tuple[Action,Prob, kwargs],
 ]
 
@@ -74,22 +68,15 @@ class Learner:
             "The `predict` interface has not been implemented for this learner."
         ))
 
-    def learn(self,
-        context: Context,
-        actions: Actions,
-        action: Action,
-        reward: Union[float,Any],
-        probability: float,
-        **kwargs) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, **kwargs) -> None:
         """Learn about the action taken in the context.
 
         Args:
             context: The context in which the action was taken.
-            actions: The set of actions that were available.
             action: The action that was taken.
-            reward: The reward for contextual bandit problems and feedback for IGL problems.
+            reward: The reward for the given context and action (feedback for IGL problems).
             probability: The probability the given action was taken.
-            **kwargs: Optional information returned with the prediction.
+            **kwargs: Optional information returned during prediction.
         """
         raise CobaException((
             "The `learn` interface has not been implemented for this learner."
@@ -108,8 +95,8 @@ def requires_hashables(cls:Type[Learner]):
     def new_predict(self,c,A):
         return old_predict(self,make_hashable(c),list(map(make_hashable,A)))
 
-    def new_learn(self,c,A,a,r,p,**kwargs):
-        old_learn(self,make_hashable(c),list(map(make_hashable,A)), make_hashable(a),r,p,**kwargs)
+    def new_learn(self,c,a,r,p,**kwargs):
+        old_learn(self,make_hashable(c),make_hashable(a),r,p,**kwargs)
 
     cls.predict = new_predict
     cls.learn   = new_learn

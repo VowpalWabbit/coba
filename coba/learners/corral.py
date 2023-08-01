@@ -76,18 +76,19 @@ class CorralLearner(Learner):
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
         base_actions, base_probs, base_infos = zip(*base_predicts)
 
-        predict = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
-        info    = (base_actions, base_probs, base_infos)
+        pmf  = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
+        info = (actions, base_actions, base_probs, base_infos)
 
-        return (predict, {'info':info})
+        return pmf, {'info':info}
 
-    def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability:float, **kwargs) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability:float, info) -> None:
 
         assert  0 <= reward and reward <= 1, "This Corral implementation assumes a loss between 0 and 1"
 
-        base_actions = kwargs['info'][0]
-        base_probs   = kwargs['info'][1]
-        base_infos   = kwargs['info'][2]
+        actions      = info[0]
+        base_actions = info[1]
+        base_probs   = info[2]
+        base_infos   = info[3]
 
         if self._mode == "importance":
             # This is what is in the original paper. It has the following characteristics:
@@ -97,7 +98,7 @@ class CorralLearner(Learner):
             # The reward, R, supplied to the base learners satisifies E[R|context,A] = E[reward|context,A]
             for learner, A, P, base_info in zip(self._base_learners, base_actions, base_probs, base_infos):
                 R = reward * int(A==action)/probability
-                learner.learn(context, actions, A, R, P, **base_info)
+                learner.learn(context, A, R, P, **base_info)
 
         if self._mode == "off-policy":
             # An alternative variation to the paper is provided below. It has the following characterisitcs:
@@ -105,7 +106,7 @@ class CorralLearner(Learner):
             #   > It uses a MVUB reward estimator (aka, the unmodified, observed reward)
             #   > It is "off-policy" (i.e., base learners receive action feedback distributed differently from their predicts).
             for learner, base_info in zip(self._base_learners, base_infos):
-                learner.learn(context, actions, action, reward, probability, **base_info)
+                learner.learn(context, action, reward, probability, **base_info)
 
         loss = 1-reward
 
