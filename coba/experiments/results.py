@@ -645,7 +645,7 @@ class MatplotPlotter(Plotter):
 
             ax.autoscale(axis='both')
 
-            ax.set_title(title, loc='left', pad=15)
+            ax.set_title(title, loc='left')
             ax.set_ylabel(ylabel)
             ax.set_xlabel(xlabel)
 
@@ -1002,6 +1002,7 @@ class Result:
         errevery: int = None,
         labels  : Sequence[str] = None,
         colors  : Union[int,Sequence[Union[str,int]]] = None,
+        title   : str = None,
         xlabel  : str = None,
         ylabel  : str = None,
         xlim    : Tuple[Optional[Number],Optional[Number]] = None,
@@ -1028,6 +1029,7 @@ class Result:
             errevery: This determines the frequency of errorbars. If `None` they appear 5% of the time.
             labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
             colors: The colors used to plot the learners plot.
+            title : The title give the plot.
             xlabel: The label on the x-axis.
             ylabel: The label on the y-axis.
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
@@ -1073,7 +1075,7 @@ class Result:
             y_location = "Total" if x != 'index' else ""
             y_avg_type = ("Instant" if span == 1 else f"Span {span}" if span else "Progressive")
             y_samples  = f"({len(Y)} Environments)"
-            title      = ' '.join(filter(None,[y_location, y_avg_type, ylabel, y_samples]))
+            title      = title if title is not None else (' '.join(filter(None,[y_location, y_avg_type, ylabel, y_samples])))
 
             xrotation = 90 if x != 'index' and len(lines[0].X)>5 else 0
             yrotation = 0
@@ -1101,6 +1103,7 @@ class Result:
         errevery: int = None,
         labels  : Sequence[str] = None,
         colors  : Sequence[str] = None,
+        title   : str = None,
         xlabel  : str = None,
         ylabel  : str = None,
         xlim    : Tuple[Optional[Number],Optional[Number]] = None,
@@ -1129,6 +1132,7 @@ class Result:
                 the standard error is shown, and if 'sd' the standard deviation is shown.
             errevery: This determines the frequency of errorbars. If `None` they appear 5% of the time.
             labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
+            title : The title give the plot.
             colors: The colors used to plot the learners plot.
             xlabel: The label on the x-axis.
             ylabel: The label on the y-axis.
@@ -1274,7 +1278,7 @@ class Result:
 
             xlabel = xlabel or ("Interaction" if x=='index' else x[0] if len(x) == 1 else x)
             ylabel = ylabel or (f"$\Delta$ {y}" if mode=="diff" else f"P($\Delta$ {y} > 0)")
-            title  = f"{ylabel} ({len(_Y)} Environments)"
+            title  = title if title is not None else (f"{ylabel} ({len(_Y)} Environments)")
 
             self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
 
