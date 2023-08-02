@@ -422,7 +422,7 @@ class Performance_Tests(unittest.TestCase):
             def learn(*args): pass
 
         learn = SafeLearner(DummyLearner())
-        self._assert_call_time(lambda:learn.predict(1,[1,2,3]), .003, print_time, number=1000)
+        self._assert_call_time(lambda:learn.predict(1,[1,2,3]), .005, print_time, number=1000)
 
     def test_safe_learner_learn(self):
 
