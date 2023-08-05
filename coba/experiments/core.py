@@ -9,7 +9,7 @@ from coba.learners     import Learner
 from coba.evaluators   import Evaluator, OnPolicyEvaluator
 
 from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
-from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
+from coba.context import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
 from coba.exceptions import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 

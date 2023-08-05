@@ -1,9 +1,9 @@
-﻿.. _coba-contexts:
+﻿.. _coba-context:
 
-coba.contexts
+coba.context
 =============
 
-.. automodule:: coba.contexts
+.. automodule:: coba.context
 
 Core
 ~~~~~~~~~~

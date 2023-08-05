@@ -89,8 +89,8 @@ import coba.learners
 import coba.environments
 import coba.experiments
 import coba.pipes
-import coba.contexts
-import coba.contexts.core
+import coba.context
+import coba.context.core
 
 def set_module(module):
     from types import ModuleType
@@ -104,16 +104,16 @@ set_module(coba.learners)
 set_module(coba.environments)
 set_module(coba.experiments)
 set_module(coba.pipes)
-set_module(coba.contexts)
+set_module(coba.context)
 
 #we have to point to meta because sphinx can't handle class level properties
-coba.contexts.core.CobaContext_meta.__module__ = "coba.contexts"
-coba.contexts.core.CobaContext_meta.__name__ = "CobaContext"
-coba.contexts.__dict__['CobaContext'] = coba.contexts.core.CobaContext_meta
+coba.context.core.CobaContext_meta.__module__ = "coba.context"
+coba.context.core.CobaContext_meta.__name__ = "CobaContext"
+coba.context.__dict__['CobaContext'] = coba.context.core.CobaContext_meta
 
 #we have to point to meta because sphinx can't handle class level properties
-coba.contexts.core.InteractionContext_meta.__module__ = "coba.contexts"
-coba.contexts.core.InteractionContext_meta.__name__ = "InteractionContext"
-coba.contexts.__dict__['InteractionContext'] = coba.contexts.core.InteractionContext_meta
+coba.context.core.InteractionContext_meta.__module__ = "coba.context"
+coba.context.core.InteractionContext_meta.__name__ = "InteractionContext"
+coba.context.__dict__['InteractionContext'] = coba.context.core.InteractionContext_meta
 
 autosummary_generate_overwrite = False

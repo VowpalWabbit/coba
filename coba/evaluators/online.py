@@ -8,7 +8,7 @@ from typing import Any, Iterable, Sequence, Mapping, Optional, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.contexts import CobaContext
+from coba.context import CobaContext
 from coba.environments import Environment
 from coba.learners import Learner, SafeLearner
 from coba.primitives import Batch, argmax

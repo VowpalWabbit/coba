@@ -3,7 +3,7 @@ from ctypes import c_short
 from typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit, peek_first
-from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher
+from coba.context   import CobaContext, ConcurrentCacher, Logger, Cacher
 from coba.pipes     import Pipes, Filter, Sink, Multiprocessor, Foreach, QueueSink, QueueSource
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):

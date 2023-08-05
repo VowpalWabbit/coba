@@ -9,7 +9,7 @@ from queue import Queue
 from pathlib import Path
 
 from coba.exceptions import CobaException
-from coba.contexts import NullLogger, CobaContext
+from coba.context import NullLogger, CobaContext
 
 from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource
 from coba.pipes.sources import HttpSource, LambdaSource, IterableSource, DataFrameSource

@@ -5,7 +5,7 @@ import importlib.util
 from statistics import mean
 
 from coba.pipes import ListSink
-from coba.contexts import CobaContext, IndentLogger
+from coba.context import CobaContext, IndentLogger
 from coba.exceptions import CobaException, CobaExit
 from coba.statistics import BootstrapCI
 

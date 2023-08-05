@@ -5,7 +5,7 @@ import importlib.util
 
 from pathlib import Path
 
-from coba.contexts import CobaContext, DiskCacher, NullLogger
+from coba.context import CobaContext, DiskCacher, NullLogger
 from coba.pipes import DiskSource, LazyDense
 from coba.exceptions import CobaException
 from coba.primitives import L1Reward, Batch, Categorical

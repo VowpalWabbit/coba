@@ -3,7 +3,7 @@ import unittest
 from coba.pipes import IterableSource, ListSink
 from coba.registry import CobaRegistry
 from coba.exceptions import CobaException
-from coba.contexts import CobaContext, IndentLogger
+from coba.context import CobaContext, IndentLogger
 
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 from coba.environments import OpenmlSimulation, Take

@@ -5,7 +5,7 @@ from coba import IPSReward, MappingReward
 from coba.pipes import Flatten, Encode, JsonEncode, Structure, LazyDense, LazySparse
 from coba.pipes import Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
-from coba.contexts import NullLogger, CobaContext
+from coba.context import NullLogger, CobaContext
 from coba.utilities import peek_first
 
 CobaContext.logger = NullLogger()

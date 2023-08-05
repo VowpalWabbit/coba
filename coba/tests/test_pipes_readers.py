@@ -4,7 +4,7 @@ from coba.exceptions import CobaException
 
 from coba.pipes import LibsvmReader, ArffReader, CsvReader, ManikReader
 from coba.pipes.readers import ArffAttrReader, ArffDataReader, ArffLineReader
-from coba.contexts import NullLogger, CobaContext
+from coba.context import NullLogger, CobaContext
 from coba.primitives import Categorical
 
 CobaContext.logger = NullLogger()

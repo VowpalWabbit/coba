@@ -5,9 +5,9 @@ import unittest.mock
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.contexts        import CobaContext, NullLogger
-from coba.contexts        import NullCacher, MemoryCacher
-from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
+from coba.context         import CobaContext, NullLogger
+from coba.context         import NullCacher, MemoryCacher
+from coba.context         import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
 from coba.pipes           import Filter, ListSink, Identity
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor

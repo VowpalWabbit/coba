@@ -3,7 +3,7 @@ import pickle
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
-from coba.contexts import CobaContext, NullLogger
+from coba.context import CobaContext, NullLogger
 
 from coba.environments import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments import KernelSyntheticSimulation, MLPSyntheticSimulation

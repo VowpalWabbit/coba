@@ -15,7 +15,7 @@ from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union
 from coba.primitives import Batch
 from coba.environments import Environment
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
-from coba.contexts import CobaContext
+from coba.context import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first
 from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource

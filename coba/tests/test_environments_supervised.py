@@ -3,7 +3,7 @@ import unittest
 
 from coba.primitives   import Categorical
 from coba.pipes        import IterableSource
-from coba.contexts     import CobaContext, CobaContext, NullLogger
+from coba.context      import CobaContext, CobaContext, NullLogger
 from coba.environments import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 
 CobaContext.logger = NullLogger()

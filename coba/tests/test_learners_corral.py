@@ -2,7 +2,7 @@ import unittest
 
 from statistics import mean
 
-from coba.contexts import CobaContext
+from coba.context import CobaContext
 from coba.learners import CorralLearner, FixedLearner
 
 class ReceivedLearnFixedLearner(FixedLearner):

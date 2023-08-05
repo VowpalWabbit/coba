@@ -3,7 +3,7 @@ import unittest
 from itertools import product
 from typing import cast, Iterable
 
-from coba.contexts     import CobaContext, BasicLogger
+from coba.context      import CobaContext, BasicLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
 from coba.pipes        import Pipes, ListSink, Cache
 from coba.learners     import Learner

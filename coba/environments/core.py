@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type, Literal
 
 from coba                 import pipes
-from coba.contexts        import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
+from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
 from coba.pipes.sources   import DataFrameSource
 from coba.primitives      import Context, Action
 from coba.random          import CobaRandom

@@ -6,7 +6,7 @@ import gzip
 from pathlib import Path
 
 from coba.pipes import DiskSink, ListSink, QueueSink, NullSink, ConsoleSink, LambdaSink
-from coba.contexts import NullLogger, CobaContext
+from coba.context import NullLogger, CobaContext
 
 CobaContext.logger = NullLogger()
 

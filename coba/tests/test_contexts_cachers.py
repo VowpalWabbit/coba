@@ -7,7 +7,7 @@ import threading as mt
 from contextlib import contextmanager
 from pathlib import Path
 
-from coba.contexts import DiskCacher, MemoryCacher, NullCacher, ConcurrentCacher
+from coba.context import DiskCacher, MemoryCacher, NullCacher, ConcurrentCacher
 from coba.exceptions import CobaException
 
 class IterCacher(MemoryCacher):

@@ -7,7 +7,7 @@ import datetime
 
 from coba.exceptions import CobaException
 from coba.pipes      import ListSink, NullSink
-from coba.contexts   import IndentLogger, BasicLogger, NullLogger, ExceptionLogger, DecoratedLogger, ExceptLog, NameLog, StampLog
+from coba.context    import IndentLogger, BasicLogger, NullLogger, ExceptionLogger, DecoratedLogger, ExceptLog, NameLog, StampLog
 
 class LogDecorator:
 
@@ -649,7 +649,7 @@ class StampLog_Tests(unittest.TestCase):
 
         now = datetime.datetime.now()
 
-        with unittest.mock.patch('coba.contexts.StampLog._now', return_value=now):
+        with unittest.mock.patch('coba.context.StampLog._now', return_value=now):
             decorator = StampLog()
             stamp = now.strftime('%Y-%m-%d %H:%M:%S')
             self.assertEqual(decorator.filter('a'), f'{stamp} -- a' )

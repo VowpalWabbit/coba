@@ -5,7 +5,7 @@ import unittest.mock
 import warnings
 
 from coba.exceptions import CobaException
-from coba.contexts import CobaContext
+from coba.context import CobaContext
 from coba.environments import Batch, OpeRewards, SimpleEnvironment
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.learners import Learner, VowpalSoftmaxLearner

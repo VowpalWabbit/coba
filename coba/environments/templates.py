@@ -3,7 +3,7 @@ import collections.abc
 from itertools import product
 from typing import Sequence, Any, overload, Iterable, Union, Dict
 
-from coba.contexts import CobaContext
+from coba.context import CobaContext
 from coba.registry import JsonMakerV1, CobaRegistry, JsonMakerV2
 from coba.pipes import Source, JsonDecode, UrlSource, Pipes
 from coba.exceptions import CobaException

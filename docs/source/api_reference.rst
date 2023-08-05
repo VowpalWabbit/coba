@@ -9,5 +9,5 @@ API Reference
    coba.environments
    coba.experiments
    coba.pipes
-   coba.contexts
+   coba.context
    coba.random

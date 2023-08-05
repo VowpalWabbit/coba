@@ -1,5 +1,5 @@
 from coba.random import CobaRandom
-from coba.contexts import CobaContext, NullLogger
+from coba.context import CobaContext, NullLogger
 
 from coba.environments import Environments, ArffSource, CsvSource, LibSvmSource, ManikSource
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, LambdaSimulation

@@ -5,7 +5,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from itertools import islice, repeat, chain
 from typing import Union, Sequence, Mapping, Iterable, Any
 
-from coba.contexts import CobaContext
+from coba.context import CobaContext
 from coba.pipes import Source, Sink, Filter
 from coba.environments.primitives import Environment, Interaction
 

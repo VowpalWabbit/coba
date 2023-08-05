@@ -5,7 +5,7 @@ from pathlib import Path
 
 from coba.exceptions import CobaExit
 from coba.pipes import JsonEncode, ConsoleSink, DiskSink, NullSink
-from coba.contexts import CobaContext, DiskCacher, IndentLogger, NullLogger
+from coba.context import CobaContext, DiskCacher, IndentLogger, NullLogger
 
 class CobaContext_Tests(unittest.TestCase):
 

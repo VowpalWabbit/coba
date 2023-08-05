@@ -7,7 +7,7 @@ from math import isnan
 
 from coba              import primitives
 from coba.pipes        import LazyDense, LazySparse, HeadDense
-from coba.contexts     import CobaContext, NullLogger
+from coba.context      import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.primitives   import L1Reward, SequenceFeedback, Categorical
 from coba.learners     import FixedLearner

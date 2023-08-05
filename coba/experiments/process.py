@@ -9,7 +9,7 @@ from coba.environments import Environment, SafeEnvironment, Finalize, BatchSafe,
 from coba.evaluators import Evaluator, SafeEvaluator
 
 from coba.pipes import Source, Filter, SourceFilters
-from coba.contexts import CobaContext
+from coba.context import CobaContext
 from coba.utilities import peek_first
 
 from coba.experiments.results import Result, Table

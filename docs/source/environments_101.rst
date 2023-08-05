@@ -47,7 +47,7 @@ with Openml derived simulations. Otherwise ``Coba`` will download the dataset fr
 .. code-block:: python
 
     from coba.environments import Environments, OpenmlSimulation # Only one of these is needed
-    from coba.contexts import CobaContext # Only needed to enable disk caching
+    from coba.context import CobaContext # Only needed to enable disk caching
 
     #Enable local caching by providing a cache_directory,
     #The directory will be created if it does not exist.

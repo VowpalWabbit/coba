@@ -7,7 +7,7 @@ from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, Mutabl
 from coba.random import random
 from coba.pipes import Pipes, Source
 from coba.pipes import HttpSource, ArffReader, DropRows, LabelRows
-from coba.contexts import CobaContext
+from coba.context import CobaContext
 from coba.primitives import Sparse, Dense
 from coba.exceptions import CobaException
 
