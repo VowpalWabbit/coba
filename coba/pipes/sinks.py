@@ -3,7 +3,7 @@ import gzip
 from queue import Queue
 from collections.abc import Iterator
 from itertools import islice
-from typing import Callable, Any, List, Union, Sequence, Iterable
+from typing import Callable, Any, List, Sequence, Iterable
 
 from coba.pipes.primitives import Sink
 
@@ -18,7 +18,7 @@ class ConsoleSink(Sink[Any]):
     def write(self, item: Any) -> None:
         print(item)
 
-class DiskSink(Sink[Union[str,Sequence[str]]]):
+class DiskSink(Sink[str|Sequence[str]]):
     """A sink which writes to a file on disk.
 
     This sink supports writing in either plain text or as a gz compressed file.
@@ -60,7 +60,7 @@ class DiskSink(Sink[Union[str,Sequence[str]]]):
             self._file.close()
             self._file = None
 
-    def write(self, lines: Union[str,Iterable[str]]) -> None:
+    def write(self, lines: str|Iterable[str]) -> None:
         if isinstance(lines,str): 
             lines = [lines]
 

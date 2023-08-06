@@ -4,7 +4,7 @@ import collections
 import traceback
 
 from pathlib import Path
-from typing import Iterable, Dict, Any, Sequence, Union, Literal
+from typing import Iterable, Dict, Any, Sequence, Literal
 
 from coba.exceptions import CobaException
 from coba.registry import JsonMakerV1, CobaRegistry
@@ -158,7 +158,7 @@ class CobaContext_meta(type):
         return cls._cacher
 
     @cacher.setter
-    def cacher(cls, value: Union[Cacher,str]) -> None:
+    def cacher(cls, value: Cacher|str) -> None:
         cls._cacher = value
 
     @property
@@ -195,7 +195,7 @@ class CobaContext_meta(type):
         return cls._search_paths
 
     @search_paths.setter
-    def search_paths(cls, value:Sequence[Union[str,Path]]) -> None:
+    def search_paths(cls, value:Sequence[str|Path]) -> None:
         cls._search_paths = [ Path(path) if isinstance(path,str) else path for path in value  ]
 
     @property

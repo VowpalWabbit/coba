@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping, Literal
+from typing import Any, Iterable, Sequence, overload, Dict, MutableSequence, MutableMapping, Literal
 
 from coba.pipes import Pipes, Source, IterableSource, LabelRows, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
@@ -15,7 +15,7 @@ class CsvSource(Source[Iterable[MutableSequence]]):
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
-    def __init__(self, source: Union[str,Source[Iterable[str]]], has_header:bool=False, **dialect) -> None:
+    def __init__(self, source: str|Source[Iterable[str]], has_header:bool=False, **dialect) -> None:
         """Instantiate a CsvSource.
 
         Args:
@@ -38,13 +38,13 @@ class CsvSource(Source[Iterable[MutableSequence]]):
     def __str__(self) -> str:
         return str(self._source)
 
-class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping]]]):
+class ArffSource(Source[Iterable[MutableSequence]|Iterable[MutableMapping]]):
     """Load a source (either local or remote) in ARFF format.
 
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
-    def __init__(self,source: Union[str,Source[Iterable[str]]]) -> None:
+    def __init__(self,source: str|Source[Iterable[str]]) -> None:
         """Instantiate an ArffSource.
 
         Args:
@@ -53,7 +53,7 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
         source       = UrlSource(source) if isinstance(source,str) else source
         self._source = Pipes.join(source, ArffReader())
 
-    def read(self) -> Union[Iterable[MutableSequence], Iterable[MutableMapping]]:
+    def read(self) -> Iterable[MutableSequence]|Iterable[MutableMapping]:
         """Read and parse the arff source."""
         return self._source.read()
 
@@ -71,7 +71,7 @@ class LibSvmSource(Source[Iterable[MutableMapping]]):
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
-    def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
+    def __init__(self, source: str|Source[Iterable[str]]) -> None:
         """Instantiate a LibsvmSource.
 
         Args:
@@ -98,7 +98,7 @@ class ManikSource(Source[Iterable[MutableMapping]]):
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
-    def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
+    def __init__(self, source: str|Source[Iterable[str]]) -> None:
         """Instantiate a ManikSource.
 
         Args:
@@ -125,7 +125,7 @@ class SupervisedSimulation(Environment):
     @overload
     def __init__(self,
         source: Source = None,
-        label_col: Union[int,str] = None,
+        label_col: int|str = None,
         label_type: Literal["c","r","m"] = None,
         take: int = None) -> None:
         """Instantiate a SupervisedSimulation.

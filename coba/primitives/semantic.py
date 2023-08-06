@@ -1,8 +1,8 @@
-from typing import Union, Sequence, Mapping
+from typing import Sequence, Mapping
 
-Context = Union[None, str, int, float, Sequence, Mapping]
-Action  = Union[str, int, float, Sequence, Mapping]
-Actions = Sequence[Action]
+Context = None|str|int|float|Sequence|Mapping
+Action  = None|str|int|float|Sequence|Mapping
+Actions = None|Sequence[Action]
 
 class Batch(list):
     pass

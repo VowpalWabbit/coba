@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import Counter
-from typing import Any, TypeVar, Generic, Mapping, Sequence, Union, Iterator, Iterable
+from typing import Any, TypeVar, Generic, Mapping, Sequence, Iterator, Iterable
 
 _T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
@@ -64,7 +64,7 @@ def resolve_params(pipes:Sequence[Pipe]):
     return { resolve_key_conflicts(k):v for p in params for k,v in p.items() }
 
 class SourceFilters(Source):
-    def __init__(self, *pipes: Union[Source,Filter]) -> None:
+    def __init__(self, *pipes: Source|Filter) -> None:
         if isinstance(pipes[0], SourceFilters):
             self._source = pipes[0]._source
             self._filter = FiltersFilter(*pipes[0]._filter._filters, *pipes[1:])
@@ -82,7 +82,7 @@ class SourceFilters(Source):
     def __str__(self) -> str:
         return ",".join(map(str,[self._source, self._filter]))
 
-    def __getitem__(self, index:int) -> Union[Source,Filter]:
+    def __getitem__(self, index:int) -> Source|Filter:
         if index == 0 or index == -len(self):
             return self._source
         elif index < 0:
@@ -90,7 +90,7 @@ class SourceFilters(Source):
         else:
             return self._filter[index-1]
 
-    def __iter__(self) -> Iterator[Union[Source,Filter]]:
+    def __iter__(self) -> Iterator[Source|Filter]:
         yield self._source
         yield from self._filter
 
@@ -125,7 +125,7 @@ class FiltersFilter(Filter):
 
 class FiltersSink(Sink):
 
-    def __init__(self, *pipes: Union[Filter,Sink]) -> None:
+    def __init__(self, *pipes: Filter|Sink) -> None:
 
         filters = list(pipes[:-1])
         sink    = pipes[-1 ]
@@ -147,7 +147,7 @@ class FiltersSink(Sink):
     def __str__(self) -> str:
         return ",".join(map(str,[self._filter, self._sink]))
 
-    def __getitem__(self, index: int) -> Union[Filter,Sink]:
+    def __getitem__(self, index: int) -> Filter|Sink:
         if index == -1 or index == len(self._filter):
             return self._sink
         elif index < 0:
@@ -163,7 +163,7 @@ class FiltersSink(Sink):
         return len(self._filter)+1
 
 class SourceSink(Line):
-    def __init__(self, *pipes: Union[Source,Filter,Sink]) -> None:
+    def __init__(self, *pipes: Source|Filter|Sink) -> None:
         self._pipes = list(pipes)
     
     def run(self) -> None:
@@ -193,13 +193,13 @@ class SourceSink(Line):
     def __iter__(self) -> Iterator[Pipe]:
         yield from self._pipes
 
-    def __getitem__(self, index:int) -> Union[Source,Filter,Sink]:
+    def __getitem__(self, index:int) -> Source|Filter|Sink:
         return self._pipes[index]
 
 class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
     """A pipe that wraps an inner pipe and passes items to it one at a time."""
 
-    def __init__(self, pipe: Union[Filter[Any,Any],Sink[Any]]):
+    def __init__(self, pipe: Filter|Sink):
         """Instantiate a Foreach pipe.
 
         Args:

@@ -6,7 +6,7 @@ and for the core functionality to specify classes creation recipes in config fil
 
 from itertools import repeat
 from importlib import reload
-from typing import Dict, Any, Callable, Union, Tuple, Mapping
+from typing import Dict, Any, Callable, Tuple, Mapping
 
 from coba.backports.metadata import entry_points
 from coba.exceptions import CobaException
@@ -204,7 +204,7 @@ class JsonMakerV2:
     def __init__(self, registry:Dict[str,type]) -> None:
         self._registry = registry
 
-    def make(self, recipe:Union[dict,str], strict:bool = True) -> Any:
+    def make(self, recipe:dict|str, strict:bool = True) -> Any:
         if self._makeable(recipe):
             klass = recipe if isinstance(recipe,str) else list(recipe.keys()-{'for'})[0] if isinstance(recipe,dict) else None
 
@@ -228,14 +228,14 @@ class JsonMakerV2:
         else:
             return recipe
 
-    def _makeable(self, recipe:Union[dict,str]) -> bool:
+    def _makeable(self, recipe:dict|str) -> bool:
         item_len = 1 if isinstance(recipe,str) else len(recipe) if isinstance(recipe,dict) else 0
         item_cls = recipe if isinstance(recipe,str) else list(recipe.keys()-{'for'})[0] if isinstance(recipe,dict) else None
         item_for = 'for' in recipe.keys() if isinstance(recipe,dict) else False
 
         return (item_len == 1 and item_cls in self._registry) or (item_len == 2 and item_cls in self._registry and item_for)
     
-    def _construct_args(self, args:Union[list,dict,str,int,float,None]) -> Tuple[list,dict]:
+    def _construct_args(self, args:list|dict|str|int|float) -> Tuple[list,dict]:
         if isinstance(args,dict):
             return [], {k:self.make(v,False)  for k,v in args.items()}
         elif isinstance(args,list) and "**" not in args:
@@ -244,8 +244,8 @@ class JsonMakerV2:
             return self._construct_args(args[:-2])[0], self._construct_args(args[-1])[1]
         else:
             return [ self.make(args,False) ], {}
-    
-    def _fill_template(self, temp:Union[list,dict,str,int,float,None], value:Union[list,dict,str,int,float,None]) -> Union[list,dict,str,int,float,None]:
+
+    def _fill_template(self, temp:list|dict|str|int|float|None, value:list|dict|str|int|float|None) -> list|dict|str|int|float|None:
         if isinstance(temp,dict):
             return { self._fill_template(k,value):self._fill_template(v,value) for k,v in temp.items() }
         if isinstance(temp,list):

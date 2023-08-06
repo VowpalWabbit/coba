@@ -1,5 +1,5 @@
 
-from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Type
+from typing import Any, Sequence, Tuple, Callable, Mapping, Type
 
 from coba.exceptions import CobaException
 from coba.primitives import Context, Action, Actions
@@ -10,14 +10,14 @@ Prob   = float
 PDF    = Callable[[Action],float]
 PMF    = Sequence[float]
 
-Prediction = Union[
-    PMF,
-    Action,
-    Tuple[Action,Prob],
-    Tuple[PMF        , kwargs],
-    Tuple[Action     , kwargs],
-    Tuple[Action,Prob, kwargs],
-]
+Prediction = (
+    PMF
+    | Action
+    | Tuple[Action,Prob]
+    | Tuple[PMF        , kwargs]
+    | Tuple[Action     , kwargs]
+    | Tuple[Action,Prob, kwargs]
+)
 
 class Learner:
     """The Learner interface for contextual bandit learning."""

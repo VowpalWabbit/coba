@@ -1,6 +1,6 @@
 from collections import abc
 from itertools import count, compress, chain, filterfalse, islice, repeat
-from typing import Dict, Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple, Literal
+from typing import Dict, Any, Callable, Iterator, Sequence, Mapping, Iterable, Tuple, Literal
 
 from coba.primitives import Sparse, Dense, Categorical
 from coba.primitives.rows import Dense_, Sparse_
@@ -11,7 +11,7 @@ from coba.pipes.filters import Flatten
 class LazyDense(Dense_):
     __slots__ = ('_row','_enc','headers','missing')
 
-    def __init__(self, row: Union[Callable[[],Sequence],Sequence], enc: Sequence = None, headers: Mapping = None, missing: bool = None) -> None:
+    def __init__(self, row: Callable[[],Sequence]|Sequence, enc: Sequence = None, headers: Mapping = None, missing: bool = None) -> None:
         self._row = row
         self._enc = enc
 
@@ -65,7 +65,7 @@ class LazyDense(Dense_):
 class LazySparse(Sparse_):
     __slots__=('_row','_enc','_nsp','_fwd','_inv','missing')
 
-    def __init__(self, row: Union[Callable[[],Mapping],Mapping], enc: Mapping = {}, nsp: set = set(), fwd: Mapping = {}, inv: Mapping = {}, missing:bool = None) -> None:
+    def __init__(self, row: Callable[[],Mapping]|Mapping, enc: Mapping = {}, nsp: set = set(), fwd: Mapping = {}, inv: Mapping = {}, missing:bool = None) -> None:
         self._row    = row
         self._enc    = enc
         self._nsp    = nsp
@@ -184,7 +184,7 @@ class HeadDense(Dense_):
         self._row    = row
         self.headers = headers
 
-    def __getitem__(self, key: Union[str,int]):
+    def __getitem__(self, key: str|int):
         return self._row[key if key.__class__ is int else self.headers[key]]
 
     def __iter__(self) -> Iterator:
@@ -202,7 +202,7 @@ class HeadSparse(Sparse_):
         self._fwd = head_fwd
         self._inv = head_inv
 
-    def __getitem__(self, key: Union[str,int]):
+    def __getitem__(self, key: str|int):
         return self._row[self._fwd[key]]
 
     def __iter__(self) -> Iterator:
@@ -219,15 +219,15 @@ class HeadSparse(Sparse_):
         head_map_inv_get = self._inv.__getitem__
         return tuple((head_map_inv_get(k),v) for k,v in self._row.items())
 
-class HeadRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
+class HeadRows(Filter[Iterable[Dense|Sparse],Iterable[Dense|Sparse]]):
 
-    def __init__(self, headers: Union[Sequence,Mapping]) -> None:
+    def __init__(self, headers: Sequence|Mapping) -> None:
         if isinstance(headers, abc.Mapping):
             self._mapping = headers
         else:
             self._mapping = dict(zip(headers, count()))
 
-    def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
+    def filter(self, rows: Iterable[Dense|Sparse]) -> Iterable[Dense|Sparse]:
         first, rows = peek_first(rows)
 
         if isinstance(first, Dense):
@@ -245,7 +245,7 @@ class EncodeDense(Dense_):
         self._row      = row
         self._encoders = encoders
 
-    def __getitem__(self, key: Union[int,str]):
+    def __getitem__(self, key: int|str):
         return self._encoders[key](self._row[key])
 
     def __iter__(self) -> Iterator:
@@ -262,7 +262,7 @@ class EncodeSparse(Sparse_):
         self._enc = encoders
         self._nsp = not_sparse
 
-    def __getitem__(self, key: Union[int,str]):
+    def __getitem__(self, key: int|str):
         try:
             return self._enc.get(key,lambda x:x)(self._row[key])
         except KeyError:
@@ -282,12 +282,12 @@ class EncodeSparse(Sparse_):
         t2 = tuple((k, self._enc[k]("0")) for k in self._nsp-self._row.keys())
         return t1+t2
 
-class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
+class EncodeRows(Filter[Iterable[Dense|Sparse],Iterable[Dense|Sparse]]):
 
-    def __init__(self, encoders: Union[Callable,Sequence,Mapping]) -> None:
+    def __init__(self, encoders: Callable|Sequence|Mapping) -> None:
         self._encoders = encoders
 
-    def filter(self, rows: Iterable[Union[Any,Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
+    def filter(self, rows: Iterable[Any|Dense|Sparse]) -> Iterable[Dense|Sparse]:
         enc = self._encoders
         first, rows = peek_first(rows)
 
@@ -331,14 +331,14 @@ class DropOne(Dense_):
 
 class KeepDense(Dense_):
     __slots__=('_row', '_map', '_sel', '_len','headers')
-    def __init__(self, row: Dense, mapping: Mapping[Union[str,int],int], selects: Sequence, len: int, headers: Mapping,) -> None:
+    def __init__(self, row: Dense, mapping: Mapping[str|int,int], selects: Sequence, len: int, headers: Mapping,) -> None:
         self._row = row
         self._map = mapping
         self._sel = selects
         self._len = len
         if headers: self.headers = headers
 
-    def __getitem__(self, key: Union[int,str]):
+    def __getitem__(self, key: int|str):
         return self._row[self._map.get(key,10000000)]
 
     def __iter__(self) -> Iterator:
@@ -359,7 +359,7 @@ class DropSparse(Sparse_):
             return key
         raise KeyError(key)
 
-    def __getitem__(self, key: Union[int,str]):
+    def __getitem__(self, key: int|str):
         return self._row[self._key_check(key)]
 
     def __iter__(self) -> Iterator:
@@ -375,12 +375,12 @@ class DropSparse(Sparse_):
         drop = self._drop_set
         yield from (item for item in self._row.items() if item[0] not in drop)
 
-class DropRows(Filter[Iterable[Union[Dense,Sparse]], Iterable[Union[Dense,Sparse]]]):
+class DropRows(Filter[Iterable[Dense|Sparse], Iterable[Dense|Sparse]]):
     """A filter which drops rows and columns from in table shaped data."""
 
     def __init__(self,
-        drop_cols: Sequence[Union[str,int]] = [],
-        drop_row: Callable[[Union[Sequence,Mapping]], bool] = None) -> None:
+        drop_cols: Sequence[str|int] = [],
+        drop_row: Callable[[Sequence|Mapping], bool] = None) -> None:
         """Instantiate a Drop filter.
 
         Args:
@@ -416,7 +416,7 @@ class DropRows(Filter[Iterable[Union[Dense,Sparse]], Iterable[Union[Dense,Sparse
         else:
             return set(drop_cols)
 
-    def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
+    def filter(self, rows: Iterable[Dense|Sparse]) -> Iterable[Dense|Sparse]:
 
         drop_cols   = self._drop_cols
         first, rows = peek_first(rows)
@@ -440,7 +440,7 @@ class LabelDense(Dense_):
         self._ind  = ind
         self._tipe = tipe
 
-    def __getitem__(self, key: Union[int,str]):
+    def __getitem__(self, key: int|str):
         return self._row[key]
 
     def __iter__(self) -> Iterator:
@@ -514,13 +514,13 @@ class LabelSparse(Sparse_):
     def labeled(self)-> Tuple[Sparse,Any,Literal['c','r','m']]:
         return (DropSparse(self._row, {self._key}), self[self._key], self._tipe)
 
-class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
+class LabelRows(Filter[Iterable[Dense|Sparse],Iterable[Dense|Sparse]]):
 
-    def __init__(self, label: Union[int,str], tipe: Literal['c','r','m']) -> None:
+    def __init__(self, label: int|str, tipe: Literal['c','r','m']) -> None:
         self.label = label
         self.tipe  = tipe
 
-    def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
+    def filter(self, rows: Iterable[Dense|Sparse]) -> Iterable[Dense|Sparse]:
         label = self.label
         tipe  = self.tipe
         first, rows = peek_first(rows)
@@ -531,11 +531,11 @@ class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse
         else:
             return map(LabelSparse, rows, repeat(label), repeat(tipe))
 
-class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any,Dense,Sparse]]]):
+class EncodeCatRows(Filter[Iterable[Any|Dense|Sparse], Iterable[Any|Dense|Sparse]]):
     def __init__(self, tipe=Literal["onehot","onehot_unflat","string"], value_rows:bool = False) -> None:
         self._tipe = tipe
 
-    def filter(self, rows: Iterable[Union[Any,Dense,Sparse]]) -> Iterable[Union[Any,Dense,Sparse]]:
+    def filter(self, rows: Iterable[Any|Dense|Sparse]) -> Iterable[Any|Dense|Sparse]:
         if self._tipe is None: return rows
         first, rows = peek_first(rows)
         if not rows: return []

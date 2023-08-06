@@ -3,7 +3,7 @@ import pickle
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 from itertools import islice, repeat, chain
-from typing import Union, Sequence, Mapping, Iterable, Any
+from typing import Sequence, Mapping, Iterable, Any
 
 from coba.context import CobaContext
 from coba.pipes import Source, Sink, Filter
@@ -45,7 +45,7 @@ class ZipMemberToObjects(Source[Iterable[object]]):
             pass
 
 class EnvironmentsToObjects(Filter[Environment, Iterable]):
-    def filter(self, env: Union[Environment,Sequence[Environment]]) -> Iterable[Iterable[object]]:        
+    def filter(self, env: Environment|Sequence[Environment]) -> Iterable[Iterable[object]]:        
         with CobaContext.logger.time("Materializing environment..."):
             yield list(self._env_to_objects(env))
 

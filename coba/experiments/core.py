@@ -2,7 +2,7 @@
 from collections import abc
 from pathlib import Path
 from itertools import product
-from typing import Sequence, Optional, Union, overload, Tuple
+from typing import Sequence, Optional, overload, Tuple
 
 from coba.environments import Environment
 from coba.learners     import Learner
@@ -21,9 +21,9 @@ class Experiment:
 
     @overload
     def __init__(self,
-        environments : Union[Environment, Sequence[Environment]],
-        learners     : Union[Learner,Sequence[Learner]],
-        evaluator    : Union[Evaluator,Sequence[Evaluator]] = OnPolicyEvaluator(),
+        environments : Environment|Sequence[Environment],
+        learners     : Learner|Sequence[Learner],
+        evaluator    : Evaluator|Sequence[Evaluator] = OnPolicyEvaluator(),
         description  : str = None) -> None:
         """Instantiate an Experiment.
 

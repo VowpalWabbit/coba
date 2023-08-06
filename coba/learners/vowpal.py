@@ -1,18 +1,19 @@
 import re
 from itertools import repeat, compress
 from sys import platform
-from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple, Literal
+from typing import Any, Dict, Sequence, Mapping, Optional, Tuple, Literal
 
 from coba.exceptions import CobaException
 from coba.learners.primitives import Learner, PMF, Prob
 from coba.primitives import Sparse, Context, Action, Actions, Batch
 from coba.utilities import PackageChecker
 
-Feature       = Union[str,int,float]
-Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
-Namespaces    = Dict[str,Features]
-VW_Features   = Sequence[Union[str,int,Tuple[Union[str,int],Union[int,float]],Dict[str,Union[int,float]]]]
-VW_Namespaces = Dict[str,VW_Features]
+Number        = int|float
+Feature       = str|Number
+Features      = Feature|Sequence[Feature]|Mapping[str,Feature]
+Namespaces    = Mapping[str,Features]
+VW_Features   = Sequence[str|Number|Tuple[str|int,Number]|Mapping[str,Number]]
+VW_Namespaces = Mapping[str,VW_Features]
 
 DEFAULT_NAMESPACE_INTERACTIONS = (1, 'a', 'ax', 'axx')
 
@@ -185,7 +186,7 @@ class VowpalMediator:
 
                     yield (ns, d)
 
-    def _get_ns_keys(self, ns:str, length: int) -> Union[str,Sequence[str]]:
+    def _get_ns_keys(self, ns:str, length: int) -> str|Sequence[str]:
 
         if ns not in self._ns_keys:
             if not length:

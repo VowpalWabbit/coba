@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, overload
+from typing import Any, Iterable, Sequence, Mapping, overload
 
 from coba.primitives import Context, Action, Actions
 from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
@@ -25,7 +25,7 @@ class SimulatedInteraction(Interaction):
     def __init__(self,
         context : Context,
         actions : Actions,
-        rewards : Union[Reward, Sequence[float]],
+        rewards : Reward|Sequence[float],
         **kwargs) -> None:
         """Instantiate SimulatedInteraction.
 
@@ -50,8 +50,8 @@ class GroundedInteraction(Interaction):
     def __init__(self,
         context: Context,
         actions: Actions,
-        rewards: Union[Reward, Sequence[float]],
-        feedbacks: Union[Feedback, Sequence[Any]],
+        rewards: Reward|Sequence[float],
+        feedbacks: Feedback|Sequence[Any],
         **kwargs) -> None:
         """Instantiate GroundedInteraction.
 
@@ -83,7 +83,7 @@ class LoggedInteraction(Interaction):
         *,
         probability: float=None,
         actions: Actions=None,
-        rewards: Union[Reward, Sequence[float]] = None,
+        rewards: Reward|Sequence[float] = None,
         **kwargs) -> None:
         ...
 

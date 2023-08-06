@@ -2,7 +2,7 @@ import time
 import json
 
 from operator import attrgetter
-from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
+from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, overload
 
 from coba.random import random
 from coba.pipes import Pipes, Source
@@ -13,7 +13,7 @@ from coba.exceptions import CobaException
 
 from coba.environments.supervised import SupervisedSimulation
 
-class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
+class OpenmlSource(Source[Iterable[Tuple[MutableSequence|MutableMapping,Any]]]):
     """Load a source from openml.org (or from disk if previously cached).
     This is primarily used by OpenmlSimulation to create Environments for Experiments.
     """
@@ -51,7 +51,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         """Parameters describing the openml source."""
         return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "drop_missing": self._drop_missing }
 
-    def read(self) -> Iterable[Union[Dense,Sparse]]:
+    def read(self) -> Iterable[Dense|Sparse]:
         """Read and parse the openml source."""
 
         try:

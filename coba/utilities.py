@@ -3,7 +3,7 @@ import importlib
 
 from itertools import chain, islice
 from collections import defaultdict
-from typing import TypeVar, Iterable, Tuple, Union, Sequence
+from typing import TypeVar, Iterable, Tuple, Sequence
 
 from coba.exceptions import CobaExit
 
@@ -131,7 +131,7 @@ class KeyDefaultDict(defaultdict):
             return value
 
 _T = TypeVar("_T")
-def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], Iterable[_T]]:
+def peek_first(items: Iterable[_T], n:int=1) -> Tuple[_T|Sequence[_T], Iterable[_T]]:
     items = iter(items)
     first = list(islice(items,n))
 

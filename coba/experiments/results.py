@@ -10,7 +10,7 @@ from functools import cmp_to_key
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee
-from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
+from typing import Union, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Callable, List, Any, overload, Literal
 
 from coba.primitives import Batch
 from coba.environments import Environment
@@ -20,7 +20,7 @@ from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first
 from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource
 
-def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
+def moving_average(values:Sequence[float], span:int|Sequence[float]=None, weights:Literal['exp']|Sequence[float]=None) -> Iterable[float]:
 
     assert weights == 'exp' or weights == None or len(weights)==len(values)
 
@@ -108,7 +108,7 @@ class View:
             #this runs about 3x faster than doing a true iter.
             return iter(self._seq[self._sel])
 
-    def __init__(self, data: Union[Mapping[str,Sequence],'View'], select: Union[Sequence[int],slice]) -> None:
+    def __init__(self, data: Union[Mapping[str,Sequence],'View'], select: Sequence[int]|slice) -> None:
         if isinstance(data,collections.abc.Mapping):
             self._data = data
             self._select = self._try_slice(select)
@@ -160,7 +160,7 @@ class Table:
     #several useful pieces of functionality out of the box. Additionally, when working with
     #very large experiments pandas can become quite slow while our Table works acceptably.
 
-    def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), indexes: Sequence[str]= ()):
+    def __init__(self, data:Mapping|Sequence[Mapping]|Sequence[Sequence] = (), columns: Sequence[str] = (), indexes: Sequence[str]= ()):
 
         self._columns = tuple(columns)
         self._data    = {c:[] for c in columns}
@@ -176,7 +176,7 @@ class Table:
     def indexes(self) -> Sequence[str]:
         return self._indexes
 
-    def insert(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]]=()) -> 'Table':
+    def insert(self, data:Mapping|Sequence[Mapping]|Sequence[Sequence]=()) -> 'Table':
         data_is_empty             = not data
         data_is_where_clause_view = data and isinstance(data,View)
         data_is_mapping_of_cols   = data and isinstance(data,collections.abc.Mapping)
@@ -529,7 +529,7 @@ class Points:
     Y    : List[float]      = field(default_factory=list)
     XE   : List[float]      = field(default_factory=list)
     YE   : List[float]      = field(default_factory=list)
-    color: Union[str,int]   = None
+    color: str|int          = None
     alpha: float            = 1
     label: Optional[str]    = None
     style: Literal['-','.'] = "-"
@@ -554,7 +554,7 @@ class Plotter:
         yticks: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
-        out: Union[None,Literal['screen'],str]) -> None:
+        out: None|Literal['screen']|str) -> None:
         pass
 
 class MatplotPlotter(Plotter):
@@ -571,7 +571,7 @@ class MatplotPlotter(Plotter):
         yticks: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
-        out: Union[None,Literal['screen'],str]
+        out: None|Literal['screen']|str
     ) -> None:
 
         xlim = xlim or [None,None]
@@ -790,10 +790,10 @@ class Result:
 
     @overload
     def __init__(self,
-        env_rows: Union[Sequence,Table,None],
-        lrn_rows: Union[Sequence,Table,None],
-        val_rows: Union[Sequence,Table,None],
-        int_rows: Union[Sequence,Table,None],
+        env_rows: Sequence|Table|None,
+        lrn_rows: Sequence|Table|None,
+        val_rows: Sequence|Table|None,
+        int_rows: Sequence|Table|None,
         exp_dict: Mapping = {}) -> None:
         ...
 
@@ -880,9 +880,9 @@ class Result:
         return Result(self.environments.copy(), self.learners.copy(), self.evaluators.copy(), self.interactions.copy(), dict(self.experiment))
 
     def filter_fin(self,
-        n: Union[int,Literal['min']] = None,
-        l: Union[str, Sequence[str]] = None,
-        p: Union[str, Sequence[str]] = None) -> 'Result':
+        n: int|Literal['min'] = None,
+        l: str|Sequence[str] = None,
+        p: str|Sequence[str] = None) -> 'Result':
         """Filter the results down to even outcomes so that plotted results will be meaningful.
 
         Args:
@@ -1000,15 +1000,15 @@ class Result:
         return out
 
     def plot_learners(self,
-        x       : Union[str, Sequence[str]] = 'index',
+        x       : str|Sequence[str] = 'index',
         y       : str = "reward",
-        l       : Union[str, Sequence[str]] = 'full_name',
-        p       : Union[str, Sequence[str]] = 'environment_id',
+        l       : str|Sequence[str] = 'full_name',
+        p       : str|Sequence[str] = 'environment_id',
         span    : int = None,
-        err     : Union[Literal['se','sd','bs','bi'], None, PointAndInterval] = None,
+        err     : Literal['se','sd','bs','bi']|PointAndInterval = None,
         errevery: int = None,
         labels  : Sequence[str] = None,
-        colors  : Union[int,Sequence[Union[str,int]]] = None,
+        colors  : int|Sequence[str|int] = None,
         title   : str = None,
         xlabel  : str = None,
         ylabel  : str = None,
@@ -1017,7 +1017,7 @@ class Result:
         xticks  : bool = True,
         yticks  : bool = True,
         top_n   : int = None,
-        out     : Union[None,Literal['screen'],str] = 'screen',
+        out     : None|Literal['screen']|str = 'screen',
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
         performance for different learners across independent environments. This plot is valuable in gaining
@@ -1100,13 +1100,13 @@ class Result:
     def plot_contrast(self,
         l1      : Any,
         l2      : Any,
-        x       : Union[str, Sequence[str]] = "environment_id",
+        x       : str|Sequence[str] = "environment_id",
         y       : str = "reward",
-        l       : Union[str, Sequence[str]] = 'learner_id',
-        p       : Union[str, Sequence[str]] = 'environment_id',
-        mode    : Union[Literal["diff","prob"], Callable[[float,float],float]] = "diff",
+        l       : str|Sequence[str] = 'learner_id',
+        p       : str|Sequence[str] = 'environment_id',
+        mode    : Literal["diff","prob"]|Callable[[float,float],float] = "diff",
         span    : int = None,
-        err     : Union[Literal['se','sd','bs','bi'], None, PointAndInterval] = None,
+        err     : Literal['se','sd','bs','bi']|PointAndInterval = None,
         errevery: int = None,
         labels  : Sequence[str] = None,
         colors  : Sequence[str] = None,
@@ -1119,7 +1119,7 @@ class Result:
         yticks  : bool = True,
         boundary: bool = True,
         legend  : bool = True,
-        out     : Union[None,Literal['screen'],str] = 'screen',
+        out     : None|Literal['screen']|str = 'screen',
         ax = None) -> None:
         """Plot a direct contrast of the performance for two learners.
 
@@ -1305,7 +1305,7 @@ class Result:
         #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
         print(str(self))
 
-    def _get_color(self, colors:Union[None,Sequence[Union[str,int]]], i:int) -> Union[str,int]:
+    def _get_color(self, colors:None|Sequence[str|int], i:int) -> str|int:
         try:
             return colors[i] if colors else i
         except IndexError:
@@ -1364,7 +1364,7 @@ class Result:
 
         return only_finished
 
-    def _confidence(self, err: Union[str,PointAndInterval], errevery:int = 1):
+    def _confidence(self, err: str|PointAndInterval, errevery:int = 1):
 
         if err == 'se':
             ci = StdErrCI(1.96)
@@ -1435,7 +1435,7 @@ class Result:
                 #we assume all environments are of equal length due to `_plottable`
                 pass
 
-    def _global_n(self, n: Union[int,Literal['min']]):
+    def _global_n(self, n: int|Literal['min']):
 
         environments = self.environments
         learners     = self.learners
@@ -1465,7 +1465,7 @@ class Result:
 
         return Result(environments, learners, evaluators, interactions, self.experiment)
 
-    def _group_p(self, l:Union[str, Sequence[str]], p:Union[str, Sequence[str]]):
+    def _group_p(self, l:str|Sequence[str], p:str|Sequence[str]):
 
         environments = self.environments
         learners     = self.learners
@@ -1492,9 +1492,9 @@ class Result:
         return Result(environments, learners, evaluators, interactions, self.experiment)
 
     def _filter_fin(self,
-        n: Union[int,Literal['min'], None],
-        l: Union[str, Sequence[str], None],
-        p: Union[str, Sequence[str], None]) -> 'Result':
+        n: int|Literal['min']| None,
+        l: str|Sequence[str] | None,
+        p: str|Sequence[str] | None) -> 'Result':
         """Filter the results down to even outcomes so that plotted results will be meaningful.
 
         Args:

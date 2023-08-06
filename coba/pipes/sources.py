@@ -2,7 +2,7 @@ import requests
 import gzip
 
 from queue import Queue
-from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Literal
+from typing import Any, Callable, Iterable, Mapping, Sequence, Literal
 
 from coba.exceptions import CobaException
 from coba.pipes.primitives import Source
@@ -104,7 +104,7 @@ class QueueSource(Source[Iterable[Any]]):
         except (EOFError,BrokenPipeError,TypeError):
             pass
 
-class HttpSource(Source[Union[requests.Response, Iterable[str]]]):
+class HttpSource(Source[requests.Response|Iterable[str]]):
     """A source that reads from a web URL."""
 
     def __init__(self, url: str, mode: Literal["response","lines"] = "response") -> None:
@@ -117,7 +117,7 @@ class HttpSource(Source[Union[requests.Response, Iterable[str]]]):
         self._url = url
         self._mode = mode
 
-    def read(self) -> Union[requests.Response, Iterable[str]]:
+    def read(self) -> requests.Response|Iterable[str]:
         response = requests.get(self._url, stream=True) #by default this includes the header accept-encoding gzip and deflate
         return response if self._mode == "response" else response.iter_lines(decode_unicode=True)
 

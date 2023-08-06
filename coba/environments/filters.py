@@ -11,7 +11,7 @@ from operator import eq, getitem, methodcaller, itemgetter
 from collections import defaultdict
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
-from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping, Literal
+from typing import Optional, Sequence, Iterable, Any, Tuple, Callable, Mapping, Literal
 
 from coba            import pipes, primitives
 from coba.random     import CobaRandom
@@ -85,8 +85,8 @@ class Scale(EnvironmentFilter):
     """Shift and scale features to precondition them before learning."""
 
     def __init__(self,
-        shift: Union[Number,Literal["min","mean","med"]] = 0,
-        scale: Union[Number,Literal["minmax","std","iqr","maxabs"]] = "minmax",
+        shift: Number|Literal["min","mean","med"] = 0,
+        scale: Number|Literal["minmax","std","iqr","maxabs"] = "minmax",
         target: Literal["context"] = "context",
         using: Optional[int] = None):
         """Instantiate a Scale filter.
@@ -665,7 +665,7 @@ class Binary(EnvironmentFilter):
 class Sort(EnvironmentFilter):
     """Sort a sequence of Interactions in an Environment."""
 
-    def __init__(self, *keys: Union[str,int,Sequence[Union[str,int]]]) -> None:
+    def __init__(self, *keys: str|int|Sequence[str|int]) -> None:
         """Instantiate a Sort filter.
 
         Args:
@@ -694,7 +694,7 @@ class Sort(EnvironmentFilter):
 class Where(EnvironmentFilter):
     """Define Environment selection criteria for an Environments pipe."""
 
-    def __init__(self, *, n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> None:
+    def __init__(self, *, n_interactions: int|Tuple[Optional[int],Optional[int]] = None) -> None:
         """Instantiate a Where filter.
 
         Args:
@@ -843,7 +843,7 @@ class Noise(EnvironmentFilter):
 
             yield new
 
-    def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
+    def _noises(self, value:None|float|str|Mapping|Sequence, rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
         if isinstance(value, primitives.Sparse):
             #we sort so that noise generation is deterministic with respect to seed
             return { k:self._noise(v, rng, noiser) for k,v in sorted(value.items()) }
@@ -851,7 +851,7 @@ class Noise(EnvironmentFilter):
             return [ self._noise(v, rng, noiser) for v in value ]
         return self._noise(value, rng, noiser)
 
-    def _noise(self, value:Union[None,float,str], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]) -> float:
+    def _noise(self, value:None|float|str, rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]) -> float:
         return value if not isinstance(value,(int,float)) else noiser(value, rng)
 
 class Params(EnvironmentFilter):
@@ -961,7 +961,7 @@ class Grounded(EnvironmentFilter):
 
             yield new
 
-    def _cast_int(self, value:Union[float,int], value_name:str) -> int:
+    def _cast_int(self, value:float|int, value_name:str) -> int:
         if isinstance(value, int): return value
         if isinstance(value, float) and value.is_integer(): return int(value)
         raise CobaException(f"{value_name} must be a whole number and not {value}.")
