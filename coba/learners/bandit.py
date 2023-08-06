@@ -1,7 +1,7 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Mapping, Sequence, Optional, Hashable
+from typing import Any, Mapping, Sequence, Hashable
 
 from coba.primitives import Context, Action, Actions
 from coba.statistics import OnlineVariance
@@ -20,8 +20,8 @@ class EpsilonBanditLearner(Learner):
 
         self._epsilon = epsilon
 
-        self._N: Mapping[Hashable, int            ] = defaultdict(int)
-        self._Q: Mapping[Hashable, Optional[float]] = defaultdict(int)
+        self._N: Mapping[Hashable, int       ] = defaultdict(int)
+        self._Q: Mapping[Hashable, float|None] = defaultdict(int)
 
     @property
     def params(self) -> Mapping[str, Any]:

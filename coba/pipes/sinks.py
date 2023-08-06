@@ -87,7 +87,7 @@ class DiskSink(Sink[str|Sequence[str]]):
 class ListSink(Sink[Any]):
     """A sink which appends written items to a list."""
 
-    def __init__(self, items: List[Any] = None, foreach: bool=False) -> None:
+    def __init__(self, items: List[Any]|None = None, foreach: bool=False) -> None:
         """Instantiate a ListSink.
 
         Args:

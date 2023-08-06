@@ -2,7 +2,7 @@ import math
 
 from statistics import mean
 from itertools import count, islice, cycle
-from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable, Literal
+from typing import Sequence, Dict, Tuple, Any, Callable, overload, Iterable, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
@@ -15,7 +15,7 @@ class LambdaSimulation(Environment):
 
     @overload
     def __init__(self,
-        n_interactions: Optional[int],
+        n_interactions: int|None,
         context       : Callable[[int               ],Context         ],
         actions       : Callable[[int,Context       ],Sequence[Action]],
         reward        : Callable[[int,Context,Action],float           ]) -> None:
@@ -30,7 +30,7 @@ class LambdaSimulation(Environment):
 
     @overload
     def __init__(self,
-        n_interactions: Optional[int],
+        n_interactions: int|None,
         context       : Callable[[int               ,CobaRandom],Context         ],
         actions       : Callable[[int,Context       ,CobaRandom],Sequence[Action]],
         reward        : Callable[[int,Context,Action,CobaRandom],float           ],

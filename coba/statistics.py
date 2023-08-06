@@ -5,7 +5,7 @@ from operator import mul, sub
 from bisect import bisect_left
 from itertools import repeat, accumulate, compress, chain
 from abc import abstractmethod, ABC
-from typing import Sequence, Tuple, Callable, Optional, Literal
+from typing import Sequence, Tuple, Callable, Literal
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
@@ -28,7 +28,7 @@ def percentile(values: Sequence[float], percentiles: float|Sequence[float], weig
         else:
             return list(values)*len(percentiles)
 
-    def _percentile(values: Sequence[float], weights:Optional[Sequence[float]], percentile: float) -> float:
+    def _percentile(values: Sequence[float], weights:Sequence[float]|None, percentile: float) -> float:
 
         assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
 

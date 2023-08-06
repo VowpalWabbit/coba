@@ -19,7 +19,7 @@ class OpenmlSource(Source[Iterable[Tuple[MutableSequence|MutableMapping,Any]]]):
     """
 
     @overload
-    def __init__(self, *, data_id:int, drop_missing:bool=True, target:str = None):
+    def __init__(self, *, data_id:int, drop_missing:bool=True, target:str|None = None):
         """Instantiate an OpenmlSource.
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
@@ -29,7 +29,7 @@ class OpenmlSource(Source[Iterable[Tuple[MutableSequence|MutableMapping,Any]]]):
         ...
 
     @overload
-    def __init__(self, *, task_id:int, drop_missing:bool=True, target:str = None):
+    def __init__(self, *, task_id:int, drop_missing:bool=True, target:str|None = None):
         """Instantiate an OpenmlSource.
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
@@ -264,7 +264,7 @@ class OpenmlSimulation(SupervisedSimulation):
     """
 
     @overload
-    def __init__(self, data_id: int, drop_missing: bool = True, take: int = None, *, target:str = None, ):
+    def __init__(self, data_id: int, drop_missing: bool = True, take: int|None = None, *, target:str|None = None, ):
         """Instantiate an OpenmlSimulation.
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
@@ -275,7 +275,7 @@ class OpenmlSimulation(SupervisedSimulation):
         ...
 
     @overload
-    def __init__(self, *, task_id: int, drop_missing: bool = True, take: int=None, target:str = None):
+    def __init__(self, *, task_id: int, drop_missing: bool = True, take: int|None =None, target: str|None = None):
         """Instantiate an OpenmlSimulation.
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label

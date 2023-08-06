@@ -4,7 +4,7 @@ import warnings
 from operator import __mul__
 from statistics import mean
 from bisect import insort
-from typing import Any, Iterable, Sequence, Mapping, Optional, Literal
+from typing import Any, Iterable, Sequence, Mapping, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
@@ -25,7 +25,7 @@ class OnPolicyEvaluator(Evaluator):
     def __init__(self,
         record: Sequence[Literal['reward','rank','regret','time','probability','action','context','actions','rewards']] = ['reward'],
         learn: bool = True,
-        seed: float = None) -> None:
+        seed: float|None = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
@@ -37,7 +37,7 @@ class OnPolicyEvaluator(Evaluator):
         self._learn  = learn
         self._seed   = seed
 
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
+    def evaluate(self, environment: Environment|None, learner: Learner|None) -> Iterable[Mapping[Any,Any]]:
 
         interactions = environment.read()
         learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
@@ -143,7 +143,7 @@ class OffPolicyEvaluator(Evaluator):
         record: Sequence[Literal['reward','time','ope_loss','probability','action','context','actions','rewards']] = ['reward'],
         learn: bool = True,
         predict: bool = True,
-        seed: float = None) -> None:
+        seed: float|None = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
@@ -163,7 +163,7 @@ class OffPolicyEvaluator(Evaluator):
             # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
             PackageChecker.vowpalwabbit('OffPolicyEvaluator.__init__')
 
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
+    def evaluate(self, environment: Environment|None, learner: Learner|None) -> Iterable[Mapping[Any,Any]]:
 
         interactions = environment.read()
         learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
@@ -290,11 +290,11 @@ class ExplorationEvaluator(Evaluator):
 
     def __init__(self,
         record: Sequence[Literal['context','actions','action','reward','probability','time','rewards']] = ['reward'],
-        ope: bool = None,
+        ope: bool|None = None,
         qpct: float = .005,
         cmax: float = 1.0,
-        cinit: float = None,
-        seed: float = None) -> None:
+        cinit: float|None = None,
+        seed: float|None = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
@@ -320,7 +320,7 @@ class ExplorationEvaluator(Evaluator):
         self._cinit  = cinit
         self._seed   = seed
 
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
+    def evaluate(self, environment: Environment|None, learner: Learner|None) -> Iterable[Mapping[Any,Any]]:
 
         interactions = environment.read()
         learner      = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))

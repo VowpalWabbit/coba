@@ -6,7 +6,7 @@ import warnings
 from itertools import combinations
 from operator import __mul__
 from statistics import mean
-from typing import Any, Sequence, Mapping, Hashable, Optional
+from typing import Any, Sequence, Mapping, Hashable
 
 from coba.encodings import InteractionsEncoder
 from coba.learners import Learner
@@ -26,7 +26,7 @@ class ClassMetaEvaluator(Evaluator):
     To make the most of this evaluator sklearn should be installed.
     """
 
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Mapping[Any,Any]:
+    def evaluate(self, environment: Environment|None, learner: Learner|None) -> Mapping[Any,Any]:
 
         #sources:
         #[1]: https://arxiv.org/pdf/1808.03591.pdf (lorena2019complex)

@@ -1,8 +1,7 @@
 from copy import deepcopy
 from itertools import islice
-from operator import itemgetter
 from collections import defaultdict, Counter
-from typing import Any, Iterable, Sequence, Optional, Tuple, Mapping
+from typing import Any, Iterable, Sequence, Tuple
 
 from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, SafeEnvironment, Finalize, BatchSafe, Chunk
@@ -17,9 +16,9 @@ from coba.experiments.results import Result, Table
 class Task:
 
     def __init__(self,
-        env : Optional[Tuple[int,Environment]],
-        lrn : Optional[Tuple[int,Learner,bool]],
-        val : Optional[Tuple[int,Evaluator]],
+        env : Tuple[int,Environment]|None,
+        lrn : Tuple[int,Learner,bool]|None,
+        val : Tuple[int,Evaluator]|None,
         copy: bool = False) -> None:
         (self.env_id, self.env) = env or (None,None)
         (self.lrn_id, self.lrn) = lrn or (None,None)
@@ -40,7 +39,7 @@ class MakeTasks(Source[Iterable[Task]]):
 
     def __init__(self, 
         triples: Sequence[Tuple[Environment,Learner,Evaluator]],
-        restored: Optional[Result] = None) -> None:
+        restored: Result|None = None) -> None:
         
         self._triples = triples
         self._restored = restored or Result()

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Sequence, Optional, Mapping
+from typing import Sequence, Mapping
 
 from coba.exceptions import CobaException
 from coba.primitives.semantic import Action, Batch
@@ -28,7 +28,7 @@ class Reward(ABC):
 class IPSReward(Reward):
     __slots__ = ('_reward','_action')
 
-    def __init__(self, reward: float, action: Action, probability: Optional[float] = None) -> None:
+    def __init__(self, reward: float, action: Action, probability: float|None = None) -> None:
         self._reward = reward/(probability or 1)
         self._action = action
 

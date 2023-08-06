@@ -16,7 +16,7 @@ class NullSource(Source[Any]):
 class IdentitySource(Source[Any]):
     """A source that reads from an iterable."""
 
-    def __init__(self, item: Any, params: Mapping[str,Any] = None):
+    def __init__(self, item: Any, params: Mapping[str,Any]|None = None):
         """Instantiate an IterableSource.
 
         Args:

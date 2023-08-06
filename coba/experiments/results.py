@@ -10,7 +10,7 @@ from functools import cmp_to_key
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee
-from typing import Union, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Callable, List, Any, overload, Literal
+from typing import Union, Mapping, Tuple, Sequence, Iterable, Iterator, Callable, List, Any, overload, Literal
 
 from coba.primitives import Batch
 from coba.environments import Environment
@@ -245,7 +245,7 @@ class Table:
 
         return self
 
-    def where(self, row_pred:Callable[[Sequence],bool] = None, comparison:Literal['=','!=','<=','<','>','>=','match','in'] = None, **kwargs) -> 'Table':
+    def where(self, row_pred:Callable[[Sequence],bool]|None = None, comparison:Literal['=','!=','<=','<','>','>=','match','in'] = None, **kwargs) -> 'Table':
         """Filter to specific rows.
 
         Args:
@@ -529,9 +529,9 @@ class Points:
     Y    : List[float]      = field(default_factory=list)
     XE   : List[float]      = field(default_factory=list)
     YE   : List[float]      = field(default_factory=list)
-    color: str|int          = None
+    color: str|int|None     = None
     alpha: float            = 1
-    label: Optional[str]    = None
+    label: str|None         = None
     style: Literal['-','.'] = "-"
     zorder:int              = 1
 
@@ -548,12 +548,12 @@ class Plotter:
         title: str,
         xlabel: str,
         ylabel: str,
-        xlim: Tuple[Optional[Number],Optional[Number]],
-        ylim: Tuple[Optional[Number],Optional[Number]],
+        xlim: Tuple[None|Number,None|Number],
+        ylim: Tuple[None|Number,None|Number],
         xticks: bool,
         yticks: bool,
-        xrotation: Optional[float],
-        yrotation: Optional[float],
+        xrotation: float|None,
+        yrotation: float|None,
         out: None|Literal['screen']|str) -> None:
         pass
 
@@ -565,12 +565,12 @@ class MatplotPlotter(Plotter):
         title: str,
         xlabel: str,
         ylabel: str,
-        xlim: Tuple[Optional[Number],Optional[Number]],
-        ylim: Tuple[Optional[Number],Optional[Number]],
+        xlim: Tuple[None|Number,None|Number],
+        ylim: Tuple[None|Number,None|Number],
         xticks: bool,
         yticks: bool,
-        xrotation: Optional[float],
-        yrotation: Optional[float],
+        xrotation: float|None,
+        yrotation: float|None,
         out: None|Literal['screen']|str
     ) -> None:
 
@@ -880,9 +880,9 @@ class Result:
         return Result(self.environments.copy(), self.learners.copy(), self.evaluators.copy(), self.interactions.copy(), dict(self.experiment))
 
     def filter_fin(self,
-        n: int|Literal['min'] = None,
-        l: str|Sequence[str] = None,
-        p: str|Sequence[str] = None) -> 'Result':
+        n: int|Literal['min']|None = None,
+        l: str|Sequence[str] |None = None,
+        p: str|Sequence[str] |None = None) -> 'Result':
         """Filter the results down to even outcomes so that plotted results will be meaningful.
 
         Args:
@@ -898,7 +898,7 @@ class Result:
 
         return result
 
-    def filter_env(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
+    def filter_env(self, pred:Callable[[Mapping[str,Any]],bool]|None = None, **kwargs: Any) -> 'Result':
         """Filter the result to only contain data about specific environments.
 
         Args:
@@ -925,7 +925,7 @@ class Result:
 
         return Result(environments,learners,evaluators,interactions,self.experiment)
 
-    def filter_lrn(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
+    def filter_lrn(self, pred:Callable[[Mapping[str,Any]],bool]|None = None, **kwargs: Any) -> 'Result':
         """Filter the result to only contain data about specific learners.
 
         Args:
@@ -1004,19 +1004,19 @@ class Result:
         y       : str = "reward",
         l       : str|Sequence[str] = 'full_name',
         p       : str|Sequence[str] = 'environment_id',
-        span    : int = None,
-        err     : Literal['se','sd','bs','bi']|PointAndInterval = None,
+        span    : int|None = None,
+        err     : Literal['se','sd','bs','bi']|PointAndInterval|None = None,
         errevery: int = None,
-        labels  : Sequence[str] = None,
-        colors  : int|Sequence[str|int] = None,
-        title   : str = None,
-        xlabel  : str = None,
-        ylabel  : str = None,
-        xlim    : Tuple[Optional[Number],Optional[Number]] = None,
-        ylim    : Tuple[Optional[Number],Optional[Number]] = None,
+        labels  : Sequence[str]|None = None,
+        colors  : int|Sequence[str|int]|None = None,
+        title   : str|None = None,
+        xlabel  : str|None = None,
+        ylabel  : str|None = None,
+        xlim    : Tuple[None|Number,None|Number]|None = None,
+        ylim    : Tuple[None|Number,None|Number]|None = None,
         xticks  : bool = True,
         yticks  : bool = True,
-        top_n   : int = None,
+        top_n   : int|None = None,
         out     : None|Literal['screen']|str = 'screen',
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
@@ -1105,16 +1105,16 @@ class Result:
         l       : str|Sequence[str] = 'learner_id',
         p       : str|Sequence[str] = 'environment_id',
         mode    : Literal["diff","prob"]|Callable[[float,float],float] = "diff",
-        span    : int = None,
-        err     : Literal['se','sd','bs','bi']|PointAndInterval = None,
-        errevery: int = None,
-        labels  : Sequence[str] = None,
-        colors  : Sequence[str] = None,
-        title   : str = None,
-        xlabel  : str = None,
-        ylabel  : str = None,
-        xlim    : Tuple[Optional[Number],Optional[Number]] = None,
-        ylim    : Tuple[Optional[Number],Optional[Number]] = None,
+        span    : int|None = None,
+        err     : Literal['se','sd','bs','bi']|PointAndInterval|None = None,
+        errevery: int|None = None,
+        labels  : Sequence[str]|None = None,
+        colors  : Sequence[str]|None = None,
+        title   : str|None = None,
+        xlabel  : str|None = None,
+        ylabel  : str|None = None,
+        xlim    : Tuple[None|Number,None|Number]|None = None,
+        ylim    : Tuple[None|Number,None|Number]|None = None,
         xticks  : bool = True,
         yticks  : bool = True,
         boundary: bool = True,

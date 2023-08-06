@@ -2,7 +2,7 @@
 from collections import abc
 from pathlib import Path
 from itertools import product
-from typing import Sequence, Optional, overload, Tuple
+from typing import Sequence, overload, Tuple
 
 from coba.environments import Environment
 from coba.learners     import Learner
@@ -24,7 +24,7 @@ class Experiment:
         environments : Environment|Sequence[Environment],
         learners     : Learner|Sequence[Learner],
         evaluator    : Evaluator|Sequence[Evaluator] = OnPolicyEvaluator(),
-        description  : str = None) -> None:
+        description  : str|None = None) -> None:
         """Instantiate an Experiment.
 
         Args:
@@ -37,7 +37,7 @@ class Experiment:
     @overload
     def __init__(self,
         eval_tuples: Sequence[Tuple[Learner,Environment,Evaluator]],
-        description: str = None) -> None:
+        description: str|None = None) -> None:
         ...
         """Instantiate an Experiment.
 
@@ -71,14 +71,14 @@ class Experiment:
         if any([env is None for env,_,_ in self._triples]):
             raise CobaException("An Environment was given whose value was None, which can't be processed.")
 
-        self._processes        : Optional[int] = None
-        self._maxchunksperchild: Optional[int] = None
-        self._maxtasksperchunk : Optional[int] = None
+        self._processes        : int|None = None
+        self._maxchunksperchild: int|None = None
+        self._maxtasksperchunk : int|None = None
 
     def config(self,
-        processes: int = None,
-        maxchunksperchild: Optional[int] = None,
-        maxtasksperchunk: Optional[int] = None) -> 'Experiment':
+        processes: int|None = None,
+        maxchunksperchild: int|None = None,
+        maxtasksperchunk: int|None = None) -> 'Experiment':
         """Configure how the experiment will be executed.
 
         A value of `None` for any item means the CobaContext.experiment will be used.
@@ -117,7 +117,7 @@ class Experiment:
         """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
         return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
-    def run(self, result_file:str = None, quiet:bool = False, processes:int = None, seed: Optional[int] = 1) -> Result:
+    def run(self, result_file:str|None = None, quiet:bool = False, processes:int|None = None, seed: int|None = 1) -> Result:
         """Run the experiment and return the results.
 
         Args:
@@ -179,7 +179,7 @@ class Experiment:
 
         return Pipes.join(source,decode,result).read()
 
-    def evaluate(self, result_file:str = None) -> Result:
+    def evaluate(self, result_file:str|None = None) -> Result:
         """Evaluate the experiment and return the results (this is a backwards compatible proxy for the run method).
 
         Args:
@@ -188,7 +188,7 @@ class Experiment:
 
         return self.run(result_file=result_file)
 
-    def _parse_init_args(self,*args,**kwargs) -> Tuple[Sequence[Tuple[Environment,Learner]], Evaluator, Optional[str]]:
+    def _parse_init_args(self,*args,**kwargs) -> Tuple[Sequence[Tuple[Environment,Learner]], Evaluator, str|None]:
         #we know this with 100% certainty
         definite_triples = ({'eval_tuples'} & kwargs.keys()            ) or \
                            (len(args) == 1 and 'learners' not in kwargs) or \
