@@ -11,7 +11,7 @@ from operator import eq, getitem, methodcaller, itemgetter
 from collections import defaultdict
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
-from typing import Sequence, Iterable, Any, Tuple, Callable, Mapping, Literal
+from typing import Optional, Sequence, Iterable, Any, Tuple, Callable, Mapping, Literal
 
 from coba            import pipes, primitives
 from coba.random     import CobaRandom
@@ -88,7 +88,7 @@ class Scale(EnvironmentFilter):
         shift: Number|Literal["min","mean","med"] = 0,
         scale: Number|Literal["minmax","std","iqr","maxabs"] = "minmax",
         target: Literal["context"] = "context",
-        using: int|None = None):
+        using: Optional[int] = None):
         """Instantiate a Scale filter.
 
         Args:
@@ -252,7 +252,7 @@ class Impute(EnvironmentFilter):
     def __init__(self,
         stat : Literal["mean","median","mode"] = "mean",
         indicator: bool = True,
-        using: int|None = None):
+        using: Optional[int] = None):
         """Instantiate an Impute filter.
 
         Args:
@@ -446,7 +446,7 @@ class Sparsify(EnvironmentFilter):
 
             yield new
 
-    def _make_sparse(self, value, has_headers:bool, default_header:str) -> dict|None:
+    def _make_sparse(self, value, has_headers:bool, default_header:str) -> Optional[dict]:
         if value is None:
             return value
 
@@ -520,7 +520,7 @@ class Densify(EnvironmentFilter):
 
             yield new
 
-    def _make_dense(self, value) -> dict|None:
+    def _make_dense(self, value) -> Optional[dict]:
 
         #For this conversion we use the hashing trick. Based on many tests we go with crc32:
         #   > It is fast
@@ -694,7 +694,7 @@ class Sort(EnvironmentFilter):
 class Where(EnvironmentFilter):
     """Define Environment selection criteria for an Environments pipe."""
 
-    def __init__(self, *, n_interactions: int|None|Tuple[int|None,int|None] = None) -> None:
+    def __init__(self, *, n_interactions: int|Tuple[Optional[int],Optional[int]] = None) -> None:
         """Instantiate a Where filter.
 
         Args:
@@ -770,9 +770,9 @@ class Noise(EnvironmentFilter):
     """Introduce noise to an environment."""
 
     def __init__(self,
-        context: Callable[[float,CobaRandom], float]|None = None,
-        action : Callable[[float,CobaRandom], float]|None = None,
-        reward : Callable[[float,CobaRandom], float]|None = None,
+        context: Callable[[float,CobaRandom], float] = None,
+        action : Callable[[float,CobaRandom], float] = None,
+        reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> None:
         """Instantiate a Noise EnvironmentFilter.
 
@@ -968,8 +968,8 @@ class Grounded(EnvironmentFilter):
 
 class Repr(EnvironmentFilter):
     def __init__(self,
-        categorical_context:Literal["onehot","onehot_tuple","string"]|None = None,
-        categorical_actions:Literal["onehot","onehot_tuple","string"]|None = None) -> None:
+        categorical_context:Literal["onehot","onehot_tuple","string"] = None,
+        categorical_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
         self._cat_context = categorical_context
         self._cat_actions = categorical_actions
 
@@ -1159,7 +1159,7 @@ class Chunk(EnvironmentFilter):
 
 class Logged(EnvironmentFilter):
 
-    def __init__(self, learner: Learner, seed: float|None = 1.23) -> None:
+    def __init__(self, learner: Learner, seed: Optional[float] = 1.23) -> None:
         self._learner = learner
         self._seed    = seed
 

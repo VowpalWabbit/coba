@@ -4,7 +4,7 @@ import copy
 
 from collections import defaultdict, abc
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Mapping
+from typing import Iterable, Any, Sequence, Mapping, Optional
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
@@ -25,7 +25,7 @@ class Identity(Filter[Any, Any]):
 class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
     """Shuffle a sequence of items."""
 
-    def __init__(self, seed:int|None) -> None:
+    def __init__(self, seed:Optional[int]) -> None:
         """Instantiate a Shuffle filter.
 
         Args:
@@ -48,7 +48,7 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
 class Take(Filter[Iterable[Any], Sequence[Any]]):
     """Take a fixed number of items from an iterable."""
 
-    def __init__(self, count: int|None, strict:bool = False) -> None:
+    def __init__(self, count: Optional[int], strict:bool = False) -> None:
         """Instantiate a Take filter.
 
         Args:
@@ -76,7 +76,7 @@ class Take(Filter[Iterable[Any], Sequence[Any]]):
 class Slice(Filter[Iterable[Any], Sequence[Any]]):
     """Take a slice of items from an iterable."""
 
-    def __init__(self, start:int|None, stop: int|None, step:int=1) -> None:
+    def __init__(self, start:Optional[int], stop: Optional[int], step:int=1) -> None:
         """Instantiate a Slice filter.
 
         Args:
@@ -115,7 +115,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
     """
 
-    def __init__(self, count: int|None, strict: bool = False, seed: float = 1) -> None:
+    def __init__(self, count: Optional[int], strict: bool = False, seed: float = 1) -> None:
         """Instantiate a Reservoir filter.
 
         Args:
@@ -284,7 +284,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 class Encode(Filter[Iterable[Sequence|Mapping], Iterable[Sequence|Mapping]]):
     """A filter which encodes features in table shaped data."""
 
-    def __init__(self, encoders: Mapping[Any,Encoder], fit_using: int|None = None, missing_val: str|None = None):
+    def __init__(self, encoders:Mapping[Any,Encoder], fit_using:int = None, missing_val: str = None):
         """Instantiate an Encode filter.
 
         Args:

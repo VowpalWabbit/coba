@@ -1,7 +1,7 @@
 import re
 from itertools import repeat, compress
 from sys import platform
-from typing import Any, Dict, Sequence, Mapping, Tuple, Literal
+from typing import Any, Dict, Sequence, Mapping, Optional, Tuple, Literal
 
 from coba.exceptions import CobaException
 from coba.learners.primitives import Learner, PMF, Prob
@@ -80,7 +80,7 @@ class VowpalMediator:
         self._vw.learn(example)
         self._vw.finish_example(example)
 
-    def make_example(self, namespaces: Namespaces, label: str|None = None) -> Any:
+    def make_example(self, namespaces: Namespaces, label:Optional[str] = None) -> Any:
         """Create a VW example.
 
         Args:
@@ -105,7 +105,7 @@ class VowpalMediator:
     def transform_example(self, vw_shared, vw_uniques, labels):
         pass
 
-    def make_examples(self, shared: Namespaces, uniques: Sequence[Namespaces], labels: Sequence[str]|None = None) -> Sequence[Any]:
+    def make_examples(self, shared: Namespaces, uniques: Sequence[Namespaces], labels:Optional[Sequence[str]] = None) -> Sequence[Any]:
         """Create a list of VW examples.
 
         Args:
@@ -249,7 +249,7 @@ class VowpalLearner(Learner):
 
         return args
 
-    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet", vw: VowpalMediator|None = None) -> None:
+    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet", vw: VowpalMediator = None) -> None:
         """Instantiate a VowpalLearner.
 
         Args:
@@ -364,7 +364,7 @@ class VowpalLearner(Learner):
         else:
             self._vw.learn(self._vw.make_example(context, label))
 
-    def _labels(self,actions,index,reward:float,prob:float) -> Sequence[str|None]:
+    def _labels(self,actions,index,reward:float,prob:float) -> Sequence[Optional[str]]:
         labels = [None]*len(actions)
         labels[index] = f"{index+1}:{round(-reward,5)}:{round(prob,5)}"
         return labels
@@ -399,7 +399,7 @@ class VowpalEpsilonLearner(VowpalLearner):
     def __init__(self,
                  epsilon: float = 0.05,
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-                 seed: int|None = 1,
+                 seed: Optional[int] = 1,
                  **kwargs) -> None:
         """Instantiate a VowpalEpsilonLearner.
 
@@ -429,7 +429,7 @@ class VowpalSoftmaxLearner(VowpalLearner):
     def __init__(self,
                  softmax: float=10,
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-                 seed: int|None = 1,
+                 seed: Optional[int] = 1,
                  **kwargs) -> None:
         """Instantiate a VowpalSoftmaxLearner.
 
@@ -463,7 +463,7 @@ class VowpalBagLearner(VowpalLearner):
     def __init__(self,
                  bag: int = 5,
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-                 seed: int|None = 1,
+                 seed: Optional[int] = 1,
                  **kwargs) -> None:
         """Instantiate a VowpalBagLearner.
 
@@ -502,7 +502,7 @@ class VowpalCoverLearner(VowpalLearner):
     def __init__(self,
                  cover: int = 5,
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-                 seed: int|None = 1,
+                 seed: Optional[int] = 1,
                  **kwargs) -> None:
         """Instantiate a VowpalCoverLearner.
 
@@ -527,10 +527,10 @@ class VowpalRndLearner(VowpalLearner):
     def __init__(self,
                  rnd: int = 3,
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-                 epsilon: float|None = 0.025,
-                 rnd_alpha: float|None = None,
-                 rnd_invlambda: float|None = None,
-                 seed: int|None = 1,
+                 epsilon: Optional[float] = 0.025,
+                 rnd_alpha: Optional[float] = None,
+                 rnd_invlambda: Optional[float] = None,
+                 seed: Optional[int] = 1,
                  **kwargs) -> None:
         """
         Inspired by Random Network Distillation, this explorer constructs an auxiliary prediction problem whose
@@ -577,7 +577,7 @@ class VowpalRegcbLearner(VowpalLearner):
     def __init__(self,
                  mode: Literal["optimistic","elimination"] = "elimination",
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-                 seed: int|None = 1,
+                 seed: Optional[int] = 1,
                  **kwargs) -> None:
         """Instantiate a VowpalRegcbLearner.
 
@@ -620,7 +620,7 @@ class VowpalSquarecbLearner(VowpalLearner):
                  mode: Literal["standard","elimination"] = "standard",
                  gamma_scale: float = 10,
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-                 seed: int|None = 1,
+                 seed: Optional[int] = 1,
                  **kwargs) -> None:
         """Instantiate a VowpalSquarecbLearner.
 
@@ -660,7 +660,7 @@ class VowpalOffPolicyLearner(VowpalLearner):
 
     def __init__(self,
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-                 seed: int|None = 1,
+                 seed: Optional[int] = 1,
                  **kwargs) -> None:
         """Instantiate a VowpalOffPolicyLearner.
 

@@ -8,7 +8,7 @@ from contextlib import nullcontext, contextmanager
 from collections.abc import Iterator
 from collections import defaultdict
 from abc import abstractmethod, ABC
-from typing import TypeVar, Iterable, Callable, Generic, Sequence, ContextManager, Dict
+from typing import TypeVar, Iterable, Optional, Callable, Generic, Sequence, ContextManager, Dict
 
 from coba.exceptions import CobaException
 
@@ -97,7 +97,7 @@ class DiskCacher(Cacher[str, Iterable[str]]):
         self.cache_directory = cache_dir
 
     @property
-    def cache_directory(self) -> str|None:
+    def cache_directory(self) -> Optional[str]:
         """The directory where the cache will write to disk."""
         return str(self._cache_dir) if self._cache_dir is not None else None
 

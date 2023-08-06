@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Mapping, Iterable, Callable
+from typing import Any, Mapping, Iterable, Optional, Callable
 
 from coba.learners import Learner
 from coba.environments import Environment
@@ -16,7 +16,7 @@ class Evaluator(ABC):
         return {}
 
     @abstractmethod
-    def evaluate(self, environment: Environment|None, learner: Learner|None) -> Mapping[Any,Any]|Iterable[Mapping[Any,Any]]:
+    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Mapping[Any,Any]|Iterable[Mapping[Any,Any]]:
         """Evaluate the learner on the given interactions.
 
         Args:
@@ -46,7 +46,7 @@ class SafeEvaluator(Evaluator):
 
         return params
 
-    def evaluate(self, environment: Environment|None, learner: Learner|None) -> Mapping|Iterable[Mapping]:
+    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Mapping|Iterable[Mapping]:
         if callable(self.evaluator):
             return self.evaluator(environment,learner)
         else:

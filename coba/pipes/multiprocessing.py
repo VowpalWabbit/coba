@@ -6,7 +6,7 @@ import multiprocessing as mp
 from collections.abc import Iterator
 from queue import Empty
 from traceback import format_tb
-from typing import Iterable, Mapping, Callable, Sequence, Any, Literal
+from typing import Iterable, Mapping, Callable, Optional, Sequence, Any, Literal
 
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
@@ -41,7 +41,7 @@ class ProcessLine(spawn_context.Process):
     ### We create a lock so that we can safely receive any possible exceptions. Empirical
     ### tests showed that creating a Pipe and Lock doesn't seem to slow us down too much.
 
-    def __init__(self, line: Line, callback: Callable|None = None):
+    def __init__(self, line: Line, callback: Callable = None):
 
         self._line      = line
         self._callback  = callback
@@ -101,7 +101,7 @@ class ProcessLine(spawn_context.Process):
         return self._traceback
 
     @property
-    def exception(self) -> Exception|None:
+    def exception(self) -> Optional[Exception]:
         return self._exception
 
     @property
@@ -158,7 +158,7 @@ class ThreadLine(mt.Thread):
         return self._traceback
 
     @property
-    def exception(self) -> Exception|None:
+    def exception(self) -> Optional[Exception]:
         return self._exception
 
     @property
@@ -168,7 +168,7 @@ class ThreadLine(mt.Thread):
 class AsyncableLine(SourceSink):
 
     def run_async(self,
-        callback:Callable[['AsyncableLine',Exception|None,str|None],None]=None,
+        callback:Callable[['AsyncableLine',Optional[Exception],Optional[str]],None]=None,
         mode:Literal['process','thread']='process') -> ThreadLine|ProcessLine:
         """Run the pipeline asynchronously."""
 

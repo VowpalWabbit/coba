@@ -11,7 +11,7 @@ from coba.pipes.filters import Flatten
 class LazyDense(Dense_):
     __slots__ = ('_row','_enc','headers','missing')
 
-    def __init__(self, row: Callable[[],Sequence]|Sequence, enc: Sequence|None = None, headers: Mapping|None = None, missing: bool|None = None) -> None:
+    def __init__(self, row: Callable[[],Sequence]|Sequence, enc: Sequence = None, headers: Mapping = None, missing: bool = None) -> None:
         self._row = row
         self._enc = enc
 
@@ -65,7 +65,7 @@ class LazyDense(Dense_):
 class LazySparse(Sparse_):
     __slots__=('_row','_enc','_nsp','_fwd','_inv','missing')
 
-    def __init__(self, row: Callable[[],Mapping]|Mapping, enc: Mapping = {}, nsp: set = set(), fwd: Mapping = {}, inv: Mapping = {}, missing:bool|None = None) -> None:
+    def __init__(self, row: Callable[[],Mapping]|Mapping, enc: Mapping = {}, nsp: set = set(), fwd: Mapping = {}, inv: Mapping = {}, missing:bool = None) -> None:
         self._row    = row
         self._enc    = enc
         self._nsp    = nsp
@@ -180,7 +180,7 @@ class SparseDense(Dense_):
 class HeadDense(Dense_):
     __slots__=('_row','headers')
 
-    def __init__(self, row: Dense, headers: Mapping[str,int]|None = None) -> None:
+    def __init__(self, row: Dense, headers: Mapping[str,int] = None) -> None:
         self._row    = row
         self.headers = headers
 
@@ -350,7 +350,7 @@ class KeepDense(Dense_):
 class DropSparse(Sparse_):
     __slots__=('_row','_drop_set')
 
-    def __init__(self, row: Sparse, drop_set: set|None = None) -> None:
+    def __init__(self, row: Sparse, drop_set: set = None) -> None:
         self._row      = row
         self._drop_set = drop_set
 
@@ -380,7 +380,7 @@ class DropRows(Filter[Iterable[Dense|Sparse], Iterable[Dense|Sparse]]):
 
     def __init__(self,
         drop_cols: Sequence[str|int] = [],
-        drop_row: Callable[[Sequence|Mapping], bool]|None = None) -> None:
+        drop_row: Callable[[Sequence|Mapping], bool] = None) -> None:
         """Instantiate a Drop filter.
 
         Args:

@@ -2,7 +2,7 @@ import collections.abc
 
 from zipfile import ZipFile, BadZipFile
 from pathlib import Path
-from typing import Union, Sequence, overload, Iterable, Iterator, Any, Tuple, Callable, Mapping, Type, Literal
+from typing import Union, Sequence, overload, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type, Literal
 
 from coba                 import pipes
 from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
@@ -162,16 +162,16 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         take: int = None,
         *,
         target:str = None,
-        label_type:Literal['c','r','m']|None = None) -> 'Environments':
+        label_type:Literal['c','r','m'] = None) -> 'Environments':
         ...
 
     @overload
     @staticmethod
     def from_openml(*,task_id: int|Sequence[int],
         drop_missing: bool = True,
-        take: int|None = None,
-        target:str|None = None,
-        label_type:Literal['m','c','r']|None = None) -> 'Environments':
+        take: int = None,
+        target:str = None,
+        label_type:Literal['m','c','r'] = None) -> 'Environments':
         ...
 
     @staticmethod
@@ -195,9 +195,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @staticmethod
     def from_supervised(
         source: Source,
-        label_col: int|str|None = None,
+        label_col: int|str = None,
         label_type: Literal["C","R"] = "C",
-        take: int|None = None) -> 'Environments':
+        take: int = None) -> 'Environments':
         """Create a SimulatedEnvironment from a supervised dataset"""
         ...
 
@@ -224,7 +224,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @overload
     def from_lambda(self,
-        n_interactions: int|None,
+        n_interactions: Optional[int],
         context       : Callable[[int               ],Context         ],
         actions       : Callable[[int,Context       ],Sequence[Action]],
         reward        : Callable[[int,Context,Action],float           ]) -> 'Environments':
@@ -232,7 +232,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @overload
     def from_lambda(self,
-        n_interactions: int|None,
+        n_interactions: Optional[int],
         context       : Callable[[int               ,CobaRandom],Context         ],
         actions       : Callable[[int,Context       ,CobaRandom],Sequence[Action]],
         reward        : Callable[[int,Context,Action,CobaRandom],float           ],
@@ -330,7 +330,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Take a fixed number of interactions from the Environments."""
         return self.filter(Take(n_interactions))
 
-    def slice(self, start: int|None, stop: int =None, step:int = 1) -> 'Environments':
+    def slice(self, start: Optional[int], stop: Optional[int]=None, step:int = 1) -> 'Environments':
         """Take a slice of interactions from an Environment."""
         return self.filter(Slice(start,stop,step))
 
@@ -343,7 +343,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         shift: float|Literal["min","mean","med"] = "min",
         scale: float|Literal["minmax","std","iqr","maxabs"] = "minmax",
         targets: Literal["context"] | Sequence[Literal["context"]] = "context",
-        using: int|None = None) -> 'Environments':
+        using: Optional[int] = None) -> 'Environments':
         """Apply an affine shift and scaling factor to precondition environments."""
         if isinstance(targets,str): targets = [targets]
         return self.filter(Pipes.join(*[Scale(shift, scale, t, using) for t in targets]))
@@ -351,7 +351,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def impute(self,
         stats: Literal["mean","median","mode"]|Sequence[Literal["mean","median","mode"]] = "mean",
         indicator:bool = True,
-        using: int|None = None) -> 'Environments':
+        using: Optional[int] = None) -> 'Environments':
         """Impute missing values with a feature statistic using a given number of interactions."""
         if isinstance(stats,str): stats = [stats]
         envs = self
@@ -359,14 +359,14 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             envs = self.filter(Impute(stat, indicator, using))
         return envs
 
-    def where(self,*,n_interactions: int|Tuple[int|None,int|None] = None) -> 'Environments':
+    def where(self,*,n_interactions: int|Tuple[Optional[int],Optional[int]] = None) -> 'Environments':
         """Only include environments which satisify the given requirements."""
         return self.filter(Where(n_interactions=n_interactions))
 
     def noise(self,
-        context: Callable[[float,CobaRandom], float]|None = None,
-        action : Callable[[float,CobaRandom], float]|None = None,
-        reward : Callable[[float,CobaRandom], float]|None = None,
+        context: Callable[[float,CobaRandom], float] = None,
+        action : Callable[[float,CobaRandom], float] = None,
+        reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> 'Environments':
         """Add noise to an environment's context, actions and rewards."""
         return self.filter(Noise(context,action,reward,seed))
@@ -410,7 +410,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
 
-    def logged(self, learners: Learner|Sequence[Learner], seed:float|None = 1.23) -> 'Environments':
+    def logged(self, learners: Learner|Sequence[Learner], seed:Optional[float] = 1.23) -> 'Environments':
         """Create a logged environment using the given learner for the logging policy."""
         if not isinstance(learners, collections.abc.Sequence): learners = [learners]
         return self.filter(BatchSafe(Finalize())).filter([Logged(learner, seed) for learner in learners ])
@@ -419,7 +419,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Unbatch interactions in the environments."""
         return self.filter(Unbatch())
 
-    def ope_rewards(self, rewards_type:Literal['IPS','DM','DR']|None = None):
+    def ope_rewards(self, rewards_type:Literal['IPS','DM','DR'] = None):
         """Reward estimates for off-policy evaluation."""
         if isinstance(rewards_type,str): rewards_type = [rewards_type]
         return self.filter([OpeRewards(r) for r in rewards_type])

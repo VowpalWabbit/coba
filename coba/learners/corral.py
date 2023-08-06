@@ -1,6 +1,6 @@
 import math
 
-from typing import Any, Sequence, Mapping, Tuple, Literal
+from typing import Any, Sequence, Optional, Mapping, Tuple, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
@@ -132,7 +132,7 @@ class CorralLearner(Learner):
 
         precision = 4
 
-        def binary_search(l,r) -> float|None:
+        def binary_search(l,r) -> Optional[float]:
             #in theory the above check should guarantee this has a solution
             while True:
 
@@ -160,7 +160,7 @@ class CorralLearner(Learner):
                     # method can overshoot our objective
                     return binary_search(l_brack, r_brack)
 
-        lmbda: float|None = None
+        lmbda: Optional[float] = None
 
         if min_loss == max_loss:
             lmbda = min_loss

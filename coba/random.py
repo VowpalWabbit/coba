@@ -16,12 +16,12 @@ import time
 
 from itertools import compress, accumulate, repeat, islice
 from operator import le
-from typing import Iterable, Sequence, Any
+from typing import Optional, Iterable, Sequence, Any
 
 class CobaRandom:
     """A random number generator that is consistent across python implementations."""
 
-    def __init__(self, seed: float = None) -> None:
+    def __init__(self, seed: Optional[float] = None) -> None:
         """Instantiate a CobaRandom.
 
         Args:
@@ -215,7 +215,7 @@ class CobaRandom:
 
 _random = CobaRandom()
 
-def seed(seed: float|None) -> None:
+def seed(seed: Optional[float]) -> None:
     """Set the seed for generating random numbers in this module.
 
     Args:
