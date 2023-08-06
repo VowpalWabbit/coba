@@ -1,4 +1,5 @@
-from math import hypot, isnan, erf, sqrt, fsum
+from math import hypot, isnan, erf, sqrt
+from statistics import fmean
 from sys import version_info
 from operator import mul, sub
 from bisect import bisect_left
@@ -75,8 +76,7 @@ def phi(x: float) -> float:
     return (1.0 + erf(x / sqrt(2.0))) / 2.0
 
 def mean(sample: Sequence[float]) -> float:
-    #If precision is needed use a true statistics package
-    return fsum(sample)/len(sample)
+    return fmean(sample)
 
 def var(sample: Sequence[float]) -> float:
     n = len(sample)

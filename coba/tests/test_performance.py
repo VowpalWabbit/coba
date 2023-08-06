@@ -306,7 +306,6 @@ class Performance_Tests(unittest.TestCase):
         self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)
 
     def test_result_filter_env(self):
-
         envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
         lrns = Table(columns=['learner_id']).insert([[0],[1],[2]])
         vals = Table(columns=['evaluator_id']).insert([[0]])
@@ -321,11 +320,11 @@ class Performance_Tests(unittest.TestCase):
 
     def test_moving_average_rolling_window(self):
         items = [1,0]*300
-        self._assert_scale_time(items, lambda x:list(moving_average(x)), .05, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(moving_average(x)), .03, print_time, number=1000)
 
     def test_mean(self):
         items = [1,0]*3000
-        self._assert_scale_time(items, lambda x:mean(x), .1, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:mean(x), .04, print_time, number=1000)
 
     def test_percentile_no_sort(self):
         items = [1,1]*3000

@@ -2424,6 +2424,11 @@ class Result_Tests(unittest.TestCase):
 
 class moving_average_Tests(unittest.TestCase):
 
+    def test_weights(self):
+        self.assertEqual([0,1/2,1/2,0/2,1/2],list(moving_average([0,1,0,0,1],span=2,weights=[.5,.5,.5,.5,.5])))
+        self.assertEqual([0,1/2,1/3,1/3,1/3],list(moving_average([0,1,0,0,1],span=3,weights=[.5,.5,.5,.5,.5])))
+        self.assertEqual([0,1/2,1/3,1/4,2/4],list(moving_average([0,1,0,0,1],span=4,weights=[.5,.5,.5,.5,.5])))
+
     def test_sliding_windows(self):
         self.assertEqual([0,1/2,1/2,0/2,1/2], list(moving_average([0,1,0,0,1],span=2)))
         self.assertEqual([0,1/2,1/3,1/3,1/3], list(moving_average([0,1,0,0,1],span=3)))
@@ -2438,7 +2443,7 @@ class moving_average_Tests(unittest.TestCase):
         self.assertEqual([0,1,0,0,1], list(moving_average([0,1,0,0,1],span=1)))
 
     def test_exponential_span_2(self):
-        self.assertEqual([1,1.75,2.62,3.55], [round(v,2) for v in list(moving_average([1,2,3,4],span=2,exponential=True))])
+        self.assertEqual([1,1.75,2.62,3.55], [round(v,2) for v in list(moving_average([1,2,3,4],span=2,weights='exp'))])
 
 if __name__ == '__main__':
     unittest.main()

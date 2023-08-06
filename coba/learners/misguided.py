@@ -19,5 +19,5 @@ class MisguidedLearner(Learner):
     def predict(self, context, actions):
         return self._learner.predict(context, actions)
 
-    def learn(self, context, action, reward, probability):
-        self._learner.learn(context, action, self._shifter + self._scaler*reward, probability)
+    def learn(self, context, action, reward, probability,**kwargs):
+        self._learner.learn(context, action, self._shifter + self._scaler*reward, probability,**kwargs)

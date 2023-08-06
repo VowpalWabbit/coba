@@ -40,5 +40,15 @@ class MisguidedLearner_Tests(unittest.TestCase):
 
         self.assertEqual(learn_args,[1, 3, 0, 0])
 
+    def test_learn_kwargs(self):
+        learn_kwargs = {}
+        class MyLearner:
+            def learn(self,*args,**kwargs):
+                learn_kwargs.update(kwargs)
+
+        MisguidedLearner(MyLearner(),1,-1).learn(1, 3, 1, 0, a=1)
+
+        self.assertEqual(learn_kwargs,{'a':1})
+
 if __name__ == '__main__':
     unittest.main()

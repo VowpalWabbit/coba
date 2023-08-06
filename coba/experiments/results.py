@@ -5,11 +5,11 @@ import collections.abc
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, itemgetter
+from operator import truediv, sub, mul, itemgetter
 from functools import cmp_to_key
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
-from itertools import chain, repeat, accumulate, groupby, count, compress, groupby
+from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
 from coba.primitives import Batch
@@ -20,9 +20,11 @@ from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first
 from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource
 
-def moving_average(values:Sequence[float], span:int=None, exponential:bool=False) -> Iterable[float]:
+def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
 
-    if exponential:
+    assert weights == 'exp' or weights == None or len(weights)==len(values)
+
+    if weights=='exp':
         #exponential moving average identical to Pandas' df.ewm(span=span).mean()
         alpha = 2/(1+span)
         cumwindow  = list(accumulate(values          , lambda a,v: v + (1-alpha)*a))
@@ -33,13 +35,18 @@ def moving_average(values:Sequence[float], span:int=None, exponential:bool=False
         return values
 
     elif span is None or span >= len(values):
-        return map(truediv, accumulate(values), count(1))
+        values  = accumulate(values) if not weights else accumulate(map(mul,values,weights))
+        weights = count(1)           if not weights else accumulate(weights)
+        return map(truediv, values, weights)
 
     else:
-        window_sums  = accumulate(map(sub, values, chain(repeat(0,span),values)))
-        window_sizes = chain(range(1,span), repeat(span))
+        v1,v2   = tee(values    if not weights else map(mul,values,weights),2)
+        weights = repeat(1) if not weights else weights
 
-        return map(truediv,window_sums,window_sizes)
+        values  = accumulate(map(sub, v1     , chain(repeat(0,span),v2     )))
+        weights = accumulate(map(sub, weights, chain(repeat(0,span),weights)))
+
+        return map(truediv,values,weights)
 
 def comparer(item1,item2):
     try:
@@ -1410,6 +1417,7 @@ class Result:
             _table    = indexed_table[ -1]
             _indexes = [repeat(i) for i in indexed_table[:-1]]
             for i in coords: _indexes[i] = iter(_table['index'])
+
             _y_values = [mean(_table[y])] if not coords else iter(moving_average(_table[y],span))
             indexed_values.append( (indexed_table[:-1], iter(zip(*_indexes,_y_values))) )
 
