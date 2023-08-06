@@ -2,7 +2,7 @@ import collections.abc
 
 from zipfile import ZipFile, BadZipFile
 from pathlib import Path
-from typing import Union, Sequence, overload, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type, Literal
+from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type, Literal
 
 from coba                 import pipes
 from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
@@ -33,7 +33,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     """A friendly wrapper around commonly used environment functionality."""
 
     @staticmethod
-    def cache_dir(path:str|Path) -> Type['Environments']:
+    def cache_dir(path:Union[str,Path]) -> Type['Environments']:
         CobaContext.cacher = DiskCacher(path)
         return Environments
 
@@ -87,7 +87,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         n_context_features: int = 5,
         n_action_features: int = 5,
         reward_features: Sequence[str] = ["a","xa"],
-        seed: int|Sequence[int] = 1) -> 'Environments':
+        seed: Union[int,Sequence[int]] = 1) -> 'Environments':
         """A synthetic simulation whose rewards are linear with respect to the given reward features.
 
         The simulation's rewards are determined via a linear function with respect to the given reward features. When
@@ -129,7 +129,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         kernel: Literal['linear','polynomial','exponential','gaussian'] = 'gaussian',
         degree: int = 3,
         gamma: float = 1,
-        seed: int|Sequence[int] = 1) -> 'Environments':
+        seed: Union[int,Sequence[int]] = 1) -> 'Environments':
         """A synthetic simulation whose reward function is created from kernel basis functions."""
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
@@ -157,7 +157,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @overload
     @staticmethod
-    def from_openml(data_id: int|Sequence[int],
+    def from_openml(data_id: Union[int,Sequence[int]],
         drop_missing: bool = True,
         take: int = None,
         *,
@@ -167,7 +167,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @overload
     @staticmethod
-    def from_openml(*,task_id: int|Sequence[int],
+    def from_openml(*,task_id: Union[int,Sequence[int]],
         drop_missing: bool = True,
         take: int = None,
         target:str = None,
@@ -195,7 +195,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @staticmethod
     def from_supervised(
         source: Source,
-        label_col: int|str = None,
+        label_col: Union[int,str] = None,
         label_type: Literal["C","R"] = "C",
         take: int = None) -> 'Environments':
         """Create a SimulatedEnvironment from a supervised dataset"""
@@ -248,7 +248,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def from_dataframe(df) -> 'Environments':
         return Environments(Pipes.join(DataFrameSource(df), MappingToInteraction()))
 
-    def __init__(self, *environments: Environment|Sequence[Environment]):
+    def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.
 
         Args:
@@ -309,7 +309,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
         return Environments(ordered)
 
-    def sort(self, *keys: str|int|Sequence[str|int]) -> 'Environments':
+    def sort(self, *keys: Union[str,int,Sequence[Union[str,int]]]) -> 'Environments':
         """Sort Environment interactions according to the context values indicated by keys."""
         return self.filter(Sort(*keys))
 
@@ -334,22 +334,22 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Take a slice of interactions from an Environment."""
         return self.filter(Slice(start,stop,step))
 
-    def reservoir(self, n_interactions: int, seeds: int|Sequence[int]=1) -> 'Environments':
+    def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]=1) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""
         if isinstance(seeds,int): seeds = [seeds]
         return self.filter([Reservoir(n_interactions,seed=seed) for seed in seeds])
 
     def scale(self,
-        shift: float|Literal["min","mean","med"] = "min",
-        scale: float|Literal["minmax","std","iqr","maxabs"] = "minmax",
-        targets: Literal["context"] | Sequence[Literal["context"]] = "context",
+        shift: Union[float,Literal["min","mean","med"]] = "min",
+        scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax",
+        targets: Union[Literal["context","ope_rewards","argmax"], Sequence[Literal["context","ope_rewards","argmax"]]] = "context",
         using: Optional[int] = None) -> 'Environments':
         """Apply an affine shift and scaling factor to precondition environments."""
         if isinstance(targets,str): targets = [targets]
         return self.filter(Pipes.join(*[Scale(shift, scale, t, using) for t in targets]))
 
     def impute(self,
-        stats: Literal["mean","median","mode"]|Sequence[Literal["mean","median","mode"]] = "mean",
+        stats: Union[Literal["mean","median","mode"],Sequence[Literal["mean","median","mode"]]] = "mean",
         indicator:bool = True,
         using: Optional[int] = None) -> 'Environments':
         """Impute missing values with a feature statistic using a given number of interactions."""
@@ -359,7 +359,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             envs = self.filter(Impute(stat, indicator, using))
         return envs
 
-    def where(self,*,n_interactions: int|Tuple[Optional[int],Optional[int]] = None) -> 'Environments':
+    def where(self,*,n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> 'Environments':
         """Only include environments which satisify the given requirements."""
         return self.filter(Where(n_interactions=n_interactions))
 
@@ -410,7 +410,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
 
-    def logged(self, learners: Learner|Sequence[Learner], seed:Optional[float] = 1.23) -> 'Environments':
+    def logged(self, learners: Union[Learner,Sequence[Learner]], seed:Optional[float] = 1.23) -> 'Environments':
         """Create a logged environment using the given learner for the logging policy."""
         if not isinstance(learners, collections.abc.Sequence): learners = [learners]
         return self.filter(BatchSafe(Finalize())).filter([Logged(learner, seed) for learner in learners ])
@@ -467,7 +467,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Create a cache point in the environments so that earlier steps in the pipeline can be re-used in several pipes."""
         return Environments([Pipes.join(env, Cache(25)) for env in self])
 
-    def filter(self, filter: EnvironmentFilter|Sequence[EnvironmentFilter]) -> 'Environments':
+    def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
         return Environments([Pipes.join(e,f) for e in self._environments for f in filters])

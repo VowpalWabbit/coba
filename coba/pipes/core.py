@@ -1,3 +1,5 @@
+from typing import Union
+
 from coba.exceptions import CobaException
 
 from coba.pipes.primitives import Filter, Source, Sink, SourceFilters, FiltersFilter, FiltersSink, Foreach
@@ -6,7 +8,7 @@ from coba.pipes.multiprocessing import AsyncableLine
 class Pipes:
 
     @staticmethod
-    def join(*pipes: Source|Filter|Sink) -> Source|Filter|Sink|AsyncableLine:
+    def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, AsyncableLine]:
         """Join a sequence of pipes into a single pipe.
 
         Args:

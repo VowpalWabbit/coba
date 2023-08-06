@@ -8,7 +8,7 @@ from contextlib import nullcontext, contextmanager
 from collections.abc import Iterator
 from collections import defaultdict
 from abc import abstractmethod, ABC
-from typing import TypeVar, Iterable, Optional, Callable, Generic, Sequence, ContextManager, Dict
+from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic, Sequence, ContextManager
 
 from coba.exceptions import CobaException
 
@@ -33,7 +33,7 @@ class Cacher(Generic[_K, _V], ABC):
         ...
 
     @abstractmethod
-    def get_set(self, key: _K, getter: Callable[[], _V]|_V) -> ContextManager[_V]:
+    def get_set(self, key: _K, getter: Union[Callable[[], _V],_V]) -> ContextManager[_V]:
         """Get a key from the cache.
 
         If the key is not in the cache put it first using getter.
@@ -57,7 +57,7 @@ class NullCacher(Cacher[_K, _V]):
     def rmv(self, key: _K):
         pass
 
-    def get_set(self, key: _K, getter: Callable[[], _V]|_V) -> ContextManager[_V]:
+    def get_set(self, key: _K, getter: Union[Callable[[], _V],_V]) -> ContextManager[_V]:
         return nullcontext(getter())
 
 class MemoryCacher(Cacher[_K, _V]):
@@ -74,7 +74,7 @@ class MemoryCacher(Cacher[_K, _V]):
         if key in self:
             del self._cache[key]
 
-    def get_set(self, key: _K, getter: Callable[[],_V]|_V) -> ContextManager[_V]:
+    def get_set(self, key: _K, getter: Union[Callable[[], _V],_V]) -> ContextManager[_V]:
         if key not in self:
             value = getter() if callable(getter) else getter
             value = list(value) if isinstance(value,Iterator) else value
@@ -88,7 +88,7 @@ class DiskCacher(Cacher[str, Iterable[str]]):
     The DiskCacher compresses all values before writing to conserve disk space.
     """
 
-    def __init__(self, cache_dir: str|Path|None = None) -> None:
+    def __init__(self, cache_dir: Union[str, Path] = None) -> None:
         """Instantiate a DiskCacher.
 
         Args:
@@ -102,7 +102,7 @@ class DiskCacher(Cacher[str, Iterable[str]]):
         return str(self._cache_dir) if self._cache_dir is not None else None
 
     @cache_directory.setter
-    def cache_directory(self,value:Path|str|None) -> None:
+    def cache_directory(self,value:Union[Path,str,None]) -> None:
         self._cache_dir = value if isinstance(value, Path) else Path(value).expanduser() if value else None
 
     def __contains__(self, key: str) -> bool:
@@ -111,7 +111,7 @@ class DiskCacher(Cacher[str, Iterable[str]]):
     def rmv(self, key: str) -> None:
         if self._cache_path(key).exists(): self._cache_path(key).unlink()
 
-    def get_set(self, key: str, getter: Callable[[], Iterable[str]]|Iterable[str]) -> ContextManager[Iterable[str]]:
+    def get_set(self, key: str, getter: Union[Callable[[], Iterable[str]],Iterable[str]]) -> ContextManager[Iterable[str]]:
 
         if self._cache_dir is None:
             return nullcontext(getter())
@@ -181,7 +181,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
             if lock == 'write': self._release_write_lock(key)
             raise
 
-    def get_set(self, key: _K, getter: Callable[[],_V]|_V) -> ContextManager[_V]:
+    def get_set(self, key: _K, getter: Union[Callable[[],_V],_V]) -> ContextManager[_V]:
 
         try:
             self._acquire_read_lock(key)

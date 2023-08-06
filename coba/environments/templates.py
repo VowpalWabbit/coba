@@ -1,7 +1,7 @@
 import collections.abc
 
 from itertools import product
-from typing import Sequence, Any, overload, Iterable, Dict
+from typing import Sequence, Any, overload, Iterable, Union, Dict
 
 from coba.context import CobaContext
 from coba.registry import JsonMakerV1, CobaRegistry, JsonMakerV2
@@ -110,7 +110,7 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
 
         return environments
     
-    def _make(self, item:str|list|dict) -> Sequence[Any]:
+    def _make(self, item:Union[str,list,dict] ) -> Sequence[Any]:
         
         result = item
 

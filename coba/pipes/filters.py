@@ -4,7 +4,7 @@ import copy
 
 from collections import defaultdict, abc
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Mapping, Optional
+from typing import Iterable, Any, Sequence, Mapping, Optional, Union
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
@@ -281,7 +281,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
                 #in-line dict comprehension was faster than a generator like we did with list
                 yield {k:v for k,v in row.items() for k,v in ( zip(flattable[k],v) if k in flattable else ((k,v),)) if v != 0 }
 
-class Encode(Filter[Iterable[Sequence|Mapping], Iterable[Sequence|Mapping]]):
+class Encode(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which encodes features in table shaped data."""
 
     def __init__(self, encoders:Mapping[Any,Encoder], fit_using:int = None, missing_val: str = None):
@@ -296,7 +296,7 @@ class Encode(Filter[Iterable[Sequence|Mapping], Iterable[Sequence|Mapping]]):
         self._fit_using   = fit_using
         self._missing_val = missing_val
 
-    def filter(self, items: Iterable[Sequence|Mapping]) -> Iterable[Sequence|Mapping]:
+    def filter(self, items: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
 
         items = iter(items) # this makes sure items are pulled out for fitting
 
@@ -341,8 +341,8 @@ class Encode(Filter[Iterable[Sequence|Mapping], Iterable[Sequence|Mapping]]):
                     item[k] = encoders[k].encode(val) if val not in ['',self._missing_val] else val
             yield item
 
-class Structure(Filter[Iterable[Sequence|Mapping], Iterable[Any]]):
-    """A filter to restructure rows in table shaped data."""
+class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
+    """A filter which restructures rows in table shaped data."""
 
     def __init__(self, structure: Sequence[Any]) -> None:
         """Instantiate Structure filter.
@@ -367,7 +367,7 @@ class Structure(Filter[Iterable[Sequence|Mapping], Iterable[Any]]):
             else:
                 self._structure.insert(0,item)
 
-    def filter(self, data: Iterable[Sequence|Mapping]) -> Iterable[Any]:
+    def filter(self, data: Iterable[Union[Sequence,Mapping]]) -> Iterable[Any]:
         first, data = peek_first(data)
         is_dense = isinstance(first, Dense)
 
@@ -396,7 +396,7 @@ class Structure(Filter[Iterable[Sequence|Mapping], Iterable[Any]]):
 
             yield working[0]
 
-class Default(Filter[Iterable[Sequence|Mapping], Iterable[Sequence|Mapping]]):
+class Default(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which sets default values for row features in table shaped data."""
 
     def __init__(self, defaults: Mapping[Any, Any]) -> None:
@@ -407,7 +407,7 @@ class Default(Filter[Iterable[Sequence|Mapping], Iterable[Sequence|Mapping]]):
         """
         self._defaults = defaults
 
-    def filter(self, data: Iterable[Sequence|Mapping]) -> Iterable[Sequence|Mapping]:
+    def filter(self, data: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
 
         for row in data:
 

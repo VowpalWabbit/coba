@@ -6,7 +6,7 @@ import multiprocessing as mp
 from collections.abc import Iterator
 from queue import Empty
 from traceback import format_tb
-from typing import Iterable, Mapping, Callable, Optional, Sequence, Any, Literal
+from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any, Literal
 
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
@@ -169,7 +169,7 @@ class AsyncableLine(SourceSink):
 
     def run_async(self,
         callback:Callable[['AsyncableLine',Optional[Exception],Optional[str]],None]=None,
-        mode:Literal['process','thread']='process') -> ThreadLine|ProcessLine:
+        mode:Literal['process','thread']='process') -> Union[ThreadLine,ProcessLine]:
         """Run the pipeline asynchronously."""
 
         mode = mode.lower()
@@ -319,11 +319,11 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             load_line   = SourceSink(IterableSource(items), self._load_stopper, pickler, in_put)
             filter_line = SourceSink(in_get, setter, unpickler, get_max, Safe(Foreach(self._filter)), out_put)
 
-            def loader_finished_or_failed(worker: ThreadLine|ProcessLine):
+            def loader_finished_or_failed(worker: Union[ThreadLine,ProcessLine]):
                 if worker.exception: self._exceptions.append(worker.exception)
                 in_put.write(self._load_stopper.filter([self._poison]*self._n_procs))
 
-            def filter_finished_or_failed(worker: ThreadLine|ProcessLine):
+            def filter_finished_or_failed(worker: Union[ThreadLine,ProcessLine]):
                 if worker.exception: self._exceptions.append(worker.exception)
 
                 assert not worker.is_alive()

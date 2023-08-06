@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Mapping, Iterable, Optional, Callable
+from typing import Any, Mapping, Iterable, Union, Optional, Callable
 
 from coba.learners import Learner
 from coba.environments import Environment
@@ -16,7 +16,7 @@ class Evaluator(ABC):
         return {}
 
     @abstractmethod
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Mapping[Any,Any]|Iterable[Mapping[Any,Any]]:
+    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Union[Mapping[Any,Any],Iterable[Mapping[Any,Any]]]:
         """Evaluate the learner on the given interactions.
 
         Args:
@@ -29,7 +29,7 @@ class Evaluator(ABC):
         ...
 
 class SafeEvaluator(Evaluator):
-    def __init__(self, evaluator: Evaluator|Callable[[Environment,Learner],Mapping|Iterable[Mapping]]) -> None:
+    def __init__(self, evaluator: Union[Evaluator, Callable[[Environment,Learner], Union[Mapping, Iterable[Mapping]]]]) -> None:
         self.evaluator = evaluator if not isinstance(evaluator, SafeEvaluator) else evaluator.evaluator
 
     @property
@@ -46,7 +46,7 @@ class SafeEvaluator(Evaluator):
 
         return params
 
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Mapping|Iterable[Mapping]:
+    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Union[Mapping, Iterable[Mapping]]:
         if callable(self.evaluator):
             return self.evaluator(environment,learner)
         else:

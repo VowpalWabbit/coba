@@ -7,7 +7,7 @@ from numbers import Number
 from abc import ABC, abstractmethod
 from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
-from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Mapping
+from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Mapping
 
 from coba.exceptions import CobaException
 from coba.primitives import Sparse, Dense, Categorical
@@ -320,7 +320,7 @@ class CobaJsonDecoder(json.JSONDecoder):
 
 class InteractionsEncoder:
 
-    def __init__(self, interactions: Sequence[str|float]) -> None:
+    def __init__(self, interactions: Sequence[Union[str,float]]) -> None:
         str_interactions = [i for i in interactions if isinstance(i,str)   ]
         num_interactions = [i for i in interactions if isinstance(i,Number)]
 
@@ -330,7 +330,7 @@ class InteractionsEncoder:
         self._cross_pows = OrderedDict(zip(interactions,map(OrderedDict,map(Counter,str_interactions))))
         self._ns_max_pow = { n:int(max(p.get(n,0) for p in self._cross_pows.values())) for n in set(''.join(str_interactions)) }
 
-    def encode(self, **ns_raw_values: str|float|Sequence[str|float]|Mapping[str|int,str|float]) -> Sequence[float]|Mapping[str,float]:
+    def encode(self, **ns_raw_values: Union[str, float, Sequence[Union[str,float]], Mapping[Union[str,int],Union[str,float]]]) -> Union[Sequence[float], Mapping[str,float]]:
 
         self.n+= 1
 
@@ -345,13 +345,13 @@ class InteractionsEncoder:
 
         is_sparse = any(is_sparse_type(v) or is_sparse_sequ(v) for v in ns_raw_values.values())
 
-        def make_dict(v) -> Mapping[str,str|float]:
+        def make_dict(v) -> Mapping[str,Union[str,float]]:
             return v if is_map(v) else dict(zip(map(str,count()),v)) if is_seq(v) else { "0":v }
 
-        def make_list(v) -> Sequence[str|float]:
+        def make_list(v) -> Sequence[Union[str,float]]:
             return v if is_seq(v) else [v]
 
-        def handle_str(v: Mapping[str,str|float]) -> Mapping[str,float]:
+        def handle_str(v: Mapping[str,Union[str,float]]) -> Mapping[str,float]:
             return { (f"{x}{y}" if is_str(y) else x):(1 if is_str(y) else y) for x,y in v.items() }
 
         start = time.time()
@@ -400,7 +400,7 @@ class InteractionsEncoder:
 
             return encoded
 
-    def _pows(self, values: Sequence[str|float], degree):
+    def _pows(self, values: Sequence[Union[str,float]], degree):
         #WARNING: This function has been extremely optimized. Please baseline performance before and after making any changes.
         #WARNING: You can find three existing performance tests in test_performance.
 

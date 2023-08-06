@@ -5,7 +5,7 @@ from abc import abstractmethod, ABC
 from multiprocessing import current_process
 from contextlib import contextmanager, nullcontext
 from datetime import datetime
-from typing import ContextManager, Iterator, Sequence
+from typing import ContextManager, Iterator, Sequence, Union
 from copy import copy
 
 from coba.pipes import Pipes, Filter, Sink, NullSink, ConsoleSink, Identity
@@ -26,7 +26,7 @@ class Logger(ABC):
         ...
 
     @abstractmethod
-    def log(self, message: str|Exception) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         """Log a message or exception to the sink.
 
         Args:
@@ -68,7 +68,7 @@ class NullLogger(Logger):
     def sink(self, sink: Sink[str]):
         self._sink = sink
 
-    def log(self, message: str|Exception) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         return nullcontext(self)
 
     def time(self, message: str) -> 'ContextManager[Logger]':
@@ -198,7 +198,7 @@ class IndentLogger(Logger):
     def sink(self, sink: Sink[str]):
         self._sink = sink
 
-    def log(self, message: str|Exception) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         if self._messages:
             self._messages.append(self._level_message(message))
         else:
@@ -229,7 +229,7 @@ class ExceptionLogger(Logger):
     def sink(self, sink: Sink[str]):
         self._sink = sink
 
-    def log(self, message: str|Exception) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         if isinstance(message,Exception):
             self._sink.write(self._filter.filter(message))
         return nullcontext(self)
@@ -264,7 +264,7 @@ class DecoratedLogger(Logger):
         self._original_logger.sink = sink
         self._copy_logger.sink     = Pipes.join(*self._post_decorators, sink)
 
-    def log(self, message: str|Exception) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         return self._copy_logger.log(self._pre_decorator.filter(message))
 
     def time(self, message: str) -> 'ContextManager[Logger]':
@@ -288,10 +288,10 @@ class StampLog(Filter[str,str]):
     def _now(self)-> datetime:
         return datetime.now()
 
-class ExceptLog(Filter[str|Exception,str]):
+class ExceptLog(Filter[Union[str,Exception],str]):
     """A Log decorator that turns exceptions into messages."""
 
-    def filter(self, log: str|Exception) -> str:
+    def filter(self, log: Union[str,Exception]) -> str:
         if isinstance(log, str):
             return log
         elif isinstance(log, CobaException):

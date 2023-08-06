@@ -5,7 +5,7 @@ from operator import mul, sub
 from bisect import bisect_left
 from itertools import repeat, accumulate, compress, chain
 from abc import abstractmethod, ABC
-from typing import Sequence, Tuple, Callable, Optional, Literal
+from typing import Sequence, Tuple, Union, Callable, Optional, Literal
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
@@ -20,7 +20,7 @@ def iqr(values: Sequence[float]) -> float:
 
     return p75-p25
 
-def percentile(values: Sequence[float], percentiles: float|Sequence[float], weights: Sequence[float] = None, sort: bool = True) -> float|Tuple[float,...]:
+def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]], weights: Sequence[float] = None, sort: bool = True) -> Union[float, Tuple[float,...]]:
 
     if len(values) == 1:
         if isinstance(percentiles,(int,float)):

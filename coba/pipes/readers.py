@@ -4,7 +4,7 @@ import csv
 from operator import methodcaller
 from collections import deque
 from itertools import islice, chain, count, takewhile
-from typing import Iterable, Sequence, Any, Pattern, Tuple, Mapping
+from typing import Iterable, Sequence, Union, Any, Pattern, Tuple, Mapping
 from typing import MutableSequence, MutableMapping, Callable
 
 from coba.exceptions import CobaException
@@ -120,7 +120,7 @@ class ArffAttrReader(Filter[Iterable[str], Iterable[Tuple[str,Callable]]]):
         else:
             raise CobaException(f"An unrecognized encoding was found in the arff attributes: {encoding}.")
 
-class ArffDataReader(Filter[Iterable[str], Iterable[Dense|Sparse]]):
+class ArffDataReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
 
     _trans = str.maketrans('','',' \t\n\r\v\f')
 
@@ -171,7 +171,7 @@ class ArffLineReader(Filter[str, Sequence[str]]):
     def _set_filter(self,method)->None:
         self.filter = method
 
-    def filter(self, line:str) -> Sequence[str]|Mapping[str,str]:
+    def filter(self,line:str) -> Union[Sequence[str],Mapping[str,str]]:
         #this is defined in __init__ for performance purposes 
         pass #pragma: no cover
 
@@ -272,14 +272,14 @@ class ArffLineReader(Filter[str, Sequence[str]]):
             raise CobaException(f"We were unable to parse a line in a way that matched the expected attributes.")
         return parsed
 
-class ArffReader(Filter[Iterable[str], Iterable[Dense|Sparse]]):
+class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
     
     _strip = methodcaller("strip")
 
     def __init__(self):
         """Instantiate an ArffReader."""
 
-    def filter(self, lines: Iterable[str]) -> Iterable[Dense|Sparse]:
+    def filter(self, lines: Iterable[str]) -> Iterable[Union[Dense,Sparse]]:
 
         lines = iter(filter(None,map(self._strip, lines)))
         attrs = [ l for l in takewhile(lambda l: l.lower()!="@data", lines) if l[:5].lower() == "@attr" ]
