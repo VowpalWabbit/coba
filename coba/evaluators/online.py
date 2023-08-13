@@ -72,6 +72,7 @@ class OnPolicyEvaluator(Evaluator):
         record_regret   = 'regret'      in self._record
         record_ope_loss = 'ope_loss'    in self._record
 
+        get_float  = lambda value                   : value if value is None else float(value)
         get_reward = lambda reward                  : float(reward)
         get_regret = lambda reward, rewards, actions: float(rewards.eval(argmax(actions,rewards))-reward)
         get_rank   = lambda reward, rewards, actions: sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
@@ -114,7 +115,7 @@ class OnPolicyEvaluator(Evaluator):
 
             if record_time    : out['predict_time'] = predict_time
             if record_time    : out['learn_time']   = learn_time
-            if record_prob    : out['probability']  = prob
+            if record_prob    : out['probability']  = list(map(get_float,prob)) if batched else get_float(prob)
             if record_action  : out['action']       = action
             if feedbacks      : out['feedback']     = feedback
             if record_reward  : out['reward']       = list(map(get_reward,reward)) if batched else get_reward(reward)
