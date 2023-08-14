@@ -143,11 +143,18 @@ class DiskCacher_Tests(unittest.TestCase):
         cache.get_set("test.csv", lambda:["test"])
         self.assertTrue("test.csv" in cache)
 
-    def test_creates_directory2(self):
-        cache = DiskCacher(None)
-        cache.cache_directory = self.Cache_Test_Dir / "folder1/folder2"
-        cache.get_set("test.csv", lambda:["test"])
-        self.assertTrue("test.csv" in cache)
+    def test_creates_in_home_directory(self):
+        try:
+            cache = DiskCacher("~/can_delete")
+            cache.get_set("test.csv", lambda:["test"])
+            self.assertTrue("test.csv" in cache)
+        finally:
+            if Path("~/can_delete").expanduser().exists():
+                shutil.rmtree(Path("~/can_delete").expanduser())
+
+    def test_bad_directory(self):
+        with self.assertRaises(CobaException):
+            DiskCacher(None)
 
     def test_write_csv_to_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
@@ -199,13 +206,6 @@ class DiskCacher_Tests(unittest.TestCase):
 
         self.assertNotIn("text.csv", DiskCacher(self.Cache_Test_Dir))
         self.assertFalse((self.Cache_Test_Dir / "text.csv.gz").exists())
-
-    def test_None_cach_dir(self):
-        cacher = DiskCacher(None)
-        self.assertNotIn('a', cacher)
-        with cacher.get_set("a",lambda: '123') as out:
-            self.assertEqual('123',out)
-        self.assertNotIn('a', cacher)
  
     def test_bad_file_key(self):
         with self.assertRaises(CobaException):

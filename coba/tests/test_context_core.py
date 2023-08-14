@@ -33,7 +33,7 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
-        self.assertEqual(CobaContext.cacher.cache_directory, None)
+        self.assertEqual(CobaContext.cacher.cache_directory, "~/.cache/coba")
         self.assertEqual(CobaContext.experiment.processes, 1)
         self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.maxtasksperchunk, 0)
@@ -52,7 +52,7 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
-        self.assertEqual(CobaContext.cacher.cache_directory, str(Path("~").expanduser()))
+        self.assertEqual(CobaContext.cacher.cache_directory, "~")
         self.assertEqual(CobaContext.experiment.processes, 1)
         self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
@@ -120,7 +120,7 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.logger, NullLogger)
         self.assertIsInstance(CobaContext.logger.sink, NullSink)
 
-        self.assertEqual(CobaContext.cacher.cache_directory, None)
+        self.assertEqual(CobaContext.cacher.cache_directory, "~/.cache/coba")
         self.assertEqual(CobaContext.experiment.processes, 1)
         self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
@@ -138,7 +138,7 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
-        self.assertEqual(CobaContext.cacher.cache_directory, None)
+        self.assertEqual(CobaContext.cacher.cache_directory, "~/.cache/coba")
         self.assertEqual(CobaContext.experiment.processes, 2)
         self.assertEqual(CobaContext.experiment.maxchunksperchild, 3)
         self.assertEqual(CobaContext.experiment.maxtasksperchunk, 1)
@@ -154,7 +154,7 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
-        self.assertEqual(CobaContext.cacher.cache_directory, None)
+        self.assertEqual(CobaContext.cacher.cache_directory, "~/.cache/coba")
         self.assertEqual(CobaContext.experiment.processes, 2)
         self.assertEqual(CobaContext.experiment.maxchunksperchild, 3)
         self.assertEqual(CobaContext.experiment.maxtasksperchunk, 1)

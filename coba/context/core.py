@@ -52,7 +52,7 @@ class CobaContext_meta(type):
     _cacher        = None
     _logger        = None
     _experiment    = None
-    _search_paths  = [Path.home() , Path.cwd(), Path(sys.path[0])]
+    _search_paths  = [Path.home(), Path.cwd(), Path(sys.path[0])]
     _store         = {}
     _learning_info = {}
 
@@ -99,7 +99,7 @@ class CobaContext_meta(type):
             try:
                 _raw_config: Dict[str,Any] = {
                     "api_keys"  : collections.defaultdict(lambda:None),
-                    "cacher"    : { "DiskCacher": None},
+                    "cacher"    : { "DiskCacher": "~/.cache/coba"},
                     "logger"    : { "IndentLogger": "Console" },
                     "experiment": { "processes": 1, "maxchunksperchild": 0, "maxtasksperchunk":0, "chunk_by": "source" }
                 }

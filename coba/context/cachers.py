@@ -88,7 +88,7 @@ class DiskCacher(Cacher[str, Iterable[str]]):
     The DiskCacher compresses all values before writing to conserve disk space.
     """
 
-    def __init__(self, cache_dir: Union[str, Path] = None) -> None:
+    def __init__(self, cache_dir: Union[str, Path]) -> None:
         """Instantiate a DiskCacher.
 
         Args:
@@ -99,28 +99,27 @@ class DiskCacher(Cacher[str, Iterable[str]]):
     @property
     def cache_directory(self) -> Optional[str]:
         """The directory where the cache will write to disk."""
-        return str(self._cache_dir) if self._cache_dir is not None else None
+        return str(self._cache_dir)
 
     @cache_directory.setter
-    def cache_directory(self,value:Union[Path,str,None]) -> None:
-        self._cache_dir = value if isinstance(value, Path) else Path(value).expanduser() if value else None
+    def cache_directory(self, cache_dir:Union[Path,str]) -> None:
+        if not isinstance(cache_dir,(str,Path)):
+            raise CobaException(f"An invalid cache directory was supplied: {cache_dir}.")
+        self._cache_dir = str(cache_dir)
 
     def __contains__(self, key: str) -> bool:
-        return self._cache_dir is not None and self._cache_path(key).exists()
+        return self._cache_path(key).exists()
 
     def rmv(self, key: str) -> None:
         if self._cache_path(key).exists(): self._cache_path(key).unlink()
 
     def get_set(self, key: str, getter: Union[Callable[[], Iterable[str]],Iterable[str]]) -> ContextManager[Iterable[str]]:
 
-        if self._cache_dir is None:
-            return nullcontext(getter())
-
         if key not in self:
             try:
                 lines = getter() if callable(getter) else getter
                 if isinstance(lines,str): lines = [lines]
-                self._cache_dir.mkdir(parents=True, exist_ok=True)
+                Path(self._cache_dir).expanduser().mkdir(parents=True, exist_ok=True)
 
                 with gzip.open(self._cache_path(key), "wt+", 6, "utf-8") as f:
                     for line in lines:
@@ -139,7 +138,7 @@ class DiskCacher(Cacher[str, Iterable[str]]):
         return f"{key}.gz"
 
     def _cache_path(self, key: str) -> Path:
-        return self._cache_dir/self._cache_name(key)
+        return Path(self._cache_dir).expanduser()/self._cache_name(key)
 
 class ConcurrentCacher(Cacher[_K, _V]):
     """A cacher that is multi-process safe."""
