@@ -4,7 +4,7 @@ from itertools import product
 from typing import cast, Iterable
 
 from coba.context      import CobaContext, BasicLogger
-from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
+from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation, SupervisedSimulation
 from coba.pipes        import Pipes, ListSink, Cache
 from coba.learners     import Learner
 from coba.evaluators   import OnPolicyEvaluator
@@ -61,12 +61,19 @@ class CountReadSimulation:
         return "CountRead"
 
 class ExceptionSimulation:
+    def __init__(self, params_ex = False, read_ex = False):
+        self._params_ex = params_ex
+        self._read_ex = read_ex
     @property
     def params(self):
-        raise Exception('ExceptionSimulation.params')
+        if self._params_ex:
+            raise Exception('ExceptionSimulation.params')
+        return {}
 
     def read(self) -> Iterable[SimulatedInteraction]:
-        raise Exception('ExceptionSimulation.read')
+        if self._read_ex:
+            raise Exception('ExceptionSimulation.read')
+        return []
 
 class ParamObj:
     def __init__(self,**params):
@@ -332,14 +339,13 @@ class ChunkTasks_Tests(unittest.TestCase):
         self.assertCountEqual(groups[3], [tasks[7],tasks[6]])
         self.assertCountEqual(groups[4], [tasks[2],tasks[4]])
 
-class ProcessWorkItems_Tests(unittest.TestCase):
+class ProcessTasks_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
         CobaContext.logger = BasicLogger(ListSink())
         ModuloLearner.n_finish = 0
 
     def test_simple(self):
-
         env1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         evl1 = ObserveEvaluator()
@@ -352,8 +358,17 @@ class ProcessWorkItems_Tests(unittest.TestCase):
         self.assertIs(evl1.observed[1]     , lrn1)
         self.assertEqual(['T4', (1,1,1), []], transactions[0])
 
-    def test_environment_reused(self):
+    def test_env_task(self):
+        env1 = SupervisedSimulation([1,2],[1,2],label_type='c')
+        env2 = SupervisedSimulation([1,2],[1,2],label_type='c')
+        list(env2.read())
 
+        tasks = [Task((1,env1), None, None)]
+
+        transactions = list(ProcessTasks().filter(tasks))
+        self.assertEqual(['T1', 1, env2.params], transactions[0])
+
+    def test_environment_reused(self):
         sim1 = Pipes.join(CountReadSimulation(), Cache())
 
         lrn1 = ModuloLearner("1")
@@ -380,10 +395,9 @@ class ProcessWorkItems_Tests(unittest.TestCase):
         self.assertEqual(['T4', (0,0,0), []                                 ], transactions[1])
         self.assertEqual(['T4', (0,1,1), []                                 ], transactions[2])
 
-        self.assertEqual(sim1[0].n_reads, 1)
+        self.assertEqual(sim1[0].n_reads, 2)
 
     def test_task_copy_true(self):
-
         lrn1 = ModuloLearner("1")
 
         sim1 = CountReadSimulation()
@@ -402,7 +416,6 @@ class ProcessWorkItems_Tests(unittest.TestCase):
         self.assertEqual(2,ModuloLearner.n_finish)
 
     def test_task_copy_false(self):
-
         lrn1 = ModuloLearner("1")
 
         sim1 = CountReadSimulation()
@@ -419,7 +432,6 @@ class ProcessWorkItems_Tests(unittest.TestCase):
         self.assertIs(task2.observed[1], lrn1)
 
     def test_empty_env_skipped(self):
-
         lrn1 = ModuloLearner("1")
         src1  = LinearSyntheticSimulation(n_interactions=0)
 
@@ -433,7 +445,8 @@ class ProcessWorkItems_Tests(unittest.TestCase):
         self.assertEqual(len(transactions), 0)
 
     def test_exception_during_tasks(self):
-        env1 = ExceptionSimulation()
+        env0 = ExceptionSimulation(params_ex=True)
+        env1 = ExceptionSimulation(read_ex=True)
         env2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
 
@@ -442,15 +455,15 @@ class ProcessWorkItems_Tests(unittest.TestCase):
 
         CobaContext.logger.sink = ListSink()
 
-        tasks = [Task((0,env1), None, None), Task((0,env1),(0,lrn1), (1,val2)), Task((1,env2),(0,lrn1), (2,val3)) ]
+        tasks = [Task((0,env0), None, None), Task((0,env1),(0,lrn1), (1,val2)), Task((1,env2),(0,lrn1), (2,val3)) ]
 
         expected = [ ["T4", (1,0,2), [] ] ]
         actual   = list(ProcessTasks().filter(tasks))
 
         self.assertIs(val3.observed[1], lrn1)
         self.assertEqual(expected, actual)
-        self.assertEqual('ExceptionSimulation.params', str(CobaContext.logger.sink.items[2]))
-        self.assertEqual('ExceptionSimulation.read', str(CobaContext.logger.sink.items[5]))
+        self.assertEqual('ExceptionSimulation.params', str(CobaContext.logger.sink.items[4]))
+        self.assertEqual('ExceptionSimulation.read', str(CobaContext.logger.sink.items[7]))
 
 if __name__ == '__main__':
     unittest.main()

@@ -25,7 +25,7 @@ class Task:
         (self.lrn_id, self.lrn) = lrn or (None,None)
         (self.val_id, self.val) = val or (None,None)
         self.copy   = copy
-    
+
     def __eq__(self, o: object) -> bool:
         return isinstance(o,Task) \
         and self.env_id == o.env_id \
@@ -38,10 +38,10 @@ class Task:
 
 class MakeTasks(Source[Iterable[Task]]):
 
-    def __init__(self, 
+    def __init__(self,
         triples: Sequence[Tuple[Environment,Learner,Evaluator]],
         restored: Optional[Result] = None) -> None:
-        
+
         self._triples = triples
         self._restored = restored or Result()
 
@@ -151,6 +151,9 @@ class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
                 if task.copy: lrn = deepcopy(lrn)
 
                 if env and not lrn and not val:
+                    with CobaContext.logger.time(f"Peeking at Environment {env_id}..."):
+                        peek_first(env.read())
+
                     with CobaContext.logger.time(f"Recording Environment {env_id} parameters..."):
                         yield ["T1", env_id, SafeEnvironment(env).params]
 
