@@ -603,10 +603,9 @@ class ExceptLog_Tests(unittest.TestCase):
 
         log = decorator.filter(exception)
 
-        tb  = ''.join(traceback.format_tb(exception.__traceback__))
         msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())
 
-        expected_log = f"Unexpected exception:\n\n{tb}\n  {msg}"
+        expected_log = f"Unexpected exception:\n\n  {msg}"
 
         self.assertEqual(log, expected_log)
 
@@ -624,6 +623,27 @@ class ExceptLog_Tests(unittest.TestCase):
             msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
 
             expected_log = f"Unexpected exception:\n\n{tb}\n  {msg}"
+
+            self.assertEqual(log, expected_log)
+
+    def test_filter_exception_raise_with_caues(self):
+
+        decorator = ExceptLog()
+        outer_ex  = Exception("Out Exception")
+        inner_ex  = Exception("In Exception")
+
+        try:
+            raise inner_ex from outer_ex
+        except Exception as ex:
+            log = decorator.filter(ex)
+
+            tb = ''.join(traceback.format_tb(ex.__traceback__))
+            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+
+            expected_log = (
+                'Unexpected exception:\n\n  Exception: Out Exception\n\nThe above exception '
+                f'was the direct cause of the following exception:\n\n{tb}\n  {msg}'
+            )
 
             self.assertEqual(log, expected_log)
 

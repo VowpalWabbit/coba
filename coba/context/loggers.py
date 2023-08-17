@@ -297,6 +297,20 @@ class ExceptLog(Filter[Union[str,Exception],str]):
         elif isinstance(log, CobaException):
             return f"EXCEPTION: {log}"
         else:
-            tb  = ''.join(traceback.format_tb(log.__traceback__))
-            msg = ''.join(traceback.TracebackException.from_exception(log).format_exception_only())
-            return f"Unexpected exception:\n\n{tb}\n  {msg}"
+            return f'Unexpected exception:\n\n{self.format_exception(log)}'
+
+    def format_exception(self, ex: Exception):
+
+        out = []
+
+        if ex.__cause__ is not None:
+            out.append(self.format_exception(ex.__cause__))
+            out.append("The above exception was the direct cause of the following exception:\n")
+
+        tb  = ''.join(traceback.format_tb(ex.__traceback__))
+        msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+
+        if tb : out.append(tb)
+        if msg: out.append(f'  {msg}')
+
+        return '\n'.join(out)
