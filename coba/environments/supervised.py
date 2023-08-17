@@ -202,6 +202,7 @@ class SupervisedSimulation(Environment):
         if label_type == "r":
             actions = []
             reward  = L1Reward
+            self._params['n_actions'] = float('inf')
 
         elif label_type == "c" and isinstance(first_label, Categorical):
             #Handling the categoricals separately allows for a performance optimization
@@ -220,6 +221,8 @@ class SupervisedSimulation(Environment):
                 delist  = lambda l: l[0] if isinstance(l,list) else l
                 actions = sorted(set(map(delist,lbls)))
                 reward  = lambda l: MulticlassReward(delist(l))
+
+            self._params['n_actions'] = len(actions)
 
         if first_row_type == 0:
             for row in rows:

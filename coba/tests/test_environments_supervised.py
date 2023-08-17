@@ -10,9 +10,20 @@ CobaContext.logger = NullLogger()
 
 class SupervisedSimulation_Tests(unittest.TestCase):
 
-    def test_params(self):
+    def test_params_pre_read(self):
         expected_params = {'source': "[X,Y]", 'label_type':'C', "env_type": "SupervisedSimulation"}
         self.assertEqual(expected_params, SupervisedSimulation([1,2],[1,2],label_type="C").params)
+
+    def test_params_post_read(self):
+        expected_params = {'source': "[X,Y]", 'label_type':'C', "env_type": "SupervisedSimulation", 'n_actions':2}
+        env = SupervisedSimulation([1,2],[1,2],label_type="C")
+        list(env.read())
+        self.assertEqual(expected_params, env.params)
+
+        expected_params = {'source': "[X,Y]", 'label_type':'R', "env_type": "SupervisedSimulation", 'n_actions':float('inf')}
+        env = SupervisedSimulation([1,2],[1,2],label_type="R")
+        list(env.read())
+        self.assertEqual(expected_params, env.params)
 
     def test_source_reader_classification(self):
 
