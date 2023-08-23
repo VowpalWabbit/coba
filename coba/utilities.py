@@ -139,3 +139,28 @@ def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], It
     first = None if not first else first[0] if n==1 else first
 
     return first, items
+
+
+def sample_actions(
+    action_space,#: list[str],
+    probabilities,#: list[float],
+    random_seed = None,#: str | None = None,
+):# -> tuple[str, float]:
+    """
+    Sample an action in the action space weighted by the probabilities.
+    A random seed can be set to achieve repeatable results. Every time the seed is set the sampling result is
+    deterministic. Calling sample_actions(actions, probabilities, "my_random_seed") ten times will result in equal
+    results for each call.
+    """
+    import numpy as np
+    from hashlib import sha256
+    # Scale to a sum of 1
+    probabilities_normalized = np.array(probabilities) / np.sum(probabilities)
+
+    seed = np.frombuffer(sha256(random_seed.encode()).digest(), dtype='uint32') if random_seed is not None else None
+    rng = np.random.default_rng(seed=seed)
+
+    action = rng.choice(a=action_space, p=probabilities_normalized)
+    probability = probabilities_normalized[action_space.index(action)]
+
+    return action, probability

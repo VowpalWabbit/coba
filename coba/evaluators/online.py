@@ -13,7 +13,7 @@ from coba.environments import Environment
 from coba.learners import Learner, SafeLearner
 from coba.primitives import Batch, argmax
 from coba.statistics import percentile
-from coba.utilities import PackageChecker, peek_first
+from coba.utilities import PackageChecker, peek_first, sample_actions
 
 from coba.evaluators.primitives import Evaluator, get_ope_loss
 
@@ -235,8 +235,10 @@ class OffPolicyEvaluator(Evaluator):
                         predict_time = time.time()-start_time
                         if not batched:
                             ope_reward = sum(p*float(log_rewards.eval(a)) for p,a in zip(on_probs,log_actions))
+                            on_action, on_prob = sample_actions(log_actions, on_probs)
                         else:
                             ope_reward = [ sum(p*float(R.eval(a)) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
+                            on_action, on_prob = zip(*[sample_actions(actions, probs) for actions, probs in zip(log_actions, on_probs)])
                     else:
                         start_time   = time.time()
                         if not batched:
@@ -266,15 +268,15 @@ class OffPolicyEvaluator(Evaluator):
             if record_time  :  out['predict_time'] = predict_time
             if record_time  :  out['learn_time']   = learn_time
             if record_reward:  out['reward']       = ope_reward
-            if record_action:  out['action']       = log_action
-            if record_prob:    out['probability']  = log_prob
+            if record_action:  out['action']       = on_action
+            if record_prob:    out['probability']  = on_prob
             if record_context: out['context']      = log_context
             if record_actions: out['actions']      = log_actions
             if record_rewards: out['rewards']      = log_rewards
 
             out.update({k: interaction[k] for k in interaction.keys()-OffPolicyEvaluator.IMPLICIT_EXCLUDE})
 
-            if record_ope_loss: out['ope_loss'] = get_ope_loss(learner)
+            if record_ope_loss: out['ope_loss'] = get_ope_loss(learner) if not batched else [get_ope_loss(learner)] * len(log_context)
 
             if info:
                 out.update(info)
