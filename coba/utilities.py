@@ -7,6 +7,8 @@ from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any
 
 from coba import CobaRandom
 from coba.exceptions import CobaExit
+from coba.random import choice
+
 
 def coba_exit(message:str):
     #we ignore warnings before exiting in order to make jupyter's output a little cleaner
@@ -143,19 +145,14 @@ def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], It
 
 
 def sample_actions(
-    actions: list[str],
-    probabilities: list[float],
-    rng: CobaRandom = CobaRandom(),
-) -> tuple[Any, float]:
+    actions: Sequence[Any],
+    probabilities: Sequence[float],
+    rng: CobaRandom | None = None,
+) -> Tuple[Any, float]:
     """
     Sample the actions weighted by their probabilities.
     """
+    choice_function = rng.choice if rng else choice
+    index = choice_function(range(len(probabilities)), probabilities)
 
-    # Scale to a sum of 1
-    prob_sum = sum(probabilities)
-    probabilities_normalized = [prob/prob_sum for prob in probabilities]
-
-    action = rng.choice(a=actions, p=probabilities_normalized)
-    probability = probabilities_normalized[actions.index(action)]
-
-    return action, probability
+    return actions[index], probabilities[index]

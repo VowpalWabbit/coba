@@ -2,6 +2,7 @@ from collections import abc
 from math import isclose
 from typing import Any, Sequence, Tuple, Mapping, Literal
 
+from coba.utilities import sample_actions
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.primitives import Batch, Context, Action, Actions
@@ -266,8 +267,7 @@ class SafeLearner(Learner):
                 pred = list(pred.values())[0]
 
             if self._pred_format[:2] == 'PM':
-                i = self._get_pmf_index(pred)
-                a,p = actions[i], pred[i]
+                a,p = sample_actions(actions, pred, self._rng)
 
             if self._pred_format[:2] == 'AP':
                 a,p = pred[:2]
@@ -287,9 +287,7 @@ class SafeLearner(Learner):
 
             A,P = [],[]
             if self._pred_format[:2] == 'PM':
-                I = [self._get_pmf_index(p) for p in pred]
-                A = [ a[i] for a,i in zip(actions,I) ]
-                P = [ p[i] for p,i in zip(pred,I) ]
+                A, P = zip(*[sample_actions(a, p, self._rng) for a, p in zip(actions, pred)])
 
             if self._pred_format[:2] == 'AX':
                 A = pred
@@ -308,9 +306,7 @@ class SafeLearner(Learner):
                 pred = list(pred.values())[0]
 
             if self._pred_format[:2] == 'PM':
-                I = [self._get_pmf_index(p) for p in zip(*pred)]
-                A = [ a[i] for a,i in zip(actions,I) ]
-                P = [ p[i] for p,i in zip(pred,I) ]
+                A, P = zip(*[sample_actions(a, p, self._rng) for a, p in zip(actions, pred)])
 
             if self._pred_format[:2] == 'AX':
                 A = pred
