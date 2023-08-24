@@ -331,8 +331,5 @@ class SafeLearner(Learner):
                 raise CobaException("It appears that learner.predict expected kwargs but learner.predict did not provide any.") from ex
             raise
 
-    def _get_pmf_index(self,pmf):
-        return self._rng.choice(range(len(pmf)), pmf)
-
     def __str__(self) -> str:
         return self.full_name
