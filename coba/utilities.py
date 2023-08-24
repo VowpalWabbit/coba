@@ -3,7 +3,7 @@ import importlib
 
 from itertools import chain, islice
 from collections import defaultdict
-from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any
+from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Optional
 
 from coba import CobaRandom
 from coba.exceptions import CobaExit
@@ -147,7 +147,7 @@ def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], It
 def sample_actions(
     actions: Sequence[Any],
     probabilities: Sequence[float],
-    rng: CobaRandom | None = None,
+    rng: Optional[CobaRandom] = None,
 ) -> Tuple[Any, float]:
     """
     Sample the actions weighted by their probabilities.
