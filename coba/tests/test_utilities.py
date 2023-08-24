@@ -2,8 +2,10 @@ import sys
 import unittest
 import unittest.mock
 
+from coba import CobaRandom
 from coba.exceptions import CobaExit, sans_tb_sys_except_hook
-from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit, peek_first
+from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit, peek_first, sample_actions
+
 
 class coba_exit_Tests(unittest.TestCase):
     def test_coba_exit(self):
@@ -114,6 +116,29 @@ class peek_first_Tests(unittest.TestCase):
 
         self.assertEqual(first,[1,2,3])
         self.assertEqual(list(items),[1,2,3])
+
+class sample_actions_Tests(unittest.TestCase):
+
+    def test_sampling(self):
+        actions = [1,2,3]
+        probs = [0,0,1]
+        action, prob = sample_actions(actions, probs)
+        self.assertEqual(action, 3)
+        self.assertEqual(prob, 1)
+
+    def test_statistics(self):
+        actions = [1,2,3]
+        probs = [0.1, 0.2, 0.7]
+        action, prob = zip(*[sample_actions(actions, probs) for _ in range(10_000)])
+        self.assertTrue(action.count(3) > action.count(2) > action.count(1))
+
+
+    def test_custom_rng(self):
+        actions = [1,2,3]
+        probs = [0,0,1]
+        action, prob = sample_actions(actions, probs, CobaRandom(seed=1.23))
+        self.assertEqual(action, 3)
+        self.assertEqual(prob, 1)
 
 if __name__ == '__main__':
     unittest.main()
