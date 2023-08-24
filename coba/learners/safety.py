@@ -287,7 +287,7 @@ class SafeLearner(Learner):
 
             A,P = [],[]
             if self._pred_format[:2] == 'PM':
-                A, P = zip(*[sample_actions(a, p, self._rng) for a, p in zip(actions, pred)])
+                A, P = list(map(list, zip(*[sample_actions(a, p, self._rng) for a, p in zip(actions, pred)])))
 
             if self._pred_format[:2] == 'AX':
                 A = pred
@@ -306,7 +306,7 @@ class SafeLearner(Learner):
                 pred = list(pred.values())[0]
 
             if self._pred_format[:2] == 'PM':
-                A, P = zip(*[sample_actions(a, p, self._rng) for a, p in zip(actions, pred)])
+                A, P = list(map(list, zip(*[sample_actions(a, p, self._rng) for a, p in zip(actions, pred)])))
 
             if self._pred_format[:2] == 'AX':
                 A = pred
