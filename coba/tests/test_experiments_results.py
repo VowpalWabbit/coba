@@ -1070,7 +1070,33 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.environments))
         self.assertEqual(0, len(filtered_result.learners))
         self.assertEqual(0, len(filtered_result.interactions))
-        self.assertEqual(["There was no environment_id which was finished for every learner_id."], CobaContext.logger.sink.items)
+        self.assertEqual("We removed 2 environment_id because they did not exist for every learner_id.", CobaContext.logger.sink.items[0])
+        self.assertEqual("There was no environment_id which was finished for every learner_id.", CobaContext.logger.sink.items[1])
+
+    def test_filter_fin_multi_p(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        envs = [['environment_id','data_id','seed'                   ],[1,2,1],[2,2,2]]
+        lrns = [['learner_id'                                        ],[1],[2]]
+        vals = [['evaluator_id'                                      ],[1]]
+        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[1,2,1,0],[2,1,1,0],[2,2,1,0]]
+
+        original_result = Result(envs, lrns, vals, ints)
+        filtered_result = original_result.filter_fin(l='learner_id',p='data_id')
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(1, len(original_result.evaluators))
+        self.assertEqual(4, len(original_result.interactions))
+
+        self.assertEqual(0, len(filtered_result.environments))
+        self.assertEqual(0, len(filtered_result.learners))
+        self.assertEqual(0, len(filtered_result.evaluators))
+        self.assertEqual(0, len(filtered_result.interactions))
+        self.assertEqual("We removed 1 data_id because more than one existed for each learner_id.", CobaContext.logger.sink.items[0])
+        self.assertEqual("There was no data_id which was finished for every learner_id.", CobaContext.logger.sink.items[1])
 
     def test_filter_env(self):
 
@@ -1634,7 +1660,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "Every environment_id not present for all full_name has been excluded."
+        expected_logs = ["We removed 1 environment_id because it did not exist for every full_name."]
         expected_lines = [
             Points([1,2],[2,5/2],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[2,5/2],[],[0,0],1,1,'2. learner_2','-', 1)
@@ -1642,7 +1668,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
-        self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
 
     def test_plot_learners_mixed_env_length(self):
 
@@ -1665,7 +1691,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = 'Interactions beyond the shortest environment_id have been excluded.'
+        expected_logs = ['We shortened 2 environments because they were longer than the shortest environment.']
         expected_lines = [
             Points([1,2],[3/2,4/2],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[3/2,4/2],[],[0,0],1,1,'2. learner_2','-', 1)
@@ -1673,7 +1699,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
-        self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
 
     def test_plot_learners_filename(self):
         envs = [['environment_id'],[0],[1]]
@@ -2303,15 +2329,21 @@ class Result_Tests(unittest.TestCase):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
-        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,0,0,1,1],
+                [0,1,0,1,1],
+                [1,0,0,1,1],[1,0,0,2,1],
+                [1,1,0,1,1],[1,1,0,2,1]
+        ]
         result = Result(envs, lrns, vals, ints)
 
+        expected_logs = ['We shortened 2 environments because they were longer than the shortest environment.']
         expected_rows = [(0,0,0,1,1),(0,1,0,1,1),(1,0,0,1,1),(1,1,0,1,1)]
 
         plottable = result._plottable('index','reward')._finished('index','reward','learner_id','environment_id')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
-        self.assertEqual(["Interactions beyond the shortest environment_id have been excluded."], CobaContext.logger.sink.items)
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
 
     def test_plottable_not_all_env_finished_with_unequal_lengths_and_x_index(self):
 
@@ -2321,15 +2353,19 @@ class Result_Tests(unittest.TestCase):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
-        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,0,0,1,1],
+                [1,0,0,1,1],[1,0,0,2,1],
+                [1,1,0,1,1],[1,1,0,2,1],
+        ]
         result = Result(envs, lrns, vals, ints)
 
-        expected_rows = [(1,0,0,1,1),(1,1,0,1,1)]
+        expected_logs = ["We removed 1 environment_id because it did not exist for every learner_id."]
+        expected_rows = [(1,0,0,1,1),(1,0,0,2,1),(1,1,0,1,1),(1,1,0,2,1)]
         plottable = result._plottable('index','reward')._finished('index','reward','learner_id','environment_id')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
-        self.assertEqual("Every environment_id not present for all learner_id has been excluded.", CobaContext.logger.sink.items[0])
-        self.assertEqual("Interactions beyond the shortest environment_id have been excluded.", CobaContext.logger.sink.items[1])
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
 
     def test_plottable_no_env_finished_for_all_learners(self):
 

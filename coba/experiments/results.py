@@ -1350,17 +1350,11 @@ class Result:
 
         return self
 
-    def _finished(self,x:Sequence[str], y:str, l: Sequence[str], p: Sequence[str]) -> 'Result':
+    def _finished(self, x:Sequence[str], y:str, l:Sequence[str], p:Sequence[str]) -> 'Result':
         only_finished = self._filter_fin('min' if x == 'index' else None, l, p)
 
         if len(only_finished.learners) == 0:
             raise CobaException(f"This result does not contain a {p} that has been finished for every {l}.")
-
-        if len(only_finished.environments) != len(self.environments):
-            CobaContext.logger.log(f"Every {p} not present for all {l} has been excluded.")
-
-        if len(only_finished.interactions) != len(self.interactions):
-            CobaContext.logger.log(f"Interactions beyond the shortest {p} have been excluded.")
 
         return only_finished
 
@@ -1442,21 +1436,26 @@ class Result:
         evaluators   = self.evaluators
         interactions = self.interactions
 
-        min_N = float('inf')
-
-        to_remove = []
+        env_lengths = []
+        to_remove   = []
         for indexed_table in self._indexed_tables(['environment_id','learner_id','evaluator_id']):
             table = indexed_table[1]
-            min_N = min(min_N,len(table))
-            if n!='min' and len(table) != n:
+            if n!='min' and len(table) < n:
                 to_remove.append(indexed_table[0])
+            else:
+                env_lengths.append(len(table))
 
         if to_remove:
             select = self._remove(to_remove,n)
             interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
+            CobaContext.logger.log(f"We removed {len(to_remove)} environment{'s' if len(to_remove)>1 else ''} because they were shorter than {n} interactions.")
 
-        if n == 'min':
-            interactions = interactions.where(index={'<=':min_N})
+        env_lengths = collections.Counter(env_lengths)
+        if len(env_lengths) > 1:
+            shorten_to = min(env_lengths) if n=='min' else n
+            n_shortened = sum(v for k,v in env_lengths.items() if k > shorten_to)
+            interactions = interactions.where(index={'<=':shorten_to})
+            CobaContext.logger.log(f"We shortened {n_shortened} environment{'s' if n_shortened>1 else ''} because they were longer than the shortest environment.")
 
         if len(interactions) != len(self.interactions):
             environments = environments.where(environment_id=set(interactions['environment_id']))
@@ -1475,10 +1474,19 @@ class Result:
         n_levels = len(set(it[0] for it in self._indexed_tables(l)))
 
         to_remove = []
+        any_larger = 0
+        any_smaller = 0
         for _, group in groupby(self._indexed_tables(p,['environment_id','learner_id','evaluator_id']),key=itemgetter(0)):
             group = list(group)
-            if (len(group) < n_levels):
-                to_remove.extend(g[1] for g in group)
+            any_larger += int(len(group) > n_levels)
+            any_smaller += int(len(group) < n_levels)
+            if len(group) != n_levels: to_remove.extend(g[1] for g in group)
+
+        if any_larger:
+            CobaContext.logger.log(f"We removed {any_larger} {p} because more than one existed for each {l}.")
+
+        if any_smaller:
+            CobaContext.logger.log(f"We removed {any_smaller} {p} because {'they' if any_smaller>1 else 'it'} did not exist for every {l}.")
 
         if to_remove:
             select = self._remove(to_remove)
@@ -1505,8 +1513,8 @@ class Result:
 
         result = self.copy()
 
-        if n     : result = result._global_n(n)
         if l or p: result = result._group_p(l,p)
+        if n     : result = result._global_n(n)
 
         return result
 
