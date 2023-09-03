@@ -162,8 +162,8 @@ class Table:
 
     def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), indexes: Sequence[str]= ()):
 
-        self._columns = tuple(columns)
-        self._data    = {c:[] for c in columns}
+        self._columns = tuple(columns) if not isinstance(data,collections.abc.Mapping) else tuple(columns) or tuple(data.keys())
+        self._data    = {c:[] for c in self._columns}
         self.insert(data)
         self._indexes = tuple(indexes)
         self._lohis   = self._calc_lohis()
@@ -999,9 +999,96 @@ class Result:
 
         return out
 
+    def raw_learners(self,
+        x   : Union[str, Sequence[str]] = 'index',
+        y   : str                       = 'reward',
+        l   : Union[str, Sequence[str]] = 'full_name',
+        p   : Union[str, Sequence[str]] = 'environment_id',
+        span: int = None) -> Table:
+
+        data = collections.defaultdict(list)
+        plottable = self._plottable(x,y)._finished(x,y,l,p)
+
+        for _p, group in groupby(plottable._indexed_ys(p,l,x,y=y,span=span),key=itemgetter(0)):
+
+            group  = list(map(itemgetter(slice(1,None)),group))
+            group0 = list(list(next(groupby(group,key=itemgetter(0))))[1])
+
+            data[f'p={p}'].extend(repeat(_p,len(group0)))
+            data[f'x={x}'].extend(map(itemgetter(1),group0))
+
+            for _l, group in groupby(group,key=itemgetter(0)):
+                data[f'l={_l}'].extend(map(itemgetter(2),group))
+
+        return Table(data)
+
+    def raw_contrast(self,
+        l1  : Any,
+        l2  : Any,
+        x   : Union[str, Sequence[str]] = 'environment_id',
+        y   : str                       = 'reward',
+        l   : Union[str, Sequence[str]] = 'learner_id',
+        p   : Union[str, Sequence[str]] = 'environment_id',
+        span: int = None) -> Table:
+
+        og_l = (l1,l2)
+
+        list_like=(list,tuple)
+
+        if     isinstance(l,list_like) and not isinstance(l1[0],list_like): l1 = [l1]
+        if     isinstance(l,list_like) and not isinstance(l2[0],list_like): l2 = [l2]
+        if not isinstance(l,list_like) and not isinstance(l1   ,list_like): l1 = [l1]
+        if not isinstance(l,list_like) and not isinstance(l2   ,list_like): l2 = [l2]
+
+        if any(_l1 in l2 for _l1 in l1):
+            raise CobaException("A value cannot be in both `l1` and `l2`. Please make a change and run it again.")
+
+        plottable = self._plottable(x,y)
+        eid       = 'environment_id'
+        lid       = 'learner_id'
+
+        data = collections.defaultdict(list)
+
+        if x != 'index':
+            #this implementation is considerably slower but always gives the correct results
+            L1,L2 = [],[]
+            for _l, group in groupby(plottable._indexed_ys(l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+
+                if _l in l1:
+                    L1.extend(map(itemgetter(slice(1,None)),group))
+                if _l in l2:
+                    L2.extend(map(itemgetter(slice(1,None)),group))
+
+            for _x, group in groupby(sorted(plottable._pairings(p,L1,L2),key=cmp_to_key(comparer)),key=itemgetter(0)):
+                _x = _x[0] if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
+
+                for _,(_y1,_y2),_p in group:
+                    data[f'p={p}'].append(_p)
+                    data[f'x={x}'].append(_x)
+                    data[f'l1={og_l[0]}'].append(_y1)
+                    data[f'l2={og_l[1]}'].append(_y2)
+        else:
+            #this implementation is considerably faster but only gives correct results under certain conditions
+            for _x, _group in groupby(plottable._indexed_ys(x,l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+
+                _group = list(map(itemgetter(slice(1,None)),_group))
+                _L1    = [g[1:] for g in _group if g[0] in l1 ]
+                _L2    = [g[1:] for g in _group if g[0] in l2 ]
+
+                for _,(_y1,_y2),_p in plottable._pairings(p,_L1,_L2):
+                    data[f'p={p}'].append(_p)
+                    data[f'x={x}'].append(_x)
+                    data[f'l1={og_l[0]}'].append(_y1)
+                    data[f'l2={og_l[1]}'].append(_y2)
+
+        if not data:
+            raise CobaException(f"We were unable to create any pairings to contrast. Make sure l1={og_l[0]} and l2={og_l[1]} is correct.")
+
+        return Table(data)
+
     def plot_learners(self,
         x       : Union[str, Sequence[str]] = 'index',
-        y       : str = "reward",
+        y       : str                       = 'reward',
         l       : Union[str, Sequence[str]] = 'full_name',
         p       : Union[str, Sequence[str]] = 'environment_id',
         span    : int = None,
@@ -1130,8 +1217,7 @@ class Result:
             y: The value to plot on the y-axis.
             l: The level at which we want to contrast.
             p: The pairs that must exist across all comparison levels in order to be included.
-            mode: The kind of contrast plot to make: diff plots the pairwise difference, prob plots the the probability
-                of learner_id1 beating learner_id2, and scatter plots learner_id1 on x-axis and learner_id2 on y axis.
+            mode: 'diff' -- plot the pairwise difference; 'prob' plot the probability of l1 beating l2.
             span: The number of y values to smooth together when reporting y. If this is None then the average of all y
                 values up to current is shown otherwise a moving average with window size of span (the window will be
                 smaller than span initially).
@@ -1195,7 +1281,7 @@ class Result:
                 X_Y_YE = []
                 for _xi, (_x, group) in enumerate(groupby(sorted(plottable._pairings(p,L1,L2),key=cmp_to_key(comparer)),key=itemgetter(0))):
                     _x = f"{_x[0]}" if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
-                    _Y = [contraster(*pair) for _,pair in group]
+                    _Y = [contraster(*pair) for _,pair,_ in group]
                     if _Y: X_Y_YE.append((_x,) + err(_Y,_xi))
 
             else:
@@ -1206,7 +1292,7 @@ class Result:
                     _group = list(map(itemgetter(slice(1,None)),_group))
                     _L1    = [g[1:] for g in _group if g[0] in l1]
                     _L2    = [g[1:] for g in _group if g[0] in l2]
-                    _Y     = [contraster(*pair) for _,pair in plottable._pairings(p,_L1,_L2)]
+                    _Y     = [contraster(*pair) for _,pair,_ in plottable._pairings(p,_L1,_L2)]
 
                     if _Y: X_Y_YE.append((str(_x) if x != 'index' else _x,) + err(_Y,_xi))
 
@@ -1321,8 +1407,9 @@ class Result:
 
         return 'None' if label is None else label
 
-    def _pairings(self, p:Sequence[str], L1: Sequence[Tuple[int,int,float]], L2: Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
+    def _pairings(self, p:Sequence[str], L1:Sequence[Tuple[int,int,float]], L2:Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
 
+        unpack_p = isinstance(p,str)
         if isinstance(p,str): p = [p]
 
         env_eq_cols = list(set(p) & set(self.environments.columns))
@@ -1334,8 +1421,11 @@ class Result:
         #could this be made faster? I could think of special cases but not a general solution to speed it up.
         for e1,l1,x1,y1 in L1:
             for e2,l2,x2,y2 in L2:
-                if env_eq_vals[e1] == env_eq_vals[e2] and lrn_eq_vals[l1] == lrn_eq_vals[l2]:
-                    yield ((x1,x2),(y1,y2))
+                p1 = env_eq_vals[e1]+lrn_eq_vals[l1]
+                p2 = env_eq_vals[e2]+lrn_eq_vals[l2]
+                if p1==p2:
+                    p = p1[0] if unpack_p else p1
+                    yield ((x1,x2),(y1,y2), p)
 
     def _plottable(self, x:Sequence[str], y:str) -> 'Result':
 

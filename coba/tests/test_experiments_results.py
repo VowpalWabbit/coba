@@ -1355,6 +1355,65 @@ class Result_Tests(unittest.TestCase):
             result._ipython_display_()
             mock.assert_called_once_with(str(result))
 
+    def test_raw_learners_all_default(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
+
+        table = Result(envs, lrns, vals, ints).raw_learners()
+        self.assertEqual(('p=environment_id','x=index','l=1. learner_1','l=2. learner_2'), table.columns)
+        self.assertEqual([(0,1,1,1),(0,2,1.5,1.5)], list(table))
+
+    def test_raw_contrast_all_default(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,2]
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_contrast(1,2)
+        self.assertEqual(('p=environment_id','x=environment_id','l1=1','l2=2'), table.columns)
+        self.assertEqual([(0,0,1.5,1.5)], list(table))
+
+    def test_raw_contrast_index(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,2]
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_contrast(1,2,x='index')
+        self.assertEqual(('p=environment_id','x=index','l1=1','l2=2'), table.columns)
+        self.assertEqual([(0,1,1,1),(0,2,1.5,1.5)], list(table))
+
+    def test_raw_contrast_bad_l(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,2]
+        ]
+
+        with self.assertRaises(CobaException):
+            table = Result(envs, lrns, vals, ints).raw_contrast(1,1,x='index')
+
+    def test_raw_contrast_no_pair(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+        ]
+
+        with self.assertRaises(CobaException):
+            table = Result(envs, lrns, vals, ints).raw_contrast(1,2,x='index')
+
     def test_plot_learners_bad_x_index(self):
         CobaContext.logger.sink = ListSink()
         Result().plot_learners(x=['index','a'])
