@@ -1356,14 +1356,19 @@ class Result_Tests(unittest.TestCase):
             mock.assert_called_once_with(str(result))
 
     def test_raw_learners_all_default(self):
-        envs = [['environment_id'],[0]]
+        envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         vals = [['evaluator_id'],[0]]
-        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,2],
+                [1,1,0,1,1],[1,1,0,2,2],
+                [1,2,0,1,1],[1,2,0,2,2],
+        ]
 
         table = Result(envs, lrns, vals, ints).raw_learners()
         self.assertEqual(('p=environment_id','x=index','l=1. learner_1','l=2. learner_2'), table.columns)
-        self.assertEqual([(0,1,1,1),(0,2,1.5,1.5)], list(table))
+        self.assertEqual([(0,1,1,1),(1,1,1,1),(0,2,1.5,1.5),(1,2,1.5,1.5)], list(table))
 
     def test_raw_contrast_all_default(self):
         envs = [['environment_id'],[0]]
@@ -1379,17 +1384,19 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual([(0,0,1.5,1.5)], list(table))
 
     def test_raw_contrast_index(self):
-        envs = [['environment_id'],[0]]
+        envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],
                 [0,1,0,1,1],[0,1,0,2,2],
-                [0,2,0,1,1],[0,2,0,2,2]
+                [0,2,0,1,1],[0,2,0,2,2],
+                [1,1,0,1,1],[1,1,0,2,2],
+                [1,2,0,1,1],[1,2,0,2,2]
         ]
 
         table = Result(envs, lrns, vals, ints).raw_contrast(1,2,x='index')
         self.assertEqual(('p=environment_id','x=index','l1=1','l2=2'), table.columns)
-        self.assertEqual([(0,1,1,1),(0,2,1.5,1.5)], list(table))
+        self.assertEqual([(0,1,1,1),(1,1,1,1),(0,2,1.5,1.5),(1,2,1.5,1.5)], list(table))
 
     def test_raw_contrast_bad_l(self):
         envs = [['environment_id'],[0]]

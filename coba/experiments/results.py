@@ -1006,19 +1006,18 @@ class Result:
         p   : Union[str, Sequence[str]] = 'environment_id',
         span: int = None) -> Table:
 
-        data = collections.defaultdict(list)
+        data = {}
         plottable = self._plottable(x,y)._finished(x,y,l,p)
 
-        for _p, group in groupby(plottable._indexed_ys(p,l,x,y=y,span=span),key=itemgetter(0)):
+        for _l, group in groupby(plottable._indexed_ys(l,x,p,y=y,span=span),key=itemgetter(0)):
 
-            group  = list(map(itemgetter(slice(1,None)),group))
-            group0 = list(list(next(groupby(group,key=itemgetter(0))))[1])
+            group = list(group)
 
-            data[f'p={p}'].extend(repeat(_p,len(group0)))
-            data[f'x={x}'].extend(map(itemgetter(1),group0))
+            if f'x={x}' not in data:
+                data[f'p={p}'] = list(map(itemgetter(2),group))
+                data[f'x={x}'] = list(map(itemgetter(1),group))
 
-            for _l, group in groupby(group,key=itemgetter(0)):
-                data[f'l={_l}'].extend(map(itemgetter(2),group))
+            data[f'l={_l}'] = list(map(itemgetter(3),group))
 
         return Table(data)
 
@@ -1508,7 +1507,7 @@ class Result:
         first_index = coords[0] if coords else -1
         upto_index  = itemgetter(slice(0,first_index))
 
-        for _,group in groupby(indexed_values,key=upto_index):
+        for _,group in groupby(indexed_values,key=lambda k: k[0][:first_index]):
             try:
                 group = list(group)
                 while True:
