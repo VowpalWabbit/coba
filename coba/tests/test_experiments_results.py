@@ -1367,7 +1367,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         table = Result(envs, lrns, vals, ints).raw_learners()
-        self.assertEqual(('p=environment_id','x=index','l=1. learner_1','l=2. learner_2'), table.columns)
+        self.assertEqual(('p','x','1. learner_1','2. learner_2'), table.columns)
         self.assertEqual([(0,1,1,1),(1,1,1,1),(0,2,1.5,1.5),(1,2,1.5,1.5)], list(table))
 
     def test_raw_contrast_all_default(self):
@@ -1380,7 +1380,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         table = Result(envs, lrns, vals, ints).raw_contrast(1,2)
-        self.assertEqual(('p=environment_id','x=environment_id','l1=1','l2=2'), table.columns)
+        self.assertEqual(('p','x','l1','l2'), table.columns)
         self.assertEqual([(0,0,1.5,1.5)], list(table))
 
     def test_raw_contrast_index(self):
@@ -1395,7 +1395,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         table = Result(envs, lrns, vals, ints).raw_contrast(1,2,x='index')
-        self.assertEqual(('p=environment_id','x=index','l1=1','l2=2'), table.columns)
+        self.assertEqual(('p','x','l1','l2'), table.columns)
         self.assertEqual([(0,1,1,1),(1,1,1,1),(0,2,1.5,1.5),(1,2,1.5,1.5)], list(table))
 
     def test_raw_contrast_bad_l(self):
