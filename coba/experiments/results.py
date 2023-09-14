@@ -1049,6 +1049,10 @@ class Result:
 
         if x != 'index':
             #this implementation is considerably slower but always gives the correct results
+
+            l1_label = self._lrn_cache[l1[0]]['full_name'] if l=='learner_id' else 'l1'
+            l2_label = self._lrn_cache[l2[0]]['full_name'] if l=='learner_id' else 'l2'
+
             L1,L2 = [],[]
             for _l, group in groupby(plottable._indexed_ys(l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
 
@@ -1063,8 +1067,8 @@ class Result:
                 for _,(_y1,_y2),_p in group:
                     data['p'].append(_p)
                     data['x'].append(_x)
-                    data['l1'].append(_y1)
-                    data['l2'].append(_y2)
+                    data[l1_label].append(_y1)
+                    data[l2_label].append(_y2)
         else:
             #this implementation is considerably faster but only gives correct results under certain conditions
             for _x, _group in groupby(plottable._indexed_ys(x,l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
@@ -1254,15 +1258,18 @@ class Result:
             err      = self._confidence(err, errevery)
 
             X_Y_YE = []
-            for _xi, (_x, group) in enumerate(groupby(zip(*raw_data[['x','l1','l2']]), key=itemgetter(0))):
+            for _xi, (_x, group) in enumerate(groupby(zip(*raw_data[raw_data.columns[-3:]]), key=itemgetter(0))):
                 _Y = [ contraster(g[1],g[2]) for g in group ]
 
                 if _Y: X_Y_YE.append((str(_x) if x!='index' else _x,) + err(_Y,_xi))
 
+            l1_label = raw_data.columns[-2]
+            l2_label = raw_data.columns[-1]
+
             if x == 'index':
                 X,Y,YE = zip(*X_Y_YE)
-                color  = self._get_color(colors,        0)
-                label  = self._get_label(labels,'l2-l1',0)
+                color  = self._get_color(colors,                         0)
+                label  = self._get_label(labels,f'{l2_label}-{l1_label}',0)
                 label  = f"{label}" if legend else None
                 lines  = [Points(X, Y, None, YE, style=style, label=label, color=color)]
 
@@ -1301,8 +1308,8 @@ class Result:
                 lines = []
 
                 X,Y,YE = zip(*l1_win) if l1_win else ((),(),None)
-                color  = self._get_color(colors,     0)
-                label  = self._get_label(labels,'l1',0)
+                color  = self._get_color(colors,         0)
+                label  = self._get_label(labels,l1_label,0)
                 label  = f"{label} ({len(X)})" if legend else None
                 lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
@@ -1313,8 +1320,8 @@ class Result:
                 lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
                 X,Y,YE = zip(*l2_win) if l2_win else ((),(),None)
-                color  = self._get_color(colors,     2)
-                label  = self._get_label(labels,'l2',1)
+                color  = self._get_color(colors,         2)
+                label  = self._get_label(labels,l2_label,1)
                 label  = f"{label} ({len(X)})" if legend else None
                 lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 

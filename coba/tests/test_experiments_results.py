@@ -1380,7 +1380,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         table = Result(envs, lrns, vals, ints).raw_contrast(1,2)
-        self.assertEqual(('p','x','l1','l2'), table.columns)
+        self.assertEqual(('p','x','1. learner_1','2. learner_2'), table.columns)
         self.assertEqual([(0,0,1.5,1.5)], list(table))
 
     def test_raw_contrast_index(self):
@@ -2115,9 +2115,9 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1)
 
         expected_lines = [
-            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'l1 (2)' , '.', 1.),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, '2. learner_2 (2)' , '.', 1.),
             Points(()       , ()     , None, None , 1     , 1, 'Tie (0)', '.', 1.),
-            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'l2 (2)' , '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
             Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None     , '-', .5),
         ]
 
@@ -2146,9 +2146,9 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,xlabel='x',ylabel='y')
 
         expected_lines = [
-            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'l1 (2)' , '.', 1.),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, '2. learner_2 (2)' , '.', 1.),
             Points(()       , ()     , None, None , 1     , 1, 'Tie (0)', '.', 1.),
-            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'l2 (2)' , '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
             Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None     , '-', .5),
         ]
 
@@ -2180,9 +2180,9 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,title='abc')
 
         expected_lines = [
-            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'l1 (2)' , '.', 1.),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, '2. learner_2 (2)' , '.', 1.),
             Points(()       , ()     , None, None , 1     , 1, 'Tie (0)', '.', 1.),
-            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'l2 (2)' , '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
             Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None     , '-', .5),
         ]
 
@@ -2210,9 +2210,9 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,'a')
 
         expected_lines = [
-            Points(()       , ()   , None, None , 0     , 1, 'l1 (0)' , '.', 1.),
+            Points(()       , ()   , None, None , 0     , 1, '2. learner_2 (0)' , '.', 1.),
             Points(('2',)   , (0, ), None, (0, ), 1     , 1, 'Tie (1)', '.', 1.),
-            Points(('3','1'), (1,2), None, (0,0), 2     , 1, 'l2 (2)' , '.', 1.),
+            Points(('3','1'), (1,2), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
             Points(('2','1'), (0,0), None, None , "#888", 1, None     , '-', .5)
         ]
 
@@ -2239,9 +2239,9 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            Points(('2',)      , (0,   ), None, (0, ), 0     , 1, 'l1 (1)' , '.', 1.),
+            Points(('2',)      , (0,   ), None, (0, ), 0     , 1, '2. learner_2 (1)' , '.', 1.),
             Points(()           , ()   , None , None , 1     , 1, 'Tie (0)', '.', 1.),
-            Points(('1','None'), (1,1  ), None, (0,0), 2     , 1, 'l2 (2)' , '.', 1.),
+            Points(('1','None'), (1,1  ), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
             Points(('2','None'), (.5,.5), None, None , "#888", 1, None     , '-', .5)
         ]
 
@@ -2268,9 +2268,9 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, 'l1 (1)' , '.', 1.),
+            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, '2. learner_2 (1)' , '.', 1.),
             Points(()       , ()     , None, None , 1     , 1, 'Tie (0)', '.', 1.),
-            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, 'l2 (2)' , '.', 1.),
+            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
             Points(('2','3'), (.5,.5), None, None , "#888", 1, None     , '-', .5)
         ]
 
