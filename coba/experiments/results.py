@@ -625,7 +625,7 @@ class MatplotPlotter(Plotter):
 
                 not_err_bar = lambda E: not E or all(not e for e in E)
 
-                if X and Y:
+                if X is not None and Y is not None:
                     if all(map(not_err_bar,[XE,YE])):
                         ax.plot(X, Y, fmt,  color=c, alpha=a, label=l,zorder=z)
                     else:
@@ -1264,7 +1264,7 @@ class Result:
                 color  = self._get_color(colors,        0)
                 label  = self._get_label(labels,'l2-l1',0)
                 label  = f"{label}" if legend else None
-                lines  = [Points(X,Y,None,YE, style=style, label=label, color=color)]
+                lines  = [Points(X, Y, None, YE, style=style, label=label, color=color)]
 
             elif x == l:
                 if len(l1) > 1 and len(l2) == 1:
@@ -1282,7 +1282,7 @@ class Result:
 
                 X,Y,YE = zip(*X_Y_YE)
                 color  = self._get_color(colors, 0)
-                lines  = [Points(X,Y,None,YE, style=style, label=None, color=color)]
+                lines  = [Points(X, Y, None, YE, style=style, label=None, color=color)]
 
             else:
                 upper = lambda y,ye: y+ye[1] if isinstance(ye,(list,tuple)) else y+ye
@@ -1300,30 +1300,27 @@ class Result:
 
                 lines = []
 
-                if l1_win:
-                    X,Y,YE = zip(*l1_win)
-                    color  = self._get_color(colors,     0)
-                    label  = self._get_label(labels,'l1',0)
-                    label  = f"{label} ({len(X)})" if legend else None
-                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+                X,Y,YE = zip(*l1_win) if l1_win else ((),(),None)
+                color  = self._get_color(colors,     0)
+                label  = self._get_label(labels,'l1',0)
+                label  = f"{label} ({len(X)})" if legend else None
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
-                if no_win:
-                    X,Y,YE = zip(*no_win)
-                    color  = self._get_color(colors, 1)
-                    label  = 'Tie'
-                    label  = f"{label} ({len(X)})" if legend else None
-                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+                X,Y,YE = zip(*no_win) if no_win else ((),(),None)
+                color  = self._get_color(colors, 1)
+                label  = 'Tie'
+                label  = f"{label} ({len(X)})" if legend else None
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
-                if l2_win:
-                    X,Y,YE = zip(*l2_win)
-                    color  = self._get_color(colors,     2)
-                    label  = self._get_label(labels,'l2',1)
-                    label  = f"{label} ({len(X)})" if legend else None
-                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+                X,Y,YE = zip(*l2_win) if l2_win else ((),(),None)
+                color  = self._get_color(colors,     2)
+                label  = self._get_label(labels,'l2',1)
+                label  = f"{label} ({len(X)})" if legend else None
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
             if boundary:
-                leftmost_x  = lines[0 ].X[0 ]
-                rightmost_x = lines[-1].X[-1]
+                leftmost_x  = next(chain.from_iterable(l.X[:1 ] for l in lines          ))
+                rightmost_x = next(chain.from_iterable(l.X[-1:] for l in reversed(lines)))
                 lines.append(Points((leftmost_x,rightmost_x),(_boundary,_boundary), None, None , "#888", 1, None, '-',.5))
 
             xrotation = 90 if x != 'index' and len(X_Y_YE)>5 else 0

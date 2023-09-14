@@ -1237,7 +1237,7 @@ class OpeRewards(EnvironmentFilter):
 
     def __init__(self, rwd_type:Literal['IPS','DM','DR']=None):
         if rwd_type in ['DM','DR']:
-            PackageChecker.vowpalwabbit(f"{rwd_type} OPE Rewards")
+            PackageChecker.vowpalwabbit(f"{rwd_type} OpeRewards")
         self._rwd_type = rwd_type
 
     @property
