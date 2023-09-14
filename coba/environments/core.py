@@ -257,7 +257,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         self._environments = []
 
         for env in environments:
-            if isinstance(env, collections.abc.Sequence):
+            if isinstance(env, (collections.abc.Sequence,collections.abc.Generator)):
                 self._environments.extend(env)
             else:
                 self._environments.append(env)
