@@ -137,7 +137,7 @@ class StdErrCI(PointAndInterval):
 class BootstrapCI(PointAndInterval):
 
     def __init__(self, confidence:float, statistic:Callable[[Sequence[float]], float]) -> None:
-        PackageChecker.scipy('BootstrapConfidenceInterval.__init__')
+        PackageChecker.scipy('BootstrapConfidenceInterval')
         self._conf = confidence
         self._stat = statistic
         self._args = dict(method='basic', vectorized=False, n_resamples=1000, random_state=1)

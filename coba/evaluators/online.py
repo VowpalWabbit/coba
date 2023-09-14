@@ -162,7 +162,7 @@ class OffPolicyEvaluator(Evaluator):
             # OPE loss metric is only available for VW models
             # Divide by the number of samples for the average loss metric and see this article for more info
             # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
-            PackageChecker.vowpalwabbit('OffPolicyEvaluator.__init__')
+            PackageChecker.vowpalwabbit('OffPolicyEvaluator')
 
     def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
 

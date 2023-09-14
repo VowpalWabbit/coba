@@ -93,7 +93,7 @@ class ClassMetaEvaluator(Evaluator):
 
         try:
 
-            PackageChecker.sklearn("ClassEnvironmentTask.process")
+            PackageChecker.sklearn("ClassEnvironmentTask")
 
             import numpy as np
 
