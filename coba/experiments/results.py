@@ -609,6 +609,8 @@ class MatplotPlotter(Plotter):
             any_label = False
             num_coalesce = lambda x1,x2: x1 if isinstance(x1,(int,float)) else x2
 
+            artists = []
+
             for X, Y, XE, YE, c, a, l, fmt,z in map(astuple,lines):
 
                 if l: any_label = True
@@ -627,13 +629,13 @@ class MatplotPlotter(Plotter):
 
                 if X is not None and Y is not None:
                     if all(map(not_err_bar,[XE,YE])):
-                        ax.plot(X, Y, fmt,  color=c, alpha=a, label=l,zorder=z)
+                        artists.append(ax.plot(X, Y, fmt,  color=c, alpha=a, label=l, zorder=z)[0])
                     else:
                         XE = None if not_err_bar(XE) else list(zip(*XE)) if isinstance(XE[0],tuple) else XE
                         YE = None if not_err_bar(YE) else list(zip(*YE)) if isinstance(YE[0],tuple) else YE
                         errorevery = 1 if fmt == "-" else 1
                         elinewidth = 0.5 if 'elinewidth' not in CobaContext.store else CobaContext.store['elinewidth']
-                        ax.errorbar(X, Y, YE, XE, fmt, elinewidth=elinewidth, errorevery=errorevery, color=c, alpha=a, label=l,zorder=z)
+                        artists.append(ax.errorbar(X, Y, YE, XE, fmt, elinewidth=elinewidth, errorevery=errorevery, color=c, alpha=a, label=l, zorder=z))
 
             if xrotation is not None:
                 plt.xticks(rotation=xrotation)
@@ -663,8 +665,11 @@ class MatplotPlotter(Plotter):
             else:
                 ax.get_legend().remove()
 
+            ax.legend()
+
             if any_label:
-                ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium')
+                L = zip(*sorted((zip(*ax.get_legend_handles_labels())), key=lambda al:artists.index(al[0])))
+                ax.legend(*L, loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium')
 
             if not xticks:
                 plt.xticks([])
