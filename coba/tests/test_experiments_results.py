@@ -544,16 +544,12 @@ class MatplotPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
                 with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
-                    mock_ax = plt_figure().add_subplot()
-
-                    mock_ax.get_xticks.return_value = [1,2]
-                    mock_ax.get_xlim.return_value   = [2,2]
-
                     lines = [
                         Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
+                    mock_ax = plt_figure().add_subplot()
                     MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,"screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
@@ -583,16 +579,12 @@ class MatplotPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
                 with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
-                    mock_ax = plt_figure().add_subplot()
-
-                    mock_ax.get_xticks.return_value = [1,2]
-                    mock_ax.get_xlim.return_value   = [2,2]
-
                     lines = [
                         Points([1,2], [5,6], None, [10,11], "B", 1.00, 'L1', '-', 1),
                         Points([3,4], [7,8], None, [12,13], "R", 0.25, 'L2', '-', 1)
                     ]
 
+                    mock_ax = plt_figure().add_subplot()
                     MatplotPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, None, "screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
@@ -626,8 +618,6 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            mock_ax.get_xticks.return_value = [1,2]
-            mock_ax.get_xlim.return_value   = [2,2]
             MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
@@ -641,8 +631,6 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            mock_ax.get_xticks.return_value = [1,2]
-            mock_ax.get_xlim.return_value   = [2,2]
             MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None,None)
             self.assertEqual(([3,4],[7,8],[2,1],None,'-'), mock_ax.errorbar.call_args_list[0][0])
 
@@ -655,8 +643,6 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            mock_ax.get_xticks.return_value = [1,2]
-            mock_ax.get_xlim.return_value   = [2,2]
             MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
@@ -671,12 +657,10 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
                 MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None,None)
+
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual({'rotation':90},xticks.call_args[1])
 
     def test_plot_yrotation(self):
@@ -689,12 +673,11 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
+
                 MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None,None)
+
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual({'rotation':90},yticks.call_args[1])
 
     def test_plot_total_xorder(self):
@@ -707,15 +690,13 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
                 MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3,4,2],None)
+
                 self.assertEqual(([0,3],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([1,2],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual(((3,2,1,0),(2,4,3,1)),xticks.call_args[0])
 
-    def test_plot_partial_xorder(self):
+    def test_plot_total_xorder_ascending(self):
         with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
@@ -725,13 +706,43 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3],None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,[1,2,3,4],None)
+
+                self.assertEqual(([1,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([3,4],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+                self.assertEqual(0,xticks.call_count)
+
+    def test_plot_total_xorder_descending(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[4,3,2,1],None)
+
+                self.assertEqual(([-1,-2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([-3,-4],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+                self.assertEqual(((-1,-2,-3,-4),(1,2,3,4)),xticks.call_args[0])
+
+    def test_plot_partial_xorder(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points(['1','2'], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points(['3','4'], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,['1','3'],None)
+
                 self.assertEqual(([0,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([1,3],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
-
-                self.assertEqual(((1,0,2,3),(3,1,2,4)),xticks.call_args[0])
+                self.assertEqual(((1,0,2,3),('3','1','2','4')),xticks.call_args[0])
 
     def test_plot_extra_xorder(self):
         with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
@@ -743,12 +754,10 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
                 MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3,4,2,5],None)
+
                 self.assertEqual(([0,3],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([1,2],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual(((4,3,2,1,0),(5,2,4,3,1)),xticks.call_args[0])
 
     def test_plot_no_xticks(self):
@@ -761,12 +770,10 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
                 MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,None,None,None,None)
+
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual([],xticks.call_args[0][0])
 
     def test_plot_no_yticks(self):
@@ -779,12 +786,10 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
                 MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,None,None,None,None)
+
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual([],yticks.call_args[0][0])
 
     def test_plot_ax(self):
@@ -792,21 +797,16 @@ class MatplotPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
                 with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
-                    mock_ax = plt_figure().add_subplot()
-                    self.assertEqual(1, plt_figure().add_subplot.call_count)
-
-                    mock_ax.get_xticks.return_value = [1,2]
-                    mock_ax.get_xlim.return_value   = [2,2]
-
                     lines = [
                         Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
+                    mock_ax = plt_figure().add_subplot()
+                    self.assertEqual(1, plt_figure().add_subplot.call_count)
                     MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
 
                     self.assertEqual(1, plt_figure().add_subplot.call_count)
-
                     self.assertEqual(([1,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                     self.assertEqual('B'              , mock_ax.plot.call_args_list[0][1]["color"])
                     self.assertEqual(1                , mock_ax.plot.call_args_list[0][1]["alpha"])
@@ -1724,8 +1724,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(x='environment_id')
 
         expected_lines = [
-            Points(['0'],[1.5],[],[0],0,1,'1. learner_1','.',1),
-            Points(['0'],[1.5],[],[0],1,1,'2. learner_2','.',1)
+            Points([0],[1.5],[],[0],0,1,'1. learner_1','.',1),
+            Points([0],[1.5],[],[0],1,1,'2. learner_2','.',1)
         ]
 
         self.assertEqual("Total Progressive Reward (1 Environments)", plotter.plot_calls[0][2])

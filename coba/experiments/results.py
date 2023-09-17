@@ -17,7 +17,7 @@ from coba.environments import Environment
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.context import CobaContext
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker, peek_first
+from coba.utilities import PackageChecker, peek_first, KeyDefaultDict
 from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
@@ -614,9 +614,19 @@ class MatplotPlotter(Plotter):
             artists = []
             xindexes = None
 
-            if xorder:
+            is_ascending  = lambda _xorder: all(x0<=x1 for x0,x1 in zip(_xorder,_xorder[1:]))
+            is_descending = lambda _xorder: all(x0>=x1 for x0,x1 in zip(_xorder,_xorder[1:]))
+
+            if not xorder:
+                xindexes = None
+            elif isinstance(xorder[0],(int,float)) and is_ascending(xorder):
+                xindexes = None
+            elif isinstance(xorder[0],(int,float)) and is_descending(xorder):
+                xindexes = KeyDefaultDict(lambda k: -k)
+            else:
                 nextindex = lambda c=count(len(set(xorder))): next(c)
-                xindexes  = collections.defaultdict(nextindex,zip(reversed(xorder),count(len(xorder)-1,-1)))
+                initindex = zip(reversed(xorder),count(len(xorder)-1,-1))
+                xindexes  = collections.defaultdict(nextindex,initindex)
 
             for X, Y, XE, YE, c, a, l, fmt,z in map(astuple,lines):
 
@@ -636,7 +646,7 @@ class MatplotPlotter(Plotter):
 
                 if X is not None and Y is not None:
 
-                    if xindexes: X = [xindexes[x] for x in X]
+                    if xindexes is not None: X = [xindexes[x] for x in X]
 
                     if all(map(not_err_bar,[XE,YE])):
                         artists.append(ax.plot(X, Y, fmt,  color=c, alpha=a, label=l, zorder=z)[0])
@@ -647,10 +657,10 @@ class MatplotPlotter(Plotter):
                         elinewidth = 0.5 if 'elinewidth' not in CobaContext.store else CobaContext.store['elinewidth']
                         artists.append(ax.errorbar(X, Y, YE, XE, fmt, elinewidth=elinewidth, errorevery=errorevery, color=c, alpha=a, label=l, zorder=z))
 
-            if xrotation is not None:
+            if xticks and xrotation is not None:
                 plt.xticks(rotation=xrotation)
 
-            if xindexes:
+            if xticks and xindexes:
                 labels,ticks = zip(*xindexes.items())
                 plt.xticks(ticks,labels)
 
@@ -672,14 +682,12 @@ class MatplotPlotter(Plotter):
             ax.set_ylabel(ylabel)
             ax.set_xlabel(xlabel)
 
-            if ax.get_legend() is None: #pragma: no cover
+            if ax.get_legend() is not None: #pragma: no cover
+                ax.get_legend().remove()
+            else: #pragma: no cover
                 scale = 0.65
                 box1 = ax.get_position()
                 ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
-            else:
-                ax.get_legend().remove()
-
-            ax.legend()
 
             if any_label:
                 L = zip(*sorted((zip(*ax.get_legend_handles_labels())), key=lambda al:artists.index(al[0])))
@@ -1124,6 +1132,7 @@ class Result:
         ylim    : Tuple[Optional[Number],Optional[Number]] = None,
         xticks  : bool = True,
         yticks  : bool = True,
+        xorder  : Literal['+','-'] = None,
         top_n   : int = None,
         out     : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
@@ -1151,6 +1160,7 @@ class Result:
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             xticks: Whether the x-axis labels should be drawn.
             yticks: Whether the y-axis labels should be drawn.
+            xorder: Indicates whether the x-axis should be in ascending (+) or descendeing (-) order.
             top_n: Only plot the top_n learners. If `None` all learners will be plotted. If negative the bottom will be plotted.
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
@@ -1166,7 +1176,6 @@ class Result:
             errevery = errevery or max(int(raw_data['x'][-1]*0.05),1) if x == 'index' else 1
             style    = "-" if x == 'index' else "."
             err      = self._confidence(err, errevery)
-            x_prep   = str if x != 'index' else (lambda _x: _x)
 
             lines: List[Points] = []
             for _l in raw_data.columns[2:]:
@@ -1176,7 +1185,7 @@ class Result:
                 lines.append(Points(style=style,color=color,label=label))
                 for _xi, (_x, group) in enumerate(groupby(zip(*raw_data[['x',_l]]), key=itemgetter(0))):
                     Y = [g[-1] for g in group]
-                    lines[-1].add(x_prep(_x), *err(Y, _xi))
+                    lines[-1].add(_x, *err(Y, _xi))
 
             lines  = sorted(lines, key=lambda line: line.Y[-1], reverse=True)
             labels = [l.label or str(l.label) for l in lines]
@@ -1189,7 +1198,7 @@ class Result:
             y_samples  = f"({len(Y)} Environments)"
             title      = title if title is not None else (' '.join(filter(None,[y_location, y_avg_type, ylabel, y_samples])))
 
-            xrotation = 90 if x != 'index' and len(lines[0].X)>5 else 0
+            xrotation = 90 if (x != 'index' or xorder) and len(lines[0].X)>5 else 0
             yrotation = 0
 
             if top_n:
@@ -1197,7 +1206,12 @@ class Result:
                 if top_n > 0: lines = [replace(l,color=self._get_color(colors,i),label=self._get_label(labels,l.label,i)) for i,l in enumerate(lines[:top_n],0    ) ]
                 if top_n < 0: lines = [replace(l,color=self._get_color(colors,i),label=self._get_label(labels,l.label,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
-            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, None, out)
+            all_x = dict.fromkeys(chain.from_iterable(line.X for line in lines))
+            xordered = list(all_x.keys()) if not xorder else sorted(all_x, reverse=xorder=='-')
+
+            if x == 'index' and xorder in ['+',None]: xordered = None
+
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, xordered, out)
 
         except CobaException as e:
             CobaContext.logger.log(str(e))
@@ -1222,6 +1236,7 @@ class Result:
         ylim    : Tuple[Optional[Number],Optional[Number]] = None,
         xticks  : bool = True,
         yticks  : bool = True,
+        xorder  : Literal['+','-'] = None,
         boundary: bool = True,
         legend  : bool = True,
         out     : Union[None,Literal['screen'],str] = 'screen',
@@ -1251,6 +1266,7 @@ class Result:
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             xticks: Whether the x-axis labels should be drawn.
             yticks: Whether the y-axis labels should be drawn.
+            xorder: Indicates whether the x-axis should be in ascending (+) or descendeing (-) order.
             boundary: Whether we want to plot the boundary line between which set is the best performing.
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
@@ -1279,8 +1295,7 @@ class Result:
             X_Y_YE = []
             for _xi, (_x, group) in enumerate(groupby(zip(*raw_data[raw_data.columns[-3:]]), key=itemgetter(0))):
                 _Y = [ contraster(g[1],g[2]) for g in group ]
-
-                if _Y: X_Y_YE.append((str(_x) if x!='index' else _x,) + err(_Y,_xi))
+                if _Y: X_Y_YE.append((_x,)+err(_Y,_xi))
 
             l1_label = raw_data.columns[-2]
             l2_label = raw_data.columns[-1]
@@ -1294,12 +1309,12 @@ class Result:
 
             elif x == l:
                 if len(l1) > 1 and len(l2) == 1:
-                    #Sort by l1. We assume _x is "{l2}-{l1}."
+                    #Sort by l1. We assume _x is f"{l2}-{l1}".
                     l2_len = len(str(l2[0]))
                     l1 = list(map(str,l1))
                     X_Y_YE = sorted(X_Y_YE, key=lambda items: l1.index(items[0][l2_len+1:]))
                 elif len(l2) > 1 and len(l1) == 1:
-                    #Sort by l2. We assume _x is "{l2}-{l1}."
+                    #Sort by l2. We assume _x is f"{l2}-{l1}".
                     l1_len = len(str(l1[0]))
                     l2 = list(map(str,l2))
                     X_Y_YE = sorted(X_Y_YE, key=lambda items: l2.index(items[0][:-(l1_len+1)]))
@@ -1313,11 +1328,12 @@ class Result:
             else:
                 upper = lambda y,ye: y+ye[1] if isinstance(ye,(list,tuple)) else y+ye
                 lower = lambda y,ye: y-ye[0] if isinstance(ye,(list,tuple)) else y-ye
+                prep  = lambda _x: str(_x) if not xorder else _x
 
                 #split into win,tie,loss
-                l1_win = [(x,y,ye) for x,y,ye in X_Y_YE if upper(y,ye) <  _boundary                             ]
-                no_win = [(x,y,ye) for x,y,ye in X_Y_YE if lower(y,ye) <= _boundary and _boundary <= upper(y,ye)]
-                l2_win = [(x,y,ye) for x,y,ye in X_Y_YE if                              _boundary <  lower(y,ye)]
+                l1_win = [(prep(x),y,ye) for x,y,ye in X_Y_YE if upper(y,ye) <  _boundary                             ]
+                no_win = [(prep(x),y,ye) for x,y,ye in X_Y_YE if lower(y,ye) <= _boundary and _boundary <= upper(y,ye)]
+                l2_win = [(prep(x),y,ye) for x,y,ye in X_Y_YE if                              _boundary <  lower(y,ye)]
 
                 #sort by order of magnitude
                 l1_win = sorted(l1_win,key=itemgetter(1))
@@ -1344,19 +1360,23 @@ class Result:
                 label  = f"{label} ({len(X)})" if legend else None
                 lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
-            if boundary:
-                leftmost_x  = next(chain.from_iterable(l.X[:1 ] for l in lines          ))
-                rightmost_x = next(chain.from_iterable(l.X[-1:] for l in reversed(lines)))
-                lines.append(Points((leftmost_x,rightmost_x),(_boundary,_boundary), None, None , "#888", 1, None, '-',.5))
-
-            xrotation = 90 if x != 'index' and len(X_Y_YE)>5 else 0
+            xrotation = 90 if (x != 'index' or xorder) and len(X_Y_YE)>5 else 0
             yrotation = 0
 
             xlabel = xlabel or ("Interaction" if x=='index' else x[0] if len(x) == 1 else x)
             ylabel = ylabel or (f"$\Delta$ {y}" if mode=="diff" else f"P($\Delta$ {y} > 0)")
             title  = title if title is not None else (f"{ylabel} ({len(_Y)} Environments)")
 
-            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, None, out)
+            all_x = dict.fromkeys(chain.from_iterable(line.X for line in lines))
+            xordered = list(all_x.keys()) if not xorder else sorted(all_x, reverse=xorder=='-')
+
+            if boundary:
+                lines.append(Points((xordered[0],xordered[-1]),(_boundary,_boundary), None, None , "#888", 1, None, '-',.5))
+
+            if x == 'index' and xorder in ['+',None]:
+                xordered = None
+
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, xordered, out)
 
         except CobaException as e:
             CobaContext.logger.log(str(e))
