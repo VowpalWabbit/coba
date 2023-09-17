@@ -554,6 +554,7 @@ class Plotter:
         yticks: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
+        xorder: Optional[Sequence[str]],
         out: Union[None,Literal['screen'],str]) -> None:
         pass
 
@@ -571,6 +572,7 @@ class MatplotPlotter(Plotter):
         yticks: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
+        xorder: Optional[Sequence[str]],
         out: Union[None,Literal['screen'],str]
     ) -> None:
 
@@ -610,6 +612,11 @@ class MatplotPlotter(Plotter):
             num_coalesce = lambda x1,x2: x1 if isinstance(x1,(int,float)) else x2
 
             artists = []
+            xindexes = None
+
+            if xorder:
+                nextindex = lambda c=count(len(set(xorder))): next(c)
+                xindexes  = collections.defaultdict(nextindex,zip(reversed(xorder),count(len(xorder)-1,-1)))
 
             for X, Y, XE, YE, c, a, l, fmt,z in map(astuple,lines):
 
@@ -628,6 +635,9 @@ class MatplotPlotter(Plotter):
                 not_err_bar = lambda E: not E or all(not e for e in E)
 
                 if X is not None and Y is not None:
+
+                    if xindexes: X = [xindexes[x] for x in X]
+
                     if all(map(not_err_bar,[XE,YE])):
                         artists.append(ax.plot(X, Y, fmt,  color=c, alpha=a, label=l, zorder=z)[0])
                     else:
@@ -639,6 +649,10 @@ class MatplotPlotter(Plotter):
 
             if xrotation is not None:
                 plt.xticks(rotation=xrotation)
+
+            if xindexes:
+                labels,ticks = zip(*xindexes.items())
+                plt.xticks(ticks,labels)
 
             if yrotation is not None:
                 plt.yticks(rotation=yrotation)
@@ -1183,7 +1197,7 @@ class Result:
                 if top_n > 0: lines = [replace(l,color=self._get_color(colors,i),label=self._get_label(labels,l.label,i)) for i,l in enumerate(lines[:top_n],0    ) ]
                 if top_n < 0: lines = [replace(l,color=self._get_color(colors,i),label=self._get_label(labels,l.label,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
-            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, None, out)
 
         except CobaException as e:
             CobaContext.logger.log(str(e))
@@ -1342,7 +1356,7 @@ class Result:
             ylabel = ylabel or (f"$\Delta$ {y}" if mode=="diff" else f"P($\Delta$ {y} > 0)")
             title  = title if title is not None else (f"{ylabel} ({len(_Y)} Environments)")
 
-            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, None, out)
 
         except CobaException as e:
             CobaContext.logger.log(str(e))

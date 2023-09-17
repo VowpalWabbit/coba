@@ -537,7 +537,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
     def test_no_matplotlib(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
             with self.assertRaises(CobaExit):
-                MatplotPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None)
+                MatplotPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None,None)
 
     def test_plot_lines_title_xlabel_ylabel(self):
         with unittest.mock.patch('matplotlib.pyplot.show') as show:
@@ -554,7 +554,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"screen")
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,"screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -593,7 +593,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, [12,13], "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, "screen")
+                    MatplotPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, None, "screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -628,7 +628,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             mock_ax = plt_figure().add_subplot()
             mock_ax.get_xticks.return_value = [1,2]
             mock_ax.get_xlim.return_value   = [2,2]
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None)
+            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -643,7 +643,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             mock_ax = plt_figure().add_subplot()
             mock_ax.get_xticks.return_value = [1,2]
             mock_ax.get_xlim.return_value   = [2,2]
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None)
+            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None,None)
             self.assertEqual(([3,4],[7,8],[2,1],None,'-'), mock_ax.errorbar.call_args_list[0][0])
 
     def test_plot_ylim(self):
@@ -657,7 +657,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             mock_ax = plt_figure().add_subplot()
             mock_ax.get_xticks.return_value = [1,2]
             mock_ax.get_xlim.return_value   = [2,2]
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None)
+            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -673,7 +673,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 mock_ax = plt_figure().add_subplot()
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None,None)
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -691,11 +691,65 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 mock_ax = plt_figure().add_subplot()
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None,None)
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
                 self.assertEqual({'rotation':90},yticks.call_args[1])
+
+    def test_plot_total_xorder(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                mock_ax.get_xticks.return_value = [1,2]
+                mock_ax.get_xlim.return_value   = [2,2]
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3,4,2],None)
+                self.assertEqual(([0,3],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([1,2],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+
+                self.assertEqual(((3,2,1,0),(2,4,3,1)),xticks.call_args[0])
+
+    def test_plot_partial_xorder(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                mock_ax.get_xticks.return_value = [1,2]
+                mock_ax.get_xlim.return_value   = [2,2]
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3],None)
+                self.assertEqual(([0,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([1,3],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+
+                self.assertEqual(((1,0,2,3),(3,1,2,4)),xticks.call_args[0])
+
+    def test_plot_extra_xorder(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                mock_ax.get_xticks.return_value = [1,2]
+                mock_ax.get_xlim.return_value   = [2,2]
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3,4,2,5],None)
+                self.assertEqual(([0,3],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([1,2],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+
+                self.assertEqual(((4,3,2,1,0),(5,2,4,3,1)),xticks.call_args[0])
 
     def test_plot_no_xticks(self):
         with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
@@ -709,7 +763,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 mock_ax = plt_figure().add_subplot()
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,None,None,None,None)
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -727,7 +781,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 mock_ax = plt_figure().add_subplot()
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,None,None,None,None)
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -749,7 +803,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                    MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
 
                     self.assertEqual(1, plt_figure().add_subplot.call_count)
 
@@ -779,7 +833,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         plotter = MatplotPlotter()
-        plotter.plot(None, [[]], 'abc', 'def', 'efg', (1,0), (0,1), True, True, None, None, None)
+        plotter.plot(None, [[]], 'abc', 'def', 'efg', (1,0), (0,1), True, True, None, None, None, None)
 
         expected_log = "The xlim end is less than the xlim start. Plotting is impossible."
 
@@ -791,7 +845,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         plotter = MatplotPlotter()
-        plotter.plot(None, [[]], 'abc', 'def', 'efg', (0,1), (1,0), True, True, None, None, None)
+        plotter.plot(None, [[]], 'abc', 'def', 'efg', (0,1), (1,0), True, True, None, None, None, None)
 
         expected_log = "The ylim end is less than the ylim start. Plotting is impossible."
 
@@ -812,7 +866,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"abc")
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,"abc")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -851,7 +905,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -886,7 +940,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                 ]
 
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
 
                 plt_figure.assert_called_with(num='coba')
                 plt_figure().add_subplot.assert_called_with(111)
@@ -898,7 +952,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             CobaContext.logger.sink = ListSink()
 
             plotter = MatplotPlotter()
-            plotter.plot(None, [], 'abc', 'def', 'efg', None, None, True, True, None, None, None)
+            plotter.plot(None, [], 'abc', 'def', 'efg', None, None, True, True, None, None, None, None)
 
             self.assertEqual(0, plt_figure().add_subplot.call_count)
             self.assertEqual(["No data was found for plotting."], CobaContext.logger.sink.items)
@@ -1785,7 +1839,7 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(out="abc")
 
         self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual("abc", plotter.plot_calls[0][11])
+        self.assertEqual("abc", plotter.plot_calls[0][12])
 
     def test_plot_learners_ax(self):
         envs = [['environment_id'],[0],[1]]
