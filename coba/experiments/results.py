@@ -1540,15 +1540,18 @@ class Result:
 
         if to_remove:
             select = self._remove(to_remove,n)
+            n_removed = len(to_remove)
             interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
-            CobaContext.logger.log(f"We removed {len(to_remove)} environment{'s' if len(to_remove)>1 else ''} because they were shorter than {n} interactions.")
+            if n_removed==1: CobaContext.logger.log(f"We removed {n_removed} learner evaluation because it was shorter than {n} interactions.")
+            if n_removed>=2: CobaContext.logger.log(f"We removed {n_removed} learner evaluations because they were shorter than {n} interactions.")
 
         env_lengths = collections.Counter(env_lengths)
         if len(env_lengths) > 1:
             shorten_to = min(env_lengths) if n=='min' else n
             n_shortened = sum(v for k,v in env_lengths.items() if k > shorten_to)
             interactions = interactions.where(index={'<=':shorten_to})
-            CobaContext.logger.log(f"We shortened {n_shortened} environment{'s' if n_shortened>1 else ''} because they were longer than the shortest environment.")
+            if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} environment because it was longer than the shortest environment.")
+            if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")            
 
         if len(interactions) != len(self.interactions):
             environments = environments.where(environment_id=set(interactions['environment_id']))

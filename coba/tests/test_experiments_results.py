@@ -1082,7 +1082,11 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(4, len(filtered_result.interactions))
 
-    def test_filter_fin_with_n_and_Nones(self):
+    def test_filter_fin_with_n_1(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
         envs = [['environment_id'],[1],[2]]
         lrns = [['learner_id'    ],[1],[2]]
         vals = [['evaluator_id'  ],[1]]
@@ -1094,7 +1098,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(2,None,None)
+        filtered_result = original_result.filter_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1103,6 +1107,36 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(6, len(filtered_result.interactions))
+
+        self.assertEqual("We removed 1 learner evaluation because it was shorter than 2 interactions.", CobaContext.logger.sink.items[0])
+
+    def test_filter_fin_with_n_2(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [1,1,1,1,1],[1,1,1,2,2],
+            [1,2,1,1,1],[1,2,1,2,2],[1,2,1,3,3],
+            [2,1,1,1,1],
+            [2,2,1,1,1],
+        ]
+
+        original_result = Result(envs, lrns, vals, ints)
+        filtered_result = original_result.filter_fin(2)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(7, len(original_result.interactions))
+
+        self.assertEqual(1, len(filtered_result.environments))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(4, len(filtered_result.interactions))
+
+        self.assertEqual("We removed 2 learner evaluations because they were shorter than 2 interactions.", CobaContext.logger.sink.items[0])
 
     def test_filter_fin_no_finished(self):
 

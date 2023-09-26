@@ -253,9 +253,6 @@ class OffPolicyEvaluator(Evaluator):
                     on_action,on_prob = predict(log_context, log_actions)[:2]
                     predict_time      = time.time()-start_time
 
-                    #in theory we could use a ratio average in this case
-                    #this would give us a lower variance estimate but we'd have
-                    #to add a "weight" column to our output and handle this in Result
                     ope_reward = log_rewards.eval(on_action)
 
             if self._learn:
