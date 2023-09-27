@@ -611,7 +611,7 @@ class MatplotPlotter(Plotter):
             any_label = False
             num_coalesce = lambda x1,x2: x1 if isinstance(x1,(int,float)) else x2
 
-            artists = []
+            artists = list(ax.get_legend_handles_labels()[0])
             xindexes = None
 
             is_ascending  = lambda _xorder: all(x0<=x1 for x0,x1 in zip(_xorder,_xorder[1:]))

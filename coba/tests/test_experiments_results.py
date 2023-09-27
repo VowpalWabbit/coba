@@ -618,7 +618,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -631,7 +631,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None,None)
             self.assertEqual(([3,4],[7,8],[2,1],None,'-'), mock_ax.errorbar.call_args_list[0][0])
 
     def test_plot_ylim(self):
@@ -643,7 +643,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -657,7 +657,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None,None)
+                MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None,None)
 
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
@@ -674,7 +674,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
 
                 mock_ax = plt_figure().add_subplot()
 
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None,None)
+                MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None,None)
 
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
@@ -956,6 +956,56 @@ class MatplotPlotter_Tests(unittest.TestCase):
 
             self.assertEqual(0, plt_figure().add_subplot.call_count)
             self.assertEqual(["No data was found for plotting."], CobaContext.logger.sink.items)
+
+    def test_plot_with_existing_figure(self):
+
+        import matplotlib.pyplot as plt
+
+        lines = [
+            Points([1,2], [5,6], None, None, "blue", 1.00, 'L1', '-', 1),
+            Points([3,4], [7,8], None, None, "red", 0.25, 'L2', '-', 2)
+        ]
+
+        MatplotPlotter().plot(None,lines[:1],"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+        MatplotPlotter().plot(None,lines[1:],"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+
+        self.assertEqual('title' ,plt.gca().get_title(loc='left'))
+        self.assertEqual('xlabel',plt.gca().get_xlabel())
+        self.assertEqual('ylabel',plt.gca().get_ylabel())
+        self.assertEqual('L1'    ,plt.gca().get_legend_handles_labels()[1][0])
+        self.assertEqual('blue'  ,plt.gca().get_legend_handles_labels()[0][0].get_color())
+        self.assertEqual(1.0     ,plt.gca().get_legend_handles_labels()[0][0].get_alpha())
+        self.assertEqual('-'     ,plt.gca().get_legend_handles_labels()[0][0].get_linestyle())
+        self.assertEqual(1       ,plt.gca().get_legend_handles_labels()[0][0].get_zorder())
+        self.assertEqual('L2'    ,plt.gca().get_legend_handles_labels()[1][1])
+        self.assertEqual('red'   ,plt.gca().get_legend_handles_labels()[0][1].get_color())
+        self.assertEqual(0.25    ,plt.gca().get_legend_handles_labels()[0][1].get_alpha())
+        self.assertEqual('-'     ,plt.gca().get_legend_handles_labels()[0][1].get_linestyle())
+        self.assertEqual(2       ,plt.gca().get_legend_handles_labels()[0][1].get_zorder())
+
+        plt.clf()
+
+    def test_plot_with_empty_points(self):
+
+        import matplotlib.pyplot as plt
+
+        lines = [
+            Points([], [], None, None, "blue", 1.00, 'L1', '-', 1),
+            Points([3,4], [7,8], None, [0.1,0.2], "red", 0.25, 'L2', '.', 2),
+            Points([], [], None, None, "blue", 1.00, 'L3', '-', 1),
+        ]
+
+        MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+
+        l2i = plt.gca().get_legend_handles_labels()[1].index("L2")
+
+        self.assertEqual(True    ,plt.gca().get_legend_handles_labels()[0][l2i].has_yerr)
+        self.assertEqual('title' ,plt.gca().get_title(loc='left'))
+        self.assertEqual('xlabel',plt.gca().get_xlabel())
+        self.assertEqual('ylabel',plt.gca().get_ylabel())
+        self.assertEqual(['L1','L2','L3'],[t.get_text() for t in plt.gca().get_legend().get_texts()])
+
+        plt.clf()
 
 class Result_Tests(unittest.TestCase):
 
