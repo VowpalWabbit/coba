@@ -41,7 +41,7 @@ class LinUCBLearner(Learner):
                 are indicated by x's while action features are indicated by a's. For example, xaa means to cross the
                 features between context and actions and actions.
         """
-        PackageChecker.numpy("LinUCBLearner.__init__")
+        PackageChecker.numpy("LinUCBLearner")
 
         self._alpha = alpha
 

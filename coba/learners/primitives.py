@@ -1,14 +1,13 @@
 
-from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Type
+from typing import Any, Sequence, Union, Tuple, Mapping, Type
 
 from coba.exceptions import CobaException
 from coba.primitives import Context, Action, Actions
 from coba.primitives import Dense, Sparse, HashableDense, HashableSparse
 
-kwargs = Mapping[str,Any]
 Prob   = float
-PDF    = Callable[[Action],float]
-PMF    = Sequence[float]
+PMF    = Sequence[Prob]
+kwargs = Mapping[str,Any]
 
 Prediction = Union[
     PMF,
@@ -41,7 +40,7 @@ class Learner:
             actions: The current set of actions that can be chosen in the given context.
                 Each action will either be a value (a single feature), a hashable tuple
                 (dense context), or a hashable dictionary (sparse context).
-            request: The requested action or set of action probabilities.
+            request: The requested  action probabilities (or densities if actions is continuous).
 
         Returns:
             The requested action probabilities (or densities if actions is continuous).

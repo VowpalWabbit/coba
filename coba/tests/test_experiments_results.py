@@ -537,24 +537,20 @@ class MatplotPlotter_Tests(unittest.TestCase):
     def test_no_matplotlib(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
             with self.assertRaises(CobaExit):
-                MatplotPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None)
+                MatplotPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None,None)
 
     def test_plot_lines_title_xlabel_ylabel(self):
         with unittest.mock.patch('matplotlib.pyplot.show') as show:
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
                 with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
-                    mock_ax = plt_figure().add_subplot()
-
-                    mock_ax.get_xticks.return_value = [1,2]
-                    mock_ax.get_xlim.return_value   = [2,2]
-
                     lines = [
                         Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"screen")
+                    mock_ax = plt_figure().add_subplot()
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,"screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -583,17 +579,13 @@ class MatplotPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
                 with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
-                    mock_ax = plt_figure().add_subplot()
-
-                    mock_ax.get_xticks.return_value = [1,2]
-                    mock_ax.get_xlim.return_value   = [2,2]
-
                     lines = [
                         Points([1,2], [5,6], None, [10,11], "B", 1.00, 'L1', '-', 1),
                         Points([3,4], [7,8], None, [12,13], "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, "screen")
+                    mock_ax = plt_figure().add_subplot()
+                    MatplotPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, None, "screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -626,9 +618,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            mock_ax.get_xticks.return_value = [1,2]
-            mock_ax.get_xlim.return_value   = [2,2]
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -641,9 +631,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            mock_ax.get_xticks.return_value = [1,2]
-            mock_ax.get_xlim.return_value   = [2,2]
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None,None)
             self.assertEqual(([3,4],[7,8],[2,1],None,'-'), mock_ax.errorbar.call_args_list[0][0])
 
     def test_plot_ylim(self):
@@ -655,9 +643,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            mock_ax.get_xticks.return_value = [1,2]
-            mock_ax.get_xlim.return_value   = [2,2]
-            MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -671,12 +657,10 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None)
+                MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None,None)
+
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual({'rotation':90},xticks.call_args[1])
 
     def test_plot_yrotation(self):
@@ -689,13 +673,92 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None)
+
+                MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None,None)
+
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual({'rotation':90},yticks.call_args[1])
+
+    def test_plot_total_xorder(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3,4,2],None)
+
+                self.assertEqual(([0,3],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([1,2],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+                self.assertEqual(((3,2,1,0),(2,4,3,1)),xticks.call_args[0])
+
+    def test_plot_total_xorder_ascending(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,[1,2,3,4],None)
+
+                self.assertEqual(([1,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([3,4],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+                self.assertEqual(0,xticks.call_count)
+
+    def test_plot_total_xorder_descending(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[4,3,2,1],None)
+
+                self.assertEqual(([-1,-2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([-3,-4],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+                self.assertEqual(((-1,-2,-3,-4),(1,2,3,4)),xticks.call_args[0])
+
+    def test_plot_partial_xorder(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points(['1','2'], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points(['3','4'], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,['1','3'],None)
+
+                self.assertEqual(([0,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([1,3],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+                self.assertEqual(((1,0,2,3),('3','1','2','4')),xticks.call_args[0])
+
+    def test_plot_extra_xorder(self):
+        with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                lines = [
+                    Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
+                    Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
+                ]
+
+                mock_ax = plt_figure().add_subplot()
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3,4,2,5],None)
+
+                self.assertEqual(([0,3],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                self.assertEqual(([1,2],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+                self.assertEqual(((4,3,2,1,0),(5,2,4,3,1)),xticks.call_args[0])
 
     def test_plot_no_xticks(self):
         with unittest.mock.patch('matplotlib.pyplot.xticks') as xticks:
@@ -707,12 +770,10 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,None,None,None,None)
+
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual([],xticks.call_args[0][0])
 
     def test_plot_no_yticks(self):
@@ -725,12 +786,10 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                mock_ax.get_xticks.return_value = [1,2]
-                mock_ax.get_xlim.return_value   = [2,2]
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,None,None,None,None)
+
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
-
                 self.assertEqual([],yticks.call_args[0][0])
 
     def test_plot_ax(self):
@@ -738,21 +797,16 @@ class MatplotPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
                 with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
-                    mock_ax = plt_figure().add_subplot()
-                    self.assertEqual(1, plt_figure().add_subplot.call_count)
-
-                    mock_ax.get_xticks.return_value = [1,2]
-                    mock_ax.get_xlim.return_value   = [2,2]
-
                     lines = [
                         Points([1,2], [5,6], None, None, "B", 1.00, 'L1', '-', 1),
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                    mock_ax = plt_figure().add_subplot()
+                    self.assertEqual(1, plt_figure().add_subplot.call_count)
+                    MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
 
                     self.assertEqual(1, plt_figure().add_subplot.call_count)
-
                     self.assertEqual(([1,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                     self.assertEqual('B'              , mock_ax.plot.call_args_list[0][1]["color"])
                     self.assertEqual(1                , mock_ax.plot.call_args_list[0][1]["alpha"])
@@ -779,7 +833,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         plotter = MatplotPlotter()
-        plotter.plot(None, [[]], 'abc', 'def', 'efg', (1,0), (0,1), True, True, None, None, None)
+        plotter.plot(None, [[]], 'abc', 'def', 'efg', (1,0), (0,1), True, True, None, None, None, None)
 
         expected_log = "The xlim end is less than the xlim start. Plotting is impossible."
 
@@ -791,7 +845,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         plotter = MatplotPlotter()
-        plotter.plot(None, [[]], 'abc', 'def', 'efg', (0,1), (1,0), True, True, None, None, None)
+        plotter.plot(None, [[]], 'abc', 'def', 'efg', (0,1), (1,0), True, True, None, None, None, None)
 
         expected_log = "The ylim end is less than the ylim start. Plotting is impossible."
 
@@ -812,7 +866,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"abc")
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,"abc")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -851,7 +905,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -886,7 +940,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                 ]
 
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
 
                 plt_figure.assert_called_with(num='coba')
                 plt_figure().add_subplot.assert_called_with(111)
@@ -898,10 +952,60 @@ class MatplotPlotter_Tests(unittest.TestCase):
             CobaContext.logger.sink = ListSink()
 
             plotter = MatplotPlotter()
-            plotter.plot(None, [], 'abc', 'def', 'efg', None, None, True, True, None, None, None)
+            plotter.plot(None, [], 'abc', 'def', 'efg', None, None, True, True, None, None, None, None)
 
             self.assertEqual(0, plt_figure().add_subplot.call_count)
             self.assertEqual(["No data was found for plotting."], CobaContext.logger.sink.items)
+
+    def test_plot_with_existing_figure(self):
+
+        import matplotlib.pyplot as plt
+
+        lines = [
+            Points([1,2], [5,6], None, None, "blue", 1.00, 'L1', '-', 1),
+            Points([3,4], [7,8], None, None, "red", 0.25, 'L2', '-', 2)
+        ]
+
+        MatplotPlotter().plot(None,lines[:1],"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+        MatplotPlotter().plot(None,lines[1:],"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+
+        self.assertEqual('title' ,plt.gca().get_title(loc='left'))
+        self.assertEqual('xlabel',plt.gca().get_xlabel())
+        self.assertEqual('ylabel',plt.gca().get_ylabel())
+        self.assertEqual('L1'    ,plt.gca().get_legend_handles_labels()[1][0])
+        self.assertEqual('blue'  ,plt.gca().get_legend_handles_labels()[0][0].get_color())
+        self.assertEqual(1.0     ,plt.gca().get_legend_handles_labels()[0][0].get_alpha())
+        self.assertEqual('-'     ,plt.gca().get_legend_handles_labels()[0][0].get_linestyle())
+        self.assertEqual(1       ,plt.gca().get_legend_handles_labels()[0][0].get_zorder())
+        self.assertEqual('L2'    ,plt.gca().get_legend_handles_labels()[1][1])
+        self.assertEqual('red'   ,plt.gca().get_legend_handles_labels()[0][1].get_color())
+        self.assertEqual(0.25    ,plt.gca().get_legend_handles_labels()[0][1].get_alpha())
+        self.assertEqual('-'     ,plt.gca().get_legend_handles_labels()[0][1].get_linestyle())
+        self.assertEqual(2       ,plt.gca().get_legend_handles_labels()[0][1].get_zorder())
+
+        plt.clf()
+
+    def test_plot_with_empty_points(self):
+
+        import matplotlib.pyplot as plt
+
+        lines = [
+            Points([], [], None, None, "blue", 1.00, 'L1', '-', 1),
+            Points([3,4], [7,8], None, [0.1,0.2], "red", 0.25, 'L2', '.', 2),
+            Points([], [], None, None, "blue", 1.00, 'L3', '-', 1),
+        ]
+
+        MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+
+        l2i = plt.gca().get_legend_handles_labels()[1].index("L2")
+
+        self.assertEqual(True    ,plt.gca().get_legend_handles_labels()[0][l2i].has_yerr)
+        self.assertEqual('title' ,plt.gca().get_title(loc='left'))
+        self.assertEqual('xlabel',plt.gca().get_xlabel())
+        self.assertEqual('ylabel',plt.gca().get_ylabel())
+        self.assertEqual(['L1','L2','L3'],[t.get_text() for t in plt.gca().get_legend().get_texts()])
+
+        plt.clf()
 
 class Result_Tests(unittest.TestCase):
 
@@ -1028,7 +1132,11 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(4, len(filtered_result.interactions))
 
-    def test_filter_fin_with_n_and_Nones(self):
+    def test_filter_fin_with_n_1(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
         envs = [['environment_id'],[1],[2]]
         lrns = [['learner_id'    ],[1],[2]]
         vals = [['evaluator_id'  ],[1]]
@@ -1040,7 +1148,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(2,None,None)
+        filtered_result = original_result.filter_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1049,6 +1157,36 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(6, len(filtered_result.interactions))
+
+        self.assertEqual("We removed 1 learner evaluation because it was shorter than 2 interactions.", CobaContext.logger.sink.items[0])
+
+    def test_filter_fin_with_n_2(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [1,1,1,1,1],[1,1,1,2,2],
+            [1,2,1,1,1],[1,2,1,2,2],[1,2,1,3,3],
+            [2,1,1,1,1],
+            [2,2,1,1,1],
+        ]
+
+        original_result = Result(envs, lrns, vals, ints)
+        filtered_result = original_result.filter_fin(2)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(7, len(original_result.interactions))
+
+        self.assertEqual(1, len(filtered_result.environments))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(4, len(filtered_result.interactions))
+
+        self.assertEqual("We removed 2 learner evaluations because they were shorter than 2 interactions.", CobaContext.logger.sink.items[0])
 
     def test_filter_fin_no_finished(self):
 
@@ -1070,7 +1208,33 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.environments))
         self.assertEqual(0, len(filtered_result.learners))
         self.assertEqual(0, len(filtered_result.interactions))
-        self.assertEqual(["There was no environment_id which was finished for every learner_id."], CobaContext.logger.sink.items)
+        self.assertEqual("We removed 2 environment_id because they did not exist for every learner_id.", CobaContext.logger.sink.items[0])
+        self.assertEqual("There was no environment_id which was finished for every learner_id.", CobaContext.logger.sink.items[1])
+
+    def test_filter_fin_multi_p(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        envs = [['environment_id','data_id','seed'                   ],[1,2,1],[2,2,2]]
+        lrns = [['learner_id'                                        ],[1],[2]]
+        vals = [['evaluator_id'                                      ],[1]]
+        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[1,2,1,0],[2,1,1,0],[2,2,1,0]]
+
+        original_result = Result(envs, lrns, vals, ints)
+        filtered_result = original_result.filter_fin(l='learner_id',p='data_id')
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(1, len(original_result.evaluators))
+        self.assertEqual(4, len(original_result.interactions))
+
+        self.assertEqual(0, len(filtered_result.environments))
+        self.assertEqual(0, len(filtered_result.learners))
+        self.assertEqual(0, len(filtered_result.evaluators))
+        self.assertEqual(0, len(filtered_result.interactions))
+        self.assertEqual("We removed 1 data_id because more than one existed for each learner_id.", CobaContext.logger.sink.items[0])
+        self.assertEqual("There was no data_id which was finished for every learner_id.", CobaContext.logger.sink.items[1])
 
     def test_filter_env(self):
 
@@ -1329,6 +1493,72 @@ class Result_Tests(unittest.TestCase):
             result._ipython_display_()
             mock.assert_called_once_with(str(result))
 
+    def test_raw_learners_all_default(self):
+        envs = [['environment_id'],[0],[1]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,2],
+                [1,1,0,1,1],[1,1,0,2,2],
+                [1,2,0,1,1],[1,2,0,2,2],
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_learners()
+        self.assertEqual(('p','x','1. learner_1','2. learner_2'), table.columns)
+        self.assertEqual([(0,1,1,1),(1,1,1,1),(0,2,1.5,1.5),(1,2,1.5,1.5)], list(table))
+
+    def test_raw_contrast_all_default(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,2]
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_contrast(1,2)
+        self.assertEqual(('p','x','1. learner_1','2. learner_2'), table.columns)
+        self.assertEqual([(0,0,1.5,1.5)], list(table))
+
+    def test_raw_contrast_index(self):
+        envs = [['environment_id'],[0],[1]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,2],
+                [1,1,0,1,1],[1,1,0,2,2],
+                [1,2,0,1,1],[1,2,0,2,2]
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_contrast(1,2,x='index')
+        self.assertEqual(('p','x','l1','l2'), table.columns)
+        self.assertEqual([(0,1,1,1),(1,1,1,1),(0,2,1.5,1.5),(1,2,1.5,1.5)], list(table))
+
+    def test_raw_contrast_bad_l(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,2]
+        ]
+
+        with self.assertRaises(CobaException):
+            table = Result(envs, lrns, vals, ints).raw_contrast(1,1,x='index')
+
+    def test_raw_contrast_no_pair(self):
+        envs = [['environment_id'],[0]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+        ]
+
+        with self.assertRaises(CobaException):
+            table = Result(envs, lrns, vals, ints).raw_contrast(1,2,x='index')
+
     def test_plot_learners_bad_x_index(self):
         CobaContext.logger.sink = ListSink()
         Result().plot_learners(x=['index','a'])
@@ -1578,8 +1808,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(x='environment_id')
 
         expected_lines = [
-            Points(['0'],[1.5],[],[0],0,1,'1. learner_1','.',1),
-            Points(['0'],[1.5],[],[0],1,1,'2. learner_2','.',1)
+            Points([0],[1.5],[],[0],0,1,'1. learner_1','.',1),
+            Points([0],[1.5],[],[0],1,1,'2. learner_2','.',1)
         ]
 
         self.assertEqual("Total Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -1634,7 +1864,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "Every environment_id not present for all full_name has been excluded."
+        expected_logs = ["We removed 1 environment_id because it did not exist for every full_name."]
         expected_lines = [
             Points([1,2],[2,5/2],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[2,5/2],[],[0,0],1,1,'2. learner_2','-', 1)
@@ -1642,7 +1872,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
-        self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
 
     def test_plot_learners_mixed_env_length(self):
 
@@ -1665,7 +1895,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = 'Interactions beyond the shortest environment_id have been excluded.'
+        expected_logs = ['We shortened 2 environments because they were longer than the shortest environment.']
         expected_lines = [
             Points([1,2],[3/2,4/2],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[3/2,4/2],[],[0,0],1,1,'2. learner_2','-', 1)
@@ -1673,7 +1903,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
-        self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
 
     def test_plot_learners_filename(self):
         envs = [['environment_id'],[0],[1]]
@@ -1693,7 +1923,7 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(out="abc")
 
         self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual("abc", plotter.plot_calls[0][11])
+        self.assertEqual("abc", plotter.plot_calls[0][12])
 
     def test_plot_learners_ax(self):
         envs = [['environment_id'],[0],[1]]
@@ -2023,9 +2253,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1)
 
         expected_lines = [
-            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'l1 (2)', '.', 1.),
-            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'l2 (2)', '.', 1.),
-            Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None    , '-', .5),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, '2. learner_2 (2)' , '.', 1.),
+            Points(()       , ()     , None, None , 1     , 1, 'Tie (0)', '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
+            Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None     , '-', .5),
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -2053,9 +2284,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,xlabel='x',ylabel='y')
 
         expected_lines = [
-            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'l1 (2)', '.', 1.),
-            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'l2 (2)', '.', 1.),
-            Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None    , '-', .5),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, '2. learner_2 (2)' , '.', 1.),
+            Points(()       , ()     , None, None , 1     , 1, 'Tie (0)', '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
+            Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None     , '-', .5),
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -2086,9 +2318,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,title='abc')
 
         expected_lines = [
-            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, 'l1 (2)', '.', 1.),
-            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, 'l2 (2)', '.', 1.),
-            Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None    , '-', .5),
+            Points(('2','1'), (-2,-1), None, (0,0), 0     , 1, '2. learner_2 (2)' , '.', 1.),
+            Points(()       , ()     , None, None , 1     , 1, 'Tie (0)', '.', 1.),
+            Points(('0','3'), ( 1, 2), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
+            Points(('2','3'), ( 0, 0), None,  None, "#888", 1, None     , '-', .5),
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -2115,8 +2348,9 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,'a')
 
         expected_lines = [
+            Points(()       , ()   , None, None , 0     , 1, '2. learner_2 (0)' , '.', 1.),
             Points(('2',)   , (0, ), None, (0, ), 1     , 1, 'Tie (1)', '.', 1.),
-            Points(('3','1'), (1,2), None, (0,0), 2     , 1, 'l2 (2)' , '.', 1.),
+            Points(('3','1'), (1,2), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
             Points(('2','1'), (0,0), None, None , "#888", 1, None     , '-', .5)
         ]
 
@@ -2143,9 +2377,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            Points(('2',)      , (0,   ), None, (0, ), 0     , 1, 'l1 (1)', '.', 1.),
-            Points(('1','None'), (1,1  ), None, (0,0), 2     , 1, 'l2 (2)', '.', 1.),
-            Points(('2','None'), (.5,.5), None, None , "#888", 1, None    , '-', .5)
+            Points(('2',)      , (0,   ), None, (0, ), 0     , 1, '2. learner_2 (1)' , '.', 1.),
+            Points(()           , ()   , None , None , 1     , 1, 'Tie (0)', '.', 1.),
+            Points(('1','None'), (1,1  ), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
+            Points(('2','None'), (.5,.5), None, None , "#888", 1, None     , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -2171,9 +2406,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, 'l1 (1)', '.', 1.),
-            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, 'l2 (2)', '.', 1.),
-            Points(('2','3'), (.5,.5), None, None , "#888", 1, None    , '-', .5)
+            Points(('2',)   , (0,   ), None, (0, ), 0     , 1, '2. learner_2 (1)' , '.', 1.),
+            Points(()       , ()     , None, None , 1     , 1, 'Tie (0)', '.', 1.),
+            Points(('1','3'), (1,1  ), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
+            Points(('2','3'), (.5,.5), None, None , "#888", 1, None     , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -2196,8 +2432,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,l='a',p='learner_id')
 
         expected_lines = [
-            Points(('0-1',     ), (2, ), None, (0, ), 2     , 1, 'l2 (1)', '.', 1.),
-            Points(('0-1','0-1'), (0,0), None, None , "#888", 1, None    , '-', .5)
+            Points(()           , ()   , None, None , 0     , 1, 'l1 (0)' , '.', 1.),
+            Points(()           , ()   , None, None , 1     , 1, 'Tie (0)', '.', 1.),
+            Points(('0-1',     ), (2, ), None, (0, ), 2     , 1, 'l2 (1)' , '.', 1.),
+            Points(('0-1','0-1'), (0,0), None, None , "#888", 1, None     , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -2303,15 +2541,21 @@ class Result_Tests(unittest.TestCase):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
-        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[0,1,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,0,0,1,1],
+                [0,1,0,1,1],
+                [1,0,0,1,1],[1,0,0,2,1],
+                [1,1,0,1,1],[1,1,0,2,1]
+        ]
         result = Result(envs, lrns, vals, ints)
 
+        expected_logs = ['We shortened 2 environments because they were longer than the shortest environment.']
         expected_rows = [(0,0,0,1,1),(0,1,0,1,1),(1,0,0,1,1),(1,1,0,1,1)]
 
         plottable = result._plottable('index','reward')._finished('index','reward','learner_id','environment_id')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
-        self.assertEqual(["Interactions beyond the shortest environment_id have been excluded."], CobaContext.logger.sink.items)
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
 
     def test_plottable_not_all_env_finished_with_unequal_lengths_and_x_index(self):
 
@@ -2321,15 +2565,19 @@ class Result_Tests(unittest.TestCase):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[0,'learner_1'],[1,'learner_2']]
         vals = [['evaluator_id'],[0]]
-        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,0,0,1,1],[1,0,0,1,1],[1,0,0,2,1],[1,1,0,1,1],[1,1,0,2,1]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,0,0,1,1],
+                [1,0,0,1,1],[1,0,0,2,1],
+                [1,1,0,1,1],[1,1,0,2,1],
+        ]
         result = Result(envs, lrns, vals, ints)
 
-        expected_rows = [(1,0,0,1,1),(1,1,0,1,1)]
+        expected_logs = ["We removed 1 environment_id because it did not exist for every learner_id."]
+        expected_rows = [(1,0,0,1,1),(1,0,0,2,1),(1,1,0,1,1),(1,1,0,2,1)]
         plottable = result._plottable('index','reward')._finished('index','reward','learner_id','environment_id')
 
         self.assertEqual(expected_rows,list(plottable.interactions))
-        self.assertEqual("Every environment_id not present for all learner_id has been excluded.", CobaContext.logger.sink.items[0])
-        self.assertEqual("Interactions beyond the shortest environment_id have been excluded.", CobaContext.logger.sink.items[1])
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
 
     def test_plottable_no_env_finished_for_all_learners(self):
 

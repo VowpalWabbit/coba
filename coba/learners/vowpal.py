@@ -25,7 +25,7 @@ class VowpalMediator:
         self._ns_keys = {}
         self._ns_keys_cnt = 0
 
-        PackageChecker.vowpalwabbit('VowpalMediator.__init__')
+        PackageChecker.vowpalwabbit('VowpalMediator')
 
     @property
     def is_initialized(self) -> bool:

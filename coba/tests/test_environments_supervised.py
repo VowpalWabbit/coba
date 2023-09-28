@@ -20,6 +20,11 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         list(env.read())
         self.assertEqual(expected_params, env.params)
 
+        expected_params = {'source': "[X,Y]", 'label_type':'C', "env_type": "SupervisedSimulation", 'n_actions':2}
+        env = SupervisedSimulation([1,2],[Categorical(1,[1,2]),Categorical(2,[1,2])],label_type="C")
+        list(env.read())
+        self.assertEqual(expected_params, env.params)
+
         expected_params = {'source': "[X,Y]", 'label_type':'R', "env_type": "SupervisedSimulation", 'n_actions':float('inf')}
         env = SupervisedSimulation([1,2],[1,2],label_type="R")
         list(env.read())
