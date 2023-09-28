@@ -30,10 +30,10 @@ from coba.pipes.sinks import QueueSink
 # handle Experiment.evaluate not being called inside of __name__=='__main__' (manually tested)
 #   > Handled by checking exitcode on processes and using an event synchronizer on first process start
 
-#There are three potential contexts -- spawn, fork, and forkserver. On windows and mac spawn is the only option.
-#On Linux the default option is fork. Fork creates processes faster and can share memory but also doesn't play
-#well with threads. Therefore, to make behavior consistent across Linux, Windows, and Mac and avoid potential bugs
-#we force our multiprocessors to always use spawn.
+# There are three potential contexts -- spawn, fork, and forkserver. On Windows and Mac spawn is the only option.
+# On Linux the default option is fork. Fork creates processes faster and can share memory but also doesn't play
+# well with threads. Therefore, to make behavior consistent across Linux, Windows, and Mac -- and to avoid
+# potential bugs -- we force our multiprocessors to always use spawn regardless of the host OS.
 spawn_context = mp.get_context("spawn")
 
 class ProcessLine(spawn_context.Process):

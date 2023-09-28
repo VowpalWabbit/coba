@@ -209,11 +209,12 @@ class SupervisedSimulation(Environment):
             #since we can use the Categorical's as_int property rather than action_indexes
             actions = [ Categorical(l,first_label.levels) for l in first_label.levels ]
             reward  = MulticlassReward
+            self._params['n_actions'] = len(actions)
+
         else:
             #we need to know all labels in the dataset to determine actions
             rows = list(rows)
             lbls = [r.label for r in rows] if first_row_type == 0 else [r[1] for r in rows]
-
             if label_type == "m":
                 actions = sorted(set(list(chain(*lbls))))
                 reward = HammingReward
@@ -221,7 +222,6 @@ class SupervisedSimulation(Environment):
                 delist  = lambda l: l[0] if isinstance(l,list) else l
                 actions = sorted(set(map(delist,lbls)))
                 reward  = lambda l: MulticlassReward(delist(l))
-
             self._params['n_actions'] = len(actions)
 
         if first_row_type == 0:

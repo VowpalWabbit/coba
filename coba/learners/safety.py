@@ -332,7 +332,7 @@ class SafeLearner(Learner):
             if 'got an unexpected' in str(ex):
                 raise CobaException("It appears that learner.predict returned kwargs but learner.learn did not accept them.") from ex
             if 'learn() missing' in str(ex):
-                raise CobaException("It appears that learner.predict expected kwargs but learner.predict did not provide any.") from ex
+                raise CobaException("It appears that learner.learn expected kwargs but learner.predict did not provide any.") from ex
             raise
 
     def _get_pmf_index(self,pmf):

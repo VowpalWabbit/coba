@@ -257,7 +257,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         self._environments = []
 
         for env in environments:
-            if isinstance(env, collections.abc.Sequence):
+            if isinstance(env, (collections.abc.Sequence,collections.abc.Generator)):
                 self._environments.extend(env)
             else:
                 self._environments.append(env)
@@ -342,9 +342,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def scale(self,
         shift: Union[float,Literal["min","mean","med"]] = "min",
         scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax",
-        targets: Union[Literal["context","ope_rewards","argmax"], Sequence[Literal["context","ope_rewards","argmax"]]] = "context",
+        targets:Literal["context"] = "context",
         using: Optional[int] = None) -> 'Environments':
-        """Apply an affine shift and scaling factor to precondition environments."""
+        """Apply an affine shift and scaling factor to precondition environment features."""
         if isinstance(targets,str): targets = [targets]
         return self.filter(Pipes.join(*[Scale(shift, scale, t, using) for t in targets]))
 

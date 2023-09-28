@@ -397,6 +397,13 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('A', env[0].params['id'])
         self.assertEqual('B', env[1].params['id'])
 
+    def test_init_generator_args(self):
+        env = Environments(TestEnvironment1(x) for x in ['A','B'])
+
+        self.assertEqual(2  , len(env))
+        self.assertEqual('A', env[0].params['id'])
+        self.assertEqual('B', env[1].params['id'])
+
     def test_init_empty_args(self):
         env = Environments()
         self.assertEqual(0  , len(env))
