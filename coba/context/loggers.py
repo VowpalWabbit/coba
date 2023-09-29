@@ -307,10 +307,10 @@ class ExceptLog(Filter[Union[str,Exception],str]):
             out.append(self.format_exception(ex.__cause__))
             out.append("The above exception was the direct cause of the following exception:\n")
 
-        tb  = ''.join(traceback.format_tb(ex.__traceback__))
         msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
 
         #we manualy format to provide more helpful messages for strange edge conditions
+        #the alternative method is tb  = ''.join(traceback.format_tb(ex.__traceback__))
         tbs  = []
         for frame in traceback.extract_tb(ex.__traceback__):
 
@@ -320,7 +320,6 @@ class ExceptLog(Filter[Union[str,Exception],str]):
             lineno = frame.lineno or '<unknown line>'
 
             tbs.append(f'  File "{fname}", line {lineno}, in {mname}\n    {code}\n')
-
         tb = ''.join(tbs)
 
         if tb : out.append(tb)
