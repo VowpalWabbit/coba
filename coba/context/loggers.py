@@ -310,6 +310,19 @@ class ExceptLog(Filter[Union[str,Exception],str]):
         tb  = ''.join(traceback.format_tb(ex.__traceback__))
         msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
 
+        #we manualy format to provide more helpful messages for strange edge conditions
+        tbs  = []
+        for frame in traceback.extract_tb(ex.__traceback__):
+
+            code   = frame.line or '<unknown code, this is likely due to the code being in a Jupyter cell>'
+            fname  = frame.filename or '<unknown file>'
+            mname  = frame.name or '<unknown method>'
+            lineno = frame.lineno or '<unknown line>'
+
+            tbs.append(f'  File "{fname}", line {lineno}, in {mname}\n    {code}\n')
+
+        tb = ''.join(tbs)
+
         if tb : out.append(tb)
         if msg: out.append(f'  {msg}')
 
