@@ -1188,27 +1188,30 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id'],[1],[2]]
-        lrns = [['learner_id'    ],[1],[2]]
-        vals = [['evaluator_id'  ],[1]]
+        lrns = [['learner_id'    ],[1],[2],[3]]
+        vals = [['evaluator_id'  ],[1],[2]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],
             [1,1,1,1,1],[1,1,1,2,2],
             [1,2,1,1,1],[1,2,1,2,2],[1,2,1,3,3],
             [2,1,1,1,1],
             [2,2,1,1,1],
+            [2,3,2,1,1],
         ]
 
         original_result = Result(envs, lrns, vals, ints)
         filtered_result = original_result.filter_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
-        self.assertEqual(2, len(original_result.learners))
-        self.assertEqual(7, len(original_result.interactions))
+        self.assertEqual(3, len(original_result.learners))
+        self.assertEqual(2, len(original_result.evaluators))
+        self.assertEqual(8, len(original_result.interactions))
 
         self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(1, len(filtered_result.evaluators))
         self.assertEqual(4, len(filtered_result.interactions))
 
-        self.assertEqual("We removed 2 learner evaluations because they were shorter than 2 interactions.", CobaContext.logger.sink.items[0])
+        self.assertEqual("We removed 3 learner evaluations because they were shorter than 2 interactions.", CobaContext.logger.sink.items[0])
 
     def test_filter_fin_no_finished(self):
 

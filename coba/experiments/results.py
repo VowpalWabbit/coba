@@ -1537,21 +1537,20 @@ class Result:
         interactions = self.interactions
 
         env_lengths = []
-        to_remove   = []
+        to_drop     = []
         to_keep     = []
-        for indexed_table in self._indexed_tables(['environment_id','learner_id','evaluator_id']):
-            table = indexed_table[1]
+        for index, table in self._indexed_tables(['environment_id','learner_id','evaluator_id']):
             if n!='min' and len(table) < n:
-                to_remove.append(indexed_table[0])
+                to_drop.append(index)
             else:
-                to_keep.append(indexed_table[0])
+                to_keep.append(index)
                 env_lengths.append(len(table))
 
-        if to_remove:
-            n_removed = len(to_remove)
-            interactions = Table(View(interactions._data,self._remove(to_remove,n)), interactions.columns, interactions.indexes)
-            if n_removed==1: CobaContext.logger.log(f"We removed {n_removed} learner evaluation because it was shorter than {n} interactions.")
-            if n_removed>=2: CobaContext.logger.log(f"We removed {n_removed} learner evaluations because they were shorter than {n} interactions.")
+        if to_drop:
+            n_dropped = len(to_drop)
+            interactions = Table(View(interactions._data,self._remove(to_drop,n)), interactions.columns, interactions.indexes)
+            if n_dropped==1: CobaContext.logger.log(f"We removed {n_dropped} learner evaluation because it was shorter than {n} interactions.")
+            if n_dropped>=2: CobaContext.logger.log(f"We removed {n_dropped} learner evaluations because they were shorter than {n} interactions.")
 
         env_lengths = collections.Counter(env_lengths)
         if len(env_lengths) > 1:
@@ -1561,11 +1560,16 @@ class Result:
             if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} environment because it was longer than the shortest environment.")
             if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")
 
-        if to_remove:
-            envs,lrns,vals = map(set,zip(*to_keep))
-            environments = environments.where(environment_id=envs)
-            learners     = learners    .where(learner_id    =lrns)
-            evaluators   = evaluators  .where(evaluator_id  =vals)
+        keep_envs,keep_lrns,keep_vals = map(set,zip(*to_keep)) if to_keep else ([],[],[])
+
+        if len(keep_envs) != len(environments):
+            environments = environments.where(environment_id=keep_envs)
+
+        if len(keep_lrns) != len(learners):
+            learners = learners.where(learner_id=keep_lrns)
+
+        if len(keep_vals) != len(evaluators):
+            evaluators = evaluators.where(evaluator_id=keep_vals)
 
         return Result(environments, learners, evaluators, interactions, self.experiment)
 
