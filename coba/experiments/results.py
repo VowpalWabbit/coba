@@ -372,6 +372,13 @@ class Table:
             else:
                 return [ i for i,c in enumerate(col,lo) if c in arg ]
 
+        if comparison == "!in":
+            if method == "bisect":
+                arg = [None]+list(sorted(arg))+[None]
+                return [ (lo if v0 is None else my_bisect_right(col,v0,lo,hi), hi if v1 is None else my_bisect_left(col,v1,lo,hi)) for v0,v1 in zip(arg[0:],arg[1:])]
+            else:
+                return [ i for i,c in enumerate(col,lo) if c not in arg ]
+
         if comparison == "=" or (comparison is None and (not isinstance(arg,collections.abc.Iterable) or isinstance(arg,str))):
             if method == "bisect":
                 return [ (my_bisect_left(col,arg,lo,hi),my_bisect_right(col,arg,lo,hi)) ]
@@ -1531,17 +1538,18 @@ class Result:
 
         env_lengths = []
         to_remove   = []
+        to_keep     = []
         for indexed_table in self._indexed_tables(['environment_id','learner_id','evaluator_id']):
             table = indexed_table[1]
             if n!='min' and len(table) < n:
                 to_remove.append(indexed_table[0])
             else:
+                to_keep.append(indexed_table[0])
                 env_lengths.append(len(table))
 
         if to_remove:
-            select = self._remove(to_remove,n)
             n_removed = len(to_remove)
-            interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
+            interactions = Table(View(interactions._data,self._remove(to_remove,n)), interactions.columns, interactions.indexes)
             if n_removed==1: CobaContext.logger.log(f"We removed {n_removed} learner evaluation because it was shorter than {n} interactions.")
             if n_removed>=2: CobaContext.logger.log(f"We removed {n_removed} learner evaluations because they were shorter than {n} interactions.")
 
@@ -1551,12 +1559,13 @@ class Result:
             n_shortened = sum(v for k,v in env_lengths.items() if k > shorten_to)
             interactions = interactions.where(index={'<=':shorten_to})
             if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} environment because it was longer than the shortest environment.")
-            if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")            
+            if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")
 
-        if len(interactions) != len(self.interactions):
-            environments = environments.where(environment_id=set(interactions['environment_id']))
-            learners     = learners    .where(learner_id    =set(interactions['learner_id'    ]))
-            evaluators   = evaluators  .where(evaluator_id  =set(interactions['evaluator_id'  ]))
+        if to_remove:
+            envs,lrns,vals = map(set,zip(*to_keep))
+            environments = environments.where(environment_id=envs)
+            learners     = learners    .where(learner_id    =lrns)
+            evaluators   = evaluators  .where(evaluator_id  =vals)
 
         return Result(environments, learners, evaluators, interactions, self.experiment)
 

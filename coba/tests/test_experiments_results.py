@@ -298,7 +298,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A','B')], list(filtered_table))
 
-    def test_where_sequence_1(self):
+    def test_where_in_1(self):
         table = Table(columns=['a','b']).insert([['a','b'], ['A','B'], ['1','C']])
 
         filtered_table = table.where(a=['a','1'])
@@ -309,7 +309,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_table))
         self.assertEqual([('a','b'),('1','C')], list(filtered_table))
 
-    def test_where_sequence_3(self):
+    def test_where_in_2(self):
         table = Table(columns=['a']).insert([[['1']],[['2']],[['3']]])
 
         filtered_table = table.where(a=[['1']],comparison='in')
@@ -319,6 +319,28 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([(['1'],)], list(filtered_table))
+
+    def test_where_not_in_foreach(self):
+        table = Table(columns=['a','b']).insert([['a','b'], ['A','B'], ['1','C']])
+
+        filtered_table = table.where(a=['a','1'],comparison='!in')
+
+        self.assertEqual(3, len(table))
+        self.assertEqual([('a','b'),('A','B'),('1','C')], list(table))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([('A','B')], list(filtered_table))
+
+    def test_where_not_in_bisect(self):
+        table = Table(columns=['a','b']).insert([['a','b'], ['A','B'], ['1','C']]).index('a')
+
+        filtered_table = table.where(a=['a','1'],comparison='!in')
+
+        self.assertEqual(3, len(table))
+        self.assertEqual([('1','C'),('A','B'),('a','b')], list(table))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([('A','B')], list(filtered_table))
 
     def test_where_le(self):
         table = Table(columns=['a']).insert([[1]]*10)
