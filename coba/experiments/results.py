@@ -67,7 +67,6 @@ def my_bisect_left(c,a,l,h): return l if c[l  ]==a else bisect_left(c,a,l,h)
 def my_bisect_right(c,a,l,h): return h if c[h-1]==a else bisect_right(c,a,l,h)
 
 class View:
-
     class ListView:
         def __init__(self, seq:Sequence, sel:Sequence):
             self._seq = seq
@@ -110,8 +109,9 @@ class View:
 
     def __init__(self, data: Union[Mapping[str,Sequence],'View'], select: Union[Sequence[int],slice]) -> None:
         if isinstance(data,collections.abc.Mapping):
-            self._data = data
-            self._select = self._try_slice(select)
+            self._data   = data
+            self._select = select if isinstance(select,slice) else self._try_slice(select)
+
         else:
             self._data = data._data
 
@@ -158,15 +158,20 @@ class Table:
     """A container class for storing tabular data."""
     #Potentially overkill, however, by having our own "simple" table implementation we can provide
     #several useful pieces of functionality out of the box. Additionally, when working with
-    #very large experiments pandas can become quite slow while our Table works acceptably.
+    #very large experiments pandas can become quite slow while Table works acceptably.
 
     def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), indexes: Sequence[str]= ()):
 
-        self._columns = tuple(columns) if not isinstance(data,collections.abc.Mapping) else tuple(columns) or tuple(data.keys())
-        self._data    = {c:[] for c in self._columns}
-        self.insert(data)
-        self._indexes = tuple(indexes)
-        self._lohis   = self._calc_lohis()
+        self._columns = tuple(columns) or tuple(data)
+        self._lohis   = None
+
+        if data and isinstance(data,View):
+            self._data = data
+        else:
+            self._data = {c:[] for c in self._columns}
+            self.insert(data)
+
+        self._indexes = tuple(indexes) #this should come last...
 
     @property
     def columns(self) -> Sequence[str]:
@@ -178,15 +183,10 @@ class Table:
 
     def insert(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]]=()) -> 'Table':
         data_is_empty             = not data
-        data_is_where_clause_view = data and isinstance(data,View)
         data_is_mapping_of_cols   = data and isinstance(data,collections.abc.Mapping)
         data_is_sequence_of_dicts = data and isinstance(data,collections.abc.Sequence) and isinstance(data[0],collections.abc.Mapping)
 
         if data_is_empty:
-            return self
-
-        if data_is_where_clause_view:
-            self._data = data
             return self
 
         if data_is_sequence_of_dicts:
@@ -196,28 +196,34 @@ class Table:
         if data_is_mapping_of_cols:
             old,new = set(self._columns), set(data.keys())
             old_len = len(self)
-            new_len = 0
+            new_len = old_len
 
-            for hdr in new-old:
+            new_cols = new-old
+            old_cols = new&old
+            pad_cols = old-new
+
+            for hdr in new_cols:
                 self._data[hdr] = list(chain(repeat(None, old_len), data[hdr]))
                 new_len = len(self._data[hdr])
 
-            for hdr in new&old:
+            for hdr in old_cols:
                 self._data[hdr].extend(data[hdr])
                 new_len = len(self._data[hdr])
 
-            for hdr in old-new:
+            for hdr in pad_cols:
                 self._data[hdr].extend(repeat(None,new_len-old_len))
 
-            self._columns += tuple(sorted(new-old))
+            if new_cols:
+                self._columns += tuple(sorted(new_cols))
 
         else: #data_is_list_of_rows
             assert len(data[0]) == len(self._columns), "The given data rows don't align with the table's headers."
             for hdr,col in zip(self._columns,zip(*data)):
                 self._data[hdr].extend(col)
 
-        self._indexes = ()
-        self._lohis = {}
+        if self._lohis: #pragma: no cover
+            self._indexes = ()
+            self._lohis = {}
 
         return self
 
@@ -265,6 +271,8 @@ class Table:
             selection = list(compress(count(),map(row_pred,self)))
             return Table(View(self._data,selection), self._columns, self._indexes)
 
+        self._lohis = self._lohis or self._calc_lohis()
+
         if kwargs:
             selection = []
             for kw,arg in kwargs.items():
@@ -280,8 +288,13 @@ class Table:
             return Table(View(self._data,selection), self._columns, self._indexes)
 
     def groupby(self, level:int) -> Iterable[Tuple[Tuple,'Table']]:
+
+        self._lohis = self._lohis or self._calc_lohis()
+
+        grp_cols = [self._data[hdr] for hdr in self._indexes[:level]]
+
         for l,h in self._lohis[self._indexes[level]]:
-            group = tuple(self._data[hdr][l] for hdr in self._indexes[:level])
+            group = tuple(col[l] for col in grp_cols)
             table = Table(View(self._data, slice(l,h)), self._columns, self._indexes)
             yield group, table
 
@@ -501,7 +514,7 @@ class TransactionResult:
                 val_rows[trx[1]].update(trx[2])
 
             if trx[0] == "I":
-                if len(trx[1]) ==2: trx[1] = [*trx[1],0]
+                if len(trx[1]) == 2: trx[1] = [*trx[1],0]
                 int_rows[tuple(trx[1])] = trx[2]
 
         rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
@@ -1619,6 +1632,7 @@ class Result:
             l: The level at which we wish to compare evalation outcomes.
             p: The pairs that must exist across all comparison levels in order to be included.
         """
+        import time
 
         result = self.copy()
 
