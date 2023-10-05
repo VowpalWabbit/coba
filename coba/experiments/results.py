@@ -99,18 +99,19 @@ class View:
             return (self._sel.stop or len(self._seq)) - (self._sel.start or 0)
 
         def __getitem__(self,key):
-            if isinstance(key,slice):
+            if not isinstance(key,slice):
+                return self._seq[(self._sel.start or 0)+key]
+            else:
                 key_start = key.start or 0
                 key_stop  = key.stop or len(self)
                 new_start = (self._sel.start or 0) + key_start
                 new_stop  = new_start + key_stop - key_start
                 return self._seq[slice(new_start,new_stop)]
-            else:
-                return self._seq[(self._sel.start or 0)+key]
 
         def __iter__(self):
-            #this isn't a true iter, this makes a copy, but
-            #this runs about 3x faster than doing a true iter.
+            #this isn't a true iter because it makes a copy. It
+            #still runs slightly faster than doing a true iter
+            #with islice.
             return iter(self._seq[self._sel])
 
     def __init__(self, data: Union[Mapping[str,Sequence],'View'], select: Union[Sequence[int],slice]) -> None:
@@ -1066,8 +1067,8 @@ class Result:
             group = list(group)
 
             if 'x' not in data:
-                data[f'p'] = list(map(itemgetter(2),group))
-                data[f'x'] = list(map(itemgetter(1),group))
+                data['p'] = list(map(itemgetter(2),group))
+                data['x'] = list(map(itemgetter(1),group))
             data[_l] = list(map(itemgetter(3),group))
 
         return Table(data)
@@ -1501,55 +1502,50 @@ class Result:
         return calc_ci
 
     def _indexed_tables(self,*indexes) -> Iterable[Tuple[Any]]:
+        #WARNING: This has been highly highly optimized. Don't make changes without performance testing.
 
         def make_getter(K):
-            if K in self.environments.columns:
+            if not isinstance(K,str):
+                return lambda e,l,v,G=list(map(make_getter,K)): tuple(g(e,l,v) for g in G)
+            elif K in self.environments.columns:
                 return lambda e,l,v,k=K: e[k]
-            if K in self.learners.columns or K == 'full_name':
+            elif K in self.learners.columns or K == 'full_name':
                 return lambda e,l,v,k=K: l[k]
-            if K in self.evaluators.columns:
+            elif K in self.evaluators.columns:
                 return lambda e,l,v,k=K: v[k]
-            return lambda e,l,v: None
+            else:
+                return lambda e,l,v: None
 
-        index_getters = [ make_getter(K) if isinstance(K,str) else list(map(make_getter,K)) for K in indexes ]
+        index_getters = list(map(make_getter,indexes))
         indexed_tables = []
         for (env_id,lrn_id,val_id), table in self.interactions.groupby(3):
             e = self._env_cache[env_id]
             l = self._lrn_cache[lrn_id]
             v = self._val_cache[val_id]
 
-            index_values = [ tuple(g(e,l,v) for g in G) if isinstance(G,list) else G(e,l,v) for G in index_getters ]
-            indexed_tables.append([*index_values, table])
+            index = [ G(e,l,v) for G in index_getters ]
+            indexed_tables.append([*index, table])
 
         return sorted(indexed_tables,key=MyComparable)
 
     def _indexed_ys(self,*indexes,y,span) -> Iterable[Tuple[Any]]:
+        #WARNING: This has been highly highly optimized. Don't make changes without performance testing.
 
-        index_in   = 'index' in indexes
-        index_1st  = indexes.index('index') if index_in else len(indexes)
         index_locs = [ i for i, I in enumerate(indexes) if I == 'index']
+        index_1st  = index_locs[0] if index_locs else len(indexes)
+        y_col      = moving_average if index_locs else (lambda v,_: [mean(v)])
 
-        y_groups = collections.defaultdict(list)
+        for _,t_group in groupby(self._indexed_tables(*indexes),key=itemgetter(slice(None,index_1st))):
+            y_group = []
+            for t in t_group:
+                data   = t[-1]._data #break the interface to be slightly faster
+                i_cols = list(map(repeat,t[:-1]))
+                #n_col  = data['index']
+                #for i in index_locs: i_cols[i] = n_col #not problematic but slower than below
+                for i in index_locs: i_cols[i] = count(1) #potentially problematic but faster than above
+                y_group.append(zip(*i_cols, y_col(data[y],span)))
 
-        for indexed_table in self._indexed_tables(*indexes):
-            table = indexed_table[-1]
-            n_col = table['index']
-
-            i_cols = list(map(repeat,indexed_table[:-1]))
-            for i in index_locs: i_cols[i] = n_col
-
-            y_col   = moving_average(table[y],span) if index_in else [mean(table[y])]
-            grouper = tuple(indexed_table[:index_1st])
-
-            y_groups[grouper].append(iter(zip(*i_cols, y_col)))
-
-        for group in y_groups.values():
-            try:
-                while True:
-                    for indexed_values in group:
-                        yield next(indexed_values)
-            except StopIteration:
-                pass
+            yield from chain.from_iterable(zip(*y_group))
 
     def _global_n(self, n: Union[int,Literal['min']]):
 

@@ -1747,7 +1747,7 @@ class Result_Tests(unittest.TestCase):
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family','i','j','t'],[1,'learner_1',1,2,None],[2,'learner_2',None,None,2]]
         vals = [['evaluator_id'],[0]]
-        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,0,1],[0,1,0,1,2],[0,2,0,0,1],[0,2,0,1,2]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
 
         plotter = TestPlotter()
         result = Result(envs, lrns, vals, ints)
@@ -1756,8 +1756,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            Points([0,1],[1.,1.5],[],[0,0],0,1,'1. learner_1(i=1,j=2)','-', 1),
-            Points([0,1],[1.,1.5],[],[0,0],1,1,'2. learner_2(t=2)','-', 1)
+            Points([1,2],[1.,1.5],[],[0,0],0,1,'1. learner_1(i=1,j=2)','-', 1),
+            Points([1,2],[1.,1.5],[],[0,0],1,1,'2. learner_2(t=2)','-', 1)
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -1770,7 +1770,7 @@ class Result_Tests(unittest.TestCase):
         envs = [['environment_id'],[0]]
         lrns = [['learner_id'],[1]]
         vals = [['evaluator_id','eval_type'],[0,'a'],[1,'b']]
-        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,0,1],[0,1,0,1,2],[0,1,1,0,1],[0,1,1,1,2]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,1,1,1,1],[0,1,1,2,2]]
 
         plotter = TestPlotter()
         result = Result(envs, lrns, vals, ints)
@@ -1779,8 +1779,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(l='eval_type')
 
         expected_lines = [
-            Points([0,1],[1.,1.5],[],[0,0],0,1,'a','-', 1),
-            Points([0,1],[1.,1.5],[],[0,0],1,1,'b','-', 1)
+            Points([1,2],[1.,1.5],[],[0,0],0,1,'a','-', 1),
+            Points([1,2],[1.,1.5],[],[0,0],1,1,'b','-', 1)
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
