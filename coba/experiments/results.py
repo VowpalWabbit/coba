@@ -6,7 +6,6 @@ from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
 from operator import truediv, sub, mul, itemgetter
-from functools import cmp_to_key
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee
@@ -48,26 +47,32 @@ def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None,
 
         return map(truediv,values,weights)
 
-def comparer(item1,item2):
-    try:
-        if item1[:-1]<item2[:-1]:
-            return -1
-        if item1[:-1]>item2[:-1]:
-            return 1
-        return 0
-    except TypeError as e:
-        if 'NoneType' in str(e):
-            return -1 if str(e).endswith("'NoneType'") else 1
-        if 'str' in str(e):
-            return -1 if str(e).endswith("'str'") else 1
-
 #this adds one more check on average but avoids the worst case
 #scenario, which can be common for certain types of experiments.
-def my_bisect_left(c,a,l,h): return l if c[l  ]==a else bisect_left(c,a,l,h)
+def my_bisect_left(c,a,l,h): return l if c[l]==a else bisect_left(c,a,l,h)
 def my_bisect_right(c,a,l,h): return h if c[h-1]==a else bisect_right(c,a,l,h)
 
+class MyComparable:
+        __slots__ = ('obj',)
+
+        #See this for more information: https://stackoverflow.com/q/68173281/1066291
+
+        def __init__(self, obj):
+            self.obj = obj[:-1]
+
+        def __lt__(self, other):
+            try:
+                return self.obj < other.obj
+            except TypeError as e:
+                err_msg = str(e)
+                return err_msg.endswith("'NoneType'") if "'NoneType'" in err_msg else err_msg.endswith("'str'")
+
+        __hash__ = None
+
 class View:
+    __slots__ = ('_data','_select')
     class ListView:
+        __slots__=('_seq','_sel')
         def __init__(self, seq:Sequence, sel:Sequence):
             self._seq = seq
             self._sel = sel
@@ -85,6 +90,7 @@ class View:
             return iter(map(self._seq.__getitem__,self._sel))
 
     class SliceView:
+        __slots__=('_seq','_sel')
         def __init__(self, seq:Sequence, sel:slice):
             self._seq = seq
             self._sel = sel
@@ -111,7 +117,6 @@ class View:
         if isinstance(data,collections.abc.Mapping):
             self._data   = data
             self._select = select if isinstance(select,slice) else self._try_slice(select)
-
         else:
             self._data = data._data
 
@@ -155,6 +160,7 @@ class View:
         return key in self._data
 
 class Table:
+    __slots__ = ('_columns', '_lohis', '_data', '_indexes')
     """A container class for storing tabular data."""
     #Potentially overkill, however, by having our own "simple" table implementation we can provide
     #several useful pieces of functionality out of the box. Additionally, when working with
@@ -290,7 +296,6 @@ class Table:
     def groupby(self, level:int) -> Iterable[Tuple[Tuple,'Table']]:
 
         self._lohis = self._lohis or self._calc_lohis()
-
         grp_cols = [self._data[hdr] for hdr in self._indexes[:level]]
 
         for l,h in self._lohis[self._indexes[level]]:
@@ -327,10 +332,10 @@ class Table:
         if isinstance(idx1,slice):
             return [self._data[col] for col in self._columns[idx1]]
 
-        if isinstance(idx1,collections.abc.Collection):
+        try:
             return [self._data[col] for col in idx1]
-
-        raise KeyError(idx1)
+        except:
+            raise KeyError(idx1)
 
     def __iter__(self) -> Iterator[Sequence[Any]]:
         return iter(zip(*self[:]))
@@ -1108,7 +1113,7 @@ class Result:
                 if _l in l2:
                     L2.extend(map(itemgetter(slice(1,None)),group))
 
-            for _x, group in groupby(sorted(plottable._pairings(p,L1,L2),key=cmp_to_key(comparer)),key=itemgetter(0)):
+            for _x, group in groupby(sorted(plottable._pairings(p,L1,L2),key=MyComparable),key=itemgetter(0)):
                 _x = _x[0] if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
 
                 for _,(_y1,_y2),_p in group:
@@ -1496,50 +1501,54 @@ class Result:
         return calc_ci
 
     def _indexed_tables(self,*indexes) -> Iterable[Tuple[Any]]:
+
+        def make_getter(K):
+            if K in self.environments.columns:
+                return lambda e,l,v,k=K: e[k]
+            if K in self.learners.columns or K == 'full_name':
+                return lambda e,l,v,k=K: l[k]
+            if K in self.evaluators.columns:
+                return lambda e,l,v,k=K: v[k]
+            return lambda e,l,v: None
+
+        index_getters = [ make_getter(K) if isinstance(K,str) else list(map(make_getter,K)) for K in indexes ]
         indexed_tables = []
-
         for (env_id,lrn_id,val_id), table in self.interactions.groupby(3):
-            e = self._env_cache.get(env_id,{})
-            l = self._lrn_cache.get(lrn_id,{})
-            v = self._val_cache.get(val_id,{})
+            e = self._env_cache[env_id]
+            l = self._lrn_cache[lrn_id]
+            v = self._val_cache[val_id]
 
-            indexed_table = []
-            for K in indexes:
-                if isinstance(K,str):
-                    indexed_table.append(e.get(K,l.get(K,v.get(K,None))))
-                if isinstance(K,(list,tuple)):
-                    indexed_table.append(tuple(e.get(k,l.get(k,v.get(k,None))) for k in K))
+            index_values = [ tuple(g(e,l,v) for g in G) if isinstance(G,list) else G(e,l,v) for G in index_getters ]
+            indexed_tables.append([*index_values, table])
 
-            indexed_table.append(table)
-            indexed_tables.append(indexed_table)
-
-        return sorted(map(tuple,indexed_tables),key=cmp_to_key(comparer))
+        return sorted(indexed_tables,key=MyComparable)
 
     def _indexed_ys(self,*indexes,y,span) -> Iterable[Tuple[Any]]:
 
-        coords = [ i for i,I in enumerate(indexes) if I == 'index' ]
+        index_in   = 'index' in indexes
+        index_1st  = indexes.index('index') if index_in else len(indexes)
+        index_locs = [ i for i, I in enumerate(indexes) if I == 'index']
 
-        indexed_values = []
+        y_groups = collections.defaultdict(list)
+
         for indexed_table in self._indexed_tables(*indexes):
-            _table    = indexed_table[ -1]
-            _indexes = [repeat(i) for i in indexed_table[:-1]]
-            for i in coords: _indexes[i] = iter(_table['index'])
+            table = indexed_table[-1]
+            n_col = table['index']
 
-            _y_values = [mean(_table[y])] if not coords else iter(moving_average(_table[y],span))
-            indexed_values.append( (indexed_table[:-1], iter(zip(*_indexes,_y_values))) )
+            i_cols = list(map(repeat,indexed_table[:-1]))
+            for i in index_locs: i_cols[i] = n_col
 
-        first_index = coords[0] if coords else -1
-        upto_index  = itemgetter(slice(0,first_index))
+            y_col   = moving_average(table[y],span) if index_in else [mean(table[y])]
+            grouper = tuple(indexed_table[:index_1st])
 
-        for _,group in groupby(indexed_values,key=lambda k: k[0][:first_index]):
+            y_groups[grouper].append(iter(zip(*i_cols, y_col)))
+
+        for group in y_groups.values():
             try:
-                group = list(group)
                 while True:
-                    for _,_indexed_ys in group:
-                        Y = next(_indexed_ys)
-                        yield Y
+                    for indexed_values in group:
+                        yield next(indexed_values)
             except StopIteration:
-                #we assume all environments are of equal length due to `_plottable`
                 pass
 
     def _global_n(self, n: Union[int,Literal['min']]):
