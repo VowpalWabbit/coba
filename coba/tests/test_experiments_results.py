@@ -498,8 +498,8 @@ class Table_Tests(unittest.TestCase):
         table = Table(columns=['a','b','c','d','e']).insert([['A','B',1,'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
-            dict(a='A',b='B',c=1,d='d'),
-            dict(a='B',e='E')
+            dict(a='A',b='B',c=1,d='d',e=None),
+            dict(a='B',b=None,c=None,d=None,e='E')
         ])
 
         actual_df = table.to_pandas()
@@ -514,8 +514,8 @@ class Table_Tests(unittest.TestCase):
         table = Table(columns=['a','b','c','d','e']).insert([['A','B',[1,2],'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
-            dict(a='A',b='B',c=[1,2],d='d'),
-            dict(a='B',e='E')
+            dict(a='A',b='B',c=[1,2],d='d',e=None),
+            dict(a='B',b=None,c=None,d=None,e='E')
         ])
 
         actual_df = table.to_pandas()
@@ -530,8 +530,8 @@ class Table_Tests(unittest.TestCase):
         table = Table(columns=['a','b','c','d','e']).insert([['A','B',{'z':10},'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
-            dict(a='A',b='B',c={'z':10},d='d'),
-            dict(a='B',e='E')
+            dict(a='A',b='B',c={'z':10},d='d',e=None),
+            dict(a='B',b=None,c=None,d=None,e='E')
         ])
 
         actual_df = table.to_pandas()
