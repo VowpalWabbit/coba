@@ -20,7 +20,7 @@ from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
 from coba.primitives import BinaryReward, SequenceReward, BatchReward, argmax
 from coba.primitives import IPSReward, SequenceFeedback, MappingReward, MulticlassReward
-from coba.primitives import Feedback, BatchFeedback
+from coba.primitives import Feedback, BatchFeedback, Categorical
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Filter, SparseDense
 
@@ -979,9 +979,11 @@ class Repr(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        first, interactions = peek_first(interactions)
+        firsts, interactions = peek_first(interactions,n=2)
 
         if not interactions: return []
+
+        first = firsts[0]
 
         has_actions   = 'actions' in first and bool(first['actions'])
         has_rewards   = 'rewards' in first
@@ -998,7 +1000,29 @@ class Repr(EnvironmentFilter):
             cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter(i['context'] for i in next(tees))
 
         if self._cat_actions and has_actions:
-            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions).filter(i['actions'] for i in next(tees))
+            rows = (i['actions'] for i in next(tees))
+
+            if len(firsts) == 2 and firsts[0]['actions'] == firsts[1]['actions']:
+
+                def prev_check():
+                    prev_row   = None
+                    prev_yield = None
+
+                    encoder = pipes.EncodeCatRows(self._cat_actions)
+
+                    for row in rows:
+                        if row == prev_row:
+                            yield prev_yield
+                        else:
+                            prev_row = row
+                            row = list(encoder.filter(row))
+                            yield row
+                            prev_yield = row
+
+                cat_actions_iter = prev_check()
+            else:
+                encoder = pipes.EncodeCatRows(self._cat_actions).filter
+                cat_actions_iter = map(list,map(encoder,rows))
 
         for interaction in next(tees):
 
@@ -1011,7 +1035,7 @@ class Repr(EnvironmentFilter):
                 new_actions = next(cat_actions_iter)
                 old_actions = new['actions']
 
-                if new_actions != old_actions or type(new_actions[0]) != type(old_actions[0]):
+                if new_actions != old_actions or (new_actions and (new_actions[0] is not old_actions[1])) :
                     new['actions'] = new_actions
 
                 if new_actions != old_actions:
@@ -1129,7 +1153,7 @@ class Finalize(EnvironmentFilter):
         action_materialized  = not first_has_action  or (not is_dense_action  and not is_sparse_action  or isinstance(first['action']    ,(list,tuple,dict)))
 
         if self._apply_repr:
-            interactions = Repr("onehot","onehot_tuple").filter(interactions)
+            interactions = Repr("onehot","onehot").filter(interactions)
 
         for interaction in interactions:
 

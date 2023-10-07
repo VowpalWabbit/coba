@@ -115,7 +115,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
         given = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
         expected = [(1,0),(0,1)]
-        actual = list(EncodeCatRows("onehot", value_rows=True).filter(given))
+        actual = list(EncodeCatRows("onehot").filter(given))
 
         self.assertEqual(actual,expected)
 
@@ -123,9 +123,18 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
         given = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
         expected = ['1','2']
-        actual = list(EncodeCatRows("string", value_rows=True).filter(given))
+        actual = list(EncodeCatRows("string").filter(given))
 
         self.assertEqual(actual,expected)
+
+    def test_value_categorical_to_str(self):
+
+        given = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
+        expected = ['1','2']
+        actual = list(EncodeCatRows("string").filter(given))
+
+        self.assertEqual(actual,expected)
+
 
 class EncodeRows_Tests(unittest.TestCase):
 

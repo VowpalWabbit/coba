@@ -532,7 +532,7 @@ class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse
             return map(LabelSparse, rows, repeat(label), repeat(tipe))
 
 class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any,Dense,Sparse]]]):
-    def __init__(self, tipe=Literal["onehot","onehot_unflat","string"], value_rows:bool = False) -> None:
+    def __init__(self, tipe=Literal["onehot","onehot_tuple","string"]) -> None:
         self._tipe = tipe
 
     def filter(self, rows: Iterable[Union[Any,Dense,Sparse]]) -> Iterable[Union[Any,Dense,Sparse]]:
@@ -545,7 +545,7 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         else:
             rows = self._encode_values(rows, first)
 
-        if self._tipe =='onehot':
+        if self._tipe == 'onehot':
             rows = Flatten().filter(rows)
 
         return rows
@@ -559,26 +559,19 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
             yield from (r.as_onehot for r in rows)
 
     def _encode_collection(self, rows, first):
-
         if isinstance(first,Sparse):
             cat_cols = [k for k,v in first.items() if isinstance(v,Categorical) ]
         else:
             cat_cols = [i for i,v in enumerate(first) if isinstance(v,Categorical) ]
 
-        copyable = not isinstance(first,tuple)
-        get_string = 'string' == self._tipe
+        if not cat_cols:
+            yield from rows
+        else:
+            get_string = 'string' == self._tipe
+            is_copyable = not isinstance(first,tuple)
 
-        prev_row   = None
-        prev_yield = None
-
-        for row in rows:
-            if row == prev_row:
-                #this check doesn't cost us much and will greatly
-                #speed up the encoding of repeated categorical actions
-                yield prev_yield
-            else:
-                prev_row = row
-                row = row.copy() if copyable else list(row)
+            for row in rows:
+                row = row.copy() if is_copyable else list(row)
 
                 if get_string:
                     for k in cat_cols:
@@ -588,4 +581,3 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
                         row[k] = row[k].as_onehot
 
                 yield row
-                prev_yield = row

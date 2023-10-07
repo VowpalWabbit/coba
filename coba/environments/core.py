@@ -334,10 +334,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Take a slice of interactions from an Environment."""
         return self.filter(Slice(start,stop,step))
 
-    def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]=1) -> 'Environments':
+    def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]=1, strict:bool = False) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""
         if isinstance(seeds,int): seeds = [seeds]
-        return self.filter([Reservoir(n_interactions,seed=seed) for seed in seeds])
+        return self.filter([Reservoir(n_interactions,strict=strict,seed=seed) for seed in seeds])
 
     def scale(self,
         shift: Union[float,Literal["min","mean","med"]] = "min",

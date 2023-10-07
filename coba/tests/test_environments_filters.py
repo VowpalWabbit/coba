@@ -1849,13 +1849,61 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual([1,2],out['actions'])
         self.assertEqual([1,2],out['rewards'])
 
-    def test_actions_categorical_with_rewards(self):
+    def test_context_categorical_value_onehot(self):
+        out = next(Repr('onehot','onehot').filter([SimulatedInteraction(Categorical('1',['1','2']),[1,2],[1,2])]))
+
+        self.assertEqual((1,0),out['context'])
+        self.assertEqual([1,2],out['actions'])
+        self.assertEqual([1,2],out['rewards'])
+
+    def test_actions_categorical_value_onehot_tuple(self):
         out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
         self.assertEqual(out['rewards'].eval((1,0)), 1)
         self.assertEqual(out['rewards'].eval((0,1)), 2)
+
+    def test_actions_categorical_value_onehot(self):
+        out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
+
+        self.assertEqual([1,2,3]      , out['context'])
+        self.assertEqual([(1,0),(0,1)], out['actions'])
+        self.assertEqual(out['rewards'].eval((1,0)), 1)
+        self.assertEqual(out['rewards'].eval((0,1)), 2)
+
+    def test_actions_categorical_value_string(self):
+        out = next(Repr('onehot','string').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
+
+        self.assertEqual([1,2,3]  , out['context'])
+        self.assertEqual(['1','2'], out['actions'])
+        self.assertEqual(out['rewards'].eval('1'), 1)
+        self.assertEqual(out['rewards'].eval('2'), 2)
+
+    def test_actions_categorical_dense_onehot_tuple(self):
+        out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
+
+        self.assertEqual([1,2,3]      , out['context'])
+        self.assertEqual([[(1,0)],[(0,1)]], out['actions'])
+        self.assertEqual(out['rewards'].eval([(1,0)]), 1)
+        self.assertEqual(out['rewards'].eval([(0,1)]), 2)
+
+    def test_actions_categorical_dense_onehot(self):
+        out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
+
+        self.assertEqual([1,2,3]      , out['context'])
+        self.assertEqual([[1,0],[0,1]], out['actions'])
+        self.assertEqual(out['rewards'].eval([1,0]), 1)
+        self.assertEqual(out['rewards'].eval([0,1]), 2)
+
+    def test_actions_categorical_dense_string(self):
+        out = next(Repr('onehot','string').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
+
+        self.assertEqual([1,2,3]      , out['context'])
+        self.assertEqual([['1'],['2']], out['actions'])
+        self.assertFalse(isinstance(out['actions'][0][0],Categorical))
+        self.assertEqual(out['rewards'].eval(['1']), 1)
+        self.assertEqual(out['rewards'].eval(['2']), 2)
 
     def test_actions_categorical_with_feedbacks(self):
         out = next(Repr('onehot','onehot_tuple').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
