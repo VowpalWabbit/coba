@@ -332,7 +332,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 if worker.exitcode != 0: #pragma: no cover
                     #exitcode -15 is keyboard interrupt...
                     if worker.exitcode != -15:
-                        print(worker.exitcode)
+                        print(f"Background process {worker.pid} failed unexpectedly with exit code {worker.exitcode}.")
                     self._main_err = True
                     event.set()
 
