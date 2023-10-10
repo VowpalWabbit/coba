@@ -326,9 +326,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Add params to the environments."""
         return self.filter(Params(params))
 
-    def take(self, n_interactions: int) -> 'Environments':
+    def take(self, n_interactions: int, strict: bool = False) -> 'Environments':
         """Take a fixed number of interactions from the Environments."""
-        return self.filter(Take(n_interactions))
+        return self.filter(Take(n_interactions, strict))
 
     def slice(self, start: Optional[int], stop: Optional[int]=None, step:int = 1) -> 'Environments':
         """Take a slice of interactions from an Environment."""

@@ -24,12 +24,14 @@ class TestEnvironment1:
         return []
 
 class TestEnvironment2:
+    def __init__(self,n=2):
+        self._n = n
     @property
-    def params(self):
+    def params(self,):
         return {'a':1}
     def read(self):
-        yield {'b':1}
-        yield {'b':2}
+        for n in range(self._n):
+            yield {'b':n+1}
 
 class TestEnvironment3:
     def __init__(self):
@@ -577,6 +579,16 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[0].params['take'])
         self.assertEqual('B' , envs[1].params['id'])
         self.assertEqual(1   , envs[1].params['take'])
+
+    def test_take_strict(self):
+        envs = Environments(TestEnvironment2(1),TestEnvironment2(2)).take(2,strict=True)
+
+        self.assertEqual(2   , len(envs))
+        self.assertEqual(2   , envs[0].params['take'])
+        self.assertEqual(2   , envs[1].params['take'])
+
+        self.assertFalse(list(envs[0].read()))
+        self.assertTrue(list(envs[1].read()))
 
     def test_slice(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).slice(1,2)
