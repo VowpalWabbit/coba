@@ -150,16 +150,17 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         else:
             W         = 1
             items     = iter(items)
-            reservoir = rng.shuffle(list(islice(items,self._count)))
+            reservoir = list(islice(items,self._count))
 
             if len(reservoir) < self._count:
-                yield from ([] if self._strict else reservoir)
+                yield from ([] if self._strict else rng.shuffle(reservoir,inplace=True))
 
             else:
-                count = self._count or 1
-                log   = math.log
-                floor = math.floor
-                x     = 1/count
+                reservoir = rng.shuffle(reservoir,inplace=True)
+                count     = self._count or 1
+                log       = math.log
+                floor     = math.floor
+                x         = 1/count
 
                 def batched_randoms_forever(batch_size):
                     while True:

@@ -83,25 +83,29 @@ class CobaRandom:
         """
         return min+(max-min)*next(self._randu)        
 
-    def shuffle(self, sequence: Sequence[Any], inplace: bool = False) -> Sequence[Any]:
+    def shuffle(self, items: Iterable[Any], inplace: bool = False) -> Sequence[Any]:
         """Shuffle the order of items in a sequence.
 
         Args:
-            sequence: The sequence of items that are to be shuffled.
-            inplace: The sequence of items should be shuffled within the given sequence
+            items: The items that are to be shuffled.
+            inplace: Shuffle the items in their given container.
 
         Returns:
-            A new sequence with the order of items shuffled.
+            A sequence with the given items in a new order.
 
         Remarks:
             This is the Richard Durstenfeld's method popularized by Donald Knuth in The Art of Computer
             Programming. This algorithm is unbiased (i.e., all possible permutations are equally likely to occur).
         """
 
-        n = len(sequence)
-        if n < 2: return sequence
+        if not hasattr(items,'__len__') or not hasattr(items,'__setitem__'):
+            items = list(items)
+            inplace = True
 
-        l = sequence if inplace else list(sequence)
+        n = len(items)
+        if n < 2: return items
+
+        l = items if inplace else list(items)
 
         #i goes from 0 to n-2
         #j is always i <= j < n
@@ -309,15 +313,15 @@ def choice(seq: Sequence[Any], weights:Sequence[float]=None) -> Any:
 
     return _random.choice(seq, weights)
 
-def shuffle(array_like: Sequence[Any], inplace:bool=False) -> Sequence[Any]:
+def shuffle(items: Iterable[Any], inplace:bool=False) -> Sequence[Any]:
     """Shuffle the order of items in a sequence.
 
     Args:
-        sequence: The sequence of items that are to be shuffled.
-        inplace: The sequence of items should be shuffled within the given sequence.
+        items: The items that are to be shuffled.
+        inplace: Shuffle the items in their given container.
 
     Returns:
-        A new sequence with the order of items shuffled.
+        A sequence with the given items in a new order.
     """
 
-    return _random.shuffle(array_like, inplace)
+    return _random.shuffle(items, inplace)

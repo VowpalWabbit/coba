@@ -119,6 +119,29 @@ class Resevoir_Tests(unittest.TestCase):
         self.assertEqual([1,2,3,4,5], items)
         self.assertEqual([]         , take_items)
 
+    def test_take_exacts_iterable(self):
+        items = [1,2,3,4,5]
+
+        take_items = list(Reservoir(2,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([4, 2], take_items)
+
+        take_items = list(Reservoir(None,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(5,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(6,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(0,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
 class Flatten_Tests(unittest.TestCase):
 
     def test_number_flatten(self):
