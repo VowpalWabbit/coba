@@ -183,8 +183,8 @@ class View_Tests(unittest.TestCase):
         self.assertEqual([2],list(view['a']))
 
     def test_view_of_view_list_slice(self):
-        view = View(View({"a":[1,2,3],'b':[4,5,6]},[0,1]),slice(1,2))
-        self.assertEqual([2],list(view['a']))
+        view = View(View({"a":[1,2,3],'b':[4,5,6]},[0,2]),slice(1,2))
+        self.assertEqual([3],list(view['a']))
 
     def test_view_of_view_slice_list(self):
         view = View(View({"a":[1,2,3],'b':[4,5,6]},slice(0,2)),[1])
@@ -194,6 +194,23 @@ class Table_Tests(unittest.TestCase):
 
     def test_table_str(self):
         self.assertEqual("{'Columns': ('id', 'col'), 'Rows': 2}",str(Table(columns=['id','col']).insert([[1,2],[2,3]])))
+
+    def test_table_init(self):
+        data = {'id':[1,2],'col':[2,3]}
+        view = View(data, slice(None,None))
+
+        table = Table(data)
+        self.assertEqual(table.columns, ('id','col'))
+        self.assertIs(table._data, data)
+
+        table = Table(data,columns=('col',))
+        self.assertEqual(table.columns, ('col','id'))
+        self.assertIsNot(table._data, data)
+        self.assertEqual(table._data,data)
+
+        table = Table(view)
+        self.assertEqual(table.columns, ('id','col'))
+        self.assertIs(table._data, view)
 
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:
@@ -442,14 +459,6 @@ class Table_Tests(unittest.TestCase):
 
     def test_where_match_str_str(self):
         table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
-
-        filtered_table = table.where(a='1',comparison='match')
-
-        self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
-
-    def test_where_match_str_str2(self):
-        table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
         filtered_table = table.where(a='1',comparison='match')
         self.assertEqual(4, len(table))
         self.assertEqual(2, len(filtered_table))
@@ -482,12 +491,44 @@ class Table_Tests(unittest.TestCase):
         table.index('a','b','c')
         self.assertEqual(list(table), [(0,1,1,1),(0,1,2,3),(1,1,1,1),(1,1,2,4)])
 
-    def test_multilevel_groupby(self):
+    def test_groupby_with_index_with_table(self):
         table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
         table.index('a','b','c')
-
         self.assertEqual([len(t) for _,t in table.groupby(2)],[1,1,2,2])
         self.assertEqual([g for g,_ in table.groupby(2)],[(0,0),(0,1),(1,0),(1,1)])
+
+    def test_groupby_with_index_select_none(self):
+        table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
+        table.index('a','b','c')
+        self.assertEqual([i for i in table.groupby(2,select=None)],[(0,0),(0,1),(1,0),(1,1)])
+
+    def test_groupby_sans_index_select_table(self):
+        table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
+        table.index('a','b','c')
+        self.assertEqual([len(t) for _,t in table.groupby(2,select='table')],[1,1,2,2])
+        self.assertEqual([ i     for i,_ in table.groupby(2,select='table')],[(0,0),(0,1),(1,0),(1,1)])
+
+    def test_groupby_sans_index_select_count(self):
+        table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
+        table.index('a','b','c')
+        self.assertEqual([ t for _,t in table.groupby(2,select='count')],[1,1,2,2])
+        self.assertEqual([ i for i,_ in table.groupby(2,select='count')],[(0,0),(0,1),(1,0),(1,1)])
+
+    def test_groupby_sans_index_select_column(self):
+        table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
+        table.index('a','b','c')
+        self.assertEqual([ t for _,t in table.groupby(2,select='b')],[[0],[1],[0,0],[1,1]])
+        self.assertEqual([ i for i,_ in table.groupby(2,select='b')],[(0,0),(0,1),(1,0),(1,1)])
+
+    def test_copy(self):
+        table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1]]).index('a','b','c')
+        tcopy = table.copy()
+
+        self.assertIsNot(table,tcopy)
+        self.assertIs(table._data, tcopy._data)
+        self.assertEqual(table._columns,tcopy._columns)
+        self.assertEqual(table._indexes,tcopy._indexes)
+        self.assertEqual(table._lohis,tcopy._lohis)
 
     @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
     def test_to_pandas(self):

@@ -5,7 +5,7 @@ import collections.abc
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, mul, itemgetter
+from operator import truediv, sub, mul, itemgetter, methodcaller
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee
@@ -58,7 +58,7 @@ class MyComparable:
         #See this for more information: https://stackoverflow.com/q/68173281/1066291
 
         def __init__(self, obj):
-            self.obj = obj[:-1]
+            self.obj = obj
 
         def __lt__(self, other):
             try:
@@ -71,6 +71,14 @@ class MyComparable:
 
 class View:
     __slots__ = ('_data','_select')
+
+    @staticmethod
+    def _try_slice(select: Sequence[int]):
+        if select and not isinstance(select,slice) and (select[-1]-select[0]+1) == len(select):
+            return slice(select[0], select[-1]+1)
+        else:
+            return select
+
     class ListView:
         __slots__=('_seq','_sel')
         def __init__(self, seq:Sequence, sel:Sequence):
@@ -80,11 +88,11 @@ class View:
         def __len__(self):
             return len(self._sel)
 
-        def __getitem__(self,key):
-            if isinstance(key,slice):
-                return View.ListView(self._seq,self._sel[key])
-            else:
+        def __getitem__(self, key:Union[int,slice]):
+            if not isinstance(key,slice):
                 return self._seq[self._sel[key]]
+            else:
+                return list(map(self._seq.__getitem__,self._sel[key]))
 
         def __iter__(self):
             return iter(map(self._seq.__getitem__,self._sel))
@@ -98,7 +106,7 @@ class View:
         def __len__(self):
             return (self._sel.stop or len(self._seq)) - (self._sel.start or 0)
 
-        def __getitem__(self,key):
+        def __getitem__(self, key:Union[int,slice]):
             if not isinstance(key,slice):
                 return self._seq[(self._sel.start or 0)+key]
             else:
@@ -117,8 +125,9 @@ class View:
     def __init__(self, data: Union[Mapping[str,Sequence],'View'], select: Union[Sequence[int],slice]) -> None:
         if isinstance(data,collections.abc.Mapping):
             self._data   = data
-            self._select = select if isinstance(select,slice) else self._try_slice(select)
-        else:
+            self._select = select if isinstance(select,slice) else View._try_slice(select)
+
+        else: #data is a 'View'
             self._data = data._data
 
             given_slice = isinstance(select,slice)
@@ -127,17 +136,11 @@ class View:
             if given_slice and have_slice:
                 self._select = slice(data._select.start+select.start,data._select.start+select.stop)
             if given_slice and not have_slice:
-                self._select = self._try_slice(data._select[select])
+                self._select = View._try_slice(data._select[select])
             if not given_slice and have_slice:
-                self._select = self._try_slice([data._select.start + i for i in select])
+                self._select = View._try_slice([data._select.start + i for i in select])
             if not given_slice and not have_slice:
-                self._select = self._try_slice([data._select[i] for i in select])
-
-    def _try_slice(self, select: Sequence[int]):
-        if select and not isinstance(select,slice) and (select[-1]-select[0]+1) == len(select):
-            return slice(select[0], select[-1]+1)
-        else:
-            return select
+                self._select = View._try_slice([data._select[i] for i in select])
 
     def keys(self):
         return self._data.keys()
@@ -161,7 +164,7 @@ class View:
         return key in self._data
 
 class Table:
-    __slots__ = ('_columns', '_lohis', '_data', '_indexes')
+    __slots__ = ('_data', '_columns', '_indexes', '_lohis')
     """A container class for storing tabular data."""
     #Potentially overkill, however, by having our own "simple" table implementation we can provide
     #several useful pieces of functionality out of the box. Additionally, when working with
@@ -172,11 +175,20 @@ class Table:
         self._columns = tuple(columns) or tuple(data)
         self._lohis   = None
 
-        if data and isinstance(data,View):
+        data_is_view            = isinstance(data,View)
+        data_is_mapping_of_cols = isinstance(data,collections.abc.Mapping)
+
+        if data_is_view:
+            self._data = data
+        elif data_is_mapping_of_cols and data.keys() == set(columns):
+            self._data = data
+        elif data_is_mapping_of_cols and not columns:
             self._data = data
         else:
             self._data = {c:[] for c in self._columns}
             self.insert(data)
+
+        self._columns = self._columns or tuple(self._data.keys())
 
         self._indexes = tuple(indexes) #this should come last...
 
@@ -294,20 +306,32 @@ class Table:
 
             return Table(View(self._data,selection), self._columns, self._indexes)
 
-    def groupby(self, level:int) -> Iterable[Tuple[Tuple,'Table']]:
+    def groupby(self, level:int, select:Union[None,Literal['table','count'],str]='table') -> Iterable[Tuple[Tuple,'Table']]:
 
         self._lohis = self._lohis or self._calc_lohis()
         grp_cols = [self._data[hdr] for hdr in self._indexes[:level]]
 
-        for l,h in self._lohis[self._indexes[level]]:
-            group = tuple(col[l] for col in grp_cols)
-            table = Table(View(self._data, slice(l,h)), self._columns, self._indexes)
-            yield group, table
+        if not select:
+            for l,h in self._lohis[self._indexes[level]]:
+                yield tuple(map(itemgetter(l),grp_cols))
+        elif select=='table':
+            for l,h in self._lohis[self._indexes[level]]:
+                grp_idx = tuple(map(itemgetter(l),grp_cols))
+                grp_tbl = Table(View(self._data, slice(l,h)), self._columns, self._indexes)
+                yield (grp_idx,grp_tbl)
+        elif select=='count':
+            for l,h in self._lohis[self._indexes[level]]:
+                grp_idx = tuple(map(itemgetter(l),grp_cols))
+                yield (grp_idx,h-l)
+        else:
+            for l,h in self._lohis[self._indexes[level]]:
+                grp_idx = tuple(map(itemgetter(l),grp_cols))
+                yield (grp_idx,self._data[select][l:h])
 
     def copy(self) -> 'Table':
-        #views are immutable so we don't really need to copy them...
-        data_copy = self._data.copy() if isinstance(self._data,dict) else self._data
-        return Table(data_copy, tuple(self._columns), tuple(self._indexes))
+        t = Table(self._data, tuple(self._columns), tuple(self._indexes))
+        t._lohis = self._lohis
+        return t
 
     def to_pandas(self):
         """Turn the Table into a Pandas data frame."""
@@ -322,8 +346,9 @@ class Table:
     def to_dicts(self) -> Iterable[Mapping[str,Any]]:
         """Turn the Table into a sequence of tuples."""
 
-        for i in range(len(self)):
-            yield {c:self._data[c][i] for c in self._columns}
+        keys = repeat(self._columns)
+        vals = zip(*map(self._data.__getitem__,self._columns))
+        yield from map(dict,map(zip,keys,vals))
 
     def __getitem__(self,idx1):
 
@@ -930,7 +955,18 @@ class Result:
 
     def copy(self) -> 'Result':
         """Create a copy of Result."""
-        return Result(self.environments.copy(), self.learners.copy(), self.evaluators.copy(), self.interactions.copy(), dict(self.experiment))
+        result_copy = Result()
+        result_copy._environments = self.environments.copy()
+        result_copy._learners     = self.learners.copy()
+        result_copy._evaluators   = self.evaluators.copy()
+        result_copy._interactions = self.interactions.copy()
+        result_copy.experiment    = self.experiment
+        result_copy._env_cache    = self._env_cache
+        result_copy._lrn_cache    = self._lrn_cache
+        result_copy._val_cache    = self._val_cache
+        result_copy._plotter      = self._plotter
+
+        return result_copy
 
     def filter_fin(self,
         n: Union[int,Literal['min']] = None,
@@ -1060,9 +1096,12 @@ class Result:
         span: int = None) -> Table:
 
         data = {}
+
         plottable = self._plottable(x,y)._finished(x,y,l,p)
 
-        for _l, group in groupby(plottable._indexed_ys(l,x,p,y=y,span=span),key=itemgetter(0)):
+        YS = list(plottable._indexed_ys(l,x,p,y=y,span=span))
+
+        for _l, group in groupby(YS,key=itemgetter(0)):
 
             group = list(group)
 
@@ -1501,7 +1540,7 @@ class Result:
 
         return calc_ci
 
-    def _indexed_tables(self,*indexes) -> Iterable[Tuple[Any]]:
+    def _indexed_gs(self,*indexes, select:Union[None,Literal['table','count'],str]=None) -> Iterable[Tuple[Any]]:
         #WARNING: This has been highly highly optimized. Don't make changes without performance testing.
 
         def make_getter(K):
@@ -1516,34 +1555,40 @@ class Result:
             else:
                 return lambda e,l,v: None
 
-        index_getters = list(map(make_getter,indexes))
-        indexed_tables = []
-        for (env_id,lrn_id,val_id), table in self.interactions.groupby(3):
-            e = self._env_cache[env_id]
-            l = self._lrn_cache[lrn_id]
-            v = self._val_cache[val_id]
+        env_cache = self._env_cache
+        lrn_cache = self._lrn_cache
+        val_cache = self._val_cache
 
-            index = [ G(e,l,v) for G in index_getters ]
-            indexed_tables.append([*index, table])
+        def index_getter(env_id, lrn_id, val_id, getters=list(map(make_getter,indexes))):
+            return map(methodcaller('__call__',env_cache[env_id],lrn_cache[lrn_id],val_cache[val_id]),getters)
 
-        return sorted(indexed_tables,key=MyComparable)
+        G = list(self.interactions.groupby(3,select))
+
+        indexed_groups = []
+        if select:
+            for (env_id,lrn_id,val_id), selected in G:
+                indexed_groups.append([*index_getter(env_id,lrn_id,val_id), selected])
+        else:
+            for env_id,lrn_id,val_id in G:
+                indexed_groups.append(list(index_getter(env_id,lrn_id,val_id)))
+
+        return sorted(indexed_groups,key=MyComparable)
 
     def _indexed_ys(self,*indexes,y,span) -> Iterable[Tuple[Any]]:
         #WARNING: This has been highly highly optimized. Don't make changes without performance testing.
 
         index_locs = [ i for i, I in enumerate(indexes) if I == 'index']
         index_1st  = index_locs[0] if index_locs else len(indexes)
-        y_col      = moving_average if index_locs else (lambda v,_: [mean(v)])
+        statistic  = moving_average if index_locs else (lambda v,_: [mean(v)])
 
-        for _,t_group in groupby(self._indexed_tables(*indexes),key=itemgetter(slice(None,index_1st))):
+        YS = list(self._indexed_gs(*indexes,select=y))
+
+        for _,t_group in groupby(YS,key=itemgetter(slice(None,index_1st))):
             y_group = []
-            for t in t_group:
-                data   = t[-1]._data #break the interface to be slightly faster
-                i_cols = list(map(repeat,t[:-1]))
-                #n_col  = data['index']
-                #for i in index_locs: i_cols[i] = n_col #not problematic but slower than below
-                for i in index_locs: i_cols[i] = count(1) #potentially problematic but faster than above
-                y_group.append(zip(*i_cols, y_col(data[y],span)))
+            for group in t_group:
+                i_cols = list(map(repeat,group[:-1]))
+                for i in index_locs: i_cols[i] = count(1)
+                y_group.append(zip(*i_cols, statistic(group[-1],span)))
 
             yield from chain.from_iterable(zip(*y_group))
 
@@ -1557,12 +1602,16 @@ class Result:
         env_lengths = []
         to_drop     = []
         to_keep     = []
-        for index, table in self._indexed_tables(['environment_id','learner_id','evaluator_id']):
-            if n!='min' and len(table) < n:
-                to_drop.append(index)
-            else:
-                to_keep.append(index)
-                env_lengths.append(len(table))
+        if n == 'min':
+            for env_idx, env_len in self._indexed_gs(['environment_id','learner_id','evaluator_id'],select='count'):
+                env_lengths.append(env_len)
+        else:
+            for env_idx, env_len in self._indexed_gs(['environment_id','learner_id','evaluator_id'],select='count'):
+                if env_len < n:
+                    to_drop.append(env_idx)
+                else:
+                    env_lengths.append(env_len)
+                    to_keep.append(env_idx)
 
         if to_drop:
             n_dropped = len(to_drop)
@@ -1574,19 +1623,19 @@ class Result:
         if len(env_lengths) > 1:
             shorten_to = min(env_lengths) if n=='min' else n
             n_shortened = sum(v for k,v in env_lengths.items() if k > shorten_to)
-            interactions = interactions.where(index={'<=':shorten_to})
+            interactions = interactions.where(index={'<=':shorten_to}) #.4
             if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} environment because it was longer than the shortest environment.")
             if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")
 
         keep_envs,keep_lrns,keep_vals = map(set,zip(*to_keep)) if to_keep else ([],[],[])
 
-        if len(keep_envs) != len(environments):
+        if to_drop and len(keep_envs) != len(environments):
             environments = environments.where(environment_id=keep_envs)
 
-        if len(keep_lrns) != len(learners):
+        if to_drop and len(keep_lrns) != len(learners):
             learners = learners.where(learner_id=keep_lrns)
 
-        if len(keep_vals) != len(evaluators):
+        if to_drop and len(keep_vals) != len(evaluators):
             evaluators = evaluators.where(evaluator_id=keep_vals)
 
         return Result(environments, learners, evaluators, interactions, self.experiment)
@@ -1598,28 +1647,30 @@ class Result:
         evaluators   = self.evaluators
         interactions = self.interactions
 
-        n_levels = len(set(it[0] for it in self._indexed_tables(l)))
+        indexes = list(self._indexed_gs(p,l,'environment_id','learner_id','evaluator_id',select=None))
+        n_levels = len(set(map(itemgetter(1),indexes)))
 
-        to_remove = []
-        any_larger = 0
-        any_smaller = 0
-        for _, group in groupby(self._indexed_tables(p,['environment_id','learner_id','evaluator_id']),key=itemgetter(0)):
+        to_remove, n_larger, n_smaller = [], 0, 0
+        for _, group in groupby(indexes,key=itemgetter(0)):
             group = list(group)
-            any_larger += int(len(group) > n_levels)
-            any_smaller += int(len(group) < n_levels)
-            if len(group) != n_levels: to_remove.extend(g[1] for g in group)
+            if len(group) > n_levels:
+                n_larger += 1
+                to_remove.extend(g[2:] for g in group)
+            elif len(group) < n_levels:
+                n_smaller += 1
+                to_remove.extend(g[2:] for g in group)
 
-        if any_larger:
-            CobaContext.logger.log(f"We removed {any_larger} {p} because more than one existed for each {l}.")
+        if n_larger:
+            CobaContext.logger.log(f"We removed {n_larger} {p} because more than one existed for each {l}.")
 
-        if any_smaller:
-            CobaContext.logger.log(f"We removed {any_smaller} {p} because {'they' if any_smaller>1 else 'it'} did not exist for every {l}.")
+        if n_smaller:
+            CobaContext.logger.log(f"We removed {n_smaller} {p} because {'they' if n_smaller>1 else 'it'} did not exist for every {l}.")
 
         if to_remove:
             select = self._remove(to_remove)
             interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
 
-        if len(interactions) != len(self.interactions):
+        if to_remove:
             environments = environments.where(environment_id=set(interactions['environment_id']))
             learners     = learners    .where(learner_id    =set(interactions['learner_id'    ]))
             evaluators   = evaluators  .where(evaluator_id  =set(interactions['evaluator_id'  ]))
@@ -1637,7 +1688,6 @@ class Result:
             l: The level at which we wish to compare evalation outcomes.
             p: The pairs that must exist across all comparison levels in order to be included.
         """
-        import time
 
         result = self.copy()
 
@@ -1648,21 +1698,21 @@ class Result:
 
     def _remove(self, ids: Sequence[Tuple[int,int,int]], n=0) -> Sequence[int]:
         #this is much faster than any built in Table methods
+        #to work interactions must be sorted by env_id,lrn_id,val_id
         loc          = 0
         select       = []
-        interactions = self.interactions
+        n_interactions = len(self.interactions)
+        env_ids,lrn_ids,val_ids = self.interactions[['environment_id','learner_id','evaluator_id']]
         for e,l,v in sorted(ids):
-            lo1 = my_bisect_left(interactions['environment_id'],e,loc,len(interactions))
-            hi1 = my_bisect_right(interactions['environment_id'],e,loc,len(interactions))
-            lo2 = my_bisect_left(interactions['learner_id'],l,lo1,hi1)
-            hi2 = my_bisect_right(interactions['learner_id'],l,lo1,hi1)
-            lo3 = my_bisect_left(interactions['evaluator_id'],v,lo2,hi2)
-            hi3 = my_bisect_right(interactions['evaluator_id'],v,lo2,hi2)
+            lo1 = my_bisect_left (env_ids,e,loc,n_interactions)
+            hi1 = my_bisect_right(env_ids,e,loc,n_interactions)
+            lo2 = my_bisect_left (lrn_ids,l,lo1,hi1)
+            hi2 = my_bisect_right(lrn_ids,l,lo1,hi1)
+            lo3 = my_bisect_left (val_ids,v,lo2,hi2)
+            hi3 = my_bisect_right(val_ids,v,lo2,hi2)
 
-            k = n if hi3-lo3>n else 0
-            select.extend(range(loc,lo3+k))
+            select.extend(range(loc,lo3+(n if hi3-lo3>n else 0)))
             loc = hi3
 
-        select.extend(range(loc,len(interactions)))
-
+        select.extend(range(loc,n_interactions))
         return select
