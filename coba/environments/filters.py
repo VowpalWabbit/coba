@@ -20,7 +20,7 @@ from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
 from coba.primitives import BinaryReward, SequenceReward, BatchReward, argmax
 from coba.primitives import IPSReward, SequenceFeedback, MappingReward, MulticlassReward
-from coba.primitives import Feedback, BatchFeedback, Categorical
+from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Filter, SparseDense
 
