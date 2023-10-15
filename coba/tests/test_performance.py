@@ -19,7 +19,7 @@ from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pip
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
-from coba.experiments.results import Result, moving_average, Table
+from coba.experiments.results import Result, moving_average, Table, TransactionResult
 from coba.evaluators import OnPolicyEvaluator
 from coba.primitives import Categorical, HashableSparse
 
@@ -336,6 +336,14 @@ class Performance_Tests(unittest.TestCase):
     def test_table_to_pandas(self):
         table = Table(columns=['environment_id']).insert([ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)
+
+    def test_transaction_result_filter(self):
+        transactions = [
+            ["version",4],
+            ["I",(0,2),{"_packed":{"reward":[1]*5_000}}],
+            ["I",(0,1),{"_packed":{"reward":[1]*5_000}}]
+        ]
+        self._assert_call_time(lambda:TransactionResult().filter(transactions), .025, print_time, number=100)
 
     def test_result_filter_fin(self):
         envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])

@@ -17,7 +17,7 @@ from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, P
 from coba.context import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first, KeyDefaultDict
-from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource
+from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource, Source
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
 
@@ -213,21 +213,20 @@ class Table:
             data_is_mapping_of_cols = True
 
         if data_is_mapping_of_cols:
-            old,new = set(self._columns), set(data.keys())
-            old_len = len(self)
-            new_len = old_len
+            old,new = set(self._columns), data.keys()
 
             new_cols = new-old
             old_cols = new&old
             pad_cols = old-new
 
+            if new_cols: old_len = len(self)
+            if pad_cols: new_len = old_len+len(next(iter(data.values())))
+
             for hdr in new_cols:
                 self._data[hdr] = list(chain(repeat(None, old_len), data[hdr]))
-                new_len = len(self._data[hdr])
 
             for hdr in old_cols:
                 self._data[hdr].extend(data[hdr])
-                new_len = len(self._data[hdr])
 
             for hdr in pad_cols:
                 self._data[hdr].extend(repeat(None,new_len-old_len))
@@ -235,14 +234,13 @@ class Table:
             if new_cols:
                 self._columns += tuple(sorted(new_cols))
 
-        else: #data_is_list_of_rows
+        else: #data is a sequence of rows
+
             assert len(data[0]) == len(self._columns), "The given data rows don't align with the table's headers."
             for hdr,col in zip(self._columns,zip(*data)):
                 self._data[hdr].extend(col)
 
-        if self._lohis: #pragma: no cover
-            self._indexes = ()
-            self._lohis = {}
+        if self._lohis: self._lohis = {}
 
         return self
 
@@ -370,7 +368,7 @@ class Table:
         return str({"Columns": self.columns, "Rows": len(self)})
 
     def __len__(self) -> int:
-        return len(self._data[next(iter(self._data))]) if self._data else 0
+        return len(next(iter(self._data.values()))) if self._data else 0
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,Table) and o._data == self._data
@@ -555,15 +553,22 @@ class TransactionResult:
         val_table = Table(columns=[                              'evaluator_id'        ]          )
         int_table = Table(columns=['environment_id','learner_id','evaluator_id','index'] + rwd_col)
 
-        env_table.insert([{"environment_id":e,                                 **r} for e,r in env_rows.items()])
-        lrn_table.insert([{                   "learner_id":l,                  **r} for l,r in lrn_rows.items()])
-        val_table.insert([{                                  "evaluator_id":v, **r} for v,r in val_rows.items()])
+        #we manually sort below so everything is indexed correctly
+        #this is considerably faster than sorting after the fact
+        env_table.index('environment_id'                                    )
+        lrn_table.index(                 'learner_id'                       )
+        val_table.index(                              'evaluator_id'        )
+        int_table.index('environment_id','learner_id','evaluator_id','index')
 
-        for (env_id, lrn_id, val_id), results in int_rows.items():
+        env_table.insert([{"environment_id":e,                                 **r} for e,r in sorted(env_rows.items())])
+        lrn_table.insert([{                   "learner_id":l,                  **r} for l,r in sorted(lrn_rows.items())])
+        val_table.insert([{                                  "evaluator_id":v, **r} for v,r in sorted(val_rows.items())])
+
+        for (env_id, lrn_id, val_id), results in sorted(int_rows.items()):
             if '_packed' in results and results['_packed']:
 
                 packed = results['_packed']
-                N = len(packed[next(iter(packed))])
+                N = len(next(iter(packed.values())))
 
                 packed['environment_id'] = repeat(env_id,N)
                 packed['learner_id'    ] = repeat(lrn_id,N)
@@ -764,12 +769,16 @@ class Result:
     """A class representing the result of an Experiment."""
 
     @staticmethod
-    def from_save(filename: str) -> 'Result':
+    def from_source(source: Source[Iterable[str]]) -> 'Result':
+        """Create a Result from a transaction file."""
+        return Pipes.join(source,TransactionDecode(),TransactionResult()).read()
+
+    @staticmethod
+    def from_save(filename: Union[str,Source[str]]) -> 'Result':
         """Create a Result from a transaction file."""
         if not Path(filename).exists():
             raise CobaException("We were unable to find the given Result file.")
-
-        return Pipes.join(DiskSource(filename),TransactionDecode(),TransactionResult()).read()
+        return Result.from_source(DiskSource(filename))
 
     @staticmethod
     def from_file(filename: str) -> 'Result':
@@ -1620,8 +1629,8 @@ class Result:
             if n_dropped>=2: CobaContext.logger.log(f"We removed {n_dropped} learner evaluations because they were shorter than {n} interactions.")
 
         env_lengths = collections.Counter(env_lengths)
-        if len(env_lengths) > 1:
-            shorten_to = min(env_lengths) if n=='min' else n
+        shorten_to = min(env_lengths) if n=='min' and env_lengths else n
+        if len(env_lengths) > 1 or env_lengths.values() != {shorten_to}:
             n_shortened = sum(v for k,v in env_lengths.items() if k > shorten_to)
             interactions = interactions.where(index={'<=':shorten_to}) #.4
             if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} environment because it was longer than the shortest environment.")
@@ -1650,7 +1659,7 @@ class Result:
         indexes = list(self._indexed_gs(p,l,'environment_id','learner_id','evaluator_id',select=None))
         n_levels = len(set(map(itemgetter(1),indexes)))
 
-        to_remove, n_larger, n_smaller = [], 0, 0
+        to_keep, to_remove, n_larger, n_smaller = [], [], 0, 0
         for _, group in groupby(indexes,key=itemgetter(0)):
             group = list(group)
             if len(group) > n_levels:
@@ -1659,6 +1668,8 @@ class Result:
             elif len(group) < n_levels:
                 n_smaller += 1
                 to_remove.extend(g[2:] for g in group)
+            else:
+                to_keep.extend(g[2:] for g in group)
 
         if n_larger:
             CobaContext.logger.log(f"We removed {n_larger} {p} because more than one existed for each {l}.")
@@ -1670,10 +1681,10 @@ class Result:
             select = self._remove(to_remove)
             interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
 
-        if to_remove:
-            environments = environments.where(environment_id=set(interactions['environment_id']))
-            learners     = learners    .where(learner_id    =set(interactions['learner_id'    ]))
-            evaluators   = evaluators  .where(evaluator_id  =set(interactions['evaluator_id'  ]))
+        e_keep,l_keep,v_keep = map(set,zip(*to_keep)) if to_keep else ([],[],[])
+        if len(e_keep) != len(environments): environments = environments.where(environment_id=e_keep)
+        if len(l_keep) != len(learners)    : learners     = learners    .where(learner_id    =l_keep)
+        if len(v_keep) != len(evaluators)  : evaluators   = evaluators  .where(evaluator_id  =v_keep)
 
         return Result(environments, learners, evaluators, interactions, self.experiment)
 
@@ -1699,18 +1710,22 @@ class Result:
     def _remove(self, ids: Sequence[Tuple[int,int,int]], n=0) -> Sequence[int]:
         #this is much faster than any built in Table methods
         #to work interactions must be sorted by env_id,lrn_id,val_id
-        loc          = 0
-        select       = []
+        loc            = 0
+        select         = []
         n_interactions = len(self.interactions)
         env_ids,lrn_ids,val_ids = self.interactions[['environment_id','learner_id','evaluator_id']]
-        for e,l,v in sorted(ids):
+        ids = sorted(ids)
+        for i in range(len(ids)):
+            e,l,v = ids[i]
             lo1 = my_bisect_left (env_ids,e,loc,n_interactions)
             hi1 = my_bisect_right(env_ids,e,loc,n_interactions)
+            if lo1==hi1: continue #the given ids aren't in interactions
             lo2 = my_bisect_left (lrn_ids,l,lo1,hi1)
             hi2 = my_bisect_right(lrn_ids,l,lo1,hi1)
+            if lo2==hi2: continue
             lo3 = my_bisect_left (val_ids,v,lo2,hi2)
             hi3 = my_bisect_right(val_ids,v,lo2,hi2)
-
+            if lo3==hi3: continue
             select.extend(range(loc,lo3+(n if hi3-lo3>n else 0)))
             loc = hi3
 
