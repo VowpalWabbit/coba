@@ -1550,11 +1550,43 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.interactions))
         self.assertEqual(["No evaluators matched the given filter."], CobaContext.logger.sink.items)
 
+    def test_filter_int_no_change(self):
+
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]    ]
+        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[2,1,1,0],[1,2,1,0]]
+
+        original_result = Result(envs, lrns, vals, ints)
+        self.assertIs(original_result, original_result.filter_int(index=0))
+
+    def test_filter_int_no_match(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        envs = [['environment_id'],[1],[2]]
+        lrns = [['learner_id'    ],[1],[2]]
+        vals = [['evaluator_id'  ],[1]    ]
+        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[2,1,1,0],[1,2,1,0]]
+
+        original_result = Result(envs, lrns, vals, ints)
+        filtered_result = original_result.filter_int(index=1)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(0, len(filtered_result.environments))
+        self.assertEqual(0, len(filtered_result.learners))
+        self.assertEqual(0, len(filtered_result.interactions))
+        self.assertEqual(["No interactions matched the given filter."], CobaContext.logger.sink.items)
+
     def test_where(self):
         envs = [['environment_id'],[1],[2],[3],[4]]
         lrns = [['learner_id'    ],[1],[2],[3],[4]]
         vals = [['evaluator_id'  ],[1],[2],[3],[4]]
-        ints = [['environment_id','learner_id','evaluator_id'],[1,1,1],[2,2,2],[3,3,3],[4,4,4]]
+        ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[2,2,2,0],[3,3,3,1],[4,4,4,1]]
 
         result = Result(envs, lrns, vals, ints)
 
@@ -1583,6 +1615,16 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(result.learners))
         self.assertEqual(1, len(result.evaluators))
         self.assertEqual(1, len(result.interactions))
+
+        result = Result(envs, lrns, vals, ints).where(index={'>':0})
+
+        self.assertEqual(2, len(result.environments))
+        self.assertEqual(2, len(result.learners))
+        self.assertEqual(2, len(result.evaluators))
+        self.assertEqual(2, len(result.interactions))
+
+        with self.assertRaises(CobaException):
+            Result(envs, lrns, vals, ints).where(abc=0)
 
     def test_copy(self):
 

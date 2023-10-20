@@ -1075,25 +1075,60 @@ class Result:
 
         return Result(environments,learners,evaluators,interactions)
 
+    def filter_int(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
+        """Filter the result to only contain data about specific interactions.
+
+        Args:
+            pred: A predicate that returns true for learner dictionaries that should be kept.
+            **kwargs: key-value pairs to filter on. To see filtering options see Table.filter.
+        """
+        if len(self.learners) == 0: return self
+
+        environments = self.environments
+        learners     = self.learners
+        evaluators   = self.evaluators
+        interactions = self.interactions.where(pred, **kwargs)
+
+        if len(interactions) == len(self.interactions):
+            return self
+
+        if len(interactions) == 0:
+            CobaContext.logger.log(f"No interactions matched the given filter.")
+
+        to_keep = list(interactions.groupby(3,select=None))
+        env,lrn,val = zip(*to_keep) if to_keep else ([],[],[])
+
+        if len(env) != len(environments): environments = environments.where(environment_id=set(env))
+        if len(lrn) != len(learners)    : learners     = learners    .where(learner_id    =set(lrn))
+        if len(val) != len(evaluators)  : evaluators   = evaluators  .where(evaluator_id  =set(val))
+
+        return Result(environments,learners,evaluators,interactions)
+
     def where(self, **kwargs) -> 'Result':
 
         env_kwargs = {}
         lrn_kwargs = {}
         val_kwargs = {}
+        int_kwargs = {}
 
         for key,arg in kwargs.items():
             if key in self.environments.columns:
                 env_kwargs[key] = arg
             elif key in self.learners.columns:
                 lrn_kwargs[key] = arg
-            else:
+            elif key in self.evaluators.columns:
                 val_kwargs[key] = arg
+            elif key in self.interactions.columns:
+                int_kwargs[key] = arg
+            else:
+                raise CobaException("An unrecognized column was provided to `where` for filtering.")
 
         out = self
 
         if env_kwargs: out = out.filter_env(**env_kwargs)
         if lrn_kwargs: out = out.filter_lrn(**lrn_kwargs)
         if val_kwargs: out = out.filter_val(**val_kwargs)
+        if int_kwargs: out = out.filter_int(**int_kwargs)
 
         return out
 
