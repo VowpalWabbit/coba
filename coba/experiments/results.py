@@ -17,7 +17,7 @@ from coba.environments import Environment
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.context import CobaContext
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker, peek_first
+from coba.utilities import PackageChecker, peek_first, KeyDefaultDict
 from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
@@ -162,8 +162,8 @@ class Table:
 
     def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), indexes: Sequence[str]= ()):
 
-        self._columns = tuple(columns)
-        self._data    = {c:[] for c in columns}
+        self._columns = tuple(columns) if not isinstance(data,collections.abc.Mapping) else tuple(columns) or tuple(data.keys())
+        self._data    = {c:[] for c in self._columns}
         self.insert(data)
         self._indexes = tuple(indexes)
         self._lohis   = self._calc_lohis()
@@ -554,6 +554,7 @@ class Plotter:
         yticks: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
+        xorder: Optional[Sequence[str]],
         out: Union[None,Literal['screen'],str]) -> None:
         pass
 
@@ -571,6 +572,7 @@ class MatplotPlotter(Plotter):
         yticks: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
+        xorder: Optional[Sequence[str]],
         out: Union[None,Literal['screen'],str]
     ) -> None:
 
@@ -609,6 +611,23 @@ class MatplotPlotter(Plotter):
             any_label = False
             num_coalesce = lambda x1,x2: x1 if isinstance(x1,(int,float)) else x2
 
+            artists = list(ax.get_legend_handles_labels()[0])
+            xindexes = None
+
+            is_ascending  = lambda _xorder: all(x0<=x1 for x0,x1 in zip(_xorder,_xorder[1:]))
+            is_descending = lambda _xorder: all(x0>=x1 for x0,x1 in zip(_xorder,_xorder[1:]))
+
+            if not xorder:
+                xindexes = None
+            elif isinstance(xorder[0],(int,float)) and is_ascending(xorder):
+                xindexes = None
+            elif isinstance(xorder[0],(int,float)) and is_descending(xorder):
+                xindexes = KeyDefaultDict(lambda k: -k)
+            else:
+                nextindex = lambda c=count(len(set(xorder))): next(c)
+                initindex = zip(reversed(xorder),count(len(xorder)-1,-1))
+                xindexes  = collections.defaultdict(nextindex,initindex)
+
             for X, Y, XE, YE, c, a, l, fmt,z in map(astuple,lines):
 
                 if l: any_label = True
@@ -625,18 +644,25 @@ class MatplotPlotter(Plotter):
 
                 not_err_bar = lambda E: not E or all(not e for e in E)
 
-                if X and Y:
+                if X is not None and Y is not None:
+
+                    if xindexes is not None: X = [xindexes[x] for x in X]
+
                     if all(map(not_err_bar,[XE,YE])):
-                        ax.plot(X, Y, fmt,  color=c, alpha=a, label=l,zorder=z)
+                        artists.append(ax.plot(X, Y, fmt,  color=c, alpha=a, label=l, zorder=z)[0])
                     else:
                         XE = None if not_err_bar(XE) else list(zip(*XE)) if isinstance(XE[0],tuple) else XE
                         YE = None if not_err_bar(YE) else list(zip(*YE)) if isinstance(YE[0],tuple) else YE
                         errorevery = 1 if fmt == "-" else 1
                         elinewidth = 0.5 if 'elinewidth' not in CobaContext.store else CobaContext.store['elinewidth']
-                        ax.errorbar(X, Y, YE, XE, fmt, elinewidth=elinewidth, errorevery=errorevery, color=c, alpha=a, label=l,zorder=z)
+                        artists.append(ax.errorbar(X, Y, YE, XE, fmt, elinewidth=elinewidth, errorevery=errorevery, color=c, alpha=a, label=l, zorder=z))
 
-            if xrotation is not None:
+            if xticks and xrotation is not None:
                 plt.xticks(rotation=xrotation)
+
+            if xticks and xindexes:
+                labels,ticks = zip(*xindexes.items())
+                plt.xticks(ticks,labels)
 
             if yrotation is not None:
                 plt.yticks(rotation=yrotation)
@@ -656,15 +682,16 @@ class MatplotPlotter(Plotter):
             ax.set_ylabel(ylabel)
             ax.set_xlabel(xlabel)
 
-            if ax.get_legend() is None: #pragma: no cover
+            if ax.get_legend() is not None: #pragma: no cover
+                ax.get_legend().remove()
+            else: #pragma: no cover
                 scale = 0.65
                 box1 = ax.get_position()
                 ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
-            else:
-                ax.get_legend().remove()
 
             if any_label:
-                ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium')
+                L = zip(*sorted((zip(*ax.get_legend_handles_labels())), key=lambda al:artists.index(al[0])))
+                ax.legend(*L, loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium')
 
             if not xticks:
                 plt.xticks([])
@@ -999,9 +1026,98 @@ class Result:
 
         return out
 
+    def raw_learners(self,
+        x   : Union[str, Sequence[str]] = 'index',
+        y   : str                       = 'reward',
+        l   : Union[str, Sequence[str]] = 'full_name',
+        p   : Union[str, Sequence[str]] = 'environment_id',
+        span: int = None) -> Table:
+
+        data = {}
+        plottable = self._plottable(x,y)._finished(x,y,l,p)
+
+        for _l, group in groupby(plottable._indexed_ys(l,x,p,y=y,span=span),key=itemgetter(0)):
+
+            group = list(group)
+
+            if 'x' not in data:
+                data[f'p'] = list(map(itemgetter(2),group))
+                data[f'x'] = list(map(itemgetter(1),group))
+            data[_l] = list(map(itemgetter(3),group))
+
+        return Table(data)
+
+    def raw_contrast(self,
+        l1  : Any,
+        l2  : Any,
+        x   : Union[str, Sequence[str]] = 'environment_id',
+        y   : str                       = 'reward',
+        l   : Union[str, Sequence[str]] = 'learner_id',
+        p   : Union[str, Sequence[str]] = 'environment_id',
+        span: int = None) -> Table:
+
+        og_l = (l1,l2)
+
+        list_like=(list,tuple)
+
+        if     isinstance(l,list_like) and not isinstance(l1[0],list_like): l1 = [l1]
+        if     isinstance(l,list_like) and not isinstance(l2[0],list_like): l2 = [l2]
+        if not isinstance(l,list_like) and not isinstance(l1   ,list_like): l1 = [l1]
+        if not isinstance(l,list_like) and not isinstance(l2   ,list_like): l2 = [l2]
+
+        if any(_l1 in l2 for _l1 in l1):
+            raise CobaException("A value cannot be in both `l1` and `l2`. Please make a change and run it again.")
+
+        plottable = self._plottable(x,y)
+        eid       = 'environment_id'
+        lid       = 'learner_id'
+
+        data = collections.defaultdict(list)
+
+        if x != 'index':
+            #this implementation is considerably slower but always gives the correct results
+
+            l1_label = self._lrn_cache[l1[0]]['full_name'] if l=='learner_id' else 'l1'
+            l2_label = self._lrn_cache[l2[0]]['full_name'] if l=='learner_id' else 'l2'
+
+            L1,L2 = [],[]
+            for _l, group in groupby(plottable._indexed_ys(l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+
+                if _l in l1:
+                    L1.extend(map(itemgetter(slice(1,None)),group))
+                if _l in l2:
+                    L2.extend(map(itemgetter(slice(1,None)),group))
+
+            for _x, group in groupby(sorted(plottable._pairings(p,L1,L2),key=cmp_to_key(comparer)),key=itemgetter(0)):
+                _x = _x[0] if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
+
+                for _,(_y1,_y2),_p in group:
+                    data['p'].append(_p)
+                    data['x'].append(_x)
+                    data[l1_label].append(_y1)
+                    data[l2_label].append(_y2)
+        else:
+            #this implementation is considerably faster but only gives correct results under certain conditions
+            for _x, _group in groupby(plottable._indexed_ys(x,l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+
+                _group = list(map(itemgetter(slice(1,None)),_group))
+                _L1    = [g[1:] for g in _group if g[0] in l1 ]
+                _L2    = [g[1:] for g in _group if g[0] in l2 ]
+
+                for _,(_y1,_y2),_p in plottable._pairings(p,_L1,_L2):
+                    data['p'].append(_p)
+                    data['x'].append(_x)
+                    data['l1'].append(_y1)
+                    data['l2'].append(_y2)
+
+        if not data:
+            raise CobaException(f"We were unable to create any pairings to contrast. Make sure l1={og_l[0]} and l2={og_l[1]} is correct.")
+
+        return Table(data)
+
     def plot_learners(self,
         x       : Union[str, Sequence[str]] = 'index',
-        y       : str = "reward",
+        y       : str                       = 'reward',
         l       : Union[str, Sequence[str]] = 'full_name',
         p       : Union[str, Sequence[str]] = 'environment_id',
         span    : int = None,
@@ -1016,6 +1132,7 @@ class Result:
         ylim    : Tuple[Optional[Number],Optional[Number]] = None,
         xticks  : bool = True,
         yticks  : bool = True,
+        xorder  : Literal['+','-'] = None,
         top_n   : int = None,
         out     : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
@@ -1043,6 +1160,7 @@ class Result:
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             xticks: Whether the x-axis labels should be drawn.
             yticks: Whether the y-axis labels should be drawn.
+            xorder: Indicates whether the x-axis should be in ascending (+) or descendeing (-) order.
             top_n: Only plot the top_n learners. If `None` all learners will be plotted. If negative the bottom will be plotted.
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
@@ -1053,25 +1171,21 @@ class Result:
 
             if isinstance(labels,str): labels = [labels]
 
-            plottable = self._plottable(x,y)._finished(x,y,l,p)
-            n_interactions = len(next(plottable.interactions.groupby(3))[1])
+            raw_data = self.raw_learners(x,y,l,p,span)
 
-            errevery = errevery or max(int(n_interactions*0.05),1) if x == 'index' else 1
+            errevery = errevery or max(int(raw_data['x'][-1]*0.05),1) if x == 'index' else 1
             style    = "-" if x == 'index' else "."
-            err      = plottable._confidence(err, errevery)
-            x_prep   = str if x != 'index' else (lambda _x: _x)
+            err      = self._confidence(err, errevery)
 
             lines: List[Points] = []
-            for _l, group in groupby(plottable._indexed_ys(l,x,y=y,span=span),key=itemgetter(0)):
+            for _l in raw_data.columns[2:]:
+                color = self._get_color(colors,   len(lines))
+                label = self._get_label(labels,_l,len(lines))
 
-                color = plottable._get_color(colors,   len(lines))
-                label = plottable._get_label(labels,_l,len(lines))
-                group = map(itemgetter(slice(1,None)),group)
                 lines.append(Points(style=style,color=color,label=label))
-
-                for _xi, (_x, group) in enumerate(groupby(group, key=itemgetter(0))):
+                for _xi, (_x, group) in enumerate(groupby(zip(*raw_data[['x',_l]]), key=itemgetter(0))):
                     Y = [g[-1] for g in group]
-                    lines[-1].add(x_prep(_x), *err(Y, _xi))
+                    lines[-1].add(_x, *err(Y, _xi))
 
             lines  = sorted(lines, key=lambda line: line.Y[-1], reverse=True)
             labels = [l.label or str(l.label) for l in lines]
@@ -1084,15 +1198,20 @@ class Result:
             y_samples  = f"({len(Y)} Environments)"
             title      = title if title is not None else (' '.join(filter(None,[y_location, y_avg_type, ylabel, y_samples])))
 
-            xrotation = 90 if x != 'index' and len(lines[0].X)>5 else 0
+            xrotation = 90 if (x != 'index' or xorder) and len(lines[0].X)>5 else 0
             yrotation = 0
 
             if top_n:
                 if abs(top_n) > len(lines): top_n = len(lines)*abs(top_n)/top_n
-                if top_n > 0: lines = [replace(l,color=plottable._get_color(colors,i),label=plottable._get_label(labels,l.label,i)) for i,l in enumerate(lines[:top_n],0    ) ]
-                if top_n < 0: lines = [replace(l,color=plottable._get_color(colors,i),label=plottable._get_label(labels,l.label,i)) for i,l in enumerate(lines[top_n:],top_n) ]
+                if top_n > 0: lines = [replace(l,color=self._get_color(colors,i),label=self._get_label(labels,l.label,i)) for i,l in enumerate(lines[:top_n],0    ) ]
+                if top_n < 0: lines = [replace(l,color=self._get_color(colors,i),label=self._get_label(labels,l.label,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
-            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+            all_x = dict.fromkeys(chain.from_iterable(line.X for line in lines))
+            xordered = list(all_x.keys()) if not xorder else sorted(all_x, reverse=xorder=='-')
+
+            if x == 'index' and xorder in ['+',None]: xordered = None
+
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, xordered, out)
 
         except CobaException as e:
             CobaContext.logger.log(str(e))
@@ -1117,6 +1236,7 @@ class Result:
         ylim    : Tuple[Optional[Number],Optional[Number]] = None,
         xticks  : bool = True,
         yticks  : bool = True,
+        xorder  : Literal['+','-'] = None,
         boundary: bool = True,
         legend  : bool = True,
         out     : Union[None,Literal['screen'],str] = 'screen',
@@ -1130,8 +1250,7 @@ class Result:
             y: The value to plot on the y-axis.
             l: The level at which we want to contrast.
             p: The pairs that must exist across all comparison levels in order to be included.
-            mode: The kind of contrast plot to make: diff plots the pairwise difference, prob plots the the probability
-                of learner_id1 beating learner_id2, and scatter plots learner_id1 on x-axis and learner_id2 on y axis.
+            mode: 'diff' -- plot the pairwise difference; 'prob' plot the probability of l1 beating l2.
             span: The number of y values to smooth together when reporting y. If this is None then the average of all y
                 values up to current is shown otherwise a moving average with window size of span (the window will be
                 smaller than span initially).
@@ -1147,6 +1266,7 @@ class Result:
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             xticks: Whether the x-axis labels should be drawn.
             yticks: Whether the y-axis labels should be drawn.
+            xorder: Indicates whether the x-axis should be in ascending (+) or descendeing (-) order.
             boundary: Whether we want to plot the boundary line between which set is the best performing.
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
@@ -1156,78 +1276,45 @@ class Result:
             xlim = xlim or [None,None]
             ylim = ylim or [None,None]
 
-            og_l = (l1,l2)
+            raw_data = self.raw_contrast(l1,l2,x,y,l,p,span)
 
             list_like=(list,tuple)
 
-            if isinstance(l,list_like) and not isinstance(l1[0],list_like): l1 = [l1]
-            if isinstance(l,list_like) and not isinstance(l2[0],list_like): l2 = [l2]
-            if not isinstance(l,list_like) and not isinstance(l1,list_like): l1 = [l1]
-            if not isinstance(l,list_like) and not isinstance(l2,list_like): l2 = [l2]
-            if isinstance(labels,str): labels = [labels]
-
-            if any(_l1 in l2 for _l1 in l1):
-                raise CobaException("A value cannot be in both `l1` and `l2`. Please make a change and run it again.")
+            if     isinstance(l,list_like) and not isinstance(l1[0],list_like): l1 = [l1]
+            if     isinstance(l,list_like) and not isinstance(l2[0],list_like): l2 = [l2]
+            if not isinstance(l,list_like) and not isinstance(l1   ,list_like): l1 = [l1]
+            if not isinstance(l,list_like) and not isinstance(l2   ,list_like): l2 = [l2]
 
             contraster = (lambda x,y: y-x) if mode == 'diff' else (lambda x,y: int(y-x>0)) if mode=='prob' else mode
             _boundary  = 0 if mode == 'diff' else .5
 
-            plottable = self._plottable(x,y)
-            eid       = 'environment_id'
-            lid       = 'learner_id'
-
-            n_interactions = len(next(plottable.interactions.groupby(3))[1])
-
-            errevery = errevery or max(int(n_interactions*0.05),1) if x == 'index' else 1
+            errevery = errevery or max(int(raw_data['x'][-1]*0.05),1) if x == 'index' else 1
             style    = "-" if x == 'index' else "."
-            err      = plottable._confidence(err, errevery)
+            err      = self._confidence(err, errevery)
 
-            if x != 'index':
-                #this implementation is considerably slower but always gives the correct results
-                L1,L2 = [],[]
-                for _l, group in groupby(plottable._indexed_ys(l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+            X_Y_YE = []
+            for _xi, (_x, group) in enumerate(groupby(zip(*raw_data[raw_data.columns[-3:]]), key=itemgetter(0))):
+                _Y = [ contraster(g[1],g[2]) for g in group ]
+                if _Y: X_Y_YE.append((_x,)+err(_Y,_xi))
 
-                    if _l in l1:
-                        L1.extend(map(itemgetter(slice(1,None)),group))
-                    if _l in l2:
-                        L2.extend(map(itemgetter(slice(1,None)),group))
-
-                X_Y_YE = []
-                for _xi, (_x, group) in enumerate(groupby(sorted(plottable._pairings(p,L1,L2),key=cmp_to_key(comparer)),key=itemgetter(0))):
-                    _x = f"{_x[0]}" if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
-                    _Y = [contraster(*pair) for _,pair in group]
-                    if _Y: X_Y_YE.append((_x,) + err(_Y,_xi))
-
-            else:
-                #this implementation is considerably faster but only gives correct results under certain conditions
-                X_Y_YE = []
-                for _xi, (_x, _group) in enumerate(groupby(plottable._indexed_ys(x,l,eid,lid,x,y=y,span=span),key=itemgetter(0))):
-
-                    _group = list(map(itemgetter(slice(1,None)),_group))
-                    _L1    = [g[1:] for g in _group if g[0] in l1]
-                    _L2    = [g[1:] for g in _group if g[0] in l2]
-                    _Y     = [contraster(*pair) for _,pair in plottable._pairings(p,_L1,_L2)]
-
-                    if _Y: X_Y_YE.append((str(_x) if x != 'index' else _x,) + err(_Y,_xi))
-
-            if not X_Y_YE:
-                raise CobaException(f"We were unable to create any pairings to contrast. Make sure l1={og_l[0]} and l2={og_l[1]} is correct.")
+            l1_label = raw_data.columns[-2]
+            l2_label = raw_data.columns[-1]
 
             if x == 'index':
                 X,Y,YE = zip(*X_Y_YE)
-                color  = plottable._get_color(colors,        0)
-                label  = plottable._get_label(labels,'l2-l1',0)
+                color  = self._get_color(colors,                         0)
+                label  = self._get_label(labels,f'{l2_label}-{l1_label}',0)
                 label  = f"{label}" if legend else None
-                lines  = [Points(X,Y,None,YE, style=style, label=label, color=color)]
+                lines  = [Points(X, Y, None, YE, style=style, label=label, color=color)]
 
             elif x == l:
                 if len(l1) > 1 and len(l2) == 1:
-                    #Sort by l1. We assume _x is "{l2}-{l1}."
+                    #Sort by l1. We assume _x is f"{l2}-{l1}".
                     l2_len = len(str(l2[0]))
                     l1 = list(map(str,l1))
                     X_Y_YE = sorted(X_Y_YE, key=lambda items: l1.index(items[0][l2_len+1:]))
                 elif len(l2) > 1 and len(l1) == 1:
-                    #Sort by l2. We assume _x is "{l2}-{l1}."
+                    #Sort by l2. We assume _x is f"{l2}-{l1}".
                     l1_len = len(str(l1[0]))
                     l2 = list(map(str,l2))
                     X_Y_YE = sorted(X_Y_YE, key=lambda items: l2.index(items[0][:-(l1_len+1)]))
@@ -1235,17 +1322,18 @@ class Result:
                     X_Y_YE = sorted(X_Y_YE)
 
                 X,Y,YE = zip(*X_Y_YE)
-                color  = plottable._get_color(colors, 0)
-                lines  = [Points(X,Y,None,YE, style=style, label=None, color=color)]
+                color  = self._get_color(colors, 0)
+                lines  = [Points(X, Y, None, YE, style=style, label=None, color=color)]
 
             else:
                 upper = lambda y,ye: y+ye[1] if isinstance(ye,(list,tuple)) else y+ye
                 lower = lambda y,ye: y-ye[0] if isinstance(ye,(list,tuple)) else y-ye
+                prep  = lambda _x: str(_x) if not xorder else _x
 
                 #split into win,tie,loss
-                l1_win = [(x,y,ye) for x,y,ye in X_Y_YE if upper(y,ye) <  _boundary                             ]
-                no_win = [(x,y,ye) for x,y,ye in X_Y_YE if lower(y,ye) <= _boundary and _boundary <= upper(y,ye)]
-                l2_win = [(x,y,ye) for x,y,ye in X_Y_YE if                              _boundary <  lower(y,ye)]
+                l1_win = [(prep(x),y,ye) for x,y,ye in X_Y_YE if upper(y,ye) <  _boundary                             ]
+                no_win = [(prep(x),y,ye) for x,y,ye in X_Y_YE if lower(y,ye) <= _boundary and _boundary <= upper(y,ye)]
+                l2_win = [(prep(x),y,ye) for x,y,ye in X_Y_YE if                              _boundary <  lower(y,ye)]
 
                 #sort by order of magnitude
                 l1_win = sorted(l1_win,key=itemgetter(1))
@@ -1254,40 +1342,41 @@ class Result:
 
                 lines = []
 
-                if l1_win:
-                    X,Y,YE = zip(*l1_win)
-                    color  = plottable._get_color(colors,     0)
-                    label  = plottable._get_label(labels,'l1',0)
-                    label  = f"{label} ({len(X)})" if legend else None
-                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+                X,Y,YE = zip(*l1_win) if l1_win else ((),(),None)
+                color  = self._get_color(colors,         0)
+                label  = self._get_label(labels,l1_label,0)
+                label  = f"{label} ({len(X)})" if legend else None
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
-                if no_win:
-                    X,Y,YE = zip(*no_win)
-                    color  = plottable._get_color(colors, 1)
-                    label  = 'Tie'
-                    label  = f"{label} ({len(X)})" if legend else None
-                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+                X,Y,YE = zip(*no_win) if no_win else ((),(),None)
+                color  = self._get_color(colors, 1)
+                label  = 'Tie'
+                label  = f"{label} ({len(X)})" if legend else None
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
-                if l2_win:
-                    X,Y,YE = zip(*l2_win)
-                    color  = plottable._get_color(colors,     2)
-                    label  = plottable._get_label(labels,'l2',1)
-                    label  = f"{label} ({len(X)})" if legend else None
-                    lines.append(Points(X,Y,None,YE, style=style, label=label, color=color))
+                X,Y,YE = zip(*l2_win) if l2_win else ((),(),None)
+                color  = self._get_color(colors,         2)
+                label  = self._get_label(labels,l2_label,1)
+                label  = f"{label} ({len(X)})" if legend else None
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
 
-            if boundary:
-                leftmost_x  = lines[0 ].X[0 ]
-                rightmost_x = lines[-1].X[-1]
-                lines.append(Points((leftmost_x,rightmost_x),(_boundary,_boundary), None, None , "#888", 1, None, '-',.5))
-
-            xrotation = 90 if x != 'index' and len(X_Y_YE)>5 else 0
+            xrotation = 90 if (x != 'index' or xorder) and len(X_Y_YE)>5 else 0
             yrotation = 0
 
             xlabel = xlabel or ("Interaction" if x=='index' else x[0] if len(x) == 1 else x)
             ylabel = ylabel or (f"$\Delta$ {y}" if mode=="diff" else f"P($\Delta$ {y} > 0)")
             title  = title if title is not None else (f"{ylabel} ({len(_Y)} Environments)")
 
-            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+            all_x = dict.fromkeys(chain.from_iterable(line.X for line in lines))
+            xordered = list(all_x.keys()) if not xorder else sorted(all_x, reverse=xorder=='-')
+
+            if boundary:
+                lines.append(Points((xordered[0],xordered[-1]),(_boundary,_boundary), None, None , "#888", 1, None, '-',.5))
+
+            if x == 'index' and xorder in ['+',None]:
+                xordered = None
+
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, xordered, out)
 
         except CobaException as e:
             CobaContext.logger.log(str(e))
@@ -1321,8 +1410,9 @@ class Result:
 
         return 'None' if label is None else label
 
-    def _pairings(self, p:Sequence[str], L1: Sequence[Tuple[int,int,float]], L2: Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
+    def _pairings(self, p:Sequence[str], L1:Sequence[Tuple[int,int,float]], L2:Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
 
+        unpack_p = isinstance(p,str)
         if isinstance(p,str): p = [p]
 
         env_eq_cols = list(set(p) & set(self.environments.columns))
@@ -1334,8 +1424,11 @@ class Result:
         #could this be made faster? I could think of special cases but not a general solution to speed it up.
         for e1,l1,x1,y1 in L1:
             for e2,l2,x2,y2 in L2:
-                if env_eq_vals[e1] == env_eq_vals[e2] and lrn_eq_vals[l1] == lrn_eq_vals[l2]:
-                    yield ((x1,x2),(y1,y2))
+                p1 = env_eq_vals[e1]+lrn_eq_vals[l1]
+                p2 = env_eq_vals[e2]+lrn_eq_vals[l2]
+                if p1==p2:
+                    p = p1[0] if unpack_p else p1
+                    yield ((x1,x2),(y1,y2), p)
 
     def _plottable(self, x:Sequence[str], y:str) -> 'Result':
 
@@ -1350,17 +1443,11 @@ class Result:
 
         return self
 
-    def _finished(self,x:Sequence[str], y:str, l: Sequence[str], p: Sequence[str]) -> 'Result':
+    def _finished(self, x:Sequence[str], y:str, l:Sequence[str], p:Sequence[str]) -> 'Result':
         only_finished = self._filter_fin('min' if x == 'index' else None, l, p)
 
         if len(only_finished.learners) == 0:
             raise CobaException(f"This result does not contain a {p} that has been finished for every {l}.")
-
-        if len(only_finished.environments) != len(self.environments):
-            CobaContext.logger.log(f"Every {p} not present for all {l} has been excluded.")
-
-        if len(only_finished.interactions) != len(self.interactions):
-            CobaContext.logger.log(f"Interactions beyond the shortest {p} have been excluded.")
 
         return only_finished
 
@@ -1424,7 +1511,7 @@ class Result:
         first_index = coords[0] if coords else -1
         upto_index  = itemgetter(slice(0,first_index))
 
-        for _,group in groupby(indexed_values,key=upto_index):
+        for _,group in groupby(indexed_values,key=lambda k: k[0][:first_index]):
             try:
                 group = list(group)
                 while True:
@@ -1442,21 +1529,29 @@ class Result:
         evaluators   = self.evaluators
         interactions = self.interactions
 
-        min_N = float('inf')
-
-        to_remove = []
+        env_lengths = []
+        to_remove   = []
         for indexed_table in self._indexed_tables(['environment_id','learner_id','evaluator_id']):
             table = indexed_table[1]
-            min_N = min(min_N,len(table))
-            if n!='min' and len(table) != n:
+            if n!='min' and len(table) < n:
                 to_remove.append(indexed_table[0])
+            else:
+                env_lengths.append(len(table))
 
         if to_remove:
             select = self._remove(to_remove,n)
+            n_removed = len(to_remove)
             interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
+            if n_removed==1: CobaContext.logger.log(f"We removed {n_removed} learner evaluation because it was shorter than {n} interactions.")
+            if n_removed>=2: CobaContext.logger.log(f"We removed {n_removed} learner evaluations because they were shorter than {n} interactions.")
 
-        if n == 'min':
-            interactions = interactions.where(index={'<=':min_N})
+        env_lengths = collections.Counter(env_lengths)
+        if len(env_lengths) > 1:
+            shorten_to = min(env_lengths) if n=='min' else n
+            n_shortened = sum(v for k,v in env_lengths.items() if k > shorten_to)
+            interactions = interactions.where(index={'<=':shorten_to})
+            if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} environment because it was longer than the shortest environment.")
+            if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")            
 
         if len(interactions) != len(self.interactions):
             environments = environments.where(environment_id=set(interactions['environment_id']))
@@ -1475,10 +1570,19 @@ class Result:
         n_levels = len(set(it[0] for it in self._indexed_tables(l)))
 
         to_remove = []
+        any_larger = 0
+        any_smaller = 0
         for _, group in groupby(self._indexed_tables(p,['environment_id','learner_id','evaluator_id']),key=itemgetter(0)):
             group = list(group)
-            if (len(group) < n_levels):
-                to_remove.extend(g[1] for g in group)
+            any_larger += int(len(group) > n_levels)
+            any_smaller += int(len(group) < n_levels)
+            if len(group) != n_levels: to_remove.extend(g[1] for g in group)
+
+        if any_larger:
+            CobaContext.logger.log(f"We removed {any_larger} {p} because more than one existed for each {l}.")
+
+        if any_smaller:
+            CobaContext.logger.log(f"We removed {any_smaller} {p} because {'they' if any_smaller>1 else 'it'} did not exist for every {l}.")
 
         if to_remove:
             select = self._remove(to_remove)
@@ -1505,8 +1609,8 @@ class Result:
 
         result = self.copy()
 
-        if n     : result = result._global_n(n)
         if l or p: result = result._group_p(l,p)
+        if n     : result = result._global_n(n)
 
         return result
 
