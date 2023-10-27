@@ -241,11 +241,9 @@ class OffPolicyEvaluator(Evaluator):
                             on_action, on_prob = zip(*[sample_actions(actions, probs) for actions, probs in zip(log_actions, on_probs)])
                     else:
                         start_time   = time.time()
-                        if not batched:
-                            on_prob = request(log_context,log_actions,[log_action])
-                        else:
-                            on_prob = request(log_context,log_actions,log_action)
+                        on_action, on_prob = predict(log_context, log_actions)[:2]
                         predict_time = time.time()-start_time
+
                         if not batched:
                             ope_reward = on_prob*float(log_rewards.eval(log_action))
                         else:
