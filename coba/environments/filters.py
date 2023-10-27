@@ -534,25 +534,25 @@ class Densify(EnvironmentFilter):
         #   from builtins import hash
 
         # Performance Findings:
-            # hashlib algorithms took between 0.5 to 0.75 seconds to produce 1 million hashes
-            # zlib and mmh3 algorithms took about .16 seconds to produce 1 million hashes
-            # builtin hash algorithm took about .09 seconds to produce 1 million hashes
+            # hashlib algorithms took between 0.5 to 0.75 seconds to produce 1 million indexes
+            # zlib and mmh3 algorithms took about .16 seconds to produce 1 million indexes
+            # builtin hash algorithm took about .09 seconds to produce 1 million indexes
 
         # Collision Findings:
             # we used the code below to count collisions for 1,000,000 randomly generated strings:
-                #random_strings = lambda n: (''.join(map(str,[r*1,r*2,r*3,r*4,r*5])) for r in cb.random.randoms(n))
-                #hashed_values  = [<hash-algo>(s.encode('ascii')) for s in random_strings(1_000_000)]
-                #Counter(Counter(hashed_values).values())
+                #import secrets
+                #n=10**6
+                #1-len(set([<hash-algo>(secrets.token_bytes(7)) for _ in range(n)]))/n
 
             # hashlib and the builtin hash had 0 collisions
-            # mmh3 and crc32 had ~130 collisions (i.e., 0.013%)
+            # mmh3 and crc32 had ~130 collisions with 1 million items (i.e., 0.013%)
             # adler32 had ~250k collisions (i.e., 24.00%)
 
         #Final decisions:
             # crc32:
             #   > It is considerably faster than the hashlib algorithms
-            #   > It has equal performance and collisions to MurmurHash3
-            #   > It is deterministic across runs
+            #   > It has equal runtime and collisions to MurmurHash3
+            #   > It is deterministic across runs (unlike the built-in hash)
 
         if not isinstance(value,primitives.Sparse):
             return value

@@ -8,7 +8,7 @@ from numbers import Number
 from operator import truediv, sub, mul, itemgetter, methodcaller
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
-from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee
+from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee, islice
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
 from coba.primitives import Batch
@@ -304,7 +304,7 @@ class Table:
 
             return Table(View(self._data,selection), self._columns, self._indexes)
 
-    def groupby(self, level:int, select:Union[None,Literal['table','count'],str]='table') -> Iterable[Tuple[Tuple,'Table']]:
+    def groupby(self, level:int, select:Union[None,Literal['table','count'],str]='table') -> Iterable[Tuple[Tuple,Any]]:
 
         self._lohis = self._lohis or self._calc_lohis()
         grp_cols = [self._data[hdr] for hdr in self._indexes[:level]]
@@ -922,7 +922,6 @@ class Result:
             params = [f'{k}={v}' for k,v in value.items() if k and k not in ['family','learner_id'] and v is not None ]
             params = f"({','.join(params)})" if params else ''
             value['full_name'] = f"{lrn_id}. {family}{params}"
-            value['full_name_sans_lrn_id'] = f"{family}{params}"
 
         self._plotter = MatplotPlotter()
 
@@ -976,6 +975,51 @@ class Result:
         result_copy._plotter      = self._plotter
 
         return result_copy
+
+    def filter_best(self,
+        l:Union[str, Sequence[str]],
+        p:Union[str, Sequence[str]],
+        y:str = 'reward',
+        n:int = None,
+        full_l:Union[str, Sequence[str]]='learner_id',
+        full_p:Union[str, Sequence[str]]='environment_id'):
+
+        only_finished = self.filter_fin(l=full_l,p=full_p)
+
+        environments = only_finished.environments
+        learners     = only_finished.learners
+        evaluators   = only_finished.evaluators
+        interactions = only_finished.interactions
+
+        full_id = ['environment_id','learner_id','evaluator_id']
+        indexes = list(self._indexed_gs(p,l,full_l,full_id,select=y))
+
+        to_keep, to_drop = [], []
+        for _, group in groupby(indexes,key=itemgetter(0)):
+            max_val = -float('inf')
+            k, d = [], []
+            for _, group in groupby(group,key=itemgetter(1)):
+                ids,vals = zip(*((g[3], mean(islice(g[4],n))) for g in group))
+                mean_val = mean(vals)
+                if mean_val < max_val:
+                    d.extend(ids)
+                else:
+                    max_val = mean_val
+                    d.extend(k)
+                    k = ids
+            to_keep.extend(k)
+            to_drop.extend(d)
+
+        if to_drop:
+            select = self._remove(to_drop)
+            interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
+
+        e_keep,l_keep,v_keep = map(set,zip(*to_keep)) if to_keep else ([],[],[])
+        if len(e_keep) != len(environments): environments = environments.where(environment_id=e_keep)
+        if len(l_keep) != len(learners)    : learners     = learners    .where(learner_id    =l_keep)
+        if len(v_keep) != len(evaluators)  : evaluators   = evaluators  .where(evaluator_id  =v_keep)
+
+        return Result(environments, learners, evaluators, interactions, self.experiment)
 
     def filter_fin(self,
         n: Union[int,Literal['min']] = None,
@@ -1519,7 +1563,10 @@ class Result:
 
         return 'None' if label is None else label
 
-    def _pairings(self, p:Sequence[str], L1:Sequence[Tuple[int,int,float]], L2:Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
+    def _pairings(self,
+        p:Sequence[str],
+        L1:Sequence[Tuple[int,int,float]],
+        L2:Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
 
         unpack_p = isinstance(p,str)
         if isinstance(p,str): p = [p]
