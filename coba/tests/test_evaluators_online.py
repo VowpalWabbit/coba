@@ -658,8 +658,17 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
     def test_batched_request_continuous(self):
         class TestLearner:
             def request(self,context,actions,request):
-                if isinstance(context,BatchType): raise Exception()
-                return .5
+                if isinstance(context,BatchType):
+                    raise Exception()
+                return 0.5
+
+            def predict(self, context, actions):
+                # if isinstance(context,BatchType):
+                #     raise Exception()
+                return [(2, 0.5, None), (3, 0.5, None)]
+                # return (2, 0.5)
+                # return 2, 0.5, None
+                # return 2
 
         task    = OffPolicyEvaluator(learn=False)
         learner = TestLearner()
