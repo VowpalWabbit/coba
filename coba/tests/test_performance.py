@@ -551,7 +551,7 @@ class Performance_Tests(unittest.TestCase):
         my_filter    = Repr(categorical_actions='onehot_tuple').filter
         filterer     = lambda x: list(my_filter(x))
 
-        self._assert_scale_time(interactions, filterer, .11, print_time, number=100)
+        self._assert_scale_time(interactions, filterer, .06, print_time, number=100)
 
     def test_repr_repeat(self):
         levels = list(map(str,range(1000)))
@@ -562,7 +562,7 @@ class Performance_Tests(unittest.TestCase):
         my_filter    = Repr(categorical_actions='onehot_tuple').filter
         filterer     = lambda x: list(my_filter(x))
 
-        self._assert_scale_time(interactions, filterer, .03, print_time, number=100)
+        self._assert_scale_time(interactions, filterer, .07, print_time, number=1000)
 
     def test_categorical_equality(self):
         cat1 = Categorical('1',list(map(str,range(20))))
@@ -633,7 +633,7 @@ class Performance_Tests(unittest.TestCase):
         items_1 = items*1
         items_2 = items*2
         self._z_assert_less(timeit.repeat(lambda: func(items_1), setup=setup, number=1, repeat=number), 1.0*expected, print_time)
-        self._z_assert_less(timeit.repeat(lambda: func(items_2), setup=setup, number=1, repeat=number), 2.2*expected, print_time)
+        self._z_assert_less(timeit.repeat(lambda: func(items_2), setup=setup, number=1, repeat=number), 2.0*expected, print_time)
         if print_time: print()
 
     def _z_assert_less(self, samples, expected, print_it):

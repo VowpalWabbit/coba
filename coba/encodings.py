@@ -229,6 +229,8 @@ class CategoricalEncoder(Encoder[Categorical]):
             values: Provide the universe of values for encoding and set `is_fit==True`.
         """
 
+        set_values = set(values)
+        if len(values) != len(set_values): values = sorted(set_values)
         self._categoricals = {v: Categorical(v,values) for v in sorted(set(values)) } if values else None
 
     @property

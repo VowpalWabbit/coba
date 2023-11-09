@@ -22,7 +22,7 @@ from coba.exceptions import CobaException
 
 from coba.primitives.semantic import Batch
 from coba.primitives.rewards import L1Reward, HammingReward, BinaryReward, IPSReward
-from coba.primitives.rewards import SequenceReward, MappingReward, MulticlassReward, BatchReward
+from coba.primitives.rewards import SequenceReward, MappingReward, BatchReward
 
 from coba.statistics import BootstrapCI, mean
 

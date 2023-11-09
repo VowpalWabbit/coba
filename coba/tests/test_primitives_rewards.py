@@ -1,7 +1,7 @@
 import unittest
 import pickle
 
-from coba.primitives import L1Reward, HammingReward, BinaryReward, SequenceReward, MulticlassReward
+from coba.primitives import L1Reward, HammingReward, BinaryReward, SequenceReward
 from coba.primitives import BatchReward, IPSReward, MappingReward, argmax
 
 class argmax_Tests(unittest.TestCase):
@@ -66,7 +66,7 @@ class BinaryReward_Tests(unittest.TestCase):
         loaded = pickle.loads(dumped)
 
         self.assertIsInstance(loaded, BinaryReward)
-        self.assertEqual(loaded._maxarg,1)
+        self.assertEqual(loaded._argmax,1)
 
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(BinaryReward(1))), 80)
@@ -144,24 +144,6 @@ class MappingReward_Tests(unittest.TestCase):
 
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(MappingReward({0:4,1:5,2:6}))), 80)
-
-class MulticlassReward_Tests(unittest.TestCase):
-    def test_simple(self):
-        rwd = MulticlassReward(1)
-
-        self.assertEqual(0,rwd.eval(0))
-        self.assertEqual(1,rwd.eval(1))
-        self.assertEqual(0,rwd.eval(2))
-
-    def test_pickle(self):
-        dumped = pickle.dumps(MulticlassReward(1))
-        loaded = pickle.loads(dumped)
-
-        self.assertIsInstance(loaded, MulticlassReward)
-        self.assertEqual(loaded._label,1)
-
-    def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(MulticlassReward(1))), 80)
 
 class BatchReward_Tests(unittest.TestCase):
     def test_eval_single(self):

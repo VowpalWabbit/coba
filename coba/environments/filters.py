@@ -18,8 +18,8 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
-from coba.primitives import BinaryReward, SequenceReward, BatchReward, argmax
-from coba.primitives import IPSReward, SequenceFeedback, MappingReward, MulticlassReward
+from coba.primitives import Reward, BinaryReward, SequenceReward, BatchReward, argmax
+from coba.primitives import IPSReward, SequenceFeedback, MappingReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Filter, SparseDense
@@ -967,6 +967,21 @@ class Grounded(EnvironmentFilter):
         raise CobaException(f"{value_name} must be a whole number and not {value}.")
 
 class Repr(EnvironmentFilter):
+
+    class PassThrough:
+        __slots__ = ('_obj', '_map')
+        def __init__(self, obj: Union[Reward,Feedback], mapping: Mapping):
+            self._obj,self._map = obj,mapping
+        def eval(self, item):
+            return self._obj.eval(self._map[item])
+
+    class SequenceMapping:
+        __slots__ = ('_keys', '_vals')
+        def __init__(self,keys:Sequence,vals:Sequence) -> None:
+            self._keys,self._vals = keys,vals
+        def __getitem__(self, item):
+            return self._vals[self._keys.index(item)]
+
     def __init__(self,
         categorical_context:Literal["onehot","onehot_tuple","string"] = None,
         categorical_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
@@ -985,21 +1000,23 @@ class Repr(EnvironmentFilter):
 
         first = firsts[0]
 
+        has_context   = True #We assume this
         has_actions   = 'actions' in first and bool(first['actions'])
         has_rewards   = 'rewards' in first
         has_feedbacks = 'feedbacks' in first
 
-        n_tee = 1 + int(self._cat_context is not None) + int(self._cat_actions is not None and has_actions)
+        n_tee = 1 + bool(self._cat_context and has_context) + bool(self._cat_actions and has_actions)
 
-        if n_tee == 1:
-            tees = iter([interactions])
+        tees = iter([interactions]) if n_tee == 1 else iter(tee(interactions, n_tee))
+
+        if not (self._cat_context and has_context):
+            cat_context_iter = None
         else:
-            tees = iter(tee(interactions, n_tee))
-
-        if self._cat_context is not None:
             cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter(i['context'] for i in next(tees))
 
-        if self._cat_actions and has_actions:
+        if not (self._cat_actions and has_actions):
+            cat_actions_iter = None
+        else:
             rows = (i['actions'] for i in next(tees))
 
             if len(firsts) == 2 and firsts[0]['actions'] == firsts[1]['actions']:
@@ -1024,31 +1041,45 @@ class Repr(EnvironmentFilter):
                 encoder = pipes.EncodeCatRows(self._cat_actions).filter
                 cat_actions_iter = map(list,map(encoder,rows))
 
-        for interaction in next(tees):
+        prev_old = None
 
-            new = interaction.copy()
+        for old in next(tees):
 
-            if self._cat_context:
+            new = old.copy()
+
+            if cat_context_iter:
                 new['context'] = next(cat_context_iter)
 
-            if has_actions and self._cat_actions:
-                new_actions = next(cat_actions_iter)
-                old_actions = new['actions']
+            if cat_actions_iter:
+                new['actions'] = next(cat_actions_iter)
 
-                if new_actions != old_actions or (new_actions and (new_actions[0] is not old_actions[1])) :
-                    new['actions'] = new_actions
+            actions_changed = cat_actions_iter and new['actions'] != old['actions']
 
-                if new_actions != old_actions:
-                    if has_rewards:
-                        old_rewards = new['rewards']
-                        if isinstance(old_rewards,MulticlassReward):
-                            new['rewards'] = MulticlassReward(new_actions[old_actions.index(argmax(old_actions,old_rewards))])
-                        else:
-                            new['rewards'] = SequenceReward(new_actions,list(map(old_rewards.eval,old_actions)))
-                    if has_feedbacks:
-                        new['feedbacks'] = SequenceFeedback(new_actions,list(map(new['feedbacks'].eval,old_actions)))
+            if actions_changed and has_rewards:
+                if isinstance(old['rewards'],BinaryReward):
+                    if old['actions'] != prev_old:
+                        prev_old   = old['actions']
+                        old_to_new = self._to_mapping(old['actions'],new['actions'])
+                    new['rewards'] = BinaryReward(old_to_new[old['rewards']._argmax])
+                else:
+                    if old['actions'] != prev_old:
+                        prev_old   = old['actions']
+                        new_to_old = self._to_mapping(new['actions'],old['actions'])
+                    new['rewards'] = Repr.PassThrough(old['rewards'], new_to_old)
+
+            if actions_changed and has_feedbacks:
+                if old['actions'] != prev_old:
+                    prev_old   = old['actions']
+                    new_to_old = self._to_mapping(new['actions'],old['actions'])
+                new['feedbacks'] = Repr.PassThrough(old['feedbacks'], new_to_old)
 
             yield new
+
+    def _to_mapping(self, keys, vals):
+        try:
+            return dict(zip(keys,vals))
+        except:
+            return Repr.SequenceMapping(keys,vals)
 
 class Batch(EnvironmentFilter):
     def __init__(self, batch_size: int) -> None:

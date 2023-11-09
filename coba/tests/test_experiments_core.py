@@ -11,7 +11,7 @@ from coba.learners import Learner
 from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
-from coba.primitives import Categorical, MulticlassReward
+from coba.primitives import Categorical, BinaryReward
 
 class NoParamsLearner:
     def predict(self, context, actions):
@@ -133,8 +133,8 @@ class ExceptionEnvironment(Environment):
 class CategoricalActionEnv(Environment):
     def read(self):
         actions = [Categorical("a",["a","b"]),Categorical("b",["a","b"])]
-        yield SimulatedInteraction(1, actions, MulticlassReward("a"))
-        yield SimulatedInteraction(2, actions, MulticlassReward("a"))
+        yield SimulatedInteraction(1, actions, BinaryReward("a"))
+        yield SimulatedInteraction(2, actions, BinaryReward("a"))
 
 def test_eval(environment, learner):
     yield { "learner_type": str(type(learner)), "n_interactions": len(list(environment.read()))}

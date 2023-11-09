@@ -38,7 +38,7 @@ class IPSReward(Reward):
     def __reduce__(self):
         #this makes the pickle smaller
         return IPSReward, (self._reward, self._action, 1)
-    
+
     def __eq__(self, o: object) -> bool:
         return isinstance(o,IPSReward) and o._reward == self._reward and o._action == self._action
 
@@ -49,7 +49,7 @@ class L1Reward(Reward):
         self._label = action
 
     def eval(self, action: float) -> float:
-        return action-self._label if self._label > action else self._label-action 
+        return action-self._label if self._label > action else self._label-action
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -72,26 +72,26 @@ class HammingReward(Reward):
         return HammingReward, (tuple(self._labels),)
 
 class BinaryReward(Reward):
-    __slots__ = ('_maxarg',)
+    __slots__ = ('_argmax',)
 
     def __init__(self, action: Action) -> None:
-        self._maxarg = action
+        self._argmax = action
 
     def eval(self, action: Action) -> float:
-        return float(self._maxarg==action)
+        return float(self._argmax==action)
 
     def __reduce__(self):
         #this makes the pickle smaller
-        return BinaryReward, (self._maxarg,)
-    
+        return BinaryReward, (self._argmax,)
+
     def __eq__(self, o: object) -> bool:
-        return o == self._maxarg or (isinstance(o,BinaryReward) and o._maxarg == self._maxarg)
+        return o == self._argmax or (isinstance(o,BinaryReward) and o._argmax == self._argmax)
 
 class SequenceReward(Reward):
     __slots__ = ('_actions','_rewards')
 
     def __init__(self, actions: Sequence[Action], rewards: Sequence[float]) -> None:
-        if len(actions) != len(rewards): 
+        if len(actions) != len(rewards):
             raise CobaException("The given actions and rewards did not line up.")
 
         self._actions = actions
@@ -122,21 +122,6 @@ class MappingReward(Reward):
 
     def __eq__(self, o: object) -> bool:
         return o == self._mapping or (isinstance(o,MappingReward) and o._mapping == self._mapping)
-
-class MulticlassReward(Reward):
-    __slots__=('_label',)
-    
-    def __init__(self, label: Action) -> None:
-        self._label = label
-
-    def eval(self, action: Action) -> float:
-        return int(self._label == action)
-
-    def __reduce__(self):
-        return MulticlassReward, (self._label,)
-    
-    def __eq__(self, o: object) -> bool:
-        return o == self._label or (isinstance(o,MulticlassReward) and o._label == self._label)
 
 class BatchReward(Batch):
     def eval(self, actions: Sequence[Action]) -> Sequence[float]:

@@ -1805,10 +1805,9 @@ class Grounded_Tests(unittest.TestCase):
 class Repr_Tests(unittest.TestCase):
 
     def test_repr_none_none(self):
-        out = next(Repr(None,None).filter([SimulatedInteraction([Categorical('1',['1','2'])],[1,2],[1,2])]))
+        out = next(Repr(None,None).filter([SimulatedInteraction(Categorical('1',['1','2']),[1,2],[1,2])]))
 
-        self.assertEqual(['1'],out['context'])
-        self.assertIsInstance(out['context'][0],Categorical)
+        self.assertEqual(Categorical('1',['1','2']),out['context'])
         self.assertEqual([1,2],out['actions'])
         self.assertEqual([1,2],out['rewards'])
 
@@ -1883,7 +1882,7 @@ class Repr_Tests(unittest.TestCase):
     def test_actions_categorical_dense_onehot_tuple(self):
         out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
 
-        self.assertEqual([1,2,3]      , out['context'])
+        self.assertEqual([1,2,3]          , out['context'])
         self.assertEqual([[(1,0)],[(0,1)]], out['actions'])
         self.assertEqual(out['rewards'].eval([(1,0)]), 1)
         self.assertEqual(out['rewards'].eval([(0,1)]), 2)
@@ -1912,6 +1911,15 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual([(1,0),(0,1)], out['actions'])
         self.assertEqual(out['rewards'].eval((1,0)), 1)
         self.assertEqual(out['rewards'].eval((0,1)), 2)
+        self.assertEqual(out['feedbacks'].eval((1,0)), 3)
+        self.assertEqual(out['feedbacks'].eval((0,1)), 4)
+
+    def test_actions_categorical_with_only_feedbacks(self):
+        actions = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
+        out = next(Repr('onehot','onehot_tuple').filter([{'context':[1,2,3],'actions':actions,'feedbacks':SequenceFeedback(actions,[3,4])}]))
+
+        self.assertEqual([1,2,3]      , out['context'])
+        self.assertEqual([(1,0),(0,1)], out['actions'])
         self.assertEqual(out['feedbacks'].eval((1,0)), 3)
         self.assertEqual(out['feedbacks'].eval((0,1)), 4)
 
