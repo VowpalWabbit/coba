@@ -541,28 +541,28 @@ class Performance_Tests(unittest.TestCase):
         self._assert_call_time(lambda: environment.materialize(), 48, print_time, number=1)
 
     def test_repr_not_repeat(self):
-        levels1 = list(map(str,range(1000)))
-        levels2 = list(map(str,range(1,1001)))
+        levels1 = list(map(str,range(10)))
+        levels2 = list(map(str,range(1,11)))
 
         interaction1 = { 'actions': [Categorical(l,levels1) for l in levels1] }
         interaction2 = { 'actions': [Categorical(l,levels2) for l in levels2] }
 
-        interactions = [interaction1,interaction2]*5
-        my_filter    = Repr(categorical_actions='onehot_tuple').filter
-        filterer     = lambda x: list(my_filter(x))
+        interactions = [interaction1,interaction2]*25
+        repr         = Repr(categorical_actions='onehot_tuple')
+        filterer     = lambda x: list(repr.filter(x))
 
-        self._assert_scale_time(interactions, filterer, .06, print_time, number=100)
+        self._assert_scale_time(interactions, filterer, .06, True, number=1000)
 
     def test_repr_repeat(self):
-        levels = list(map(str,range(1000)))
+        levels = list(map(str,range(10)))
 
         interaction = { 'actions': [Categorical(l,levels) for l in levels] }
 
-        interactions = [interaction]*10
-        my_filter    = Repr(categorical_actions='onehot_tuple').filter
-        filterer     = lambda x: list(my_filter(x))
+        interactions = [interaction]*100
+        repr         = Repr(categorical_actions='onehot_tuple')
+        filterer     = lambda x: list(repr.filter(x))
 
-        self._assert_scale_time(interactions, filterer, .07, print_time, number=1000)
+        self._assert_scale_time(interactions, filterer, .04, True, number=1000)
 
     def test_categorical_equality(self):
         cat1 = Categorical('1',list(map(str,range(20))))

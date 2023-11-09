@@ -1020,26 +1020,26 @@ class Repr(EnvironmentFilter):
             rows = (i['actions'] for i in next(tees))
 
             if len(firsts) == 2 and firsts[0]['actions'] == firsts[1]['actions']:
-
-                def prev_check():
+                def yield_prev_action_on_repeat():
                     prev_row   = None
                     prev_yield = None
 
                     encoder = pipes.EncodeCatRows(self._cat_actions)
 
                     for row in rows:
-                        if row == prev_row:
-                            yield prev_yield
-                        else:
+                        if row != prev_row:
                             prev_row = row
-                            row = list(encoder.filter(row))
-                            yield row
-                            prev_yield = row
+                            prev_yield = list(encoder.filter(row))
+                        yield prev_yield
 
-                cat_actions_iter = prev_check()
+                cat_actions_iter = yield_prev_action_on_repeat()
             else:
-                encoder = pipes.EncodeCatRows(self._cat_actions).filter
-                cat_actions_iter = map(list,map(encoder,rows))
+                def yield_action_lists():
+                    r1,r2 = tee(rows,2)
+                    actionitr = pipes.EncodeCatRows(self._cat_actions).filter(chain.from_iterable(r2))
+                    for row in r1:
+                        yield list(islice(actionitr,len(row)))
+                cat_actions_iter = yield_action_lists()
 
         prev_old = None
 
