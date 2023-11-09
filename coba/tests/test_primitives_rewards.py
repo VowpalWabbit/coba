@@ -2,34 +2,11 @@ import unittest
 import pickle
 
 from coba.primitives import L1Reward, HammingReward, BinaryReward, SequenceReward
-from coba.primitives import BatchReward, IPSReward, MappingReward, argmax
+from coba.primitives import BatchReward, MappingReward, argmax
 
 class argmax_Tests(unittest.TestCase):
     def test_simple(self):
         self.assertEqual(1,argmax([1,2,3],SequenceReward([1,2,3],[9,8,7])))
-
-class IPSReward_Tests(unittest.TestCase):
-    def test_eval(self):
-        rwd = IPSReward(1,1,1/2)
-        self.assertEqual(2,rwd.eval(1))
-        self.assertEqual(0,rwd.eval(2))
-
-    def test_eq(self):
-        rwd1 = IPSReward(1,1,1/2)
-        rwd2 = IPSReward(1,1,1/2)
-        rwd3 = IPSReward(2,1,1/2)
-
-        self.assertEqual(rwd1,rwd2)
-        self.assertNotEqual(rwd1,rwd3)
-        self.assertNotEqual(rwd1,1)
-
-    def test_pickle(self):
-        dumped = pickle.dumps(IPSReward(1,2,1))
-        loaded = pickle.loads(dumped)
-
-        self.assertIsInstance(loaded, IPSReward)
-        self.assertEqual(loaded._reward,1)
-        self.assertEqual(loaded._action,2)
 
 class L1Reward_Tests(unittest.TestCase):
 

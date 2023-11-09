@@ -19,7 +19,7 @@ from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
 from coba.primitives import Reward, BinaryReward, SequenceReward, BatchReward, argmax
-from coba.primitives import IPSReward, SequenceFeedback, MappingReward
+from coba.primitives import MappingReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Filter, SparseDense
@@ -1308,7 +1308,7 @@ class OpeRewards(EnvironmentFilter):
         elif rwd_type == "IPS":
             for log in interactions:
                 log = log.copy()
-                log['rewards'] = IPSReward(log['reward'], log['action'], log.get('probability'))
+                log['rewards'] = BinaryReward(log['action'], log['reward']/(log.get('probability') or 1))
                 yield log
 
         elif rwd_type in ["DM","DR"]:

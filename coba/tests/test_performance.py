@@ -551,7 +551,7 @@ class Performance_Tests(unittest.TestCase):
         repr         = Repr(categorical_actions='onehot_tuple')
         filterer     = lambda x: list(repr.filter(x))
 
-        self._assert_scale_time(interactions, filterer, .06, True, number=1000)
+        self._assert_scale_time(interactions, filterer, .06, print_time, number=1000)
 
     def test_repr_repeat(self):
         levels = list(map(str,range(10)))
@@ -562,7 +562,7 @@ class Performance_Tests(unittest.TestCase):
         repr         = Repr(categorical_actions='onehot_tuple')
         filterer     = lambda x: list(repr.filter(x))
 
-        self._assert_scale_time(interactions, filterer, .04, True, number=1000)
+        self._assert_scale_time(interactions, filterer, .04, print_time, number=1000)
 
     def test_categorical_equality(self):
         cat1 = Categorical('1',list(map(str,range(20))))

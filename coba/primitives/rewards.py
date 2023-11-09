@@ -25,23 +25,6 @@ class Reward(ABC):
     def to_json(self) -> Mapping[str, str]:
         return {key.lstrip('_'): getattr(self, key, None) for key in self.__slots__}
 
-class IPSReward(Reward):
-    __slots__ = ('_reward','_action')
-
-    def __init__(self, reward: float, action: Action, probability: Optional[float] = None) -> None:
-        self._reward = reward/(probability or 1)
-        self._action = action
-
-    def eval(self, arg: Action) -> float:
-        return self._reward if arg == self._action else 0
-
-    def __reduce__(self):
-        #this makes the pickle smaller
-        return IPSReward, (self._reward, self._action, 1)
-
-    def __eq__(self, o: object) -> bool:
-        return isinstance(o,IPSReward) and o._reward == self._reward and o._action == self._action
-
 class L1Reward(Reward):
     __slots__ = ('_label',)
 
@@ -72,17 +55,18 @@ class HammingReward(Reward):
         return HammingReward, (tuple(self._labels),)
 
 class BinaryReward(Reward):
-    __slots__ = ('_argmax',)
+    __slots__ = ('_argmax','_value')
 
-    def __init__(self, action: Action) -> None:
+    def __init__(self, action: Action, value:float=1) -> None:
         self._argmax = action
+        self._value  = value
 
     def eval(self, action: Action) -> float:
-        return float(self._argmax==action)
+        return self._value if self._argmax==action else 0
 
     def __reduce__(self):
         #this makes the pickle smaller
-        return BinaryReward, (self._argmax,)
+        return BinaryReward, (self._argmax,self._value)
 
     def __eq__(self, o: object) -> bool:
         return o == self._argmax or (isinstance(o,BinaryReward) and o._argmax == self._argmax)
