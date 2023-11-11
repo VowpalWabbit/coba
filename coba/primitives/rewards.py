@@ -1,10 +1,11 @@
-from abc import ABC, abstractmethod
-from typing import Sequence, Optional, Mapping
+from typing import Sequence, Mapping, Callable
 
 from coba.exceptions import CobaException
 from coba.primitives.semantic import Action, Batch
 
-def argmax(actions: Sequence[Action], reward: 'Reward') -> Action:
+Reward = Callable[[Action],float]
+
+def argmax(actions: Sequence[Action], reward: Reward) -> Action:
     max_r = -float('inf')
     max_a = 0
     for a in actions:
@@ -15,17 +16,7 @@ def argmax(actions: Sequence[Action], reward: 'Reward') -> Action:
 
     return max_a
 
-class Reward(ABC):
-    __slots__ = ()
-
-    @abstractmethod
-    def __call__(self, action: Action) -> float:
-        ...
-
-    def to_json(self) -> Mapping[str, str]:
-        return {key.lstrip('_'): getattr(self, key, None) for key in self.__slots__}
-
-class L1Reward(Reward):
+class L1Reward:
     __slots__ = ('_label',)
 
     def __init__(self, action: float) -> None:
@@ -41,7 +32,7 @@ class L1Reward(Reward):
     def __eq__(self, o: object) -> bool:
         return isinstance(o,L1Reward) and o._label == self._label
 
-class HammingReward(Reward):
+class HammingReward:
     __slots__ = ('_labels',)
 
     def __init__(self, labels: Sequence[Action]) -> None:
@@ -54,7 +45,7 @@ class HammingReward(Reward):
         #this makes the pickle smaller
         return HammingReward, (tuple(self._labels),)
 
-class BinaryReward(Reward):
+class BinaryReward:
     __slots__ = ('_argmax','_value')
 
     def __init__(self, action: Action, value:float=1) -> None:
@@ -71,7 +62,7 @@ class BinaryReward(Reward):
     def __eq__(self, o: object) -> bool:
         return o == self._argmax or (isinstance(o,BinaryReward) and o._argmax == self._argmax)
 
-class SequenceReward(Reward):
+class SequenceReward:
     __slots__ = ('_actions','_rewards')
 
     def __init__(self, actions: Sequence[Action], rewards: Sequence[float]) -> None:
@@ -91,7 +82,7 @@ class SequenceReward(Reward):
     def __eq__(self, o: object) -> bool:
         return o == self._rewards or (isinstance(o,SequenceReward) and o._actions == self._actions and o._rewards == self._rewards)
 
-class MappingReward(Reward):
+class MappingReward:
     __slots__ = ('_mapping',)
 
     def __init__(self, mapping: Mapping[Action,float]) -> None:

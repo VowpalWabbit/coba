@@ -381,16 +381,6 @@ class JsonEncode_Tests(unittest.TestCase):
     def test_not_minified_list(self):
         self.assertEqual('[1.0, 2.0]',JsonEncode(minify=False).filter([1.,2.]))
 
-    def test_mapping_reward_encode(self):
-        reward = MappingReward({
-            "action_1": 1000,
-            "action_2": 2000,
-            "action_3": 3000
-        })
-        self.assertEqual('{"mapping":{"action_1":1000,"action_2":2000,"action_3":3000}}', JsonEncode().filter(reward))
-        self.assertEqual(MappingReward(**json.loads(JsonEncode().filter(reward))), reward)
-
-
 class Structure_Tests(unittest.TestCase):
 
     def test_dense_numeric_row_list_structure(self):
