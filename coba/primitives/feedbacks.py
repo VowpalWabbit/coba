@@ -5,7 +5,7 @@ from coba.primitives.semantic import Action, Batch
 
 class Feedback(ABC):
     @abstractmethod
-    def eval(self, arg: Action) -> Any:
+    def __call__(self, arg: Action) -> Any:
         ...
 
 class SequenceFeedback(Feedback):
@@ -15,12 +15,12 @@ class SequenceFeedback(Feedback):
         self._actions = actions
         self._feedbacks = feedbacks
 
-    def eval(self, action: Action) -> Any:
+    def __call__(self, action: Action) -> Any:
         return self._feedbacks[self._actions.index(action)]
 
     def __eq__(self, o: object) -> bool:
         return o == self._feedbacks or (isinstance(o,SequenceFeedback) and o._actions == self._actions and o._feedbacks == self._feedbacks)
 
 class BatchFeedback(Batch):
-    def eval(self, actions: Sequence[Action]) -> Sequence[Any]:
-        return list(map(lambda f,a: f.eval(a), self, actions))
+    def __call__(self, actions: Sequence[Action]) -> Sequence[Any]:
+        return list(map(lambda f,a: f(a), self, actions))

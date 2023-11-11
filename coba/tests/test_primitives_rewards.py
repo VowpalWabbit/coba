@@ -13,9 +13,9 @@ class L1Reward_Tests(unittest.TestCase):
     def test_simple(self):
         rwd = L1Reward(1)
 
-        self.assertEqual(-1, rwd.eval(2))
-        self.assertEqual(0 , rwd.eval(1))
-        self.assertEqual(-1, rwd.eval(0))
+        self.assertEqual(-1, rwd(2))
+        self.assertEqual(0 , rwd(1))
+        self.assertEqual(-1, rwd(0))
 
     def test_pickle(self):
         dumped = pickle.dumps(L1Reward(1))
@@ -32,9 +32,9 @@ class BinaryReward_Tests(unittest.TestCase):
     def test_binary_argmax(self):
         rwd = BinaryReward(1)
 
-        self.assertEqual(0, rwd.eval(2))
-        self.assertEqual(1, rwd.eval(1))
-        self.assertEqual(0, rwd.eval(0))
+        self.assertEqual(0, rwd(2))
+        self.assertEqual(1, rwd(1))
+        self.assertEqual(0, rwd(0))
         self.assertEqual(rwd, rwd)
         self.assertEqual(1, rwd)
 
@@ -53,16 +53,16 @@ class HammingReward_Tests(unittest.TestCase):
     def test_sequence(self):
         rwd = HammingReward([1,2,3,4])
 
-        self.assertEqual(2/4, rwd.eval([1,3]))
-        self.assertEqual(1/4, rwd.eval([4]))
-        self.assertEqual(0  , rwd.eval([5,6,7]))
-        self.assertEqual(1/2, rwd.eval([1,2,3,4,5,6,7,8]))
+        self.assertEqual(2/4, rwd([1,3]))
+        self.assertEqual(1/4, rwd([4]))
+        self.assertEqual(0  , rwd([5,6,7]))
+        self.assertEqual(1/2, rwd([1,2,3,4,5,6,7,8]))
 
     def test_tuple(self):
         rwd = HammingReward((1,2,3,4))
-        self.assertEqual(.5, rwd.eval([1,3]))
-        self.assertEqual(.25, rwd.eval([4]))
-        self.assertEqual(1, rwd.eval((1,2,3,4)))
+        self.assertEqual(.5, rwd([1,3]))
+        self.assertEqual(.25, rwd([4]))
+        self.assertEqual(1, rwd((1,2,3,4)))
 
     def test_pickle(self):
         dumped = pickle.dumps(HammingReward([1,2,3]))
@@ -79,9 +79,9 @@ class SequenceReward_Tests(unittest.TestCase):
         rwd = SequenceReward([1,2,3],[4,5,6])
 
         self.assertEqual([4,5,6],rwd)
-        self.assertEqual(4,rwd.eval(1))
-        self.assertEqual(5,rwd.eval(2))
-        self.assertEqual(6,rwd.eval(3))
+        self.assertEqual(4,rwd(1))
+        self.assertEqual(5,rwd(2))
+        self.assertEqual(6,rwd(3))
         self.assertEqual(rwd,rwd)
 
     def test_bad_eq(self):
@@ -103,9 +103,9 @@ class MappingReward_Tests(unittest.TestCase):
     def test_mapping(self):
         rwd = MappingReward({0:4,1:5,2:6})
 
-        self.assertEqual(4,rwd.eval(0))
-        self.assertEqual(5,rwd.eval(1))
-        self.assertEqual(6,rwd.eval(2))
+        self.assertEqual(4,rwd(0))
+        self.assertEqual(5,rwd(1))
+        self.assertEqual(6,rwd(2))
         self.assertEqual(rwd,rwd)
 
     def test_bad_eq(self):
@@ -125,7 +125,7 @@ class MappingReward_Tests(unittest.TestCase):
 class BatchReward_Tests(unittest.TestCase):
     def test_eval_single(self):
         rwd = BatchReward([SequenceReward([0,1,2],[4,5,6]),SequenceReward([0,1,2],[7,8,9])])
-        self.assertEqual(rwd.eval([1,2]), [5,9])
+        self.assertEqual(rwd([1,2]), [5,9])
 
 if __name__ == '__main__':
     unittest.main()

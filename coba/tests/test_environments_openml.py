@@ -1029,9 +1029,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[1]['actions'])
         self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[2]['actions'])
 
-        self.assertEqual([1,0], list(map(interactions[0]['rewards'].eval,['2','1'])))
-        self.assertEqual([1,0], list(map(interactions[1]['rewards'].eval,['2','1'])))
-        self.assertEqual([0,1], list(map(interactions[2]['rewards'].eval,['2','1'])))
+        self.assertEqual([1,0], list(map(interactions[0]['rewards'],['2','1'])))
+        self.assertEqual([1,0], list(map(interactions[1]['rewards'],['2','1'])))
+        self.assertEqual([0,1], list(map(interactions[2]['rewards'],['2','1'])))
 
     def test_simple_openml_source_regression_offline(self) -> None:
 
@@ -1096,9 +1096,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual([], interactions[1]['actions'])
         self.assertEqual([], interactions[2]['actions'])
 
-        self.assertEqual(0,interactions[0]['rewards'].eval(8.1))
-        self.assertEqual(0,interactions[1]['rewards'].eval(8.2))
-        self.assertEqual(0,interactions[2]['rewards'].eval(8.3))
+        self.assertEqual(0,interactions[0]['rewards'](8.1))
+        self.assertEqual(0,interactions[1]['rewards'](8.2))
+        self.assertEqual(0,interactions[2]['rewards'](8.3))
 
     def test_str(self):
         self.assertEqual('Openml(data=150)', str(OpenmlSimulation(150)))

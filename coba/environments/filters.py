@@ -613,7 +613,7 @@ class Cycle(EnvironmentFilter):
                 if i >= self._after:
                     actions = interaction['actions']
                     rewards = interaction['rewards']
-                    new['rewards'] = SequenceReward(actions,rotate(list(map(rewards.eval,actions))))
+                    new['rewards'] = SequenceReward(actions,rotate(list(map(rewards,actions))))
 
                 yield new
 
@@ -834,7 +834,7 @@ class Noise(EnvironmentFilter):
 
             noisy_context = self._noises(context, rng, self._context_noise)
             noisy_actions = [ self._noises(a, rng, self._action_noise) for a in actions ]
-            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in map(rewards.eval,actions) ]
+            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in map(rewards,actions) ]
             noisy_rewards = SequenceReward(noisy_actions, noisy_rewards)
 
             new['context'] = noisy_context
@@ -877,7 +877,7 @@ class Grounded(EnvironmentFilter):
             self._argmax = argmax
 
         @lru_cache(maxsize=None)
-        def eval(self, arg):
+        def __call__(self, arg):
             if not self._rng: self._rng = CobaRandom(self._seed)
             if arg == self._argmax:
                 return self._rng.choice(self._goods)
@@ -925,7 +925,7 @@ class Grounded(EnvironmentFilter):
 
         if not interactions: return []
 
-        is_binary_rwd = set(map(first['rewards'].eval, first['actions'])) == {0,1}
+        is_binary_rwd = set(map(first['rewards'], first['actions'])) == {0,1}
         first_context = first['context']
 
         is_sparse = isinstance(first_context,primitives.Sparse)
@@ -972,8 +972,8 @@ class Repr(EnvironmentFilter):
         __slots__ = ('_obj', '_map')
         def __init__(self, obj: Union[Reward,Feedback], mapping: Mapping):
             self._obj,self._map = obj,mapping
-        def eval(self, item):
-            return self._obj.eval(self._map[item])
+        def __call__(self, item):
+            return self._obj(self._map[item])
 
     class SequenceMapping:
         __slots__ = ('_keys', '_vals')

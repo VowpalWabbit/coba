@@ -4,11 +4,11 @@ from typing import Sequence, Optional, Mapping
 from coba.exceptions import CobaException
 from coba.primitives.semantic import Action, Batch
 
-def argmax(actions: Sequence[Action], rewards: 'Reward') -> Action:
+def argmax(actions: Sequence[Action], reward: 'Reward') -> Action:
     max_r = -float('inf')
     max_a = 0
     for a in actions:
-        r = rewards.eval(a)
+        r = reward(a)
         if r > max_r:
             max_a = a
             max_r = r
@@ -19,7 +19,7 @@ class Reward(ABC):
     __slots__ = ()
 
     @abstractmethod
-    def eval(self, action: Action) -> float:
+    def __call__(self, action: Action) -> float:
         ...
 
     def to_json(self) -> Mapping[str, str]:
@@ -31,7 +31,7 @@ class L1Reward(Reward):
     def __init__(self, action: float) -> None:
         self._label = action
 
-    def eval(self, action: float) -> float:
+    def __call__(self, action: float) -> float:
         return action-self._label if self._label > action else self._label-action
 
     def __reduce__(self):
@@ -47,7 +47,7 @@ class HammingReward(Reward):
     def __init__(self, labels: Sequence[Action]) -> None:
         self._labels = set(labels)
 
-    def eval(self, arg: Sequence[Action]) -> float:
+    def __call__(self, arg: Sequence[Action]) -> float:
         return len(self._labels.intersection(arg))/len(self._labels.union(arg))
 
     def __reduce__(self):
@@ -61,7 +61,7 @@ class BinaryReward(Reward):
         self._argmax = action
         self._value  = value
 
-    def eval(self, action: Action) -> float:
+    def __call__(self, action: Action) -> float:
         return self._value if self._argmax==action else 0
 
     def __reduce__(self):
@@ -81,7 +81,7 @@ class SequenceReward(Reward):
         self._actions = actions
         self._rewards = rewards
 
-    def eval(self, action: Action) -> float:
+    def __call__(self, action: Action) -> float:
         return self._rewards[self._actions.index(action)]
 
     def __reduce__(self):
@@ -97,7 +97,7 @@ class MappingReward(Reward):
     def __init__(self, mapping: Mapping[Action,float]) -> None:
         self._mapping = mapping
 
-    def eval(self, action: Action) -> float:
+    def __call__(self, action: Action) -> float:
         return self._mapping[action]
 
     def __reduce__(self):
@@ -108,5 +108,5 @@ class MappingReward(Reward):
         return o == self._mapping or (isinstance(o,MappingReward) and o._mapping == self._mapping)
 
 class BatchReward(Batch):
-    def eval(self, actions: Sequence[Action]) -> Sequence[float]:
-        return list(map(lambda r,a: r.eval(a), self, actions))
+    def __call__(self, actions: Sequence[Action]) -> Sequence[float]:
+        return list(map(lambda r,a: r(a), self, actions))

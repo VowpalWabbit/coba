@@ -59,9 +59,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[1]['actions'])
         self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[2]['actions'])
 
-        self.assertEqual([1,0], list(map(interactions[0]['rewards'].eval,['2','1'])))
-        self.assertEqual([1,0], list(map(interactions[1]['rewards'].eval,['2','1'])))
-        self.assertEqual([0,1], list(map(interactions[2]['rewards'].eval,['2','1'])))
+        self.assertEqual([1,0], list(map(interactions[0]['rewards'],['2','1'])))
+        self.assertEqual([1,0], list(map(interactions[1]['rewards'],['2','1'])))
+        self.assertEqual([0,1], list(map(interactions[2]['rewards'],['2','1'])))
 
     def test_source_reader_regression_less_than_10(self):
 
@@ -92,9 +92,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([], interactions[1]['actions'])
         self.assertEqual([], interactions[2]['actions'])
 
-        self.assertEqual([-1,0], list(map(interactions[0]['rewards'].eval,[9.1,8.1])))
-        self.assertEqual([-1,0], list(map(interactions[1]['rewards'].eval,[9.2,8.2])))
-        self.assertEqual([-1,0], list(map(interactions[2]['rewards'].eval,[9.3,8.3])))
+        self.assertEqual([-1,0], list(map(interactions[0]['rewards'],[9.1,8.1])))
+        self.assertEqual([-1,0], list(map(interactions[1]['rewards'],[9.2,8.2])))
+        self.assertEqual([-1,0], list(map(interactions[2]['rewards'],[9.3,8.3])))
 
     def test_source_reader_too_large_take_no_min(self):
 
@@ -231,9 +231,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([1,2,3,4], interactions[1]['actions'])
         self.assertEqual([1,2,3,4], interactions[2]['actions'])
 
-        self.assertEqual(1, interactions[0]['rewards'].eval([1,2,3,4]))
-        self.assertEqual(1, interactions[1]['rewards'].eval([1,2]))
-        self.assertEqual(1, interactions[2]['rewards'].eval([1]))
+        self.assertEqual(1, interactions[0]['rewards']([1,2,3,4]))
+        self.assertEqual(1, interactions[1]['rewards']([1,2]))
+        self.assertEqual(1, interactions[2]['rewards']([1]))
 
     def test_X_Y_regression_more_than_10(self):
         features = list(range(12))
@@ -272,7 +272,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual(actions, interactions[11]['actions'])
 
         for i in range(12):
-            self.assertEqual(0, interactions[i]['rewards'].eval(i))
+            self.assertEqual(0, interactions[i]['rewards'](i))
 
     def test_X_Y_too_large_take(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]

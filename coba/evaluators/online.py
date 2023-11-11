@@ -74,10 +74,10 @@ class OnPolicyEvaluator(Evaluator):
 
         get_float  = lambda value                   : value if value is None else float(value)
         get_reward = lambda reward                  : float(reward)
-        get_regret = lambda reward, rewards, actions: float(rewards.eval(argmax(actions,rewards))-reward)
-        get_rank   = lambda reward, rewards, actions: sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
+        get_regret = lambda reward, rewards, actions: float(rewards(argmax(actions,rewards))-reward)
+        get_rank   = lambda reward, rewards, actions: sorted(map(rewards,actions)).index(reward)/(len(actions)-1)
 
-        get_reward_list  = lambda rewards,actions: list(map(rewards.eval, actions))
+        get_reward_list  = lambda rewards,actions: list(map(rewards,actions))
 
         predict = learner.predict
         learn   = learner.learn
@@ -106,8 +106,8 @@ class OnPolicyEvaluator(Evaluator):
             action,prob,kwargs = predict(context, actions)
             predict_time       = time.time()-start_time
 
-            reward   = rewards.eval(action)
-            feedback = feedbacks.eval(action) if feedbacks else None
+            reward   = rewards(action)
+            feedback = feedbacks(action) if feedbacks else None
 
             start_time = time.time()
             if self._learn: learn(context, action, feedback if feedbacks else reward, prob, **kwargs)
@@ -234,9 +234,9 @@ class OffPolicyEvaluator(Evaluator):
                         on_probs     = request(log_context,log_actions,log_actions)
                         predict_time = time.time()-start_time
                         if not batched:
-                            ope_reward = sum(p*float(log_rewards.eval(a)) for p,a in zip(on_probs,log_actions))
+                            ope_reward = sum(p*float(log_rewards(a)) for p,a in zip(on_probs,log_actions))
                         else:
-                            ope_reward = [ sum(p*float(R.eval(a)) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
+                            ope_reward = [ sum(p*float(R(a)) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
                     else:
                         start_time   = time.time()
                         if not batched:
@@ -245,15 +245,15 @@ class OffPolicyEvaluator(Evaluator):
                             on_prob = request(log_context,log_actions,log_action)
                         predict_time = time.time()-start_time
                         if not batched:
-                            ope_reward = on_prob*float(log_rewards.eval(log_action))
+                            ope_reward = on_prob*float(log_rewards(log_action))
                         else:
-                            ope_reward = [p*float(r) for p,r in zip(on_prob,log_rewards.eval(log_action))]
+                            ope_reward = [p*float(r) for p,r in zip(on_prob,log_rewards(log_action))]
                 else:
                     start_time        = time.time()
                     on_action,on_prob = predict(log_context, log_actions)[:2]
                     predict_time      = time.time()-start_time
 
-                    ope_reward = log_rewards.eval(on_action)
+                    ope_reward = log_rewards(on_action)
 
             if self._learn:
                 start_time = time.time()
@@ -398,7 +398,7 @@ class ExplorationEvaluator(Evaluator):
             on_prob = on_probs[log_action_index]
             predict_time = time.time()-start_time
 
-            if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(float,map(log_rewards.eval,log_actions)))))
+            if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(float,map(log_rewards,log_actions)))))
 
             #I tested many techniques for both maintaining Q and estimating its qpct percentile...
             #Implemented here is the insort method because it provided the best runtime by far.

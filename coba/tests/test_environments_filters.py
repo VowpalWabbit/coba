@@ -1235,9 +1235,9 @@ class Binary_Tests(unittest.TestCase):
 
         binary_interactions = list(Binary().filter(interactions))
 
-        self.assertEqual([0,1], [binary_interactions[0]['rewards'].eval(a) for a in [1,2]])
-        self.assertEqual([0,1], [binary_interactions[1]['rewards'].eval(a) for a in [1,2]])
-        self.assertEqual([1,0], [binary_interactions[2]['rewards'].eval(a) for a in [1,2]])
+        self.assertEqual([0,1], [binary_interactions[0]['rewards'](a) for a in [1,2]])
+        self.assertEqual([0,1], [binary_interactions[1]['rewards'](a) for a in [1,2]])
+        self.assertEqual([1,0], [binary_interactions[2]['rewards'](a) for a in [1,2]])
 
     def test_params(self):
         self.assertEqual({'binary':True}, Binary().params)
@@ -1707,13 +1707,13 @@ class Grounded_Tests(unittest.TestCase):
         to_igl_filter    = Grounded(10,5,4,2,4)
         igl_interactions = list(to_igl_filter.filter(interactions))
 
-        feedbacks_0 = [igl_interactions[0]['feedbacks'].eval(a) for a in [1,2,3]]
+        feedbacks_0 = [igl_interactions[0]['feedbacks'](a) for a in [1,2,3]]
 
         self.assertEqual(True,igl_interactions[0]['isnormal'])
         self.assertEqual(4, igl_interactions[0]['userid'])
         self.assertEqual([(0,), (2,), (3,)], feedbacks_0)
 
-        feedbacks_1 = [igl_interactions[1]['feedbacks'].eval(a) for a in [1,2,3]]
+        feedbacks_1 = [igl_interactions[1]['feedbacks'](a) for a in [1,2,3]]
 
         self.assertEqual(True,igl_interactions[1]['isnormal'])
         self.assertEqual(2, igl_interactions[1]['userid'])
@@ -1742,9 +1742,9 @@ class Grounded_Tests(unittest.TestCase):
     def test_not_01_reward(self):
         sim_interactions = [ SimulatedInteraction(0,[1,2,3],[0,.2,.5]) ]
         igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
-        self.assertEqual(igl_interactions[0]['rewards'].eval(1), 0)
-        self.assertEqual(igl_interactions[0]['rewards'].eval(2), 0)
-        self.assertEqual(igl_interactions[0]['rewards'].eval(3), 1)
+        self.assertEqual(igl_interactions[0]['rewards'](1), 0)
+        self.assertEqual(igl_interactions[0]['rewards'](2), 0)
+        self.assertEqual(igl_interactions[0]['rewards'](3), 1)
 
     def test_normal_bizzaro_users(self):
         to_igl           = Grounded(10,5,4,2,1)
@@ -1766,8 +1766,8 @@ class Grounded_Tests(unittest.TestCase):
 
         c = Counter()
         for i in igl_interactions:
-            feedbacks = [i['feedbacks'].eval(a) for a in i['actions'] ]
-            rewards   = [i['rewards'].eval(a) for a in i['actions'] ]
+            feedbacks = [i['feedbacks'](a) for a in i['actions'] ]
+            rewards   = [i['rewards'](a) for a in i['actions'] ]
 
             for word,reward in zip(feedbacks,rewards):
                 if reward == 1: self.assertEqual(i['isnormal'], word[0] in to_igl.goodwords)
@@ -1788,8 +1788,8 @@ class Grounded_Tests(unittest.TestCase):
         igl_interactions = list(to_igl_filter.filter(interactions))
 
         for interaction in igl_interactions:
-            f1 = [interaction['feedbacks'].eval(a) for a in interaction['actions'] ]
-            f2 = [interaction['feedbacks'].eval(a) for a in interaction['actions'] ]
+            f1 = [interaction['feedbacks'](a) for a in interaction['actions'] ]
+            f2 = [interaction['feedbacks'](a) for a in interaction['actions'] ]
             self.assertEqual(f1,f2)
 
     def test_params(self):
@@ -1859,40 +1859,40 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].eval((1,0)), 1)
-        self.assertEqual(out['rewards'].eval((0,1)), 2)
+        self.assertEqual(out['rewards']((1,0)), 1)
+        self.assertEqual(out['rewards']((0,1)), 2)
 
     def test_actions_categorical_value_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].eval((1,0)), 1)
-        self.assertEqual(out['rewards'].eval((0,1)), 2)
+        self.assertEqual(out['rewards']((1,0)), 1)
+        self.assertEqual(out['rewards']((0,1)), 2)
 
     def test_actions_categorical_value_string(self):
         out = next(Repr('onehot','string').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
 
         self.assertEqual([1,2,3]  , out['context'])
         self.assertEqual(['1','2'], out['actions'])
-        self.assertEqual(out['rewards'].eval('1'), 1)
-        self.assertEqual(out['rewards'].eval('2'), 2)
+        self.assertEqual(out['rewards']('1'), 1)
+        self.assertEqual(out['rewards']('2'), 2)
 
     def test_actions_categorical_dense_onehot_tuple(self):
         out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
 
         self.assertEqual([1,2,3]          , out['context'])
         self.assertEqual([[(1,0)],[(0,1)]], out['actions'])
-        self.assertEqual(out['rewards'].eval([(1,0)]), 1)
-        self.assertEqual(out['rewards'].eval([(0,1)]), 2)
+        self.assertEqual(out['rewards']([(1,0)]), 1)
+        self.assertEqual(out['rewards']([(0,1)]), 2)
 
     def test_actions_categorical_dense_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([[1,0],[0,1]], out['actions'])
-        self.assertEqual(out['rewards'].eval([1,0]), 1)
-        self.assertEqual(out['rewards'].eval([0,1]), 2)
+        self.assertEqual(out['rewards']([1,0]), 1)
+        self.assertEqual(out['rewards']([0,1]), 2)
 
     def test_actions_categorical_dense_string(self):
         out = next(Repr('onehot','string').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
@@ -1900,18 +1900,18 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([['1'],['2']], out['actions'])
         self.assertFalse(isinstance(out['actions'][0][0],Categorical))
-        self.assertEqual(out['rewards'].eval(['1']), 1)
-        self.assertEqual(out['rewards'].eval(['2']), 2)
+        self.assertEqual(out['rewards'](['1']), 1)
+        self.assertEqual(out['rewards'](['2']), 2)
 
     def test_actions_categorical_with_feedbacks(self):
         out = next(Repr('onehot','onehot_tuple').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].eval((1,0)), 1)
-        self.assertEqual(out['rewards'].eval((0,1)), 2)
-        self.assertEqual(out['feedbacks'].eval((1,0)), 3)
-        self.assertEqual(out['feedbacks'].eval((0,1)), 4)
+        self.assertEqual(out['rewards']((1,0)), 1)
+        self.assertEqual(out['rewards']((0,1)), 2)
+        self.assertEqual(out['feedbacks']((1,0)), 3)
+        self.assertEqual(out['feedbacks']((0,1)), 4)
 
     def test_actions_categorical_with_only_feedbacks(self):
         actions = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
@@ -1919,18 +1919,18 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['feedbacks'].eval((1,0)), 3)
-        self.assertEqual(out['feedbacks'].eval((0,1)), 4)
+        self.assertEqual(out['feedbacks']((1,0)), 3)
+        self.assertEqual(out['feedbacks']((0,1)), 4)
 
     def test_actions_categorical_str(self):
         out = next(Repr('onehot','string').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
 
         self.assertEqual([1,2,3]  , out['context'])
         self.assertEqual(['1','2'], out['actions'])
-        self.assertEqual(out['rewards'].eval('1'), 1)
-        self.assertEqual(out['rewards'].eval('2'), 2)
-        self.assertEqual(out['feedbacks'].eval('1'), 3)
-        self.assertEqual(out['feedbacks'].eval('2'), 4)
+        self.assertEqual(out['rewards']('1'), 1)
+        self.assertEqual(out['rewards']('2'), 2)
+        self.assertEqual(out['feedbacks']('1'), 3)
+        self.assertEqual(out['feedbacks']('2'), 4)
 
         self.assertNotIsInstance(out['actions'][0],Categorical)
         self.assertNotIsInstance(out['actions'][1],Categorical)
@@ -2115,12 +2115,12 @@ class Batch_Tests(unittest.TestCase):
     def test_batch_rewards(self):
         batch = list(Batch(2).filter([{'rewards':L1Reward(2),'b':2}]*2))[0]
 
-        self.assertEqual(batch['rewards'].eval([1,2]), [-1,0])
+        self.assertEqual(batch['rewards']([1,2]), [-1,0])
 
     def test_batch_feedbacks(self):
         batch = list(Batch(2).filter([{'feedbacks':SequenceFeedback([0,1,2],[1,2,3]),'b':2}]*2))[0]
 
-        self.assertEqual(batch['feedbacks'].eval([1,2]), [2,3])
+        self.assertEqual(batch['feedbacks']([1,2]), [2,3])
 
     def test_empty(self):
         self.assertEqual([],list(Batch(3).filter([])))
@@ -2427,11 +2427,11 @@ class OpeRewards_Tests(unittest.TestCase):
 
         new_interactions = list(OpeRewards("IPS").filter(interactions))
 
-        self.assertEqual(new_interactions[0]['rewards'].eval(1),2)
-        self.assertEqual(new_interactions[0]['rewards'].eval(2),0)
+        self.assertEqual(new_interactions[0]['rewards'](1),2)
+        self.assertEqual(new_interactions[0]['rewards'](2),0)
 
-        self.assertEqual(new_interactions[1]['rewards'].eval(1),0)
-        self.assertEqual(new_interactions[1]['rewards'].eval(2),1)
+        self.assertEqual(new_interactions[1]['rewards'](1),0)
+        self.assertEqual(new_interactions[1]['rewards'](2),1)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
     def test_DM(self):
@@ -2442,10 +2442,10 @@ class OpeRewards_Tests(unittest.TestCase):
 
         new_interactions = list(OpeRewards("DM").filter(interactions))
 
-        self.assertAlmostEqual(new_interactions[0]['rewards'].eval('c'),.79699, places=3)
-        self.assertAlmostEqual(new_interactions[0]['rewards'].eval('d'),.32049, places=3)
-        self.assertAlmostEqual(new_interactions[1]['rewards'].eval('e'),.18374, places=3)
-        self.assertAlmostEqual(new_interactions[1]['rewards'].eval('f'),.25000, places=3)
+        self.assertAlmostEqual(new_interactions[0]['rewards']('c'),.79699, places=3)
+        self.assertAlmostEqual(new_interactions[0]['rewards']('d'),.32049, places=3)
+        self.assertAlmostEqual(new_interactions[1]['rewards']('e'),.18374, places=3)
+        self.assertAlmostEqual(new_interactions[1]['rewards']('f'),.25000, places=3)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
     def test_DM_action_not_hashable(self):
@@ -2456,10 +2456,10 @@ class OpeRewards_Tests(unittest.TestCase):
 
         new_interactions = list(OpeRewards("DM").filter(interactions))
 
-        self.assertAlmostEqual(new_interactions[0]['rewards'].eval(['c']),.79699, places=3)
-        self.assertAlmostEqual(new_interactions[0]['rewards'].eval(['d']),.32049, places=3)
-        self.assertAlmostEqual(new_interactions[1]['rewards'].eval(['e']),.18374, places=3)
-        self.assertAlmostEqual(new_interactions[1]['rewards'].eval(['f']),.25000, places=3)
+        self.assertAlmostEqual(new_interactions[0]['rewards'](['c']),.79699, places=3)
+        self.assertAlmostEqual(new_interactions[0]['rewards'](['d']),.32049, places=3)
+        self.assertAlmostEqual(new_interactions[1]['rewards'](['e']),.18374, places=3)
+        self.assertAlmostEqual(new_interactions[1]['rewards'](['f']),.25000, places=3)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
     def test_DR(self):
@@ -2471,15 +2471,15 @@ class OpeRewards_Tests(unittest.TestCase):
         dm_interactions = list(OpeRewards("DM").filter(interactions))
         dr_interactions = list(OpeRewards("DR").filter(interactions))
 
-        c = dm_interactions[0]['rewards'].eval('c')
-        d = dm_interactions[0]['rewards'].eval('d')
-        e = dm_interactions[1]['rewards'].eval('e')
-        f = dm_interactions[1]['rewards'].eval('f')
+        c = dm_interactions[0]['rewards']('c')
+        d = dm_interactions[0]['rewards']('d')
+        e = dm_interactions[1]['rewards']('e')
+        f = dm_interactions[1]['rewards']('f')
 
-        self.assertAlmostEqual(dr_interactions[0]['rewards'].eval('c'), c+(1-c)/.5   , places=3)
-        self.assertAlmostEqual(dr_interactions[0]['rewards'].eval('d'), d+0          , places=3)
-        self.assertAlmostEqual(dr_interactions[1]['rewards'].eval('e'), e+0          , places=3)
-        self.assertAlmostEqual(dr_interactions[1]['rewards'].eval('f'), f+(.25-f)/.25, places=3)
+        self.assertAlmostEqual(dr_interactions[0]['rewards']('c'), c+(1-c)/.5   , places=3)
+        self.assertAlmostEqual(dr_interactions[0]['rewards']('d'), d+0          , places=3)
+        self.assertAlmostEqual(dr_interactions[1]['rewards']('e'), e+0          , places=3)
+        self.assertAlmostEqual(dr_interactions[1]['rewards']('f'), f+(.25-f)/.25, places=3)
 
     def test_params(self):
         self.assertEqual(OpeRewards().params,{"ope_reward":"None"})
