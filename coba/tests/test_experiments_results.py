@@ -1,9 +1,9 @@
 import unittest
 import unittest.mock
-import importlib.util
 
 from statistics import mean
 
+from coba.utilities import PackageChecker
 from coba.pipes import ListSink
 from coba.context import CobaContext, IndentLogger
 from coba.exceptions import CobaException, CobaExit
@@ -530,7 +530,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(table._indexes,tcopy._indexes)
         self.assertEqual(table._lohis,tcopy._lohis)
 
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
+    @unittest.skipUnless(PackageChecker.pandas(strict=False), "this test requires pandas")
     def test_to_pandas(self):
 
         import pandas as pd
@@ -547,7 +547,7 @@ class Table_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
+    @unittest.skipUnless(PackageChecker.pandas(strict=False), "this test requires pandas")
     def test_to_pandas_with_array_column(self):
         import pandas as pd
         import pandas.testing
@@ -563,7 +563,7 @@ class Table_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
+    @unittest.skipUnless(PackageChecker.pandas(strict=False), "this test requires pandas")
     def test_to_pandas_with_dict_column(self):
         import pandas as pd
         import pandas.testing
@@ -579,7 +579,7 @@ class Table_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "this test requires pandas")
+    @unittest.skipUnless(PackageChecker.pandas(strict=False), "this test requires pandas")
     def test_to_pandas_with_View(self):
         import pandas as pd
         import pandas.testing
@@ -594,11 +594,11 @@ class Table_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-@unittest.skipUnless(importlib.util.find_spec("matplotlib"), "this test requires matplotlib")
+@unittest.skipUnless(PackageChecker.matplotlib(strict=False), "this test requires matplotlib")
 class MatplotPlotter_Tests(unittest.TestCase):
 
     def test_no_matplotlib(self):
-        with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             with self.assertRaises(CobaExit):
                 MatplotPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None,None)
 
@@ -2922,11 +2922,11 @@ class Result_Tests(unittest.TestCase):
     def test_confidence_se(self):
         self.assertEqual((2,(1.96,1.96)),Result()._confidence('se')([1,3]))
 
-    @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
+    @unittest.skipUnless(PackageChecker.scipy(strict=False), "this test requires scipy")
     def test_confidence_bs(self):
         self.assertEqual((2.5, (1.0,1.0)),Result()._confidence('bs')([1,2,3,4]))
 
-    @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
+    @unittest.skipUnless(PackageChecker.scipy(strict=False), "this test requires scipy")
     def test_confidence_ci(self):
         self.assertEqual((2.5, (1.5,0.5)),Result()._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
 

@@ -99,7 +99,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
             list(CobaMultiprocessor(ExceptionFilter(KeyboardInterrupt()), 2, 1).filter([1,2,3]))
 
     def test_not_picklable_logging(self):
-        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             logger_sink = ListSink()
             CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(logger_sink),[])
             CobaContext.cacher = NullCacher()

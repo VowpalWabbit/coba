@@ -1,19 +1,18 @@
 import unittest
 import unittest.mock
-import importlib.util
 import pickle
 
 from typing import Sequence, cast
 
+from coba.utilities import PackageChecker
 from coba.learners.vowpal import VowpalRndLearner
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.primitives import HashableSparse
-from coba.learners import VowpalMediator
 from coba.learners import (
     VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner,
     VowpalBagLearner, VowpalCoverLearner, VowpalRegcbLearner,
-    VowpalSquarecbLearner, VowpalOffPolicyLearner
+    VowpalSquarecbLearner, VowpalOffPolicyLearner, VowpalMediator
 )
 
 class VowpalInherited(VowpalLearner):
@@ -171,7 +170,7 @@ class VowpalRegcbLearner_Tests(unittest.TestCase):
         VowpalRegcbLearner(mode="optimistic", features = ['a','x','ax'], seed=None)
         mock.assert_called_once_with("--cb_explore_adf --regcbopt --quiet --noconstant --interactions ax",None)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalRegcbLearner(vw=VowpalMediatorMocked()))), VowpalRegcbLearner)
 
@@ -428,7 +427,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_adf", VowpalMediatorMocked())
         learner.learn(None,2,1,1,[1,2,3])
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
     def test_cb_adf_learning(self):
         learner = VowpalLearner()
 
@@ -505,7 +504,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         delattr(zz,'_vw')
         zz.finish()
 
-@unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+@unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
 class VowpalMediator_Tests(unittest.TestCase):
 
     def test_args_str(self):

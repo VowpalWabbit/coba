@@ -1,6 +1,5 @@
 import unittest
 import timeit
-import importlib.util
 
 from itertools import count
 from typing import Callable, Any
@@ -8,6 +7,7 @@ from typing import Callable, Any
 import coba.pipes
 import coba.random
 
+from coba.utilities import PackageChecker
 from coba.statistics import mean,var,percentile
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
@@ -119,7 +119,7 @@ class Performance_Tests(unittest.TestCase):
     def test_gausses_performance(self):
         self._assert_scale_time(50, coba.random.gausses, .03, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_str_performance(self):
 
         vw = VowpalMediator()
@@ -128,7 +128,7 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda:vw.make_example({'x':x}, None), .04, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
 
         vw = VowpalMediator()
@@ -137,7 +137,7 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': [1]+[0]*1000  }
         self._assert_call_time(lambda:vw.make_example(ns, None), .03, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_int_performance(self):
 
         vw = VowpalMediator()
@@ -146,7 +146,7 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_mixed_performance(self):
 
         vw = VowpalMediator()
@@ -155,7 +155,7 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
 
         vw = VowpalMediator()
@@ -164,7 +164,7 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': { str(i):i for i in range(500)} }
         self._assert_call_time(lambda:vw.make_example(ns, None), .05, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_examples_sequence_int_performance(self):
 
         vw = VowpalMediator()
@@ -227,7 +227,7 @@ class Performance_Tests(unittest.TestCase):
     def test_linear_synthetic(self):
         self._assert_call_time(lambda:list(LinearSyntheticSimulation(10).read()), .07, print_time, number=1)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_ope_rewards(self):
         I = [{'context':[1,2,3], 'actions':['a','b','c','d'], 'action':'a', 'probability':.5, 'reward':2}]*50
         ope = OpeRewards('DM')
@@ -332,7 +332,7 @@ class Performance_Tests(unittest.TestCase):
         table = table.index('environment_id','learner_id','evaluator_id','index')
         self._assert_call_time(lambda:list(table.to_dicts()), .055, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+    @unittest.skipUnless(PackageChecker.pandas(strict=False), "pandas is not installed so we must skip pandas tests")
     def test_table_to_pandas(self):
         table = Table(columns=['environment_id']).insert([ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)

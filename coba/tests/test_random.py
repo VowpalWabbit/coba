@@ -1,9 +1,9 @@
 import unittest
-import importlib.util
 import pickle
 
 from collections import Counter
 
+from coba.utilities import PackageChecker
 import coba.random
 
 class CobaRandom_Tests(unittest.TestCase):
@@ -62,7 +62,7 @@ class CobaRandom_Tests(unittest.TestCase):
         actual_random_numbers_2 = coba.random.randoms(5)
         self.assertSequenceEqual(actual_random_numbers_1, actual_random_numbers_2)
 
-    @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy is not installed so we must skip statistical tests")
+    @unittest.skipUnless(PackageChecker.scipy(strict=False), "scipy is not installed so we must skip statistical tests")
     def test_randoms_uniform(self):
         import numpy as np
         from scipy.stats import chisquare
@@ -110,7 +110,7 @@ class CobaRandom_Tests(unittest.TestCase):
         shuffle = coba.random.shuffle(list(range(20)))
         self.assertEqual([1, 4, 0, 19, 6, 15, 3, 16, 11, 10, 7, 17, 13, 8, 9, 14, 18, 12, 5, 2],shuffle)
 
-    @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy is not installed so we must skip statistical tests")
+    @unittest.skipUnless(PackageChecker.scipy(strict=False), "scipy is not installed so we must skip statistical tests")
     def test_shuffle_is_unbiased(self):
 
         from scipy.stats import chisquare
@@ -160,7 +160,7 @@ class CobaRandom_Tests(unittest.TestCase):
         self.assertEqual(2,coba.random.randint(1,10))
         self.assertEqual(7,coba.random.randint(1,10))
 
-    @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy is not installed so we must skip statistical tests")
+    @unittest.skipUnless(PackageChecker.scipy(strict=False), "scipy is not installed so we must skip statistical tests")
     def test_randint_uniform(self):
         from scipy.stats import chisquare
 
@@ -237,7 +237,7 @@ class CobaRandom_Tests(unittest.TestCase):
         self.assertEqual(expected, [round(r,3) for r in cr.gausses(2,0,1)])
         self.assertEqual(expected, [round(r,3) for r in coba.random.gausses(2,0,1)])
 
-    @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy is not installed so we must skip statistical tests")
+    @unittest.skipUnless(PackageChecker.scipy(strict=False), "scipy is not installed so we must skip statistical tests")
     def test_gauss_normal(self):
         from scipy.stats import shapiro
         self.assertLess(0.00001, shapiro(coba.random.gausses(1000,0,1)).pvalue)

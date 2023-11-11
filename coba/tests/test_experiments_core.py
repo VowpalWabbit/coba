@@ -619,7 +619,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
         CobaContext.experiment.maxchunksperchild = 0
 
     def test_not_picklable_learner_sans_reduce(self):
-        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
             learner    = NotPicklableLearner()
             experiment = Experiment([env1],[learner])
@@ -632,7 +632,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
             self.assertIn("pickle", CobaContext.logger.sink.items[1])
 
     def test_wrapped_not_picklable_learner_sans_reduce(self):
-        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
             learner    = WrappedLearner(NotPicklableLearner())
             experiment = Experiment([env1],[learner])

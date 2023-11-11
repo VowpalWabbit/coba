@@ -1,6 +1,5 @@
 import pickle
 import unittest
-import importlib.util
 
 from collections import Counter
 from math import isnan
@@ -11,7 +10,7 @@ from coba.context      import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.primitives   import L1Reward, SequenceFeedback, Categorical
 from coba.learners     import FixedLearner
-from coba.utilities    import peek_first
+from coba.utilities    import peek_first, PackageChecker
 
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments.filters    import Sparsify, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
@@ -2434,7 +2433,7 @@ class OpeRewards_Tests(unittest.TestCase):
         self.assertEqual(new_interactions[1]['rewards'].eval(1),0)
         self.assertEqual(new_interactions[1]['rewards'].eval(2),1)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
     def test_DM(self):
         interactions = [
             {'action':'c','context':'a','actions':['c','d'],'reward':1  ,'probability':.5 },
@@ -2448,7 +2447,7 @@ class OpeRewards_Tests(unittest.TestCase):
         self.assertAlmostEqual(new_interactions[1]['rewards'].eval('e'),.18374, places=3)
         self.assertAlmostEqual(new_interactions[1]['rewards'].eval('f'),.25000, places=3)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
     def test_DM_action_not_hashable(self):
         interactions = [
             {'action':['c'],'context':'a','actions':[['c'],['d']],'reward':1  ,'probability':.5 },
@@ -2462,7 +2461,7 @@ class OpeRewards_Tests(unittest.TestCase):
         self.assertAlmostEqual(new_interactions[1]['rewards'].eval(['e']),.18374, places=3)
         self.assertAlmostEqual(new_interactions[1]['rewards'].eval(['f']),.25000, places=3)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
     def test_DR(self):
         interactions = [
             {'action':'c','context':'a','actions':['c','d'],'reward':1  ,'probability':.5 },

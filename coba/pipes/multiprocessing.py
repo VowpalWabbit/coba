@@ -1,5 +1,4 @@
 import pickle
-import importlib.util
 import threading as mt
 import multiprocessing as mp
 
@@ -8,7 +7,7 @@ from queue import Empty
 from traceback import format_tb
 from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any, Literal
 
-from coba.utilities import peek_first
+from coba.utilities import peek_first, PackageChecker
 from coba.exceptions import CobaException
 from coba.pipes.primitives import Filter, Line, SourceSink
 from coba.pipes.filters import Slice
@@ -186,7 +185,7 @@ class AsyncableLine(SourceSink):
 
 class Safe:
     def __init__(self, filter: Filter):
-        if importlib.util.find_spec('cloudpickle'):
+        if PackageChecker.cloudpickle(strict=False):
             import cloudpickle
             try:
                 self._filter = cloudpickle.dumps(filter)
@@ -196,7 +195,7 @@ class Safe:
             self._filter = filter
 
     def filter(self,items):
-        if importlib.util.find_spec('cloudpickle') and isinstance(self._filter,bytes):
+        if PackageChecker.cloudpickle(strict=False) and isinstance(self._filter,bytes):
             import cloudpickle
             filter = cloudpickle.loads(self._filter)
         else:
@@ -217,7 +216,7 @@ class Foreach:
 class Pickler:
     def filter(self, items) -> Iterable[bytes]:
         try:
-            if importlib.util.find_spec('cloudpickle'):
+            if PackageChecker.cloudpickle(strict=False):
                 import cloudpickle
                 yield from map(cloudpickle.dumps,items)
             else:
@@ -239,7 +238,7 @@ class Pickler:
 
 class Unpickler:
     def filter(self, items):
-        if importlib.util.find_spec('cloudpickle'):
+        if PackageChecker.cloudpickle(strict=False):
             import cloudpickle
             yield from map(cloudpickle.loads,items)
         else:

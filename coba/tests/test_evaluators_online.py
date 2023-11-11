@@ -1,9 +1,9 @@
-import importlib.util
 import math
 import unittest
 import unittest.mock
 import warnings
 
+from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.context import CobaContext
 from coba.environments import Batch, OpeRewards, SimpleEnvironment
@@ -602,7 +602,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
         self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_ope_loss(self):
         task         = OffPolicyEvaluator(['ope_loss'])
         interactions = [

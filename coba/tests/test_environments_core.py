@@ -1,10 +1,10 @@
 import unittest
 import unittest.mock
 import requests
-import importlib.util
 
 from pathlib import Path
 
+from coba.utilities import PackageChecker
 from coba.context import CobaContext, DiskCacher, NullLogger
 from coba.pipes import DiskSource, LazyDense
 from coba.exceptions import CobaException
@@ -373,7 +373,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual([0.11, 0.8, 0.44, 0.17, 0.42], list(env.read())[0]['context'])
         self.assertEqual(3, len(list(env.read())[0]['actions']))
 
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+    @unittest.skipUnless(PackageChecker.pandas(strict=False), "pandas is not installed so we must skip pandas tests")
     def test_from_dataframe(self):
         import pandas as pd
 
