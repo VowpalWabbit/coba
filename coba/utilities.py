@@ -1,7 +1,7 @@
 import warnings
 import importlib.util
 
-from itertools import chain, islice
+from itertools import chain, islice, accumulate
 from collections import defaultdict
 from typing import TypeVar, Iterable, Tuple, Union, Sequence
 
@@ -108,7 +108,14 @@ class PackageChecker:
             This pattern borrows heavily from sklearn. As of 6/20/2020 sklearn code could be found
             at https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/utils/__init__.py
         """
-        if importlib.util.find_spec(module_name) is not None:
+
+        try:
+            #if there are submodules a ModuleNotFoundError can be produced
+            module_found = importlib.util.find_spec(module_name) is not None
+        except ModuleNotFoundError:
+            module_found = False
+
+        if module_found:
             return True
         elif strict:
             pkg_name = pkg_name or module_name

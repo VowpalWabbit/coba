@@ -127,7 +127,7 @@ class Multiprocessor_Tests(unittest.TestCase):
         self.assertEqual(out,['B'])
 
     def test_class_definitions_not_loaded_in_main_fails_without_cloudpickle(self):
-        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             #this makes Test picklable but not loadable by the process
             global Test
             class Test:
@@ -279,7 +279,7 @@ class Safe_Tests(unittest.TestCase):
         out = list(Safe(BarrierNameFilter(1)).filter([1]))
 
     def test_simple_without_cloudpickle(self):
-        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             out = list(Safe(LiteralFilter()).filter([1]))
             self.assertEqual(['A'], out)
 
