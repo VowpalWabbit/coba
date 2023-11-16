@@ -1,7 +1,7 @@
 from typing import Sequence, Mapping, Callable
 
 from coba.exceptions import CobaException
-from coba.primitives.semantic import Action, Batch
+from coba.primitives.semantic import Action
 
 Reward = Callable[[Action],float]
 
@@ -16,44 +16,73 @@ def argmax(actions: Sequence[Action], reward: Reward) -> Action:
 
     return max_a
 
-class L1Reward:
-    __slots__ = ('_label',)
+def extract_shape(given:Action, comparison:Action, is_comparison_list:bool=False):
 
-    def __init__(self, action: float) -> None:
-        self._label = action
+    given_ndim = getattr(given,'ndim',-1)
+
+    if given_ndim == -1:
+        compare_action = given
+        output_shape = None
+
+    elif given_ndim == 0:
+        compare_action = given.item()
+        output_shape = ()
+
+    else:
+        expected_ndims = isinstance(comparison,(list,tuple)) + is_comparison_list
+
+        if expected_ndims == 0:
+            compare_action = given.item()
+            output_shape = given.shape
+        else:
+            output_ndims   = given_ndim-expected_ndims
+            compare_action = given[(0,)*output_ndims].tolist()
+            output_shape   = (1,)*output_ndims
+
+    return compare_action, output_shape
+
+def create_shape(value:float, shape, shape_type:type):
+
+    if shape is None:
+        return value
+    else:
+        try:
+            t = torch # type: ignore
+        except:
+            t = globals()['torch'] = __import__('torch')
+
+        #`t` could also be numpy
+        return t.full(shape,value)
+
+class L1Reward:
+    __slots__ = ('_argmax',)
+
+    def __init__(self, argmax: float) -> None:
+        self._argmax = argmax if not hasattr(argmax,'ndim') else argmax.item()
 
     def __call__(self, action: float) -> float:
-        return action-self._label if self._label > action else self._label-action
+        #due to broadcasting this automatically
+        #handles shaping when action is Tensor
+        return -abs(action-self._argmax)
 
     def __reduce__(self):
         #this makes the pickle smaller
-        return L1Reward, (self._label,)
+        return L1Reward, (self._argmax,)
 
     def __eq__(self, o: object) -> bool:
-        return isinstance(o,L1Reward) and o._label == self._label
-
-class HammingReward:
-    __slots__ = ('_labels',)
-
-    def __init__(self, labels: Sequence[Action]) -> None:
-        self._labels = set(labels)
-
-    def __call__(self, arg: Sequence[Action]) -> float:
-        return len(self._labels.intersection(arg))/len(self._labels.union(arg))
-
-    def __reduce__(self):
-        #this makes the pickle smaller
-        return HammingReward, (tuple(self._labels),)
+        return isinstance(o,L1Reward) and o._argmax == self._argmax
 
 class BinaryReward:
     __slots__ = ('_argmax','_value')
-
-    def __init__(self, action: Action, value:float=1) -> None:
-        self._argmax = action
+    def __init__(self, argmax: Action, value:float=1.) -> None:
+        self._argmax = argmax if not hasattr(argmax,'ndim') else argmax.tolist()
         self._value  = value
 
     def __call__(self, action: Action) -> float:
-        return self._value if self._argmax==action else 0
+        argmax = self._argmax
+        comparable,shape = extract_shape(action,argmax)
+        value = self._value if argmax==comparable else 0
+        return create_shape(value,shape,type(action))
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -62,6 +91,30 @@ class BinaryReward:
     def __eq__(self, o: object) -> bool:
         return o == self._argmax or (isinstance(o,BinaryReward) and o._argmax == self._argmax)
 
+class HammingReward:
+    __slots__ = ('_argmax',)
+
+    def __init__(self, argmax: Sequence[Action]) -> None:
+        self._argmax = argmax if not hasattr(argmax,'ndim') else argmax.tolist()
+
+    def __call__(self, action: Sequence[Action]) -> float:
+
+        argmax = self._argmax
+        comparable,shape = extract_shape(action,argmax[0],True)
+
+        n_intersect = 0
+
+        for a in comparable: n_intersect += a in self._argmax
+        n_union = len(argmax) + len(comparable) - n_intersect
+
+        value = n_intersect/n_union
+
+        return create_shape(value,shape,type(action))
+
+    def __reduce__(self):
+        #this makes the pickle smaller
+        return HammingReward, (tuple(self._argmax),)
+
 class SequenceReward:
     __slots__ = ('_actions','_rewards')
 
@@ -69,11 +122,13 @@ class SequenceReward:
         if len(actions) != len(rewards):
             raise CobaException("The given actions and rewards did not line up.")
 
-        self._actions = actions
-        self._rewards = rewards
+        self._actions = actions if not hasattr(actions,'ndim') else actions.tolist()
+        self._rewards = rewards if not hasattr(rewards,'ndim') else rewards.tolist()
 
     def __call__(self, action: Action) -> float:
-        return self._rewards[self._actions.index(action)]
+        comparable,shape = extract_shape(action,self._actions[0])
+        value = self._rewards[self._actions.index(comparable)]
+        return create_shape(value,shape,type(action))
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -89,7 +144,10 @@ class MappingReward:
         self._mapping = mapping
 
     def __call__(self, action: Action) -> float:
-        return self._mapping[action]
+        comparable,shape = extract_shape(action,next(iter(self._mapping.keys())))
+        comparable = tuple(comparable) if isinstance(comparable,list) else comparable
+        value = self._mapping[comparable]
+        return create_shape(value,shape,type(action))
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -98,6 +156,14 @@ class MappingReward:
     def __eq__(self, o: object) -> bool:
         return o == self._mapping or (isinstance(o,MappingReward) and o._mapping == self._mapping)
 
-class BatchReward(Batch):
-    def __call__(self, actions: Sequence[Action]) -> Sequence[float]:
-        return list(map(lambda r,a: r(a), self, actions))
+class ProxyReward:
+    __slots__ = ('_reward', '_mapping')
+    def __init__(self, reward: Reward, mapping: Mapping):
+        self._reward = reward
+        self._mapping = mapping
+
+    def __call__(self, action:Action):
+        comparable,shape = extract_shape(action,next(iter(self._mapping.keys())))
+        comparable = tuple(comparable) if isinstance(comparable,list) else comparable
+        value = self._reward(self._mapping[comparable])
+        return create_shape(value,shape,type(action))

@@ -9,7 +9,7 @@ from coba.context import CobaContext
 from coba.environments import Batch, OpeRewards, SimpleEnvironment
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.learners import Learner, VowpalSoftmaxLearner
-from coba.primitives import SequenceReward, Batch as BatchType
+from coba.primitives import SequenceReward, is_batch
 
 from coba.evaluators import OnPolicyEvaluator, OffPolicyEvaluator, ExplorationEvaluator
 
@@ -658,7 +658,8 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
     def test_batched_request_continuous(self):
         class TestLearner:
             def request(self,context,actions,request):
-                if isinstance(context,BatchType): raise Exception()
+                if is_batch(context):
+                    raise Exception()
                 return .5
 
         task    = OffPolicyEvaluator(learn=False)

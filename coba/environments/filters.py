@@ -18,11 +18,9 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
-from coba.primitives import Reward, BinaryReward, SequenceReward, BatchReward, argmax
-from coba.primitives import MappingReward
-from coba.primitives import Feedback, BatchFeedback
+from coba.primitives import Reward, BinaryReward, SequenceReward, MappingReward, ProxyReward, argmax, is_batch
 from coba.learners   import Learner, SafeLearner
-from coba.pipes      import Filter, SparseDense
+from coba.pipes      import Pipes, Filter, SparseDense
 
 from coba.environments.primitives import Interaction, EnvironmentFilter, SimpleEnvironment
 
@@ -868,7 +866,7 @@ class Params(EnvironmentFilter):
 
 class Grounded(EnvironmentFilter):
 
-    class GroundedFeedback(Feedback):
+    class GroundedFeedback:
         def __init__(self, goods, bads, argmax, seed):
             self._rng    = None
             self._goods  = goods
@@ -968,17 +966,12 @@ class Grounded(EnvironmentFilter):
 
 class Repr(EnvironmentFilter):
 
-    class PassThrough:
-        __slots__ = ('_obj', '_map')
-        def __init__(self, obj: Union[Reward,Feedback], mapping: Mapping):
-            self._obj,self._map = obj,mapping
-        def __call__(self, item):
-            return self._obj(self._map[item])
-
     class SequenceMapping:
         __slots__ = ('_keys', '_vals')
         def __init__(self,keys:Sequence,vals:Sequence) -> None:
             self._keys,self._vals = keys,vals
+        def keys(self):
+            return self._keys
         def __getitem__(self, item):
             return self._vals[self._keys.index(item)]
 
@@ -1065,37 +1058,88 @@ class Repr(EnvironmentFilter):
                     if old['actions'] != prev_old:
                         prev_old   = old['actions']
                         new_to_old = self._to_mapping(new['actions'],old['actions'])
-                    new['rewards'] = Repr.PassThrough(old['rewards'], new_to_old)
+                    new['rewards'] = ProxyReward(old['rewards'], new_to_old)
 
             if actions_changed and has_feedbacks:
                 if old['actions'] != prev_old:
                     prev_old   = old['actions']
                     new_to_old = self._to_mapping(new['actions'],old['actions'])
-                new['feedbacks'] = Repr.PassThrough(old['feedbacks'], new_to_old)
+                new['feedbacks'] = ProxyReward(old['feedbacks'], new_to_old)
 
             yield new
 
     def _to_mapping(self, keys, vals):
+        if isinstance(keys[0],list):
+            keys = list(map(tuple,keys))
         try:
             return dict(zip(keys,vals))
         except:
             return Repr.SequenceMapping(keys,vals)
 
 class Batch(EnvironmentFilter):
-    def __init__(self, batch_size: int) -> None:
-        self._batch_size = batch_size
+
+    class BatchList(list):
+        is_batch: bool = True
+
+    class BatchCallable(list):
+        is_batch: bool = True
+        def __call__(self, args: Any) -> Any:
+            ndim = getattr(args,'ndim',-1)
+            outs = list(map(lambda f,a: f(a), self, args))
+
+            if ndim == -1:
+                return outs
+            else:
+                try:
+                    t = torch # type: ignore
+                except:
+                    t = globals()['torch'] = __import__('torch')
+                return t.stack(outs)
+
+    def __init__(self, batch_size: Optional[int], batch_type: Literal['list','torch'] = 'list') -> None:
+        self._batch_size = batch_size or None
+        self._batch_type = batch_type
+
+        if batch_type == 'torch': PackageChecker.torch('Batch')
 
     @property
     def params(self) -> Mapping[str,Any]:
-        return {'batched': self._batch_size}
+        return {'batch_size': self._batch_size, 'batch_type':self._batch_type}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        for batch in self._batched(interactions, self._batch_size):
-            new = { k: primitives.Batch(i[k] for i in batch) for k in batch[0] }
-            if 'rewards' in new: new['rewards'] = BatchReward(new['rewards'])
-            if 'feedbacks' in new: new['feedbacks'] = BatchFeedback(new['feedbacks'])
-            yield new
+        first,interactions = peek_first(interactions)
+
+        if not interactions:
+            yield from []
+
+        elif not self._batch_size:
+            yield from interactions
+
+        else:
+            if self._batch_type == 'torch':
+                import torch
+                class BatchTensor(torch.Tensor):
+                    is_batch: bool = True
+
+            batch_data_type = Batch.BatchList if self._batch_type == 'list' else BatchTensor
+            batch_call_type = Batch.BatchCallable
+
+            for batch in self._batched(interactions, self._batch_size):
+
+                new = {}
+
+                for key in first.keys() & {'rewards','feedbacks'}:
+                    new[key] = batch_call_type(map(itemgetter(key),batch))
+
+                for key in first.keys() - {'rewards','feedbacks'}:
+                    values = list(map(itemgetter(key),batch))
+                    try:
+                        new[key] = batch_data_type(values)
+                    except:
+                        new[key] = Batch.BatchList(values)
+
+                yield new
 
     def _batched(self, iterable, n):
         #Batch data into lists of length n.
@@ -1114,7 +1158,7 @@ class Unbatch(EnvironmentFilter):
         first, interactions = peek_first(interactions)
         if not interactions: return []
 
-        batched_keys = [k for k,v in first.items() if isinstance(v,primitives.Batch) ]
+        batched_keys = [k for k,v in first.items() if is_batch(v) ]
 
         if not batched_keys:
             yield from interactions
@@ -1140,19 +1184,12 @@ class BatchSafe(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         first, interactions = peek_first(interactions)
-
         if not interactions: return []
 
-        is_batched = isinstance(first[list(first.keys())[0]], primitives.Batch)
+        first_val  = next(iter(first.values()))
+        batch_size = len(first_val) if is_batch(first_val) else None
 
-        if not is_batched:
-            yield from self._filter.filter(interactions)
-        else:
-            batch_size = len(first[list(first.keys())[0]])
-            unbatched = Unbatch().filter(interactions)
-            filtered  = self._filter.filter(unbatched)
-            rebatched = Batch(batch_size).filter(filtered)
-            yield from rebatched
+        yield from Pipes.join(Unbatch(),self._filter,Batch(batch_size)).filter(interactions)
 
 class Finalize(EnvironmentFilter):
 

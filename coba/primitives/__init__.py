@@ -1,6 +1,5 @@
-from coba.primitives.semantic import Context, Action, Actions, Batch
+from coba.primitives.semantic import Context, Action, Actions
 from coba.primitives.types import Categorical
 from coba.primitives.rows import Dense, Sparse, HashableDense, HashableSparse
-from coba.primitives.feedbacks import Feedback, SequenceFeedback, BatchFeedback
-from coba.primitives.rewards import Reward, L1Reward, HammingReward, BinaryReward, argmax
-from coba.primitives.rewards import SequenceReward, MappingReward, BatchReward
+from coba.primitives.rewards import Reward, SequenceReward, MappingReward, L1Reward, HammingReward, BinaryReward, ProxyReward, argmax
+from coba.primitives.semantic import is_batch

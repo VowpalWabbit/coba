@@ -13,6 +13,7 @@ from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
+from coba.primitives import BinaryReward, HammingReward
 
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pipes
 
@@ -134,7 +135,7 @@ class Performance_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
 
-        ns = { 'x': [1]+[0]*1000  }
+        ns = { 'x': [1]+[0]*1000 }
         self._assert_call_time(lambda:vw.make_example(ns, None), .03, print_time, number=1000)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
@@ -586,6 +587,30 @@ class Performance_Tests(unittest.TestCase):
         ] * 10
         impute = Impute("mode")
         self._assert_scale_time(interactions, lambda x:list(impute.filter(x)), .06, print_time, number=1000)
+
+    def test_hamming_reward_with_builtin_action(self):
+        rwd      = HammingReward([1,2,3])
+        action   = [1,2,4]
+        self._assert_call_time(lambda: rwd(action), .007, print_time, number=10000)
+
+    def test_binary_reward_with_builtin_action(self):
+        rwd      = BinaryReward([1],2)
+        action   = [2]
+        self._assert_call_time(lambda: rwd(action), .0042, print_time, number=10000)
+
+    @unittest.skipUnless(PackageChecker.torch(), "Requires pytorch")
+    def test_binary_reward_with_number_argmax_and_tensor_action(self):
+        import torch
+        rwd      = BinaryReward(1,2)
+        action   = torch.tensor([2])
+        self._assert_call_time(lambda: rwd(action), .024, print_time, number=10000)
+
+    @unittest.skipUnless(PackageChecker.torch(), "Requires pytorch")
+    def test_binary_reward_with_list_argmax_and_tensor_action(self):
+        import torch
+        rwd      = BinaryReward([1],2)
+        action   = torch.tensor([2])
+        self._assert_call_time(lambda: rwd(action), .032, print_time, number=10000)
 
     @unittest.skip("Just for testing. There's not much we can do to speed up process creation.")
     def test_async_pipe(self):

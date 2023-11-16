@@ -4,11 +4,10 @@ import unittest
 from collections import Counter
 from math import isnan
 
-from coba              import primitives
 from coba.pipes        import LazyDense, LazySparse, HeadDense
 from coba.context      import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import L1Reward, SequenceFeedback, Categorical
+from coba.primitives   import SequenceReward, L1Reward, Categorical
 from coba.learners     import FixedLearner
 from coba.utilities    import peek_first, PackageChecker
 
@@ -1878,6 +1877,14 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual(out['rewards']('1'), 1)
         self.assertEqual(out['rewards']('2'), 2)
 
+    def test_actions_categorical_dense_onehot_tuple_with_list(self):
+        out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2']),[1]],[Categorical('2',['1','2']),[2]]],[1,2])]))
+
+        self.assertEqual([1,2,3]                  , out['context'])
+        self.assertEqual([[(1,0),[1]],[(0,1),[2]]], out['actions'])
+        self.assertEqual(out['rewards']([(1,0),[1]]), 1)
+        self.assertEqual(out['rewards']([(0,1),[2]]), 2)
+
     def test_actions_categorical_dense_onehot_tuple(self):
         out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
 
@@ -1915,7 +1922,7 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_with_only_feedbacks(self):
         actions = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
-        out = next(Repr('onehot','onehot_tuple').filter([{'context':[1,2,3],'actions':actions,'feedbacks':SequenceFeedback(actions,[3,4])}]))
+        out = next(Repr('onehot','onehot_tuple').filter([{'context':[1,2,3],'actions':actions,'feedbacks':SequenceReward(actions,[3,4])}]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
@@ -1938,7 +1945,6 @@ class Repr_Tests(unittest.TestCase):
 class Finalize_Tests(unittest.TestCase):
 
     def test_dense_encodes(self):
-
         context = [Categorical('a',['a','b']),5]
         actions = [3,4]
 
@@ -2087,40 +2093,53 @@ class Batch_Tests(unittest.TestCase):
 
     def test_simple(self):
         batch = Batch(3)
-        self.assertEqual({'batched':3}, batch.params)
+
+        self.assertEqual(batch.params,{'batch_size':3,'batch_type':'list'})
         batches = list(batch.filter([{'a':1,'b':2}]*4))
 
         self.assertEqual(batches[0], {'a':[1,1,1],'b':[2,2,2]})
         self.assertEqual(batches[1], {'a':[1]    ,'b':[2]})
 
-        self.assertIsInstance(batches[0]['a'], primitives.Batch)
-        self.assertIsInstance(batches[0]['b'], primitives.Batch)
-        self.assertIsInstance(batches[1]['a'], primitives.Batch)
-        self.assertIsInstance(batches[1]['b'], primitives.Batch)
+        self.assertEqual(batches[0]['a'].is_batch, True)
+        self.assertEqual(batches[0]['b'].is_batch, True)
+        self.assertEqual(batches[1]['a'].is_batch, True)
+        self.assertEqual(batches[1]['b'].is_batch, True)
 
     def test_batch(self):
         batch = Batch(1)
 
-        self.assertEqual({'batched':1}, batch.params)
+        self.assertEqual(batch.params,{'batch_size':1,'batch_type':'list'})
         batches = list(batch.filter([{'a':1,'b':2}]*2))
 
         self.assertEqual(batches[0], {'a':[1],'b':[2]})
         self.assertEqual(batches[1], {'a':[1],'b':[2]})
 
-        self.assertIsInstance(batches[0]['a'], primitives.Batch)
-        self.assertIsInstance(batches[0]['b'], primitives.Batch)
-        self.assertIsInstance(batches[1]['a'], primitives.Batch)
-        self.assertIsInstance(batches[1]['b'], primitives.Batch)
+        self.assertEqual(batches[0]['a'].is_batch, True)
+        self.assertEqual(batches[0]['b'].is_batch, True)
+        self.assertEqual(batches[1]['a'].is_batch, True)
+        self.assertEqual(batches[1]['b'].is_batch, True)
 
     def test_batch_rewards(self):
         batch = list(Batch(2).filter([{'rewards':L1Reward(2),'b':2}]*2))[0]
-
         self.assertEqual(batch['rewards']([1,2]), [-1,0])
 
     def test_batch_feedbacks(self):
-        batch = list(Batch(2).filter([{'feedbacks':SequenceFeedback([0,1,2],[1,2,3]),'b':2}]*2))[0]
-
+        batch = list(Batch(2).filter([{'feedbacks':SequenceReward([0,1,2],[1,2,3]),'b':2}]*2))[0]
         self.assertEqual(batch['feedbacks']([1,2]), [2,3])
+
+    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    def test_torch(self):
+        import torch
+        
+        batch = list(Batch(2,'torch').filter([{'a':1,'b':None,'rewards':L1Reward(2)}]*2))[0]
+
+        self.assertTrue(torch.equal(batch['a'],torch.tensor([1,1])))
+        self.assertEqual(batch['b'],[None,None])
+        self.assertTrue(batch['a'].is_batch)
+        self.assertTrue(batch['b'].is_batch)
+        self.assertEqual(batch['rewards']([1,2]), [-1,0])
+        self.assertTrue(torch.equal(batch['rewards'](torch.tensor([1,2])), torch.tensor([-1,0])))
+        self.assertTrue(torch.equal(batch['rewards'](torch.tensor([[1],[2]])), torch.tensor([[-1],[0]])))
 
     def test_empty(self):
         self.assertEqual([],list(Batch(3).filter([])))
@@ -2136,16 +2155,13 @@ class Unbatch_Tests(unittest.TestCase):
     def test_batched(self):
         interaction = {'a':1,'b':2}
 
-        batched   = Batch(3).filter([interaction]*3)
+        batched   = list(Batch(3).filter([interaction]*3))
         unbatched = list(Unbatch().filter(batched))
-        self.assertEqual(unbatched, [interaction]*3)
+        self.assertEqual(unbatched, [{'a':1,'b':2}]*3)
 
-    def test_mixed(self):
-        interaction = {'b':2,'a':primitives.Batch([1,2])}
-
-        unbatched = list(Unbatch().filter([interaction]))
-        self.assertEqual(unbatched, [{'a':1,'b':2},{'a':2,'b':2}])
-
+        batched[0]['c'] = 3
+        unbatched = list(Unbatch().filter(batched))
+        self.assertEqual(unbatched, [{'a':1,'b':2,'c':3}]*3)
 
     def test_empty(self):
         self.assertEqual(list(Unbatch().filter([])),[])

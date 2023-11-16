@@ -11,7 +11,7 @@ from coba.random import CobaRandom
 from coba.context import CobaContext
 from coba.environments import Environment
 from coba.learners import Learner, SafeLearner
-from coba.primitives import Batch, argmax
+from coba.primitives import is_batch, argmax
 from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first
 
@@ -50,7 +50,7 @@ class OnPolicyEvaluator(Evaluator):
             if key not in first:
                 raise CobaException(f"OnPolicyEvaluator requires every interaction to have '{key}'")
 
-        batched  = first and (isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch))
+        batched  = first and (is_batch(first.get('context')) or is_batch(first.get('actions')))
 
         for key in ['rewards','actions']:
             if (first[key][0] if batched else first[key]) is None:
@@ -95,7 +95,7 @@ class OnPolicyEvaluator(Evaluator):
             rewards   = interaction.pop('rewards')
             feedbacks = interaction.pop('feedbacks',None)
 
-            batched  = isinstance(context,Batch) or isinstance(actions,Batch)
+            batched  = is_batch(context) or is_batch(actions)
             discrete = len(actions[0] if batched else actions) > 0
 
             if record_context: out['context'] = context
@@ -173,7 +173,7 @@ class OffPolicyEvaluator(Evaluator):
 
         if not interactions:return []
 
-        batched  = isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch)
+        batched  = is_batch(first.get('context')) or is_batch(first.get('actions'))
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
         first_rewards = first.get('rewards',[None])[0] if batched else first.get('rewards',None)
@@ -220,7 +220,7 @@ class OffPolicyEvaluator(Evaluator):
             log_rewards = interaction.pop('rewards',None)
             log_actions = interaction.pop('actions',None)
 
-            batched  = isinstance(log_context, Batch)
+            batched  = is_batch(log_context)
             discrete = log_actions and len(log_actions[0] if batched else log_actions) > 0
 
             if record_time:
@@ -329,7 +329,7 @@ class ExplorationEvaluator(Evaluator):
         if not interactions: return []
 
         first    = first_100[0]
-        batched  = first and (isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch))
+        batched  = first and (is_batch(first.get('context')) or is_batch(first.get('actions')))
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
         if self._ope is None: self._ope = ('rewards' in first)

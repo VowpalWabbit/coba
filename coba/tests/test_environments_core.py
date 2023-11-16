@@ -8,11 +8,14 @@ from coba.utilities import PackageChecker
 from coba.context import CobaContext, DiskCacher, NullLogger
 from coba.pipes import DiskSource, LazyDense
 from coba.exceptions import CobaException
-from coba.primitives import L1Reward, Batch, Categorical
+from coba.primitives import L1Reward, Categorical
 from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.learners     import FixedLearner
+
+class BatchList(list):
+    is_batch = True
 
 class TestEnvironment1:
     def __init__(self, id) -> None:
@@ -820,11 +823,13 @@ class Environments_Tests(unittest.TestCase):
     def test_batch(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).batch(3)
 
-        self.assertEqual(2  , len(envs))
-        self.assertEqual('A', envs[0].params['id'])
-        self.assertEqual(3  , envs[0].params['batched'])
-        self.assertEqual('B', envs[1].params['id'])
-        self.assertEqual(3  , envs[1].params['batched'])
+        self.assertEqual(2     , len(envs))
+        self.assertEqual('A'   , envs[0].params['id'])
+        self.assertEqual(3     , envs[0].params['batch_size'])
+        self.assertEqual('list', envs[0].params['batch_type'])
+        self.assertEqual('B'   , envs[1].params['id'])
+        self.assertEqual(3     , envs[1].params['batch_size'])
+        self.assertEqual('list', envs[1].params['batch_type'])
 
     def test_logged_one(self):
         class TestEnvironment:
@@ -851,7 +856,7 @@ class Environments_Tests(unittest.TestCase):
 
         class TestEnvironment:
             def read(self):
-                yield {'context':Batch([1,2]), 'actions':Batch([[1,2],[3,4]]), "rewards":Batch([L1Reward(1),L1Reward(2)]) }
+                yield {'context':BatchList([1,2]), 'actions':BatchList([[1,2],[3,4]]), "rewards":BatchList([L1Reward(1),L1Reward(2)]) }
 
         actual = list(Environments(TestEnvironment()).unbatch()[0].read())
         expected = [

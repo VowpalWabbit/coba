@@ -11,7 +11,7 @@ from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee, islice
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
-from coba.primitives import Batch
+from coba.primitives import is_batch
 from coba.environments import Environment
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.context import CobaContext
@@ -829,7 +829,7 @@ class Result:
             if not env.params.get('logged'): continue
             if not interactions: continue
 
-            is_batched = isinstance(first['reward'],(Batch,list,tuple))
+            is_batched = is_batch(first['reward']) or isinstance(first['reward'],(list,tuple))
 
             env_param = dict(env.params)
             lrn_param = env_param.pop('learner')
