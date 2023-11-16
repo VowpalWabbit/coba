@@ -598,14 +598,14 @@ class Performance_Tests(unittest.TestCase):
         action   = [2]
         self._assert_call_time(lambda: rwd(action), .0042, print_time, number=10000)
 
-    @unittest.skipUnless(PackageChecker.torch(), "Requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "Requires pytorch")
     def test_binary_reward_with_number_argmax_and_tensor_action(self):
         import torch
         rwd      = BinaryReward(1,2)
         action   = torch.tensor([2])
         self._assert_call_time(lambda: rwd(action), .024, print_time, number=10000)
 
-    @unittest.skipUnless(PackageChecker.torch(), "Requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "Requires pytorch")
     def test_binary_reward_with_list_argmax_and_tensor_action(self):
         import torch
         rwd      = BinaryReward([1],2)

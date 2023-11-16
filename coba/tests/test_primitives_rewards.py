@@ -29,7 +29,7 @@ class L1Reward_Tests(unittest.TestCase):
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(L1Reward(1))), 80)
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_squeezed_single_torch(self):
         import torch
         expected = torch.tensor(-1).float()
@@ -40,7 +40,7 @@ class L1Reward_Tests(unittest.TestCase):
         actual   = L1Reward(1)(torch.tensor(0))
         self.assertEqual(expected,actual)
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_not_squeezed_single_torch(self):
         import torch
         expected = torch.tensor([-1]).float()
@@ -80,7 +80,7 @@ class BinaryReward_Tests(unittest.TestCase):
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(BinaryReward(1))), 80)
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_simple_numeric_argmax_torch_numeric_action(self):
         import torch
         rwd = BinaryReward(1,2)
@@ -91,7 +91,7 @@ class BinaryReward_Tests(unittest.TestCase):
         actual   = rwd(torch.tensor(1))
         self.assertTrue(torch.equal(expected,actual))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_simple_numeric_argmax_torch_sequence_action(self):
         import torch
         rwd = BinaryReward(1,2)
@@ -105,7 +105,7 @@ class BinaryReward_Tests(unittest.TestCase):
         actual   = rwd(torch.tensor([[1]]))
         self.assertTrue(torch.equal(expected,actual))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_simple_sequence_argmax_torch_sequence_action(self):
         import torch
         rwd = BinaryReward([1],2)
@@ -119,7 +119,7 @@ class BinaryReward_Tests(unittest.TestCase):
         actual   = rwd(torch.tensor([[1]]))
         self.assertTrue(torch.equal(expected,actual))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_sequence_argmax_torch_sequence_action(self):
         import torch
         rwd = BinaryReward(torch.tensor([1]),2)
@@ -133,7 +133,7 @@ class BinaryReward_Tests(unittest.TestCase):
         actual   = rwd(torch.tensor([[1]]))
         self.assertTrue(torch.equal(expected,actual))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_sequence_argmax_simple_sequence_action(self):
         import torch
         rwd = BinaryReward(torch.tensor([1]),2)
@@ -171,7 +171,7 @@ class HammingReward_Tests(unittest.TestCase):
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(HammingReward([1,2]))), 80)
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_simple_numeric_argmax_torch_numeric_action(self):
         import torch
         rwd = HammingReward([1,2,3,4])
@@ -180,7 +180,7 @@ class HammingReward_Tests(unittest.TestCase):
         self.assertTrue(torch.equal(torch.tensor(0  ), rwd(torch.tensor([5,6,7]))))
         self.assertTrue(torch.equal(torch.tensor(1/2), rwd(torch.tensor([1,2,3,4,5,6,7,8]))))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_numeric_argmax_torch_numeric_action(self):
         import torch
         rwd = HammingReward(torch.tensor([1,2,3,4]))
@@ -193,7 +193,7 @@ class HammingReward_Tests(unittest.TestCase):
         self.assertTrue(torch.equal(torch.tensor([0  ]), rwd(torch.tensor([[5,6,7]]))))
         self.assertTrue(torch.equal(torch.tensor([1/2]), rwd(torch.tensor([[1,2,3,4,5,6,7,8]]))))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_sequence_argmax_torch_sequence_action(self):
         import torch
         rwd = HammingReward(torch.tensor([[1],[2],[3],[4]]))
@@ -231,14 +231,14 @@ class SequenceReward_Tests(unittest.TestCase):
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(SequenceReward([3,4],[5,6]))), 80)
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_numeric_actions_torch_numeric_action(self):
         import torch
         rwd = SequenceReward(torch.tensor([1,2,3]),torch.tensor([4,5,6]))
         self.assertTrue(torch.equal(torch.tensor(5), rwd(torch.tensor(2))))
         self.assertTrue(torch.equal(torch.tensor([5]), rwd(torch.tensor([2]))))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_sequence_actions_torch_sequence_action(self):
         import torch
         rwd = SequenceReward(torch.tensor([[1],[2],[3]]),torch.tensor([4,5,6]))
@@ -268,14 +268,14 @@ class MappingReward_Tests(unittest.TestCase):
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(MappingReward({0:4,1:5,2:6}))), 80)
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_numeric_actions_torch_numeric_action(self):
         import torch
         rwd = MappingReward({1:4,2:5,3:6})
         self.assertTrue(torch.equal(torch.tensor(5), rwd(torch.tensor(2))))
         self.assertTrue(torch.equal(torch.tensor([5]), rwd(torch.tensor([2]))))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_sequence_actions_torch_sequence_action(self):
         import torch
         rwd = MappingReward({(1,):4,(2,):5,(3,):6})
@@ -291,14 +291,14 @@ class ProxyReward_Tests(unittest.TestCase):
         self.assertEqual(6,rwd(3))
         self.assertEqual(rwd,rwd)
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_numeric_actions_torch_numeric_action(self):
         import torch
         rwd = ProxyReward(MappingReward({0:4,1:5,2:6}),{1:0,2:1,3:2})
         self.assertTrue(torch.equal(torch.tensor(6), rwd(torch.tensor(3))))
         self.assertTrue(torch.equal(torch.tensor([6]), rwd(torch.tensor([3]))))
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch_sequence_actions_torch_sequence_action(self):
         import torch
         rwd = ProxyReward(MappingReward({0:4,1:5,2:6}),{(1,):0,(2,):1,(3,):2})

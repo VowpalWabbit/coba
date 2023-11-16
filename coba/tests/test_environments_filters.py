@@ -2127,7 +2127,7 @@ class Batch_Tests(unittest.TestCase):
         batch = list(Batch(2).filter([{'feedbacks':SequenceReward([0,1,2],[1,2,3]),'b':2}]*2))[0]
         self.assertEqual(batch['feedbacks']([1,2]), [2,3])
 
-    @unittest.skipUnless(PackageChecker.torch(), "This test requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch(self):
         import torch
         
