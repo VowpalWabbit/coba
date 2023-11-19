@@ -3,9 +3,12 @@ import importlib.util
 
 from itertools import chain, islice
 from collections import defaultdict
-from typing import TypeVar, Iterable, Tuple, Union, Sequence
+from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Optional
 
+from coba import CobaRandom
 from coba.exceptions import CobaExit
+from coba.random import choice
+
 
 def coba_exit(message:str):
     #we ignore warnings before exiting in order to make jupyter's output a little cleaner
@@ -140,3 +143,17 @@ def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], It
     first = None if not first else first[0] if n==1 else first
 
     return first, items
+
+
+def sample_actions(
+    actions: Sequence[Any],
+    probabilities: Sequence[float],
+    rng: Optional[CobaRandom] = None,
+) -> Tuple[Any, float]:
+    """
+    Sample the actions weighted by their probabilities.
+    """
+    choice_function = rng.choice if rng else choice
+    index = choice_function(range(len(probabilities)), probabilities)
+
+    return actions[index], probabilities[index]
