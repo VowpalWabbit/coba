@@ -11,7 +11,7 @@ from coba.learners import Learner
 from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
-from coba.primitives import Categorical, MulticlassReward
+from coba.primitives import Categorical, BinaryReward
 
 class NoParamsLearner:
     def predict(self, context, actions):
@@ -133,8 +133,8 @@ class ExceptionEnvironment(Environment):
 class CategoricalActionEnv(Environment):
     def read(self):
         actions = [Categorical("a",["a","b"]),Categorical("b",["a","b"])]
-        yield SimulatedInteraction(1, actions, MulticlassReward("a"))
-        yield SimulatedInteraction(2, actions, MulticlassReward("a"))
+        yield SimulatedInteraction(1, actions, BinaryReward("a"))
+        yield SimulatedInteraction(2, actions, BinaryReward("a"))
 
 def test_eval(environment, learner):
     yield { "learner_type": str(type(learner)), "n_interactions": len(list(environment.read()))}
@@ -619,7 +619,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
         CobaContext.experiment.maxchunksperchild = 0
 
     def test_not_picklable_learner_sans_reduce(self):
-        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
             learner    = NotPicklableLearner()
             experiment = Experiment([env1],[learner])
@@ -632,7 +632,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
             self.assertIn("pickle", CobaContext.logger.sink.items[1])
 
     def test_wrapped_not_picklable_learner_sans_reduce(self):
-        with unittest.mock.patch('importlib.util.find_spec', lambda _: False):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
             learner    = WrappedLearner(NotPicklableLearner())
             experiment = Experiment([env1],[learner])

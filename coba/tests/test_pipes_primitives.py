@@ -200,7 +200,7 @@ class FiltersFilter_Tests(unittest.TestCase):
 
         self.assertIs(pipe[0],filter1)
         self.assertIs(pipe[1],filter2)
-        
+
         self.assertIs(pipe[-1],filter2)
         self.assertIs(pipe[-2],filter1)
 

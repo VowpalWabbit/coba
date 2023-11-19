@@ -9,6 +9,7 @@ from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Mapping
 
+from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.primitives import Sparse, Dense, Categorical
 
@@ -229,6 +230,8 @@ class CategoricalEncoder(Encoder[Categorical]):
             values: Provide the universe of values for encoding and set `is_fit==True`.
         """
 
+        set_values = set(values)
+        if len(values) != len(set_values): values = sorted(set_values)
         self._categoricals = {v: Categorical(v,values) for v in sorted(set(values)) } if values else None
 
     @property
@@ -307,11 +310,20 @@ class FactorEncoder(Encoder[int]):
 class CobaJsonEncoder(json.JSONEncoder):
     """A json encoder that allows for potential COBA extensions in the future."""
     def default(self, o: Any) -> Any:
+
+        if PackageChecker.torch(strict=False):
+            import torch
+        else:
+            torch = None
+
         try:
             return o.to_json()
         except AttributeError:
             try:
-                return vars(o)
+                if torch and isinstance(o,torch.Tensor):
+                    return o.tolist()
+                else:
+                    return vars(o)
             except TypeError:
                 return super().default(o)
 
@@ -427,7 +439,7 @@ class InteractionsEncoder:
 
         values = [ ns_pows[ns][p] for ns,p in cross_pow.items() ]
         cross  = values[0]
-        
+
         if isinstance(cross[0],str):
             for vs in values[1:]: cross = [ o+v for o in cross for v in vs ]
         else:

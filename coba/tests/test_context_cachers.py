@@ -3,12 +3,19 @@ import shutil
 import unittest
 
 import threading as mt
+import multiprocessing as mp
+import ctypes as ct
 
 from contextlib import contextmanager
 from pathlib import Path
 
 from coba.context import DiskCacher, MemoryCacher, NullCacher, ConcurrentCacher
 from coba.exceptions import CobaException
+
+def mp_run(cacher):
+    while True:
+        with cacher.get_set(1,None):
+            pass
 
 class IterCacher(MemoryCacher):
     def get(self,key):
@@ -206,7 +213,7 @@ class DiskCacher_Tests(unittest.TestCase):
 
         self.assertNotIn("text.csv", DiskCacher(self.Cache_Test_Dir))
         self.assertFalse((self.Cache_Test_Dir / "text.csv.gz").exists())
- 
+
     def test_bad_file_key(self):
         with self.assertRaises(CobaException):
             self.assertFalse("abcs/:/123/!@#" in DiskCacher(self.Cache_Test_Dir))
@@ -214,11 +221,11 @@ class DiskCacher_Tests(unittest.TestCase):
     def test_get_set_multiline_csv_to_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
         self.assertFalse("test.csv" in cache)
-        
+
         with cache.get_set("test.csv", lambda: ["test", "test2"]) as out:
             self.assertEqual(list(out), ["test\n", "test2\n"])
             self.assertTrue("test.csv" in cache)
-        
+
         with cache.get_set("test.csv", None) as out:
             self.assertEqual(list(out), ["test\n", "test2\n"])
             self.assertTrue("test.csv" in cache)
@@ -638,6 +645,29 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get_set(1,getter)
 
         self.assertFalse(curr_cacher._has_write_lock(1))
+
+    def test_many_get_at_same_time(self):
+
+        #In order to 'get' at the same time we have to use
+        #multiple processes due to the GIL. Using processes
+        #means we need to also use RawArray and Lock. Finally,
+        #we need to sleep for a long time to increase the chance
+        #that the problematic race condition occurrs. If this bug
+        #is present this test will fail occasionally. If there is
+        #no bug this test will never fail.
+
+        spawn_context = mp.get_context("spawn")
+        array         = spawn_context.RawArray(ct.c_short,[0]*2**16)
+        lock          = spawn_context.Lock()
+
+        curr_cacher = ConcurrentCacher(MemoryCacher(),array,lock)
+        curr_cacher.get_set(1,1)
+
+        processes = [ spawn_context.Process(None, mp_run, args=(curr_cacher,), daemon=True) for _ in range(5)]
+        for p in processes: p.start()
+        time.sleep(4)
+        for p in processes: p.kill()
+        self.assertNotIn(-1, set(curr_cacher._array))
 
 if __name__ == '__main__':
     unittest.main()

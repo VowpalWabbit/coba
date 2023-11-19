@@ -18,11 +18,9 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
-from coba.primitives import BinaryReward, SequenceReward, BatchReward, argmax
-from coba.primitives import IPSReward, SequenceFeedback, MappingReward, MulticlassReward
-from coba.primitives import Feedback, BatchFeedback
+from coba.primitives import BinaryReward, SequenceReward, MappingReward, ProxyReward, argmax, is_batch
 from coba.learners   import Learner, SafeLearner
-from coba.pipes      import Filter, SparseDense
+from coba.pipes      import Pipes, Filter, SparseDense
 
 from coba.environments.primitives import Interaction, EnvironmentFilter, SimpleEnvironment
 
@@ -534,25 +532,25 @@ class Densify(EnvironmentFilter):
         #   from builtins import hash
 
         # Performance Findings:
-            # hashlib algorithms took between 0.5 to 0.75 seconds to produce 1 million hashes
-            # zlib and mmh3 algorithms took about .16 seconds to produce 1 million hashes
-            # builtin hash algorithm took about .09 seconds to produce 1 million hashes
+            # hashlib algorithms took between 0.5 to 0.75 seconds to produce 1 million indexes
+            # zlib and mmh3 algorithms took about .16 seconds to produce 1 million indexes
+            # builtin hash algorithm took about .09 seconds to produce 1 million indexes
 
         # Collision Findings:
             # we used the code below to count collisions for 1,000,000 randomly generated strings:
-                #random_strings = lambda n: (''.join(map(str,[r*1,r*2,r*3,r*4,r*5])) for r in cb.random.randoms(n))
-                #hashed_values  = [<hash-algo>(s.encode('ascii')) for s in random_strings(1_000_000)]
-                #Counter(Counter(hashed_values).values())
+                #import secrets
+                #n=10**6
+                #1-len(set([<hash-algo>(secrets.token_bytes(7)) for _ in range(n)]))/n
 
             # hashlib and the builtin hash had 0 collisions
-            # mmh3 and crc32 had ~130 collisions (i.e., 0.013%)
+            # mmh3 and crc32 had ~130 collisions with 1 million items (i.e., 0.013%)
             # adler32 had ~250k collisions (i.e., 24.00%)
 
         #Final decisions:
             # crc32:
             #   > It is considerably faster than the hashlib algorithms
-            #   > It has equal performance and collisions to MurmurHash3
-            #   > It is deterministic across runs
+            #   > It has equal runtime and collisions to MurmurHash3
+            #   > It is deterministic across runs (unlike the built-in hash)
 
         if not isinstance(value,primitives.Sparse):
             return value
@@ -613,7 +611,7 @@ class Cycle(EnvironmentFilter):
                 if i >= self._after:
                     actions = interaction['actions']
                     rewards = interaction['rewards']
-                    new['rewards'] = SequenceReward(actions,rotate(list(map(rewards.eval,actions))))
+                    new['rewards'] = SequenceReward(actions,rotate(list(map(rewards,actions))))
 
                 yield new
 
@@ -834,7 +832,7 @@ class Noise(EnvironmentFilter):
 
             noisy_context = self._noises(context, rng, self._context_noise)
             noisy_actions = [ self._noises(a, rng, self._action_noise) for a in actions ]
-            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in map(rewards.eval,actions) ]
+            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in map(rewards,actions) ]
             noisy_rewards = SequenceReward(noisy_actions, noisy_rewards)
 
             new['context'] = noisy_context
@@ -868,7 +866,7 @@ class Params(EnvironmentFilter):
 
 class Grounded(EnvironmentFilter):
 
-    class GroundedFeedback(Feedback):
+    class GroundedFeedback:
         def __init__(self, goods, bads, argmax, seed):
             self._rng    = None
             self._goods  = goods
@@ -877,7 +875,7 @@ class Grounded(EnvironmentFilter):
             self._argmax = argmax
 
         @lru_cache(maxsize=None)
-        def eval(self, arg):
+        def __call__(self, arg):
             if not self._rng: self._rng = CobaRandom(self._seed)
             if arg == self._argmax:
                 return self._rng.choice(self._goods)
@@ -925,7 +923,7 @@ class Grounded(EnvironmentFilter):
 
         if not interactions: return []
 
-        is_binary_rwd = set(map(first['rewards'].eval, first['actions'])) == {0,1}
+        is_binary_rwd = set(map(first['rewards'], first['actions'])) == {0,1}
         first_context = first['context']
 
         is_sparse = isinstance(first_context,primitives.Sparse)
@@ -967,6 +965,16 @@ class Grounded(EnvironmentFilter):
         raise CobaException(f"{value_name} must be a whole number and not {value}.")
 
 class Repr(EnvironmentFilter):
+
+    class SequenceMapping:
+        __slots__ = ('_keys', '_vals')
+        def __init__(self,keys:Sequence,vals:Sequence) -> None:
+            self._keys,self._vals = keys,vals
+        def keys(self):
+            return self._keys
+        def __getitem__(self, item):
+            return self._vals[self._keys.index(item)]
+
     def __init__(self,
         categorical_context:Literal["onehot","onehot_tuple","string"] = None,
         categorical_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
@@ -979,68 +987,159 @@ class Repr(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        first, interactions = peek_first(interactions)
+        firsts, interactions = peek_first(interactions,n=2)
 
         if not interactions: return []
 
+        first = firsts[0]
+
+        has_context   = True #We assume this
         has_actions   = 'actions' in first and bool(first['actions'])
         has_rewards   = 'rewards' in first
         has_feedbacks = 'feedbacks' in first
 
-        n_tee = 1 + int(self._cat_context is not None) + int(self._cat_actions is not None and has_actions)
+        n_tee = 1 + bool(self._cat_context and has_context) + bool(self._cat_actions and has_actions)
 
-        if n_tee == 1:
-            tees = iter([interactions])
+        tees = iter([interactions]) if n_tee == 1 else iter(tee(interactions, n_tee))
+
+        if not (self._cat_context and has_context):
+            cat_context_iter = None
         else:
-            tees = iter(tee(interactions, n_tee))
-
-        if self._cat_context is not None:
             cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter(i['context'] for i in next(tees))
 
-        if self._cat_actions and has_actions:
-            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions).filter(i['actions'] for i in next(tees))
+        if not (self._cat_actions and has_actions):
+            cat_actions_iter = None
+        else:
+            rows = (i['actions'] for i in next(tees))
 
-        for interaction in next(tees):
+            if len(firsts) == 2 and firsts[0]['actions'] == firsts[1]['actions']:
+                def yield_prev_action_on_repeat():
+                    prev_row   = None
+                    prev_yield = None
 
-            new = interaction.copy()
+                    encoder = pipes.EncodeCatRows(self._cat_actions)
 
-            if self._cat_context:
+                    for row in rows:
+                        if row != prev_row:
+                            prev_row = row
+                            prev_yield = list(encoder.filter(row))
+                        yield prev_yield
+
+                cat_actions_iter = yield_prev_action_on_repeat()
+            else:
+                def yield_action_lists():
+                    r1,r2 = tee(rows,2)
+                    actionitr = pipes.EncodeCatRows(self._cat_actions).filter(chain.from_iterable(r2))
+                    for row in r1:
+                        yield list(islice(actionitr,len(row)))
+                cat_actions_iter = yield_action_lists()
+
+        prev_old = None
+
+        for old in next(tees):
+
+            new = old.copy()
+
+            if cat_context_iter:
                 new['context'] = next(cat_context_iter)
 
-            if has_actions and self._cat_actions:
-                new_actions = next(cat_actions_iter)
-                old_actions = new['actions']
+            if cat_actions_iter:
+                new['actions'] = next(cat_actions_iter)
 
-                if new_actions != old_actions or type(new_actions[0]) != type(old_actions[0]):
-                    new['actions'] = new_actions
+            actions_changed = cat_actions_iter and new['actions'] != old['actions']
 
-                if new_actions != old_actions:
-                    if has_rewards:
-                        old_rewards = new['rewards']
-                        if isinstance(old_rewards,MulticlassReward):
-                            new['rewards'] = MulticlassReward(new_actions[old_actions.index(argmax(old_actions,old_rewards))])
-                        else:
-                            new['rewards'] = SequenceReward(new_actions,list(map(old_rewards.eval,old_actions)))
-                    if has_feedbacks:
-                        new['feedbacks'] = SequenceFeedback(new_actions,list(map(new['feedbacks'].eval,old_actions)))
+            if actions_changed and has_rewards:
+                if isinstance(old['rewards'],BinaryReward):
+                    if old['actions'] != prev_old:
+                        prev_old   = old['actions']
+                        old_to_new = self._to_mapping(old['actions'],new['actions'])
+                    new['rewards'] = BinaryReward(old_to_new[old['rewards']._argmax])
+                else:
+                    if old['actions'] != prev_old:
+                        prev_old   = old['actions']
+                        new_to_old = self._to_mapping(new['actions'],old['actions'])
+                    new['rewards'] = ProxyReward(old['rewards'], new_to_old)
+
+            if actions_changed and has_feedbacks:
+                if old['actions'] != prev_old:
+                    prev_old   = old['actions']
+                    new_to_old = self._to_mapping(new['actions'],old['actions'])
+                new['feedbacks'] = ProxyReward(old['feedbacks'], new_to_old)
 
             yield new
 
+    def _to_mapping(self, keys, vals):
+        if isinstance(keys[0],list):
+            keys = list(map(tuple,keys))
+        try:
+            return dict(zip(keys,vals))
+        except:
+            return Repr.SequenceMapping(keys,vals)
+
 class Batch(EnvironmentFilter):
-    def __init__(self, batch_size: int) -> None:
-        self._batch_size = batch_size
+
+    class BatchList(list):
+        is_batch: bool = True
+
+    class BatchCallable(list):
+        is_batch: bool = True
+        def __call__(self, args: Any) -> Any:
+            ndim = getattr(args,'ndim',-1)
+            outs = list(map(lambda f,a: f(a), self, args))
+
+            if ndim == -1:
+                return outs
+            else:
+                try:
+                    t = torch # type: ignore
+                except:
+                    t = globals()['torch'] = __import__('torch')
+                return t.stack(outs)
+
+    def __init__(self, batch_size: Optional[int], batch_type: Literal['list','torch'] = 'list') -> None:
+        self._batch_size = batch_size or None
+        self._batch_type = batch_type
+
+        if batch_type == 'torch': PackageChecker.torch('Batch')
 
     @property
     def params(self) -> Mapping[str,Any]:
-        return {'batched': self._batch_size}
+        return {'batch_size': self._batch_size, 'batch_type':self._batch_type}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        for batch in self._batched(interactions, self._batch_size):
-            new = { k: primitives.Batch(i[k] for i in batch) for k in batch[0] }
-            if 'rewards' in new: new['rewards'] = BatchReward(new['rewards'])
-            if 'feedbacks' in new: new['feedbacks'] = BatchFeedback(new['feedbacks'])
-            yield new
+        first,interactions = peek_first(interactions)
+
+        if not interactions:
+            yield from []
+
+        elif not self._batch_size:
+            yield from interactions
+
+        else:
+            if self._batch_type == 'torch':
+                import torch
+                class BatchTensor(torch.Tensor):
+                    is_batch: bool = True
+
+            batch_data_type = Batch.BatchList if self._batch_type == 'list' else BatchTensor
+            batch_call_type = Batch.BatchCallable
+
+            for batch in self._batched(interactions, self._batch_size):
+
+                new = {}
+
+                for key in first.keys() & {'rewards','feedbacks'}:
+                    new[key] = batch_call_type(map(itemgetter(key),batch))
+
+                for key in first.keys() - {'rewards','feedbacks'}:
+                    values = list(map(itemgetter(key),batch))
+                    try:
+                        new[key] = batch_data_type(values)
+                    except:
+                        new[key] = Batch.BatchList(values)
+
+                yield new
 
     def _batched(self, iterable, n):
         #Batch data into lists of length n.
@@ -1059,7 +1158,7 @@ class Unbatch(EnvironmentFilter):
         first, interactions = peek_first(interactions)
         if not interactions: return []
 
-        batched_keys = [k for k,v in first.items() if isinstance(v,primitives.Batch) ]
+        batched_keys = [k for k,v in first.items() if is_batch(v) ]
 
         if not batched_keys:
             yield from interactions
@@ -1085,19 +1184,12 @@ class BatchSafe(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         first, interactions = peek_first(interactions)
-
         if not interactions: return []
 
-        is_batched = isinstance(first[list(first.keys())[0]], primitives.Batch)
+        first_val  = next(iter(first.values()))
+        batch_size = len(first_val) if is_batch(first_val) else None
 
-        if not is_batched:
-            yield from self._filter.filter(interactions)
-        else:
-            batch_size = len(first[list(first.keys())[0]])
-            unbatched = Unbatch().filter(interactions)
-            filtered  = self._filter.filter(unbatched)
-            rebatched = Batch(batch_size).filter(filtered)
-            yield from rebatched
+        yield from Pipes.join(Unbatch(),self._filter,Batch(batch_size)).filter(interactions)
 
 class Finalize(EnvironmentFilter):
 
@@ -1129,7 +1221,7 @@ class Finalize(EnvironmentFilter):
         action_materialized  = not first_has_action  or (not is_dense_action  and not is_sparse_action  or isinstance(first['action']    ,(list,tuple,dict)))
 
         if self._apply_repr:
-            interactions = Repr("onehot","onehot_tuple").filter(interactions)
+            interactions = Repr("onehot","onehot").filter(interactions)
 
         for interaction in interactions:
 
@@ -1253,7 +1345,7 @@ class OpeRewards(EnvironmentFilter):
         elif rwd_type == "IPS":
             for log in interactions:
                 log = log.copy()
-                log['rewards'] = IPSReward(log['reward'], log['action'], log.get('probability'))
+                log['rewards'] = BinaryReward(log['action'], log['reward']/(log.get('probability') or 1))
                 yield log
 
         elif rwd_type in ["DM","DR"]:

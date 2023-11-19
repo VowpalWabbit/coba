@@ -295,7 +295,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         if kwargs and 'n' in kwargs:
             seeds = range(kwargs['n'])
         else:
-            args = kwargs.get('seed',kwargs.get('seeds',args))        
+            args = kwargs.get('seed',kwargs.get('seeds',args))
             seeds = flat(args) or [1]
 
         if isinstance(seeds,int): seeds = [seeds]
@@ -326,18 +326,18 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Add params to the environments."""
         return self.filter(Params(params))
 
-    def take(self, n_interactions: int) -> 'Environments':
+    def take(self, n_interactions: int, strict: bool = False) -> 'Environments':
         """Take a fixed number of interactions from the Environments."""
-        return self.filter(Take(n_interactions))
+        return self.filter(Take(n_interactions, strict))
 
     def slice(self, start: Optional[int], stop: Optional[int]=None, step:int = 1) -> 'Environments':
         """Take a slice of interactions from an Environment."""
         return self.filter(Slice(start,stop,step))
 
-    def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]=1) -> 'Environments':
+    def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]=1, strict:bool = False) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""
         if isinstance(seeds,int): seeds = [seeds]
-        return self.filter([Reservoir(n_interactions,seed=seed) for seed in seeds])
+        return self.filter([Reservoir(n_interactions,strict=strict,seed=seed) for seed in seeds])
 
     def scale(self,
         shift: Union[float,Literal["min","mean","med"]] = "min",

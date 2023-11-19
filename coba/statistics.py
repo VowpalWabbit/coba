@@ -47,7 +47,7 @@ def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]
         else:
             i = percentile*(len(values)-1)
             I = int(i)
-            
+
             if i == I:
                 return values[I]
             else:

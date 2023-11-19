@@ -18,69 +18,89 @@ class coba_exit_Tests(unittest.TestCase):
 class PackageChecker_sans_package_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.patch = unittest.mock.patch('importlib.import_module', side_effect=ImportError())
+        self.patch = unittest.mock.patch('importlib.util.find_spec',return_value=None)
         self.patch.start()
 
     def tearDown(self) -> None:
         self.patch.stop()
 
     def test_check_matplotlib_support(self):
-        with self.assertRaises(CobaExit):
-            PackageChecker.matplotlib("")
+        self.assertEqual(False,PackageChecker.matplotlib("",strict=False))
+        with self.assertRaises(CobaExit): PackageChecker.matplotlib("")
 
     def test_check_pandas_support(self):
-        with self.assertRaises(CobaExit):
-            PackageChecker.pandas("")
+        self.assertEqual(False,PackageChecker.pandas("",strict=False))
+        with self.assertRaises(CobaExit): PackageChecker.pandas("")
 
     def test_check_numpy_support(self):
-        with self.assertRaises(CobaExit):
-            PackageChecker.numpy("")
+        self.assertEqual(False,PackageChecker.numpy("",strict=False))
+        with self.assertRaises(CobaExit): PackageChecker.numpy("")
 
     def test_check_vowpal_support(self):
-        with self.assertRaises(CobaExit):
-            PackageChecker.vowpalwabbit("")
+        self.assertEqual(False,PackageChecker.vowpalwabbit("",strict=False))
+        with self.assertRaises(CobaExit): PackageChecker.vowpalwabbit("")
 
     def test_check_sklearn_support(self):
-        with self.assertRaises(CobaExit):
-            PackageChecker.sklearn("")
+        self.assertEqual(False,PackageChecker.sklearn("",strict=False))
+        with self.assertRaises(CobaExit): PackageChecker.sklearn("")
 
     def test_check_scipy_support(self):
-        with self.assertRaises(CobaExit):
-            PackageChecker.scipy("")
+        self.assertEqual(False,PackageChecker.scipy("",strict=False))
+        with self.assertRaises(CobaExit): PackageChecker.scipy("")
 
-    def test_check_scipy_support(self):
-        with self.assertRaises(CobaExit):
-            PackageChecker.torch("")
+    def test_check_torch_support(self):
+        self.assertEqual(False,PackageChecker.torch("",strict=False))
+        with self.assertRaises(CobaExit): PackageChecker.torch("")
+
+    def test_check_cloudpickle_support(self):
+        self.assertEqual(False,PackageChecker.cloudpickle("",strict=False))
+        with self.assertRaises(CobaExit): PackageChecker.cloudpickle("")
+
+    def test_submodule_missing(self):
+        with unittest.mock.patch('importlib.util.find_spec', side_effect=ModuleNotFoundError()):
+            self.assertEqual(False,PackageChecker.matplotlib("",strict=False))
+            with self.assertRaises(CobaExit): PackageChecker.matplotlib("")
 
 class PackageChecker_with_package_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.patch = unittest.mock.patch('importlib.import_module')
+        self.patch = unittest.mock.patch('importlib.util.find_spec',return_value=True)
         self.patch.start()
 
     def tearDown(self) -> None:
         self.patch.stop()
 
     def test_check_matplotlib_support(self):
-        PackageChecker.matplotlib("")
+        self.assertEqual(True,PackageChecker.matplotlib("",strict=True))
+        self.assertEqual(True,PackageChecker.matplotlib("",strict=False))
 
     def test_check_pandas_support(self):
-        PackageChecker.pandas("")
+        self.assertEqual(True,PackageChecker.pandas("",strict=True))
+        self.assertEqual(True,PackageChecker.pandas("",strict=False))
 
     def test_check_numpy_support(self):
-        PackageChecker.numpy("")
+        self.assertEqual(True,PackageChecker.numpy("",strict=True))
+        self.assertEqual(True,PackageChecker.numpy("",strict=False))
 
     def test_check_vowpal_support(self):
-        PackageChecker.vowpalwabbit("")
+        self.assertEqual(True,PackageChecker.vowpalwabbit("",strict=True))
+        self.assertEqual(True,PackageChecker.vowpalwabbit("",strict=False))
 
     def test_check_sklearn_support(self):
-        PackageChecker.sklearn("")
+        self.assertEqual(True,PackageChecker.sklearn("",strict=True))
+        self.assertEqual(True,PackageChecker.sklearn("",strict=False))
 
     def test_check_scipy_support(self):
-        PackageChecker.scipy("")
+        self.assertEqual(True,PackageChecker.scipy("",strict=True))
+        self.assertEqual(True,PackageChecker.scipy("",strict=False))
 
     def test_check_torch_support(self):
-        PackageChecker.torch("")
+        self.assertEqual(True,PackageChecker.torch("",strict=True))
+        self.assertEqual(True,PackageChecker.torch("",strict=False))
+
+    def test_check_cloudpickle_support(self):
+        self.assertEqual(True,PackageChecker.cloudpickle("",strict=True))
+        self.assertEqual(True,PackageChecker.cloudpickle("",strict=False))
 
 class KeyDefaultDict_Tests(unittest.TestCase):
 

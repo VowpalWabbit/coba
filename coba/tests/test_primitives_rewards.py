@@ -1,110 +1,218 @@
 import unittest
 import pickle
 
-from coba.primitives import L1Reward, HammingReward, BinaryReward, SequenceReward, MulticlassReward
-from coba.primitives import BatchReward, IPSReward, MappingReward, argmax
+from coba.utilities import PackageChecker
+from coba.primitives import L1Reward, HammingReward, BinaryReward, SequenceReward, MappingReward, ProxyReward
+from coba.primitives import argmax
 
 class argmax_Tests(unittest.TestCase):
     def test_simple(self):
         self.assertEqual(1,argmax([1,2,3],SequenceReward([1,2,3],[9,8,7])))
-
-class IPSReward_Tests(unittest.TestCase):
-    def test_eval(self):
-        rwd = IPSReward(1,1,1/2)
-        self.assertEqual(2,rwd.eval(1))
-        self.assertEqual(0,rwd.eval(2))
-
-    def test_eq(self):
-        rwd1 = IPSReward(1,1,1/2)
-        rwd2 = IPSReward(1,1,1/2)
-        rwd3 = IPSReward(2,1,1/2)
-
-        self.assertEqual(rwd1,rwd2)
-        self.assertNotEqual(rwd1,rwd3)
-        self.assertNotEqual(rwd1,1)
-
-    def test_pickle(self):
-        dumped = pickle.dumps(IPSReward(1,2,1))
-        loaded = pickle.loads(dumped)
-
-        self.assertIsInstance(loaded, IPSReward)
-        self.assertEqual(loaded._reward,1)
-        self.assertEqual(loaded._action,2)
 
 class L1Reward_Tests(unittest.TestCase):
 
     def test_simple(self):
         rwd = L1Reward(1)
 
-        self.assertEqual(-1, rwd.eval(2))
-        self.assertEqual(0 , rwd.eval(1))
-        self.assertEqual(-1, rwd.eval(0))
+        self.assertEqual(-1, rwd(2))
+        self.assertEqual(0 , rwd(1))
+        self.assertEqual(-1, rwd(0))
 
     def test_pickle(self):
         dumped = pickle.dumps(L1Reward(1))
         loaded = pickle.loads(dumped)
 
         self.assertIsInstance(loaded, L1Reward)
-        self.assertEqual(loaded._label,1)
+        self.assertEqual(loaded._argmax,1)
 
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(L1Reward(1))), 80)
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_squeezed_single_torch(self):
+        import torch
+        expected = torch.tensor(-1).float()
+
+        actual   = L1Reward(1)(torch.tensor(2))
+        self.assertEqual(expected,actual)
+
+        actual   = L1Reward(1)(torch.tensor(0))
+        self.assertEqual(expected,actual)
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_not_squeezed_single_torch(self):
+        import torch
+        expected = torch.tensor([-1]).float()
+
+        actual   = L1Reward(1)(torch.tensor([2]))
+        self.assertEqual(expected,actual)
+
+        actual   = L1Reward(1)(torch.tensor([0]))
+        self.assertEqual(expected,actual)
 
 class BinaryReward_Tests(unittest.TestCase):
 
     def test_binary_argmax(self):
         rwd = BinaryReward(1)
 
-        self.assertEqual(0, rwd.eval(2))
-        self.assertEqual(1, rwd.eval(1))
-        self.assertEqual(0, rwd.eval(0))
+        self.assertEqual(0, rwd(2))
+        self.assertEqual(1, rwd(1))
+        self.assertEqual(0, rwd(0))
         self.assertEqual(rwd, rwd)
         self.assertEqual(1, rwd)
+
+    def test_binary_argmax_with_value(self):
+        rwd = BinaryReward(1,2)
+
+        self.assertEqual(0, rwd(2))
+        self.assertEqual(2, rwd(1))
+        self.assertEqual(0, rwd(0))
+        self.assertEqual(rwd, rwd)
 
     def test_pickle(self):
         dumped = pickle.dumps(BinaryReward(1))
         loaded = pickle.loads(dumped)
 
         self.assertIsInstance(loaded, BinaryReward)
-        self.assertEqual(loaded._maxarg,1)
+        self.assertEqual(loaded._argmax,1)
 
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(BinaryReward(1))), 80)
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_simple_numeric_argmax_torch_numeric_action(self):
+        import torch
+        rwd = BinaryReward(1,2)
+        expected = torch.tensor(0)
+        actual   = rwd(torch.tensor(2))
+        self.assertTrue(torch.equal(expected,actual))
+        expected = torch.tensor(2)
+        actual   = rwd(torch.tensor(1))
+        self.assertTrue(torch.equal(expected,actual))
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_simple_numeric_argmax_torch_sequence_action(self):
+        import torch
+        rwd = BinaryReward(1,2)
+        expected = torch.tensor([0])
+        actual   = rwd(torch.tensor([2]))
+        self.assertTrue(torch.equal(expected,actual))
+        expected = torch.tensor([2])
+        actual   = rwd(torch.tensor([1]))
+        self.assertTrue(torch.equal(expected,actual))
+        expected = torch.tensor([[2]])
+        actual   = rwd(torch.tensor([[1]]))
+        self.assertTrue(torch.equal(expected,actual))
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_simple_sequence_argmax_torch_sequence_action(self):
+        import torch
+        rwd = BinaryReward([1],2)
+        expected = torch.tensor(0)
+        actual   = rwd(torch.tensor([2]))
+        self.assertTrue(torch.equal(expected,actual))
+        expected = torch.tensor(2)
+        actual   = rwd(torch.tensor([1]))
+        self.assertTrue(torch.equal(expected,actual))
+        expected = torch.tensor([2])
+        actual   = rwd(torch.tensor([[1]]))
+        self.assertTrue(torch.equal(expected,actual))
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_sequence_argmax_torch_sequence_action(self):
+        import torch
+        rwd = BinaryReward(torch.tensor([1]),2)
+        expected = torch.tensor(0)
+        actual   = rwd(torch.tensor([2]))
+        self.assertTrue(torch.equal(expected,actual))
+        expected = torch.tensor(2)
+        actual   = rwd(torch.tensor([1]))
+        self.assertTrue(torch.equal(expected,actual))
+        expected = torch.tensor([2])
+        actual   = rwd(torch.tensor([[1]]))
+        self.assertTrue(torch.equal(expected,actual))
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_sequence_argmax_simple_sequence_action(self):
+        import torch
+        rwd = BinaryReward(torch.tensor([1]),2)
+        expected = 0
+        actual   = rwd([2])
+        self.assertEqual(expected,actual)
+        self.assertFalse(torch.is_tensor(actual))
+        expected = 2
+        actual   = rwd([1])
+        self.assertEqual(expected,actual)
+        self.assertFalse(torch.is_tensor(actual))
 
 class HammingReward_Tests(unittest.TestCase):
 
     def test_sequence(self):
         rwd = HammingReward([1,2,3,4])
-
-        self.assertEqual(2/4, rwd.eval([1,3]))
-        self.assertEqual(1/4, rwd.eval([4]))
-        self.assertEqual(0  , rwd.eval([5,6,7]))
-        self.assertEqual(1/2, rwd.eval([1,2,3,4,5,6,7,8]))
+        self.assertEqual(2/4, rwd([1,3]))
+        self.assertEqual(1/4, rwd([4]))
+        self.assertEqual(0  , rwd([5,6,7]))
+        self.assertEqual(1/2, rwd([1,2,3,4,5,6,7,8]))
 
     def test_tuple(self):
         rwd = HammingReward((1,2,3,4))
-        self.assertEqual(.5, rwd.eval([1,3]))
-        self.assertEqual(.25, rwd.eval([4]))
-        self.assertEqual(1, rwd.eval((1,2,3,4)))
+        self.assertEqual(.5, rwd([1,3]))
+        self.assertEqual(.25, rwd([4]))
+        self.assertEqual(1, rwd((1,2,3,4)))
 
     def test_pickle(self):
         dumped = pickle.dumps(HammingReward([1,2,3]))
         loaded = pickle.loads(dumped)
 
         self.assertIsInstance(loaded, HammingReward)
-        self.assertEqual(loaded._labels,{1,2,3})
+        self.assertEqual(set(loaded._argmax),{1,2,3})
 
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(HammingReward([1,2]))), 80)
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_simple_numeric_argmax_torch_numeric_action(self):
+        import torch
+        rwd = HammingReward([1,2,3,4])
+        self.assertTrue(torch.equal(torch.tensor(2/4), rwd(torch.tensor([1,3]))))
+        self.assertTrue(torch.equal(torch.tensor(1/4), rwd(torch.tensor([4]))))
+        self.assertTrue(torch.equal(torch.tensor(0  ), rwd(torch.tensor([5,6,7]))))
+        self.assertTrue(torch.equal(torch.tensor(1/2), rwd(torch.tensor([1,2,3,4,5,6,7,8]))))
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_numeric_argmax_torch_numeric_action(self):
+        import torch
+        rwd = HammingReward(torch.tensor([1,2,3,4]))
+        self.assertTrue(torch.equal(torch.tensor(2/4), rwd(torch.tensor([1,3]))))
+        self.assertTrue(torch.equal(torch.tensor(1/4), rwd(torch.tensor([4]))))
+        self.assertTrue(torch.equal(torch.tensor(0  ), rwd(torch.tensor([5,6,7]))))
+        self.assertTrue(torch.equal(torch.tensor(1/2), rwd(torch.tensor([1,2,3,4,5,6,7,8]))))
+        self.assertTrue(torch.equal(torch.tensor([2/4]), rwd(torch.tensor([[1,3]]))))
+        self.assertTrue(torch.equal(torch.tensor([1/4]), rwd(torch.tensor([[4]]))))
+        self.assertTrue(torch.equal(torch.tensor([0  ]), rwd(torch.tensor([[5,6,7]]))))
+        self.assertTrue(torch.equal(torch.tensor([1/2]), rwd(torch.tensor([[1,2,3,4,5,6,7,8]]))))
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_sequence_argmax_torch_sequence_action(self):
+        import torch
+        rwd = HammingReward(torch.tensor([[1],[2],[3],[4]]))
+        self.assertTrue(torch.equal(torch.tensor(2/4), rwd(torch.tensor([[1],[3]]))))
+        self.assertTrue(torch.equal(torch.tensor(1/4), rwd(torch.tensor([[4]]))))
+        self.assertTrue(torch.equal(torch.tensor(0  ), rwd(torch.tensor([[5],[6],[7]]))))
+        self.assertTrue(torch.equal(torch.tensor(1/2), rwd(torch.tensor([[1],[2],[3],[4],[5],[6],[7],[8]]))))
+        self.assertTrue(torch.equal(torch.tensor([2/4]), rwd(torch.tensor([[[1],[3]]]))))
+        self.assertTrue(torch.equal(torch.tensor([1/4]), rwd(torch.tensor([[[4]]]))))
+        self.assertTrue(torch.equal(torch.tensor([0  ]), rwd(torch.tensor([[[5],[6],[7]]]))))
+        self.assertTrue(torch.equal(torch.tensor([1/2]), rwd(torch.tensor([[[1],[2],[3],[4],[5],[6],[7],[8]]]))))
 
 class SequenceReward_Tests(unittest.TestCase):
     def test_sequence(self):
         rwd = SequenceReward([1,2,3],[4,5,6])
 
         self.assertEqual([4,5,6],rwd)
-        self.assertEqual(4,rwd.eval(1))
-        self.assertEqual(5,rwd.eval(2))
-        self.assertEqual(6,rwd.eval(3))
+        self.assertEqual(4,rwd(1))
+        self.assertEqual(5,rwd(2))
+        self.assertEqual(6,rwd(3))
         self.assertEqual(rwd,rwd)
 
     def test_bad_eq(self):
@@ -122,13 +230,27 @@ class SequenceReward_Tests(unittest.TestCase):
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(SequenceReward([3,4],[5,6]))), 80)
 
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_numeric_actions_torch_numeric_action(self):
+        import torch
+        rwd = SequenceReward(torch.tensor([1,2,3]),torch.tensor([4,5,6]))
+        self.assertTrue(torch.equal(torch.tensor(5), rwd(torch.tensor(2))))
+        self.assertTrue(torch.equal(torch.tensor([5]), rwd(torch.tensor([2]))))
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_sequence_actions_torch_sequence_action(self):
+        import torch
+        rwd = SequenceReward(torch.tensor([[1],[2],[3]]),torch.tensor([4,5,6]))
+        self.assertTrue(torch.equal(torch.tensor(5), rwd(torch.tensor([2]))))
+        self.assertTrue(torch.equal(torch.tensor([5]), rwd(torch.tensor([[2]]))))
+
 class MappingReward_Tests(unittest.TestCase):
     def test_mapping(self):
         rwd = MappingReward({0:4,1:5,2:6})
 
-        self.assertEqual(4,rwd.eval(0))
-        self.assertEqual(5,rwd.eval(1))
-        self.assertEqual(6,rwd.eval(2))
+        self.assertEqual(4,rwd(0))
+        self.assertEqual(5,rwd(1))
+        self.assertEqual(6,rwd(2))
         self.assertEqual(rwd,rwd)
 
     def test_bad_eq(self):
@@ -145,28 +267,42 @@ class MappingReward_Tests(unittest.TestCase):
     def test_pickle_size(self):
         self.assertLess(len(pickle.dumps(MappingReward({0:4,1:5,2:6}))), 80)
 
-class MulticlassReward_Tests(unittest.TestCase):
-    def test_simple(self):
-        rwd = MulticlassReward(1)
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_numeric_actions_torch_numeric_action(self):
+        import torch
+        rwd = MappingReward({1:4,2:5,3:6})
+        self.assertTrue(torch.equal(torch.tensor(5), rwd(torch.tensor(2))))
+        self.assertTrue(torch.equal(torch.tensor([5]), rwd(torch.tensor([2]))))
 
-        self.assertEqual(0,rwd.eval(0))
-        self.assertEqual(1,rwd.eval(1))
-        self.assertEqual(0,rwd.eval(2))
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_sequence_actions_torch_sequence_action(self):
+        import torch
+        rwd = MappingReward({(1,):4,(2,):5,(3,):6})
+        self.assertTrue(torch.equal(torch.tensor(5), rwd(torch.tensor([2]))))
+        self.assertTrue(torch.equal(torch.tensor([5]), rwd(torch.tensor([[2]]))))
 
-    def test_pickle(self):
-        dumped = pickle.dumps(MulticlassReward(1))
-        loaded = pickle.loads(dumped)
+class ProxyReward_Tests(unittest.TestCase):
 
-        self.assertIsInstance(loaded, MulticlassReward)
-        self.assertEqual(loaded._label,1)
+    def test_proxy(self):
+        rwd = ProxyReward(MappingReward({0:4,1:5,2:6}),{1:0,2:1,3:2})
+        self.assertEqual(4,rwd(1))
+        self.assertEqual(5,rwd(2))
+        self.assertEqual(6,rwd(3))
+        self.assertEqual(rwd,rwd)
 
-    def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(MulticlassReward(1))), 80)
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_numeric_actions_torch_numeric_action(self):
+        import torch
+        rwd = ProxyReward(MappingReward({0:4,1:5,2:6}),{1:0,2:1,3:2})
+        self.assertTrue(torch.equal(torch.tensor(6), rwd(torch.tensor(3))))
+        self.assertTrue(torch.equal(torch.tensor([6]), rwd(torch.tensor([3]))))
 
-class BatchReward_Tests(unittest.TestCase):
-    def test_eval_single(self):
-        rwd = BatchReward([SequenceReward([0,1,2],[4,5,6]),SequenceReward([0,1,2],[7,8,9])])
-        self.assertEqual(rwd.eval([1,2]), [5,9])
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
+    def test_torch_sequence_actions_torch_sequence_action(self):
+        import torch
+        rwd = ProxyReward(MappingReward({0:4,1:5,2:6}),{(1,):0,(2,):1,(3,):2})
+        self.assertTrue(torch.equal(torch.tensor(6), rwd(torch.tensor([3]))))
+        self.assertTrue(torch.equal(torch.tensor([6]), rwd(torch.tensor([[3]]))))
 
 if __name__ == '__main__':
     unittest.main()

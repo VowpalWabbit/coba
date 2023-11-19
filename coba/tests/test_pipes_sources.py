@@ -1,16 +1,15 @@
 import unittest
 import unittest.mock
 import requests.exceptions
-import importlib.util
 import pickle
 import gzip
 
 from queue import Queue
 from pathlib import Path
 
+from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.context import NullLogger, CobaContext
-
 from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource
 from coba.pipes.sources import HttpSource, LambdaSource, IterableSource, DataFrameSource
 
@@ -146,7 +145,7 @@ class UrlSource_Tests(unittest.TestCase):
         with self.assertRaises(CobaException):
             UrlSource("irc://fail")
 
-@unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+@unittest.skipUnless(PackageChecker.pandas(strict=False), "pandas is not installed so we must skip pandas tests")
 class DataFrameSource_Tests(unittest.TestCase):
 
     def test_simple(self):

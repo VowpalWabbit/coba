@@ -56,7 +56,7 @@ class EnvironmentsTemplateV1(Source[Sequence[Environment]]):
         if not isinstance(definitions['environments'], list): definitions['environments'] = [definitions['environments']]
 
         return [ environment for recipe in definitions['environments'] for environment in _construct(recipe)]
-    
+
     def _construct_via_method(self, item):
         return JsonMakerV1(CobaRegistry.registry).make(item)
 
@@ -74,7 +74,7 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
 
     def read(self) -> Sequence[Environment]:
         definition: dict = JsonDecode().filter('\n'.join(self._source.read()))
-        
+
         needed_var = list(self._missing(definition.get("variables",{}))) + list(self._missing(definition.get('environments',[])))
         not_needed_user_var = [ v[1:] for v in set(self._user_variables.keys()) - set(needed_var)]
 
@@ -92,7 +92,7 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
 
             if num_fillings > 4:
                 raise CobaException("There appears to be an infinite loop in the template.")
-        
+
         variables = { k: JsonMakerV2(CobaRegistry.registry).make(v,strict=False) for k,v in new_variables.items() }
 
         recipes = definition['environments']
@@ -105,13 +105,13 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
         environments = []
         for recipe in recipes:
             environments.extend(self._make(recipe))
-        
+
         environments = sorted(environments, key= lambda env: env.params.get("shuffle",0))
 
         return environments
-    
+
     def _make(self, item:Union[str,list,dict] ) -> Sequence[Any]:
-        
+
         result = item
 
         if isinstance(item, str):
@@ -127,7 +127,7 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
                 result = [ Pipes.join(s,*f) for s in pieces[0] for f in product(*pieces[1:])]
             else:
                 result = sum(pieces,[])
-    
+
         if result is None:
             raise CobaException(f"We were unable to construct {item} in the given environment definition file.")
 

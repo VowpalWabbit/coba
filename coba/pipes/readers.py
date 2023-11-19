@@ -172,7 +172,7 @@ class ArffLineReader(Filter[str, Sequence[str]]):
         self.filter = method
 
     def filter(self,line:str) -> Union[Sequence[str],Mapping[str,str]]:
-        #this is defined in __init__ for performance purposes 
+        #this is defined in __init__ for performance purposes
         pass #pragma: no cover
 
     def _dense(self, line:str) -> Sequence[str]:
@@ -273,7 +273,7 @@ class ArffLineReader(Filter[str, Sequence[str]]):
         return parsed
 
 class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
-    
+
     _strip = methodcaller("strip")
 
     def __init__(self):

@@ -166,8 +166,8 @@ class LambdaSource(Source[Any]):
 class UrlSource(Source[Iterable[str]]):
     """A source that reads from a url.
 
-    If the given url uses a file scheme or is a local path then 
-    a DiskSource is used internally.If the given url uses an http 
+    If the given url uses a file scheme or is a local path then
+    a DiskSource is used internally.If the given url uses an http
     or https scheme then an HttpSource is used internally.
     """
 

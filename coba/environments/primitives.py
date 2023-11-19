@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Sequence, Mapping, overload
 
 from coba.primitives import Context, Action, Actions
-from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
+from coba.primitives import Reward, SequenceReward
 from coba.pipes import Source, SourceFilters, Filter
 
 class Interaction(dict):
@@ -51,7 +51,7 @@ class GroundedInteraction(Interaction):
         context: Context,
         actions: Actions,
         rewards: Union[Reward, Sequence[float]],
-        feedbacks: Union[Feedback, Sequence[Any]],
+        feedbacks: Union[Reward, Sequence[Any]],
         **kwargs) -> None:
         """Instantiate GroundedInteraction.
 
@@ -66,7 +66,7 @@ class GroundedInteraction(Interaction):
         self['context']   = context
         self['actions']   = actions
         self['rewards']   = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
-        self['feedbacks'] = SequenceFeedback(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
+        self['feedbacks'] = SequenceReward(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
 
         if kwargs: self.update(kwargs)
 

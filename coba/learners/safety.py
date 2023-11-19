@@ -5,7 +5,7 @@ from typing import Any, Sequence, Tuple, Mapping, Literal
 from coba.utilities import sample_actions
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.primitives import Batch, Context, Action, Actions
+from coba.primitives import is_batch, Context, Action, Actions
 from coba.learners.primitives import Learner, Actions, Prob, kwargs, Prediction
 
 def first_row(pred: Prediction, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Prediction]:
@@ -29,7 +29,7 @@ def has_kwargs(pred: Prediction, batch_order:Literal['not','row','col']) -> bool
 
 def batch_order(predictor, pred: Prediction, context, actions) -> Literal['not','col','row']:
 
-    if not isinstance(actions,Batch) and not isinstance(context,Batch): return 'not'
+    if not is_batch(actions) and not is_batch(context): return 'not'
 
     no_len         = lambda item: not hasattr(item,'__len__')
     is_all_dicts   = all(isinstance(p,dict) for p in pred)
@@ -49,6 +49,7 @@ def batch_order(predictor, pred: Prediction, context, actions) -> Literal['not',
         #The major order of pred is not determinable. So we
         #now do a small "test" to determine the major order.
         #n_cols will always be >= 2 so we know we can distinguish
+        class Batch(list): is_batch=True
         pred   = predictor(Batch([context[0]]),Batch([actions[0]]))
         n_rows = 1
 
@@ -198,7 +199,7 @@ class SafeLearner(Learner):
                 return method(*args,**kwargs)
 
             if prev_method==2:
-                if isinstance(args[0],str): 
+                if isinstance(args[0],str):
                     raise CobaException(
                         f"Context ({args[0]}) was not an array like so we couldn't use fallback methods. "
                         "See the exception above for the reason why fallback methods were attempted."
@@ -206,7 +207,7 @@ class SafeLearner(Learner):
 
                 pred = [ method(*a,**{k:v[i] for k,v in kwargs.items()}) for i,a in enumerate(zip(*args)) ]
 
-                if not pred: 
+                if not pred:
                     raise CobaException(
                         f"Something went wrong. No prediction was returned when using batch fallback methods "
                         f"on the args: {args}. See the exception above for the reason why fallback methods "
@@ -219,7 +220,7 @@ class SafeLearner(Learner):
             self._method[key] = 1
             return self._safe_call(key, method, args, kwargs)
         except Exception as outer_e:
-            if not any(isinstance(a,Batch) for a in args):
+            if not any(map(is_batch,args)):
                 raise
             else:
                 try:

@@ -1,8 +1,8 @@
 import unittest
-import importlib.util
 
 from math import isnan
 
+from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.statistics import mean, stdev, var, iqr, percentile, phi
 from coba.statistics import OnlineVariance, OnlineMean
@@ -17,7 +17,7 @@ class percentile_Tests(unittest.TestCase):
     def test_one_value(self):
         self.assertEqual(2, percentile([2], 0))
         self.assertEqual(2., percentile([2.], 0.))
-        
+
         self.assertEqual([2,2], percentile([2], [0,1]))
         self.assertEqual([2,2], percentile([2.], [0.,1.]))
 
@@ -103,7 +103,7 @@ class StdErrCI_Tests(unittest.TestCase):
         mu = StdErrCI().point([1])
         self.assertEqual(1,mu)
 
-@unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
+@unittest.skipUnless(PackageChecker.scipy(strict=False), "this test requires scipy")
 class BootstrapCI_Tests(unittest.TestCase):
 
     def test1(self):
@@ -124,7 +124,7 @@ class BootstrapCI_Tests(unittest.TestCase):
 
 class BinomialCI_Tests(unittest.TestCase):
 
-    @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy is not installed so we must skip this test.")
+    @unittest.skipUnless(PackageChecker.scipy(strict=False), "scipy is not installed so we must skip this test.")
     def test_copper_pearson(self):
         p_hat, (lo,hi) = BinomialCI('clopper-pearson').point_interval([0,0,0,1,1,1])
         self.assertEqual(0.5, p_hat)

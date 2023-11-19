@@ -1,8 +1,7 @@
 from copy import deepcopy
 from itertools import islice
-from operator import itemgetter
 from collections import defaultdict, Counter
-from typing import Any, Iterable, Sequence, Optional, Tuple, Mapping
+from typing import Any, Iterable, Sequence, Optional, Tuple
 
 from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, SafeEnvironment, Finalize, BatchSafe, Chunk
@@ -12,7 +11,7 @@ from coba.pipes import Source, Filter, SourceFilters
 from coba.context import CobaContext
 from coba.utilities import peek_first
 
-from coba.experiments.results import Result, Table
+from coba.experiments.results import Result
 
 class Task:
 

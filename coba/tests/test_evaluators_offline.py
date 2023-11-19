@@ -1,4 +1,3 @@
-import importlib.util
 import json
 import math
 import unittest
@@ -8,6 +7,7 @@ import warnings
 from coba.environments import Noise
 from coba.environments import SupervisedSimulation
 from coba.pipes import Pipes
+from coba.utilities import PackageChecker
 
 from coba.evaluators import ClassMetaEvaluator
 
@@ -19,7 +19,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
         self.assertEqual(row, {})
 
     def test_classification_statistics_dense_sans_sklearn(self):
-        with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             simulation = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
             row        = ClassMetaEvaluator().evaluate(simulation,None)
 
@@ -28,7 +28,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
             self.assertEqual(0, row["class_imbalance_ratio"])
 
     def test_classification_statistics_sparse_sans_sklearn(self):
-        with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             c1 = [{"1":1, "2":2}, "A"]
             c2 = [{"1":3, "2":4}, "B"]
 
@@ -40,7 +40,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
             self.assertEqual(0, row["class_imbalance_ratio"])
 
     def test_classification_statistics_encodable_sans_sklearn(self):
-        with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
+        with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             c1 = [{"1":1,"2":2}, "A" ]
             c2 = [{"1":3,"2":4}, "B" ]
 
@@ -49,8 +49,8 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
 
             json.dumps(row)
 
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
-    @unittest.skipUnless(importlib.util.find_spec("scipy"), "this test requires scipy")
+    @unittest.skipUnless(PackageChecker.sklearn(strict=False), "sklearn is not installed so we must skip this test.")
+    @unittest.skipUnless(PackageChecker.scipy(strict=False), "this test requires scipy")
     def test_classification_statistics_encodable_with_sklearn(self):
         import sklearn.exceptions
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
@@ -60,7 +60,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
 
         json.dumps(row)
 
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
+    @unittest.skipUnless(PackageChecker.sklearn(strict=False), "sklearn is not installed so we must skip this test.")
     def test_classification_statistics_dense(self):
         import sklearn.exceptions
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
@@ -72,7 +72,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
         self.assertEqual(2, row["feature_count"])
         self.assertEqual(0, row["class_imbalance_ratio"])
 
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
+    @unittest.skipUnless(PackageChecker.sklearn(strict=False), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_sparse(self):
         import sklearn.exceptions
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
@@ -181,19 +181,19 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
         Y = [1,1,2,2]
         self.assertAlmostEqual(.5, ClassMetaEvaluator()._max_individual_feature_efficiency(X,Y))
 
-    @unittest.skipUnless(importlib.util.find_spec("numpy"), "numpy is not installed so we must skip this test.")
+    @unittest.skipUnless(PackageChecker.numpy(strict=False), "numpy is not installed so we must skip this test.")
     def test_max_individual_feature_efficiency(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
         self.assertAlmostEqual(.5, ClassMetaEvaluator()._max_individual_feature_efficiency(X,Y))
 
-    @unittest.skipUnless(not importlib.util.find_spec("numpy"), "numpy is installed so we must skip this test.")
+    @unittest.skipUnless(not PackageChecker.numpy(strict=False), "numpy is installed so we must skip this test.")
     def test_max_individual_feature_efficiency_sans_numpy(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
         self.assertIsNone(ClassMetaEvaluator()._max_individual_feature_efficiency(X,Y))
 
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
+    @unittest.skipUnless(PackageChecker.sklearn(strict=False), "sklearn is not installed so we must skip this test.")
     def test_max_directional_fisher_discriminant_ratio(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]

@@ -5,7 +5,7 @@ from coba.pipes import Pipes, Source, IterableSource, LabelRows, Reservoir, UrlS
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
 from coba.utilities import peek_first
-from coba.primitives import Categorical, L1Reward, MulticlassReward, HammingReward
+from coba.primitives import Categorical, L1Reward, BinaryReward, HammingReward
 
 from coba.environments.primitives import Environment, SimulatedInteraction
 
@@ -208,7 +208,7 @@ class SupervisedSimulation(Environment):
             #Handling the categoricals separately allows for a performance optimization
             #since we can use the Categorical's as_int property rather than action_indexes
             actions = [ Categorical(l,first_label.levels) for l in first_label.levels ]
-            reward  = MulticlassReward
+            reward  = BinaryReward
             self._params['n_actions'] = len(actions)
 
         else:
@@ -221,7 +221,7 @@ class SupervisedSimulation(Environment):
             else:
                 delist  = lambda l: l[0] if isinstance(l,list) else l
                 actions = sorted(set(map(delist,lbls)))
-                reward  = lambda l: MulticlassReward(delist(l))
+                reward  = lambda l: BinaryReward(delist(l))
             self._params['n_actions'] = len(actions)
 
         if first_row_type == 0:

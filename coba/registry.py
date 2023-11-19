@@ -25,10 +25,10 @@ class CobaRegistry_meta(type):
     def __init__(cls, *args, **kwargs):
         cls._registry: Dict[str,type] = {}
         cls._endpoints_loaded = False
-    
+
     @property
     def registry(cls) -> Mapping[str,type]:
-        
+
         if not cls._endpoints_loaded:
             cls._endpoints_loaded = True
             for ep in entry_points(group='coba.register'):
@@ -163,10 +163,10 @@ class JsonMakerV2:
 
     ##########Construction Syntax#############
 
-    #I think this might be the best... It has low syntax overhead and clear semantic meaning. 
+    #I think this might be the best... It has low syntax overhead and clear semantic meaning.
     #The biggest problem is that it can have a ton of ambiguity. To work around that we can offer
     #the wordier "*"/"**" notation at the bottom.
-    
+
     #arg    = <str,float,list,dict,obj>
     #args   = [arg, ... ]
     #kwargs = {<str>:arg, ...}
@@ -220,7 +220,7 @@ class JsonMakerV2:
                 for value in self.make(recipe['for'], strict=False):
                     args,kwargs = self._construct_args(self._fill_template(recipe[klass], value))
                     items.append(self._registry[klass](*args,**kwargs))
-                return items 
+                return items
 
         elif strict:
             raise CobaException(f"We were unable to make {recipe}.") # raise helpful exception
@@ -234,7 +234,7 @@ class JsonMakerV2:
         item_for = 'for' in recipe.keys() if isinstance(recipe,dict) else False
 
         return (item_len == 1 and item_cls in self._registry) or (item_len == 2 and item_cls in self._registry and item_for)
-    
+
     def _construct_args(self, args:Union[list,dict,str,int,float,None]) -> Tuple[list,dict]:
         if isinstance(args,dict):
             return [], {k:self.make(v,False)  for k,v in args.items()}
@@ -244,7 +244,7 @@ class JsonMakerV2:
             return self._construct_args(args[:-2])[0], self._construct_args(args[-1])[1]
         else:
             return [ self.make(args,False) ], {}
-    
+
     def _fill_template(self, temp:Union[list,dict,str,int,float,None], value:Union[list,dict,str,int,float,None]) -> Union[list,dict,str,int,float,None]:
         if isinstance(temp,dict):
             return { self._fill_template(k,value):self._fill_template(v,value) for k,v in temp.items() }

@@ -1,6 +1,5 @@
 import unittest
 import timeit
-import importlib.util
 
 from itertools import count
 from typing import Callable, Any
@@ -8,18 +7,20 @@ from typing import Callable, Any
 import coba.pipes
 import coba.random
 
+from coba.utilities import PackageChecker
 from coba.statistics import mean,var,percentile
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
+from coba.primitives import BinaryReward, HammingReward
 
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pipes
 
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
-from coba.experiments.results import Result, moving_average, Table
+from coba.experiments.results import Result, moving_average, Table, TransactionResult
 from coba.evaluators import OnPolicyEvaluator
 from coba.primitives import Categorical, HashableSparse
 
@@ -119,7 +120,7 @@ class Performance_Tests(unittest.TestCase):
     def test_gausses_performance(self):
         self._assert_scale_time(50, coba.random.gausses, .03, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_str_performance(self):
 
         vw = VowpalMediator()
@@ -128,16 +129,16 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda:vw.make_example({'x':x}, None), .04, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
 
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
 
-        ns = { 'x': [1]+[0]*1000  }
+        ns = { 'x': [1]+[0]*1000 }
         self._assert_call_time(lambda:vw.make_example(ns, None), .03, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_int_performance(self):
 
         vw = VowpalMediator()
@@ -146,7 +147,7 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_mixed_performance(self):
 
         vw = VowpalMediator()
@@ -155,7 +156,7 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
 
         vw = VowpalMediator()
@@ -164,7 +165,7 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': { str(i):i for i in range(500)} }
         self._assert_call_time(lambda:vw.make_example(ns, None), .05, print_time, number=1000)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_examples_sequence_int_performance(self):
 
         vw = VowpalMediator()
@@ -227,7 +228,7 @@ class Performance_Tests(unittest.TestCase):
     def test_linear_synthetic(self):
         self._assert_call_time(lambda:list(LinearSyntheticSimulation(10).read()), .07, print_time, number=1)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_ope_rewards(self):
         I = [{'context':[1,2,3], 'actions':['a','b','c','d'], 'action':'a', 'probability':.5, 'reward':2}]*50
         ope = OpeRewards('DM')
@@ -270,6 +271,15 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda:table.index('environment_id','learner_id','index'), .15, print_time, number=10)
 
+    def test_table_insert(self):
+
+        table = Table(columns=['environment_id','learner_id','index','reward'])
+        insert_cols = {"environment_id":[0],"learner_id":[0],"index":[1],"reward":[1]}
+
+        table._columns = set(table._columns)
+
+        self._assert_call_time(lambda:table.insert(insert_cols), .025, print_time, number=10_000)
+
     def test_table_where_no_index(self):
         coba.random.seed(1)
         table = Table(columns=['environment_id','learner_id','index','reward'])
@@ -296,23 +306,90 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(lambda:table.where(index=10,comparison='<='), .15, print_time, number=10)
 
-    def test_table_filter_number(self):
+    def test_table_where_number(self):
         table = Table(columns=['environment_id']).insert([ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.where(environment_id=1), .04, print_time, number=500)
 
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+    def test_table_groupby(self):
+        coba.random.seed(1)
+        table = Table(columns=['environment_id','learner_id','index','reward'])
+
+        N=4
+        reward = coba.random.randoms(N)
+        for environment_id in range(200*50):
+            for learner_id in range(5):
+                table.insert({"environment_id":[environment_id]*N,"learner_id":[learner_id]*N, "evaluator_id":[0]*N, "index":list(range(1,N+1)),"reward":reward})
+
+        table = table.index('environment_id','learner_id','evaluator_id','index')
+
+        self._assert_call_time(lambda:list(table.groupby(3,select=None)), .15, print_time, number=10)
+
+    def test_table_to_dicts(self):
+        table = Table(columns=['environment_id','learner_id','index'])
+        N=4
+        for environment_id in range(10):
+            for learner_id in range(5):
+                table.insert({"environment_id":[environment_id]*N,"learner_id":[learner_id]*N, "evaluator_id":[0]*N, "index":list(range(1,N+1))})
+        table = table.index('environment_id','learner_id','evaluator_id','index')
+        self._assert_call_time(lambda:list(table.to_dicts()), .055, print_time, number=1000)
+
+    @unittest.skipUnless(PackageChecker.pandas(strict=False), "pandas is not installed so we must skip pandas tests")
     def test_table_to_pandas(self):
         table = Table(columns=['environment_id']).insert([ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)
 
-    def test_result_filter_env(self):
+    def test_transaction_result_filter(self):
+        transactions = [
+            ["version",4],
+            ["I",(0,2),{"_packed":{"reward":[1]*5_000}}],
+            ["I",(0,1),{"_packed":{"reward":[1]*5_000}}]
+        ]
+        self._assert_call_time(lambda:TransactionResult().filter(transactions), .025, print_time, number=100)
+
+    def test_result_filter_fin(self):
+        envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
+        lrns = Table(columns=['learner_id']).insert([[0],[1],[2]])
+        vals = Table(columns=['evaluator_id']).insert([[0]])
+        ints = Table(columns=['environment_id','learner_id','evaluator_id','index']).insert([[e,l,0,0] for e in range(3) for l in range(2)])
+
+        res  = Result(envs, lrns, vals, ints)
+        self._assert_call_time(lambda:res.filter_fin(l='learner_id',p='environment_id'), .06, print_time, number=1000)
+
+    def test_result_where(self):
         envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
         lrns = Table(columns=['learner_id']).insert([[0],[1],[2]])
         vals = Table(columns=['evaluator_id']).insert([[0]])
         ints = Table(columns=['environment_id','learner_id','evaluator_id']).insert([[e,l,0] for e in range(3) for l in range(5)])
 
         res  = Result(envs, lrns, vals, ints)
-        self._assert_call_time(lambda:res.filter_env(mod=3), .06, print_time, number=1000)
+        self._assert_call_time(lambda:res.where(mod=3), .06, print_time, number=1000)
+
+    def test_result_indexed_gs(self):
+        envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
+        lrns = Table(columns=['learner_id']).insert([[0],[1],[2],[3],[4]])
+        vals = Table(columns=['evaluator_id']).insert([[0]])
+        ints = Table(columns=['environment_id','learner_id','evaluator_id','index']).insert([[e,l,0,0] for e in range(3) for l in range(5)])
+
+        res  = Result(envs, lrns, vals, ints)
+        self._assert_call_time(lambda:list(res._indexed_gs('environment_id','learner_id')), .02, print_time, number=1000)
+
+    def test_result_indexed_ys(self):
+        envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(2)])
+        lrns = Table(columns=['learner_id']).insert([[0],[1],[2]])
+        vals = Table(columns=['evaluator_id']).insert([[0]])
+        ints = Table(columns=['environment_id','learner_id','evaluator_id','index','reward']).insert([[e,l,0,i,1] for i in range(2) for e in range(2) for l in range(3)])
+
+        res  = Result(envs, lrns, vals, ints)
+        self._assert_call_time(lambda:list(res._indexed_ys('environment_id','learner_id','index',y='reward',span=None)), .023, print_time, number=1000)
+
+    def test_result_copy(self):
+        envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
+        lrns = Table(columns=['learner_id']).insert([[0],[1],[2]])
+        vals = Table(columns=['evaluator_id']).insert([[0]])
+        ints = Table(columns=['environment_id','learner_id','evaluator_id','index']).insert([[e,l,0,0] for e in range(3) for l in range(5)])
+
+        res  = Result(envs, lrns, vals, ints)
+        self._assert_call_time(lambda:res.copy(), .025, print_time, number=1000)
 
     def test_moving_average_sliding_window(self):
         items = [1,0]*100
@@ -465,28 +542,28 @@ class Performance_Tests(unittest.TestCase):
         self._assert_call_time(lambda: environment.materialize(), 48, print_time, number=1)
 
     def test_repr_not_repeat(self):
-        levels1 = list(map(str,range(1000)))
-        levels2 = list(map(str,range(1,1001)))
+        levels1 = list(map(str,range(10)))
+        levels2 = list(map(str,range(1,11)))
 
         interaction1 = { 'actions': [Categorical(l,levels1) for l in levels1] }
         interaction2 = { 'actions': [Categorical(l,levels2) for l in levels2] }
 
-        interactions = [interaction1,interaction2]*5
-        my_filter    = Repr(categorical_actions='onehot_tuple').filter
-        filterer     = lambda x: list(my_filter(x))
+        interactions = [interaction1,interaction2]*25
+        repr         = Repr(categorical_actions='onehot_tuple')
+        filterer     = lambda x: list(repr.filter(x))
 
-        self._assert_scale_time(interactions, filterer, .11, print_time, number=100)
+        self._assert_scale_time(interactions, filterer, .06, print_time, number=1000)
 
     def test_repr_repeat(self):
-        levels = list(map(str,range(1000)))
+        levels = list(map(str,range(10)))
 
         interaction = { 'actions': [Categorical(l,levels) for l in levels] }
 
-        interactions = [interaction]*10
-        my_filter    = Repr(categorical_actions='onehot_tuple').filter
-        filterer     = lambda x: list(my_filter(x))
+        interactions = [interaction]*100
+        repr         = Repr(categorical_actions='onehot_tuple')
+        filterer     = lambda x: list(repr.filter(x))
 
-        self._assert_scale_time(interactions, filterer, .03, print_time, number=100)
+        self._assert_scale_time(interactions, filterer, .04, print_time, number=1000)
 
     def test_categorical_equality(self):
         cat1 = Categorical('1',list(map(str,range(20))))
@@ -510,6 +587,30 @@ class Performance_Tests(unittest.TestCase):
         ] * 10
         impute = Impute("mode")
         self._assert_scale_time(interactions, lambda x:list(impute.filter(x)), .06, print_time, number=1000)
+
+    def test_hamming_reward_with_builtin_action(self):
+        rwd      = HammingReward([1,2,3])
+        action   = [1,2,4]
+        self._assert_call_time(lambda: rwd(action), .007, print_time, number=10000)
+
+    def test_binary_reward_with_builtin_action(self):
+        rwd      = BinaryReward([1],2)
+        action   = [2]
+        self._assert_call_time(lambda: rwd(action), .0042, print_time, number=10000)
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "Requires pytorch")
+    def test_binary_reward_with_number_argmax_and_tensor_action(self):
+        import torch
+        rwd      = BinaryReward(1,2)
+        action   = torch.tensor([2])
+        self._assert_call_time(lambda: rwd(action), .024, print_time, number=10000)
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "Requires pytorch")
+    def test_binary_reward_with_list_argmax_and_tensor_action(self):
+        import torch
+        rwd      = BinaryReward([1],2)
+        action   = torch.tensor([2])
+        self._assert_call_time(lambda: rwd(action), .032, print_time, number=10000)
 
     @unittest.skip("Just for testing. There's not much we can do to speed up process creation.")
     def test_async_pipe(self):
@@ -557,7 +658,7 @@ class Performance_Tests(unittest.TestCase):
         items_1 = items*1
         items_2 = items*2
         self._z_assert_less(timeit.repeat(lambda: func(items_1), setup=setup, number=1, repeat=number), 1.0*expected, print_time)
-        self._z_assert_less(timeit.repeat(lambda: func(items_2), setup=setup, number=1, repeat=number), 2.2*expected, print_time)
+        self._z_assert_less(timeit.repeat(lambda: func(items_2), setup=setup, number=1, repeat=number), 2.0*expected, print_time)
         if print_time: print()
 
     def _z_assert_less(self, samples, expected, print_it):

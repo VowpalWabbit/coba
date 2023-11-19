@@ -1,18 +1,21 @@
 import unittest
 import unittest.mock
 import requests
-import importlib.util
 
 from pathlib import Path
 
+from coba.utilities import PackageChecker
 from coba.context import CobaContext, DiskCacher, NullLogger
 from coba.pipes import DiskSource, LazyDense
 from coba.exceptions import CobaException
-from coba.primitives import L1Reward, Batch, Categorical
+from coba.primitives import L1Reward, Categorical
 from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.learners     import FixedLearner
+
+class BatchList(list):
+    is_batch = True
 
 class TestEnvironment1:
     def __init__(self, id) -> None:
@@ -24,12 +27,14 @@ class TestEnvironment1:
         return []
 
 class TestEnvironment2:
+    def __init__(self,n=2):
+        self._n = n
     @property
-    def params(self):
+    def params(self,):
         return {'a':1}
     def read(self):
-        yield {'b':1}
-        yield {'b':2}
+        for n in range(self._n):
+            yield {'b':n+1}
 
 class TestEnvironment3:
     def __init__(self):
@@ -371,7 +376,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual([0.11, 0.8, 0.44, 0.17, 0.42], list(env.read())[0]['context'])
         self.assertEqual(3, len(list(env.read())[0]['actions']))
 
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+    @unittest.skipUnless(PackageChecker.pandas(strict=False), "pandas is not installed so we must skip pandas tests")
     def test_from_dataframe(self):
         import pandas as pd
 
@@ -578,6 +583,16 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B' , envs[1].params['id'])
         self.assertEqual(1   , envs[1].params['take'])
 
+    def test_take_strict(self):
+        envs = Environments(TestEnvironment2(1),TestEnvironment2(2)).take(2,strict=True)
+
+        self.assertEqual(2   , len(envs))
+        self.assertEqual(2   , envs[0].params['take'])
+        self.assertEqual(2   , envs[1].params['take'])
+
+        self.assertFalse(list(envs[0].read()))
+        self.assertTrue(list(envs[1].read()))
+
     def test_slice(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).slice(1,2)
 
@@ -742,7 +757,7 @@ class Environments_Tests(unittest.TestCase):
                 yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
 
         envs = Environments(TestEnv()).materialize().materialize()
-        
+
         last_cache  = envs[0][-1]._cache
         first_cache = envs[0][-3]._cache
 
@@ -753,7 +768,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertIsInstance(last_cache[0]['actions'][0],Categorical)
 
     def test_grounded(self):
-        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)        
+        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
         envs = envs.grounded(10,5,4,2,3)
         env  = envs[0]
 
@@ -808,11 +823,13 @@ class Environments_Tests(unittest.TestCase):
     def test_batch(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).batch(3)
 
-        self.assertEqual(2  , len(envs))
-        self.assertEqual('A', envs[0].params['id'])
-        self.assertEqual(3  , envs[0].params['batched'])
-        self.assertEqual('B', envs[1].params['id'])
-        self.assertEqual(3  , envs[1].params['batched'])
+        self.assertEqual(2     , len(envs))
+        self.assertEqual('A'   , envs[0].params['id'])
+        self.assertEqual(3     , envs[0].params['batch_size'])
+        self.assertEqual('list', envs[0].params['batch_type'])
+        self.assertEqual('B'   , envs[1].params['id'])
+        self.assertEqual(3     , envs[1].params['batch_size'])
+        self.assertEqual('list', envs[1].params['batch_type'])
 
     def test_logged_one(self):
         class TestEnvironment:
@@ -839,7 +856,7 @@ class Environments_Tests(unittest.TestCase):
 
         class TestEnvironment:
             def read(self):
-                yield {'context':Batch([1,2]), 'actions':Batch([[1,2],[3,4]]), "rewards":Batch([L1Reward(1),L1Reward(2)]) }
+                yield {'context':BatchList([1,2]), 'actions':BatchList([[1,2],[3,4]]), "rewards":BatchList([L1Reward(1),L1Reward(2)]) }
 
         actual = list(Environments(TestEnvironment()).unbatch()[0].read())
         expected = [

@@ -1,10 +1,10 @@
 import unittest
-import importlib.util
 
+from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.learners import LinUCBLearner
 
-@unittest.skipUnless(importlib.util.find_spec("numpy"), "numpy is not installed so we must skip these tests")
+@unittest.skipUnless(PackageChecker.numpy(strict=False), "numpy is not installed so we must skip these tests")
 class LinUCBLearner_Tests(unittest.TestCase):
 
     def test_action_array_no_exception(self):

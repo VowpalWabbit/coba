@@ -20,10 +20,10 @@ from coba.encodings import InteractionsEncoder
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
 
-from coba.primitives.semantic import Batch
-from coba.primitives.rewards import L1Reward, HammingReward, BinaryReward, IPSReward
-from coba.primitives.rewards import SequenceReward, MappingReward, MulticlassReward, BatchReward
+from coba.primitives.semantic import is_batch, Context, Action, Actions
+from coba.primitives.rewards  import L1Reward, HammingReward, BinaryReward
+from coba.primitives.rewards  import SequenceReward, MappingReward
 
 from coba.statistics import BootstrapCI, mean
 
-__version__ = "7.1.1"
+__version__ = "7.2.0"

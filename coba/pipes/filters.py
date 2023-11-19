@@ -150,16 +150,17 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         else:
             W         = 1
             items     = iter(items)
-            reservoir = rng.shuffle(list(islice(items,self._count)))
+            reservoir = list(islice(items,self._count))
 
             if len(reservoir) < self._count:
-                yield from ([] if self._strict else reservoir)
+                yield from ([] if self._strict else rng.shuffle(reservoir,inplace=True))
 
             else:
-                count = self._count or 1
-                log   = math.log
-                floor = math.floor
-                x     = 1/count
+                reservoir = rng.shuffle(reservoir,inplace=True)
+                count     = self._count or 1
+                log       = math.log
+                floor     = math.floor
+                x         = 1/count
 
                 def batched_randoms_forever(batch_size):
                     while True:
@@ -208,7 +209,7 @@ class JsonEncode(Filter[Any, str]):
                     obj[k] = v
                 else:
                     #rounding by any means is considerably slower than this crazy method
-                    #where we format as a truncated string and then manually remove the 
+                    #where we format as a truncated string and then manually remove the
                     #string indicators from the json via string replace methods
                     obj[k] = f"|{v:0.5g}|"
             else:
@@ -225,7 +226,8 @@ class JsonEncode(Filter[Any, str]):
             self._encoder = CobaJsonEncoder()
 
     def filter(self, item: Any) -> str:
-        return self._encoder.encode(self._min(copy.deepcopy([item]))[0] if self._minify else item).replace('"|',"").replace('|"',"")
+        item = self._min(copy.deepcopy([item]))[0] if self._minify else item
+        return self._encoder.encode(item).replace('"|',"").replace('|"',"")
 
 class JsonDecode(Filter[str, Any]):
     """A filter which turns a JSON string into a Python object."""
@@ -244,7 +246,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
         first, data = peek_first(data)
 
         if isinstance(first,abc.MutableSequence):
-            first_type = "list" 
+            first_type = "list"
         elif isinstance(first,Dense):
             first_type = "tuple"
         elif isinstance(first,Sparse):

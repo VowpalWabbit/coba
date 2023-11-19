@@ -1,9 +1,12 @@
 import unittest
 
 from coba.exceptions import CobaException
-from coba.primitives import Batch
+from coba.primitives import is_batch
 from coba.learners.safety import SafeLearner
 from coba.learners.safety import has_kwargs, first_row, pred_format, batch_order, possible_action, possible_pmf
+
+class Batch(list):
+    is_batch=True
 
 class ParamsLearner:
     def __init__(self, params):
@@ -245,7 +248,7 @@ class first_row_Tests(unittest.TestCase):
         self.assertEqual( {'action':2}     , first_row({'action':[2,1]}, 'col', False))
         self.assertEqual( {'pmf':1}        , first_row({'pmf':[1,2]}, 'col', False))
         self.assertEqual( {'action_prob':1}, first_row({'action_prob':[1,2]}, 'col', False))
-    
+
     def test_col_batch_kwargs(self):
         self.assertEqual(  0   , first_row([(0,1),{}]      , 'col', True))
         self.assertEqual( [2,0], first_row(([2,1],[0,1],{}), 'col', True))
@@ -622,7 +625,8 @@ class SafeLearner_Tests(unittest.TestCase):
 
         class MyLearner:
             def predict(self,context,actions):
-                if isinstance(context,Batch): raise Exception()
+                if is_batch(context):
+                    raise Exception()
                 return [(3,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})][context]
 
         safe_learner = SafeLearner(MyLearner())
@@ -637,7 +641,7 @@ class SafeLearner_Tests(unittest.TestCase):
         class MyLearner:
             calls = []
             def predict(self,*args,**kwargs):
-                if isinstance(args[0],Batch):
+                if is_batch(args[0]):
                     raise Exception("1")
                 else:
                     raise Exception("2")
@@ -656,7 +660,8 @@ class SafeLearner_Tests(unittest.TestCase):
         calls = []
         class MyLearner:
             def learn(self,*args,**kwargs):
-                if isinstance(args[0],Batch): raise Exception()
+                if is_batch(args[0]):
+                    raise Exception()
                 calls.append((args,kwargs))
 
         safe_learner = SafeLearner(MyLearner())
@@ -722,7 +727,8 @@ class SafeLearner_Tests(unittest.TestCase):
         calls = []
         class TestLearner:
             def learn(self, context, action, reward, probability,a):
-                if isinstance(context,Batch): raise Exception()
+                if is_batch(context):
+                    raise Exception()
                 calls.append((context, action, reward, probability,a))
 
         context = Batch([1,2])
@@ -748,7 +754,8 @@ class SafeLearner_Tests(unittest.TestCase):
         calls = []
         class TestLearner:
             def request(self, context, actions, request):
-                if isinstance(context,Batch): raise Exception()
+                if is_batch(context):
+                    raise Exception()
                 calls.append((context, actions, request))
 
         context = Batch([1,2])

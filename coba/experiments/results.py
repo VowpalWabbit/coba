@@ -5,20 +5,19 @@ import collections.abc
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, mul, itemgetter
-from functools import cmp_to_key
+from operator import truediv, sub, mul, itemgetter, methodcaller
 from abc import abstractmethod
 from dataclasses import dataclass, astuple, field, replace
-from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee
+from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee, islice
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
-from coba.primitives import Batch
+from coba.primitives import is_batch
 from coba.environments import Environment
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.context import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first, KeyDefaultDict
-from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource
+from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource, Source
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
 
@@ -48,27 +47,40 @@ def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None,
 
         return map(truediv,values,weights)
 
-def comparer(item1,item2):
-    try:
-        if item1[:-1]<item2[:-1]:
-            return -1
-        if item1[:-1]>item2[:-1]:
-            return 1
-        return 0
-    except TypeError as e:
-        if 'NoneType' in str(e):
-            return -1 if str(e).endswith("'NoneType'") else 1
-        if 'str' in str(e):
-            return -1 if str(e).endswith("'str'") else 1
-
 #this adds one more check on average but avoids the worst case
 #scenario, which can be common for certain types of experiments.
-def my_bisect_left(c,a,l,h): return l if c[l  ]==a else bisect_left(c,a,l,h)
+def my_bisect_left(c,a,l,h): return l if c[l]==a else bisect_left(c,a,l,h)
 def my_bisect_right(c,a,l,h): return h if c[h-1]==a else bisect_right(c,a,l,h)
 
+class MyComparable:
+        __slots__ = ('obj',)
+
+        #See this for more information: https://stackoverflow.com/q/68173281/1066291
+
+        def __init__(self, obj):
+            self.obj = obj
+
+        def __lt__(self, other):
+            try:
+                return self.obj < other.obj
+            except TypeError as e:
+                err_msg = str(e)
+                return err_msg.endswith("'NoneType'") if "'NoneType'" in err_msg else err_msg.endswith("'str'")
+
+        __hash__ = None
+
 class View:
+    __slots__ = ('_data','_select')
+
+    @staticmethod
+    def _try_slice(select: Sequence[int]):
+        if select and not isinstance(select,slice) and (select[-1]-select[0]+1) == len(select):
+            return slice(select[0], select[-1]+1)
+        else:
+            return select
 
     class ListView:
+        __slots__=('_seq','_sel')
         def __init__(self, seq:Sequence, sel:Sequence):
             self._seq = seq
             self._sel = sel
@@ -76,16 +88,17 @@ class View:
         def __len__(self):
             return len(self._sel)
 
-        def __getitem__(self,key):
-            if isinstance(key,slice):
-                return View.ListView(self._seq,self._sel[key])
-            else:
+        def __getitem__(self, key:Union[int,slice]):
+            if not isinstance(key,slice):
                 return self._seq[self._sel[key]]
+            else:
+                return list(map(self._seq.__getitem__,self._sel[key]))
 
         def __iter__(self):
             return iter(map(self._seq.__getitem__,self._sel))
 
     class SliceView:
+        __slots__=('_seq','_sel')
         def __init__(self, seq:Sequence, sel:slice):
             self._seq = seq
             self._sel = sel
@@ -93,26 +106,28 @@ class View:
         def __len__(self):
             return (self._sel.stop or len(self._seq)) - (self._sel.start or 0)
 
-        def __getitem__(self,key):
-            if isinstance(key,slice):
+        def __getitem__(self, key:Union[int,slice]):
+            if not isinstance(key,slice):
+                return self._seq[(self._sel.start or 0)+key]
+            else:
                 key_start = key.start or 0
                 key_stop  = key.stop or len(self)
                 new_start = (self._sel.start or 0) + key_start
                 new_stop  = new_start + key_stop - key_start
                 return self._seq[slice(new_start,new_stop)]
-            else:
-                return self._seq[(self._sel.start or 0)+key]
 
         def __iter__(self):
-            #this isn't a true iter, this makes a copy, but
-            #this runs about 3x faster than doing a true iter.
+            #this isn't a true iter because it makes a copy. It
+            #still runs slightly faster than doing a true iter
+            #with islice.
             return iter(self._seq[self._sel])
 
     def __init__(self, data: Union[Mapping[str,Sequence],'View'], select: Union[Sequence[int],slice]) -> None:
         if isinstance(data,collections.abc.Mapping):
-            self._data = data
-            self._select = self._try_slice(select)
-        else:
+            self._data   = data
+            self._select = select if isinstance(select,slice) else View._try_slice(select)
+
+        else: #data is a 'View'
             self._data = data._data
 
             given_slice = isinstance(select,slice)
@@ -121,17 +136,11 @@ class View:
             if given_slice and have_slice:
                 self._select = slice(data._select.start+select.start,data._select.start+select.stop)
             if given_slice and not have_slice:
-                self._select = self._try_slice(data._select[select])
+                self._select = View._try_slice(data._select[select])
             if not given_slice and have_slice:
-                self._select = self._try_slice([data._select.start + i for i in select])
+                self._select = View._try_slice([data._select.start + i for i in select])
             if not given_slice and not have_slice:
-                self._select = self._try_slice([data._select[i] for i in select])
-
-    def _try_slice(self, select: Sequence[int]):
-        if select and not isinstance(select,slice) and (select[-1]-select[0]+1) == len(select):
-            return slice(select[0], select[-1]+1)
-        else:
-            return select
+                self._select = View._try_slice([data._select[i] for i in select])
 
     def keys(self):
         return self._data.keys()
@@ -155,18 +164,33 @@ class View:
         return key in self._data
 
 class Table:
+    __slots__ = ('_data', '_columns', '_indexes', '_lohis')
     """A container class for storing tabular data."""
     #Potentially overkill, however, by having our own "simple" table implementation we can provide
     #several useful pieces of functionality out of the box. Additionally, when working with
-    #very large experiments pandas can become quite slow while our Table works acceptably.
+    #very large experiments pandas can become quite slow while Table works acceptably.
 
     def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), indexes: Sequence[str]= ()):
 
-        self._columns = tuple(columns) if not isinstance(data,collections.abc.Mapping) else tuple(columns) or tuple(data.keys())
-        self._data    = {c:[] for c in self._columns}
-        self.insert(data)
-        self._indexes = tuple(indexes)
-        self._lohis   = self._calc_lohis()
+        self._columns = tuple(columns) or tuple(data)
+        self._lohis   = None
+
+        data_is_view            = isinstance(data,View)
+        data_is_mapping_of_cols = isinstance(data,collections.abc.Mapping)
+
+        if data_is_view:
+            self._data = data
+        elif data_is_mapping_of_cols and data.keys() == set(columns):
+            self._data = data
+        elif data_is_mapping_of_cols and not columns:
+            self._data = data
+        else:
+            self._data = {c:[] for c in self._columns}
+            self.insert(data)
+
+        self._columns = self._columns or tuple(self._data.keys())
+
+        self._indexes = tuple(indexes) #this should come last...
 
     @property
     def columns(self) -> Sequence[str]:
@@ -178,15 +202,10 @@ class Table:
 
     def insert(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]]=()) -> 'Table':
         data_is_empty             = not data
-        data_is_where_clause_view = data and isinstance(data,View)
         data_is_mapping_of_cols   = data and isinstance(data,collections.abc.Mapping)
         data_is_sequence_of_dicts = data and isinstance(data,collections.abc.Sequence) and isinstance(data[0],collections.abc.Mapping)
 
         if data_is_empty:
-            return self
-
-        if data_is_where_clause_view:
-            self._data = data
             return self
 
         if data_is_sequence_of_dicts:
@@ -194,30 +213,34 @@ class Table:
             data_is_mapping_of_cols = True
 
         if data_is_mapping_of_cols:
-            old,new = set(self._columns), set(data.keys())
-            old_len = len(self)
-            new_len = 0
+            old,new = set(self._columns), data.keys()
 
-            for hdr in new-old:
+            new_cols = new-old
+            old_cols = new&old
+            pad_cols = old-new
+
+            if new_cols: old_len = len(self)
+            if pad_cols: new_len = old_len+len(next(iter(data.values())))
+
+            for hdr in new_cols:
                 self._data[hdr] = list(chain(repeat(None, old_len), data[hdr]))
-                new_len = len(self._data[hdr])
 
-            for hdr in new&old:
+            for hdr in old_cols:
                 self._data[hdr].extend(data[hdr])
-                new_len = len(self._data[hdr])
 
-            for hdr in old-new:
+            for hdr in pad_cols:
                 self._data[hdr].extend(repeat(None,new_len-old_len))
 
-            self._columns += tuple(sorted(new-old))
+            if new_cols:
+                self._columns += tuple(sorted(new_cols))
 
-        else: #data_is_list_of_rows
+        else: #data is a sequence of rows
+
             assert len(data[0]) == len(self._columns), "The given data rows don't align with the table's headers."
             for hdr,col in zip(self._columns,zip(*data)):
                 self._data[hdr].extend(col)
 
-        self._indexes = ()
-        self._lohis = {}
+        if self._lohis: self._lohis = {}
 
         return self
 
@@ -265,6 +288,8 @@ class Table:
             selection = list(compress(count(),map(row_pred,self)))
             return Table(View(self._data,selection), self._columns, self._indexes)
 
+        self._lohis = self._lohis or self._calc_lohis()
+
         if kwargs:
             selection = []
             for kw,arg in kwargs.items():
@@ -279,16 +304,32 @@ class Table:
 
             return Table(View(self._data,selection), self._columns, self._indexes)
 
-    def groupby(self, level:int) -> Iterable[Tuple[Tuple,'Table']]:
-        for l,h in self._lohis[self._indexes[level]]:
-            group = tuple(self._data[hdr][l] for hdr in self._indexes[:level])
-            table = Table(View(self._data, slice(l,h)), self._columns, self._indexes)
-            yield group, table
+    def groupby(self, level:int, select:Union[None,Literal['table','count'],str]='table') -> Iterable[Tuple[Tuple,Any]]:
+
+        self._lohis = self._lohis or self._calc_lohis()
+        grp_cols = [self._data[hdr] for hdr in self._indexes[:level]]
+
+        if not select:
+            for l,h in self._lohis[self._indexes[level]]:
+                yield tuple(map(itemgetter(l),grp_cols))
+        elif select=='table':
+            for l,h in self._lohis[self._indexes[level]]:
+                grp_idx = tuple(map(itemgetter(l),grp_cols))
+                grp_tbl = Table(View(self._data, slice(l,h)), self._columns, self._indexes)
+                yield (grp_idx,grp_tbl)
+        elif select=='count':
+            for l,h in self._lohis[self._indexes[level]]:
+                grp_idx = tuple(map(itemgetter(l),grp_cols))
+                yield (grp_idx,h-l)
+        else:
+            for l,h in self._lohis[self._indexes[level]]:
+                grp_idx = tuple(map(itemgetter(l),grp_cols))
+                yield (grp_idx,self._data[select][l:h])
 
     def copy(self) -> 'Table':
-        #views are immutable so we don't really need to copy them...
-        data_copy = self._data.copy() if isinstance(self._data,dict) else self._data
-        return Table(data_copy, tuple(self._columns), tuple(self._indexes))
+        t = Table(self._data, tuple(self._columns), tuple(self._indexes))
+        t._lohis = self._lohis
+        return t
 
     def to_pandas(self):
         """Turn the Table into a Pandas data frame."""
@@ -303,8 +344,9 @@ class Table:
     def to_dicts(self) -> Iterable[Mapping[str,Any]]:
         """Turn the Table into a sequence of tuples."""
 
-        for i in range(len(self)):
-            yield {c:self._data[c][i] for c in self._columns}
+        keys = repeat(self._columns)
+        vals = zip(*map(self._data.__getitem__,self._columns))
+        yield from map(dict,map(zip,keys,vals))
 
     def __getitem__(self,idx1):
 
@@ -314,10 +356,10 @@ class Table:
         if isinstance(idx1,slice):
             return [self._data[col] for col in self._columns[idx1]]
 
-        if isinstance(idx1,collections.abc.Collection):
+        try:
             return [self._data[col] for col in idx1]
-
-        raise KeyError(idx1)
+        except:
+            raise KeyError(idx1)
 
     def __iter__(self) -> Iterator[Sequence[Any]]:
         return iter(zip(*self[:]))
@@ -326,7 +368,7 @@ class Table:
         return str({"Columns": self.columns, "Rows": len(self)})
 
     def __len__(self) -> int:
-        return len(self._data[next(iter(self._data))]) if self._data else 0
+        return len(next(iter(self._data.values()))) if self._data else 0
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,Table) and o._data == self._data
@@ -371,6 +413,13 @@ class Table:
                 return [ (my_bisect_left(col,v,lo,hi),my_bisect_right(col,v,lo,hi)) for v in sorted(arg) ]
             else:
                 return [ i for i,c in enumerate(col,lo) if c in arg ]
+
+        if comparison == "!in":
+            if method == "bisect":
+                arg = [None]+list(sorted(arg))+[None]
+                return [ (lo if v0 is None else my_bisect_right(col,v0,lo,hi), hi if v1 is None else my_bisect_left(col,v1,lo,hi)) for v0,v1 in zip(arg[0:],arg[1:])]
+            else:
+                return [ i for i,c in enumerate(col,lo) if c not in arg ]
 
         if comparison == "=" or (comparison is None and (not isinstance(arg,collections.abc.Iterable) or isinstance(arg,str))):
             if method == "bisect":
@@ -494,7 +543,7 @@ class TransactionResult:
                 val_rows[trx[1]].update(trx[2])
 
             if trx[0] == "I":
-                if len(trx[1]) ==2: trx[1] = [*trx[1],0]
+                if len(trx[1]) == 2: trx[1] = [*trx[1],0]
                 int_rows[tuple(trx[1])] = trx[2]
 
         rwd_col = ['reward'] if any('reward' in v.keys() for v in int_rows.values()) else []
@@ -504,15 +553,22 @@ class TransactionResult:
         val_table = Table(columns=[                              'evaluator_id'        ]          )
         int_table = Table(columns=['environment_id','learner_id','evaluator_id','index'] + rwd_col)
 
-        env_table.insert([{"environment_id":e,                                 **r} for e,r in env_rows.items()])
-        lrn_table.insert([{                   "learner_id":l,                  **r} for l,r in lrn_rows.items()])
-        val_table.insert([{                                  "evaluator_id":v, **r} for v,r in val_rows.items()])
+        #we manually sort below so everything is indexed correctly
+        #this is considerably faster than sorting after the fact
+        env_table.index('environment_id'                                    )
+        lrn_table.index(                 'learner_id'                       )
+        val_table.index(                              'evaluator_id'        )
+        int_table.index('environment_id','learner_id','evaluator_id','index')
 
-        for (env_id, lrn_id, val_id), results in int_rows.items():
+        env_table.insert([{"environment_id":e,                                 **r} for e,r in sorted(env_rows.items())])
+        lrn_table.insert([{                   "learner_id":l,                  **r} for l,r in sorted(lrn_rows.items())])
+        val_table.insert([{                                  "evaluator_id":v, **r} for v,r in sorted(val_rows.items())])
+
+        for (env_id, lrn_id, val_id), results in sorted(int_rows.items()):
             if '_packed' in results and results['_packed']:
 
                 packed = results['_packed']
-                N = len(packed[next(iter(packed))])
+                N = len(next(iter(packed.values())))
 
                 packed['environment_id'] = repeat(env_id,N)
                 packed['learner_id'    ] = repeat(lrn_id,N)
@@ -713,12 +769,16 @@ class Result:
     """A class representing the result of an Experiment."""
 
     @staticmethod
-    def from_save(filename: str) -> 'Result':
+    def from_source(source: Source[Iterable[str]]) -> 'Result':
+        """Create a Result from a transaction file."""
+        return Pipes.join(source,TransactionDecode(),TransactionResult()).read()
+
+    @staticmethod
+    def from_save(filename: Union[str,Source[str]]) -> 'Result':
         """Create a Result from a transaction file."""
         if not Path(filename).exists():
             raise CobaException("We were unable to find the given Result file.")
-
-        return Pipes.join(DiskSource(filename),TransactionDecode(),TransactionResult()).read()
+        return Result.from_source(DiskSource(filename))
 
     @staticmethod
     def from_file(filename: str) -> 'Result':
@@ -769,7 +829,7 @@ class Result:
             if not env.params.get('logged'): continue
             if not interactions: continue
 
-            is_batched = isinstance(first['reward'],(Batch,list,tuple))
+            is_batched = is_batch(first['reward']) or isinstance(first['reward'],(list,tuple))
 
             env_param = dict(env.params)
             lrn_param = env_param.pop('learner')
@@ -862,7 +922,6 @@ class Result:
             params = [f'{k}={v}' for k,v in value.items() if k and k not in ['family','learner_id'] and v is not None ]
             params = f"({','.join(params)})" if params else ''
             value['full_name'] = f"{lrn_id}. {family}{params}"
-            value['full_name_sans_lrn_id'] = f"{family}{params}"
 
         self._plotter = MatplotPlotter()
 
@@ -904,7 +963,63 @@ class Result:
 
     def copy(self) -> 'Result':
         """Create a copy of Result."""
-        return Result(self.environments.copy(), self.learners.copy(), self.evaluators.copy(), self.interactions.copy(), dict(self.experiment))
+        result_copy = Result()
+        result_copy._environments = self.environments.copy()
+        result_copy._learners     = self.learners.copy()
+        result_copy._evaluators   = self.evaluators.copy()
+        result_copy._interactions = self.interactions.copy()
+        result_copy.experiment    = self.experiment
+        result_copy._env_cache    = self._env_cache
+        result_copy._lrn_cache    = self._lrn_cache
+        result_copy._val_cache    = self._val_cache
+        result_copy._plotter      = self._plotter
+
+        return result_copy
+
+    def filter_best(self,
+        l:Union[str, Sequence[str]],
+        p:Union[str, Sequence[str]],
+        y:str = 'reward',
+        n:int = None,
+        full_l:Union[str, Sequence[str]]='learner_id',
+        full_p:Union[str, Sequence[str]]='environment_id'):
+
+        only_finished = self.filter_fin(l=full_l,p=full_p)
+
+        environments = only_finished.environments
+        learners     = only_finished.learners
+        evaluators   = only_finished.evaluators
+        interactions = only_finished.interactions
+
+        full_id = ['environment_id','learner_id','evaluator_id']
+        indexes = list(self._indexed_gs(p,l,full_l,full_id,select=y))
+
+        to_keep, to_drop = [], []
+        for _, group in groupby(indexes,key=itemgetter(0)):
+            max_val = -float('inf')
+            k, d = [], []
+            for _, group in groupby(group,key=itemgetter(1)):
+                ids,vals = zip(*((g[3], mean(islice(g[4],n))) for g in group))
+                mean_val = mean(vals)
+                if mean_val < max_val:
+                    d.extend(ids)
+                else:
+                    max_val = mean_val
+                    d.extend(k)
+                    k = ids
+            to_keep.extend(k)
+            to_drop.extend(d)
+
+        if to_drop:
+            select = self._remove(to_drop)
+            interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
+
+        e_keep,l_keep,v_keep = map(set,zip(*to_keep)) if to_keep else ([],[],[])
+        if len(e_keep) != len(environments): environments = environments.where(environment_id=e_keep)
+        if len(l_keep) != len(learners)    : learners     = learners    .where(learner_id    =l_keep)
+        if len(v_keep) != len(evaluators)  : evaluators   = evaluators  .where(evaluator_id  =v_keep)
+
+        return Result(environments, learners, evaluators, interactions, self.experiment)
 
     def filter_fin(self,
         n: Union[int,Literal['min']] = None,
@@ -1004,25 +1119,60 @@ class Result:
 
         return Result(environments,learners,evaluators,interactions)
 
+    def filter_int(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
+        """Filter the result to only contain data about specific interactions.
+
+        Args:
+            pred: A predicate that returns true for learner dictionaries that should be kept.
+            **kwargs: key-value pairs to filter on. To see filtering options see Table.filter.
+        """
+        if len(self.learners) == 0: return self
+
+        environments = self.environments
+        learners     = self.learners
+        evaluators   = self.evaluators
+        interactions = self.interactions.where(pred, **kwargs)
+
+        if len(interactions) == len(self.interactions):
+            return self
+
+        if len(interactions) == 0:
+            CobaContext.logger.log(f"No interactions matched the given filter.")
+
+        to_keep = list(interactions.groupby(3,select=None))
+        env,lrn,val = zip(*to_keep) if to_keep else ([],[],[])
+
+        if len(env) != len(environments): environments = environments.where(environment_id=set(env))
+        if len(lrn) != len(learners)    : learners     = learners    .where(learner_id    =set(lrn))
+        if len(val) != len(evaluators)  : evaluators   = evaluators  .where(evaluator_id  =set(val))
+
+        return Result(environments,learners,evaluators,interactions)
+
     def where(self, **kwargs) -> 'Result':
 
         env_kwargs = {}
         lrn_kwargs = {}
         val_kwargs = {}
+        int_kwargs = {}
 
         for key,arg in kwargs.items():
             if key in self.environments.columns:
                 env_kwargs[key] = arg
             elif key in self.learners.columns:
                 lrn_kwargs[key] = arg
-            else:
+            elif key in self.evaluators.columns:
                 val_kwargs[key] = arg
+            elif key in self.interactions.columns:
+                int_kwargs[key] = arg
+            else:
+                raise CobaException("An unrecognized column was provided to `where` for filtering.")
 
         out = self
 
         if env_kwargs: out = out.filter_env(**env_kwargs)
         if lrn_kwargs: out = out.filter_lrn(**lrn_kwargs)
         if val_kwargs: out = out.filter_val(**val_kwargs)
+        if int_kwargs: out = out.filter_int(**int_kwargs)
 
         return out
 
@@ -1034,15 +1184,18 @@ class Result:
         span: int = None) -> Table:
 
         data = {}
+
         plottable = self._plottable(x,y)._finished(x,y,l,p)
 
-        for _l, group in groupby(plottable._indexed_ys(l,x,p,y=y,span=span),key=itemgetter(0)):
+        YS = list(plottable._indexed_ys(l,x,p,y=y,span=span))
+
+        for _l, group in groupby(YS,key=itemgetter(0)):
 
             group = list(group)
 
             if 'x' not in data:
-                data[f'p'] = list(map(itemgetter(2),group))
-                data[f'x'] = list(map(itemgetter(1),group))
+                data['p'] = list(map(itemgetter(2),group))
+                data['x'] = list(map(itemgetter(1),group))
             data[_l] = list(map(itemgetter(3),group))
 
         return Table(data)
@@ -1088,7 +1241,7 @@ class Result:
                 if _l in l2:
                     L2.extend(map(itemgetter(slice(1,None)),group))
 
-            for _x, group in groupby(sorted(plottable._pairings(p,L1,L2),key=cmp_to_key(comparer)),key=itemgetter(0)):
+            for _x, group in groupby(sorted(plottable._pairings(p,L1,L2),key=MyComparable),key=itemgetter(0)):
                 _x = _x[0] if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
 
                 for _,(_y1,_y2),_p in group:
@@ -1410,7 +1563,10 @@ class Result:
 
         return 'None' if label is None else label
 
-    def _pairings(self, p:Sequence[str], L1:Sequence[Tuple[int,int,float]], L2:Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
+    def _pairings(self,
+        p:Sequence[str],
+        L1:Sequence[Tuple[int,int,float]],
+        L2:Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
 
         unpack_p = isinstance(p,str)
         if isinstance(p,str): p = [p]
@@ -1475,52 +1631,57 @@ class Result:
 
         return calc_ci
 
-    def _indexed_tables(self,*indexes) -> Iterable[Tuple[Any]]:
-        indexed_tables = []
+    def _indexed_gs(self,*indexes, select:Union[None,Literal['table','count'],str]=None) -> Iterable[Tuple[Any]]:
+        #WARNING: This has been highly highly optimized. Don't make changes without performance testing.
 
-        for (env_id,lrn_id,val_id), table in self.interactions.groupby(3):
-            e = self._env_cache.get(env_id,{})
-            l = self._lrn_cache.get(lrn_id,{})
-            v = self._val_cache.get(val_id,{})
+        def make_getter(K):
+            if not isinstance(K,str):
+                return lambda e,l,v,G=list(map(make_getter,K)): tuple(g(e,l,v) for g in G)
+            elif K in self.environments.columns:
+                return lambda e,l,v,k=K: e[k]
+            elif K in self.learners.columns or K == 'full_name':
+                return lambda e,l,v,k=K: l[k]
+            elif K in self.evaluators.columns:
+                return lambda e,l,v,k=K: v[k]
+            else:
+                return lambda e,l,v: None
 
-            indexed_table = []
-            for K in indexes:
-                if isinstance(K,str):
-                    indexed_table.append(e.get(K,l.get(K,v.get(K,None))))
-                if isinstance(K,(list,tuple)):
-                    indexed_table.append(tuple(e.get(k,l.get(k,v.get(k,None))) for k in K))
+        env_cache = self._env_cache
+        lrn_cache = self._lrn_cache
+        val_cache = self._val_cache
 
-            indexed_table.append(table)
-            indexed_tables.append(indexed_table)
+        def index_getter(env_id, lrn_id, val_id, getters=list(map(make_getter,indexes))):
+            return map(methodcaller('__call__',env_cache[env_id],lrn_cache[lrn_id],val_cache[val_id]),getters)
 
-        return sorted(map(tuple,indexed_tables),key=cmp_to_key(comparer))
+        G = list(self.interactions.groupby(3,select))
+
+        indexed_groups = []
+        if select:
+            for (env_id,lrn_id,val_id), selected in G:
+                indexed_groups.append([*index_getter(env_id,lrn_id,val_id), selected])
+        else:
+            for env_id,lrn_id,val_id in G:
+                indexed_groups.append(list(index_getter(env_id,lrn_id,val_id)))
+
+        return sorted(indexed_groups,key=MyComparable)
 
     def _indexed_ys(self,*indexes,y,span) -> Iterable[Tuple[Any]]:
+        #WARNING: This has been highly highly optimized. Don't make changes without performance testing.
 
-        coords = [ i for i,I in enumerate(indexes) if I == 'index' ]
+        index_locs = [ i for i, I in enumerate(indexes) if I == 'index']
+        index_1st  = index_locs[0] if index_locs else len(indexes)
+        statistic  = moving_average if index_locs else (lambda v,_: [mean(v)])
 
-        indexed_values = []
-        for indexed_table in self._indexed_tables(*indexes):
-            _table    = indexed_table[ -1]
-            _indexes = [repeat(i) for i in indexed_table[:-1]]
-            for i in coords: _indexes[i] = iter(_table['index'])
+        YS = list(self._indexed_gs(*indexes,select=y))
 
-            _y_values = [mean(_table[y])] if not coords else iter(moving_average(_table[y],span))
-            indexed_values.append( (indexed_table[:-1], iter(zip(*_indexes,_y_values))) )
+        for _,t_group in groupby(YS,key=itemgetter(slice(None,index_1st))):
+            y_group = []
+            for group in t_group:
+                i_cols = list(map(repeat,group[:-1]))
+                for i in index_locs: i_cols[i] = count(1)
+                y_group.append(zip(*i_cols, statistic(group[-1],span)))
 
-        first_index = coords[0] if coords else -1
-        upto_index  = itemgetter(slice(0,first_index))
-
-        for _,group in groupby(indexed_values,key=lambda k: k[0][:first_index]):
-            try:
-                group = list(group)
-                while True:
-                    for _,_indexed_ys in group:
-                        Y = next(_indexed_ys)
-                        yield Y
-            except StopIteration:
-                #we assume all environments are of equal length due to `_plottable`
-                pass
+            yield from chain.from_iterable(zip(*y_group))
 
     def _global_n(self, n: Union[int,Literal['min']]):
 
@@ -1530,33 +1691,43 @@ class Result:
         interactions = self.interactions
 
         env_lengths = []
-        to_remove   = []
-        for indexed_table in self._indexed_tables(['environment_id','learner_id','evaluator_id']):
-            table = indexed_table[1]
-            if n!='min' and len(table) < n:
-                to_remove.append(indexed_table[0])
-            else:
-                env_lengths.append(len(table))
+        to_drop     = []
+        to_keep     = []
+        if n == 'min':
+            for env_idx, env_len in self._indexed_gs(['environment_id','learner_id','evaluator_id'],select='count'):
+                env_lengths.append(env_len)
+        else:
+            for env_idx, env_len in self._indexed_gs(['environment_id','learner_id','evaluator_id'],select='count'):
+                if env_len < n:
+                    to_drop.append(env_idx)
+                else:
+                    env_lengths.append(env_len)
+                    to_keep.append(env_idx)
 
-        if to_remove:
-            select = self._remove(to_remove,n)
-            n_removed = len(to_remove)
-            interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
-            if n_removed==1: CobaContext.logger.log(f"We removed {n_removed} learner evaluation because it was shorter than {n} interactions.")
-            if n_removed>=2: CobaContext.logger.log(f"We removed {n_removed} learner evaluations because they were shorter than {n} interactions.")
+        if to_drop:
+            n_dropped = len(to_drop)
+            interactions = Table(View(interactions._data,self._remove(to_drop,n)), interactions.columns, interactions.indexes)
+            if n_dropped==1: CobaContext.logger.log(f"We removed {n_dropped} learner evaluation because it was shorter than {n} interactions.")
+            if n_dropped>=2: CobaContext.logger.log(f"We removed {n_dropped} learner evaluations because they were shorter than {n} interactions.")
 
         env_lengths = collections.Counter(env_lengths)
-        if len(env_lengths) > 1:
-            shorten_to = min(env_lengths) if n=='min' else n
+        shorten_to = min(env_lengths) if n=='min' and env_lengths else n
+        if len(env_lengths) > 1 or env_lengths.values() != {shorten_to}:
             n_shortened = sum(v for k,v in env_lengths.items() if k > shorten_to)
-            interactions = interactions.where(index={'<=':shorten_to})
+            interactions = interactions.where(index={'<=':shorten_to}) #.4
             if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} environment because it was longer than the shortest environment.")
-            if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")            
+            if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")
 
-        if len(interactions) != len(self.interactions):
-            environments = environments.where(environment_id=set(interactions['environment_id']))
-            learners     = learners    .where(learner_id    =set(interactions['learner_id'    ]))
-            evaluators   = evaluators  .where(evaluator_id  =set(interactions['evaluator_id'  ]))
+        keep_envs,keep_lrns,keep_vals = map(set,zip(*to_keep)) if to_keep else ([],[],[])
+
+        if to_drop and len(keep_envs) != len(environments):
+            environments = environments.where(environment_id=keep_envs)
+
+        if to_drop and len(keep_lrns) != len(learners):
+            learners = learners.where(learner_id=keep_lrns)
+
+        if to_drop and len(keep_vals) != len(evaluators):
+            evaluators = evaluators.where(evaluator_id=keep_vals)
 
         return Result(environments, learners, evaluators, interactions, self.experiment)
 
@@ -1567,31 +1738,35 @@ class Result:
         evaluators   = self.evaluators
         interactions = self.interactions
 
-        n_levels = len(set(it[0] for it in self._indexed_tables(l)))
+        indexes = list(self._indexed_gs(p,l,'environment_id','learner_id','evaluator_id',select=None))
+        n_levels = len(set(map(itemgetter(1),indexes)))
 
-        to_remove = []
-        any_larger = 0
-        any_smaller = 0
-        for _, group in groupby(self._indexed_tables(p,['environment_id','learner_id','evaluator_id']),key=itemgetter(0)):
+        to_keep, to_remove, n_larger, n_smaller = [], [], 0, 0
+        for _, group in groupby(indexes,key=itemgetter(0)):
             group = list(group)
-            any_larger += int(len(group) > n_levels)
-            any_smaller += int(len(group) < n_levels)
-            if len(group) != n_levels: to_remove.extend(g[1] for g in group)
+            if len(group) > n_levels:
+                n_larger += 1
+                to_remove.extend(g[2:] for g in group)
+            elif len(group) < n_levels:
+                n_smaller += 1
+                to_remove.extend(g[2:] for g in group)
+            else:
+                to_keep.extend(g[2:] for g in group)
 
-        if any_larger:
-            CobaContext.logger.log(f"We removed {any_larger} {p} because more than one existed for each {l}.")
+        if n_larger:
+            CobaContext.logger.log(f"We removed {n_larger} {p} because more than one existed for each {l}.")
 
-        if any_smaller:
-            CobaContext.logger.log(f"We removed {any_smaller} {p} because {'they' if any_smaller>1 else 'it'} did not exist for every {l}.")
+        if n_smaller:
+            CobaContext.logger.log(f"We removed {n_smaller} {p} because {'they' if n_smaller>1 else 'it'} did not exist for every {l}.")
 
         if to_remove:
             select = self._remove(to_remove)
             interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
 
-        if len(interactions) != len(self.interactions):
-            environments = environments.where(environment_id=set(interactions['environment_id']))
-            learners     = learners    .where(learner_id    =set(interactions['learner_id'    ]))
-            evaluators   = evaluators  .where(evaluator_id  =set(interactions['evaluator_id'  ]))
+        e_keep,l_keep,v_keep = map(set,zip(*to_keep)) if to_keep else ([],[],[])
+        if len(e_keep) != len(environments): environments = environments.where(environment_id=e_keep)
+        if len(l_keep) != len(learners)    : learners     = learners    .where(learner_id    =l_keep)
+        if len(v_keep) != len(evaluators)  : evaluators   = evaluators  .where(evaluator_id  =v_keep)
 
         return Result(environments, learners, evaluators, interactions, self.experiment)
 
@@ -1616,21 +1791,25 @@ class Result:
 
     def _remove(self, ids: Sequence[Tuple[int,int,int]], n=0) -> Sequence[int]:
         #this is much faster than any built in Table methods
-        loc          = 0
-        select       = []
-        interactions = self.interactions
-        for e,l,v in sorted(ids):
-            lo1 = my_bisect_left(interactions['environment_id'],e,loc,len(interactions))
-            hi1 = my_bisect_right(interactions['environment_id'],e,loc,len(interactions))
-            lo2 = my_bisect_left(interactions['learner_id'],l,lo1,hi1)
-            hi2 = my_bisect_right(interactions['learner_id'],l,lo1,hi1)
-            lo3 = my_bisect_left(interactions['evaluator_id'],v,lo2,hi2)
-            hi3 = my_bisect_right(interactions['evaluator_id'],v,lo2,hi2)
-
-            k = n if hi3-lo3>n else 0
-            select.extend(range(loc,lo3+k))
+        #to work interactions must be sorted by env_id,lrn_id,val_id
+        loc            = 0
+        select         = []
+        n_interactions = len(self.interactions)
+        env_ids,lrn_ids,val_ids = self.interactions[['environment_id','learner_id','evaluator_id']]
+        ids = sorted(ids)
+        for i in range(len(ids)):
+            e,l,v = ids[i]
+            lo1 = my_bisect_left (env_ids,e,loc,n_interactions)
+            hi1 = my_bisect_right(env_ids,e,loc,n_interactions)
+            if lo1==hi1: continue #the given ids aren't in interactions
+            lo2 = my_bisect_left (lrn_ids,l,lo1,hi1)
+            hi2 = my_bisect_right(lrn_ids,l,lo1,hi1)
+            if lo2==hi2: continue
+            lo3 = my_bisect_left (val_ids,v,lo2,hi2)
+            hi3 = my_bisect_right(val_ids,v,lo2,hi2)
+            if lo3==hi3: continue
+            select.extend(range(loc,lo3+(n if hi3-lo3>n else 0)))
             loc = hi3
 
-        select.extend(range(loc,len(interactions)))
-
+        select.extend(range(loc,n_interactions))
         return select

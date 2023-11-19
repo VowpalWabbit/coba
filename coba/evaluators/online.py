@@ -11,7 +11,7 @@ from coba.random import CobaRandom
 from coba.context import CobaContext
 from coba.environments import Environment
 from coba.learners import Learner, SafeLearner
-from coba.primitives import Batch, argmax
+from coba.primitives import is_batch, argmax
 from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first, sample_actions
 
@@ -50,7 +50,7 @@ class OnPolicyEvaluator(Evaluator):
             if key not in first:
                 raise CobaException(f"OnPolicyEvaluator requires every interaction to have '{key}'")
 
-        batched  = first and (isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch))
+        batched  = first and (is_batch(first.get('context')) or is_batch(first.get('actions')))
 
         for key in ['rewards','actions']:
             if (first[key][0] if batched else first[key]) is None:
@@ -74,10 +74,10 @@ class OnPolicyEvaluator(Evaluator):
 
         get_float  = lambda value                   : value if value is None else float(value)
         get_reward = lambda reward                  : float(reward)
-        get_regret = lambda reward, rewards, actions: float(rewards.eval(argmax(actions,rewards))-reward)
-        get_rank   = lambda reward, rewards, actions: sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
+        get_regret = lambda reward, rewards, actions: float(rewards(argmax(actions,rewards))-reward)
+        get_rank   = lambda reward, rewards, actions: sorted(map(rewards,actions)).index(reward)/(len(actions)-1)
 
-        get_reward_list  = lambda rewards,actions: list(map(rewards.eval, actions))
+        get_reward_list  = lambda rewards,actions: list(map(rewards,actions))
 
         predict = learner.predict
         learn   = learner.learn
@@ -95,7 +95,7 @@ class OnPolicyEvaluator(Evaluator):
             rewards   = interaction.pop('rewards')
             feedbacks = interaction.pop('feedbacks',None)
 
-            batched  = isinstance(context,Batch) or isinstance(actions,Batch)
+            batched  = is_batch(context) or is_batch(actions)
             discrete = len(actions[0] if batched else actions) > 0
 
             if record_context: out['context'] = context
@@ -106,8 +106,8 @@ class OnPolicyEvaluator(Evaluator):
             action,prob,kwargs = predict(context, actions)
             predict_time       = time.time()-start_time
 
-            reward   = rewards.eval(action)
-            feedback = feedbacks.eval(action) if feedbacks else None
+            reward   = rewards(action)
+            feedback = feedbacks(action) if feedbacks else None
 
             start_time = time.time()
             if self._learn: learn(context, action, feedback if feedbacks else reward, prob, **kwargs)
@@ -173,7 +173,7 @@ class OffPolicyEvaluator(Evaluator):
 
         if not interactions:return []
 
-        batched  = isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch)
+        batched  = is_batch(first.get('context')) or is_batch(first.get('actions'))
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
         first_rewards = first.get('rewards',[None])[0] if batched else first.get('rewards',None)
@@ -220,7 +220,7 @@ class OffPolicyEvaluator(Evaluator):
             log_rewards = interaction.pop('rewards',None)
             log_actions = interaction.pop('actions',None)
 
-            batched  = isinstance(log_context, Batch)
+            batched  = is_batch(log_context)
             discrete = log_actions and len(log_actions[0] if batched else log_actions) > 0
 
             if record_time:
@@ -245,15 +245,15 @@ class OffPolicyEvaluator(Evaluator):
                         predict_time = time.time()-start_time
 
                         if not batched:
-                            ope_reward = on_prob*float(log_rewards.eval(log_action))
+                            ope_reward = on_prob*float(log_rewards(log_action))
                         else:
-                            ope_reward = [p*float(r) for p,r in zip(on_prob,log_rewards.eval(log_action))]
+                            ope_reward = [p*float(r) for p,r in zip(on_prob,log_rewards(log_action))]
                 else:
                     start_time        = time.time()
                     on_action,on_prob = predict(log_context, log_actions)[:2]
                     predict_time      = time.time()-start_time
 
-                    ope_reward = log_rewards.eval(on_action)
+                    ope_reward = log_rewards(on_action)
 
             if self._learn:
                 start_time = time.time()
@@ -329,7 +329,7 @@ class ExplorationEvaluator(Evaluator):
         if not interactions: return []
 
         first    = first_100[0]
-        batched  = first and (isinstance(first.get('context'),Batch) or isinstance(first.get('actions'),Batch))
+        batched  = first and (is_batch(first.get('context')) or is_batch(first.get('actions')))
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
         if self._ope is None: self._ope = ('rewards' in first)
@@ -398,7 +398,7 @@ class ExplorationEvaluator(Evaluator):
             on_prob = on_probs[log_action_index]
             predict_time = time.time()-start_time
 
-            if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(float,map(log_rewards.eval,log_actions)))))
+            if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(float,map(log_rewards,log_actions)))))
 
             #I tested many techniques for both maintaining Q and estimating its qpct percentile...
             #Implemented here is the insort method because it provided the best runtime by far.

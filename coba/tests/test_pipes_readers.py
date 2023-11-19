@@ -170,7 +170,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
-    #In practice many of these tests are now redundant thanks to splitting the 
+    #In practice many of these tests are now redundant thanks to splitting the
     #reader into the three smaller readers (AttrReader,DataReader,and LineReader).
     #I believe the remaining tests in this class could be removed without compromising safety.
 
@@ -1092,7 +1092,7 @@ class ArffAttrReader_Tests(unittest.TestCase):
                 "@attribute 'a' string",
                 "@attribute 'a' string",
             ]))
-        
+
         self.assertEqual("Two columns in the ARFF file had identical header values.", str(e.exception))
 
     def test_bad_attribute_type_raises_exception(self):

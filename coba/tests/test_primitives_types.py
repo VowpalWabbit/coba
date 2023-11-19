@@ -6,7 +6,7 @@ from coba.primitives import Categorical
 class Categorical_Tests(unittest.TestCase):
     def test_value(self):
         self.assertEqual("A", Categorical("A",["A","B"]))
-    
+
     def test_levels(self):
         self.assertEqual(["A","B"], Categorical("A",["A","B"]).levels)
 

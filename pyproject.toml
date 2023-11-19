@@ -43,5 +43,6 @@ full = [
     "matplotlib",
     "numpy",
     "scipy",
-    "cloudpickle"
+    "cloudpickle",
+    "torch"
 ]

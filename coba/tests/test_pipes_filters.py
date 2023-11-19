@@ -1,12 +1,11 @@
-import json
 import unittest
+import unittest.mock
 
-from coba import IPSReward, MappingReward
 from coba.pipes import Flatten, Encode, JsonEncode, Structure, LazyDense, LazySparse
 from coba.pipes import Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.context import NullLogger, CobaContext
-from coba.utilities import peek_first
+from coba.utilities import peek_first, PackageChecker
 
 CobaContext.logger = NullLogger()
 
@@ -116,6 +115,29 @@ class Resevoir_Tests(unittest.TestCase):
         self.assertEqual([1,5,4,3,2], take_items)
 
         take_items = list(Reservoir(0,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+    def test_take_exacts_iterable(self):
+        items = [1,2,3,4,5]
+
+        take_items = list(Reservoir(2,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([4, 2], take_items)
+
+        take_items = list(Reservoir(None,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(5,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(6,seed=1).filter(iter(items)))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(0,seed=1).filter(iter(items)))
         self.assertEqual([1,2,3,4,5], items)
         self.assertEqual([]         , take_items)
 
@@ -358,20 +380,17 @@ class JsonEncode_Tests(unittest.TestCase):
     def test_not_minified_list(self):
         self.assertEqual('[1.0, 2.0]',JsonEncode(minify=False).filter([1.,2.]))
 
-    def test_ips_reward_encode(self):
-        reward = IPSReward(1000, "action_1", 0.5)
-        self.assertEqual('{"reward":2000.0,"action":"action_1"}',JsonEncode().filter(reward))
-        self.assertEqual(IPSReward(**json.loads(JsonEncode().filter(reward))), reward)
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch.")
+    def test_torch(self):
+        import torch
+        self.assertEqual('[1,2]',JsonEncode().filter(torch.tensor([1,2])))
 
-    def test_mapping_reward_encode(self):
-        reward = MappingReward({
-            "action_1": 1000,
-            "action_2": 2000,
-            "action_3": 3000
-        })
-        self.assertEqual('{"mapping":{"action_1":1000,"action_2":2000,"action_3":3000}}', JsonEncode().filter(reward))
-        self.assertEqual(MappingReward(**json.loads(JsonEncode().filter(reward))), reward)
-
+    def test_no_torch(self):
+        with unittest.mock.patch("coba.utilities.PackageChecker.torch", return_value=False):
+            with self.assertRaises(TypeError) as e:
+                JsonEncode().filter({1,2,3})
+            self.assertIn("set", str(e.exception))
+            self.assertIn("not JSON serializable", str(e.exception))
 
 class Structure_Tests(unittest.TestCase):
 

@@ -1,5 +1,4 @@
 import pickle
-import importlib.util
 import threading as mt
 import multiprocessing as mp
 
@@ -8,7 +7,7 @@ from queue import Empty
 from traceback import format_tb
 from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any, Literal
 
-from coba.utilities import peek_first
+from coba.utilities import peek_first, PackageChecker
 from coba.exceptions import CobaException
 from coba.pipes.primitives import Filter, Line, SourceSink
 from coba.pipes.filters import Slice
@@ -36,18 +35,29 @@ from coba.pipes.sinks import QueueSink
 # potential bugs -- we force our multiprocessors to always use spawn regardless of the host OS.
 spawn_context = mp.get_context("spawn")
 
+class UniqueKey:
+    N = 0
+    def __init__(self):
+        self._n = UniqueKey.N
+        UniqueKey.N += 1
+    def __hash__(self) -> int:
+        return self._n
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value,UniqueKey) and value._n == self._n
+
 class ProcessLine(spawn_context.Process):
 
     ### We create a lock so that we can safely receive any possible exceptions. Empirical
     ### tests showed that creating a Pipe and Lock doesn't seem to slow us down too much.
 
-    def __init__(self, line: Line, callback: Callable = None):
+    def __init__(self, line: Line, callback: Callable = None, read_wait_store:dict = None):
 
-        self._line      = line
-        self._callback  = callback
-        self._exception = None
-        self._traceback = None
-        self._poisoned  = False
+        self._line         = line
+        self._callback     = callback
+        self._exception    = None
+        self._traceback    = None
+        self._poisoned     = False
+        self._read_waiters = read_wait_store
         super().__init__(daemon=True)
 
     def start(self) -> None:
@@ -55,6 +65,12 @@ class ProcessLine(spawn_context.Process):
         self._callback         = None
         self._recv, self._send = spawn_context.Pipe(False)
         self._lock             = spawn_context.Lock()
+        read_waiters           = self._read_waiters
+        self._read_waiters     = None
+
+        self._wait     = None if read_waiters is None else spawn_context.Event()
+        self._wait_key = None if read_waiters is None else UniqueKey()
+        if read_waiters is not None: read_waiters[self._wait_key] = self._wait
 
         super().start()
 
@@ -67,6 +83,11 @@ class ProcessLine(spawn_context.Process):
     def run(self): #pragma: no cover (coverage can't be tracked for code that runs on background prcesses)
         try:
             self._line.run()
+
+            if self._wait:
+                self._line[-1].write([self._wait_key])
+                self._wait.wait()
+
         except Exception as e:
             if str(e).startswith("Can't get attribute"):
                 ex,tb = CobaException(
@@ -186,7 +207,7 @@ class AsyncableLine(SourceSink):
 
 class Safe:
     def __init__(self, filter: Filter):
-        if importlib.util.find_spec('cloudpickle'):
+        if PackageChecker.cloudpickle(strict=False):
             import cloudpickle
             try:
                 self._filter = cloudpickle.dumps(filter)
@@ -196,7 +217,7 @@ class Safe:
             self._filter = filter
 
     def filter(self,items):
-        if importlib.util.find_spec('cloudpickle') and isinstance(self._filter,bytes):
+        if PackageChecker.cloudpickle(strict=False) and isinstance(self._filter,bytes):
             import cloudpickle
             filter = cloudpickle.loads(self._filter)
         else:
@@ -217,7 +238,7 @@ class Foreach:
 class Pickler:
     def filter(self, items) -> Iterable[bytes]:
         try:
-            if importlib.util.find_spec('cloudpickle'):
+            if PackageChecker.cloudpickle(strict=False):
                 import cloudpickle
                 yield from map(cloudpickle.dumps,items)
             else:
@@ -239,7 +260,7 @@ class Pickler:
 
 class Unpickler:
     def filter(self, items):
-        if importlib.util.find_spec('cloudpickle'):
+        if PackageChecker.cloudpickle(strict=False):
             import cloudpickle
             yield from map(cloudpickle.loads,items)
         else:
@@ -270,7 +291,8 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
     def __init__(self,
             filter: Filter[Iterable[Any], Iterable[Any]],
             n_processes: int = 1,
-            maxtasksperchild: int = 0) -> None:
+            maxtasksperchild: int = 0,
+            read_wait: bool = False) -> None:
         """Instantiate a Multiprocessor.
 
         Args:
@@ -281,12 +303,15 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         self._filter           = filter
         self._max_processes    = n_processes
         self._maxtasksperchild = maxtasksperchild or None
+        self._read_wait        = read_wait
 
     @property
     def params(self) -> Mapping[str,Any]:
         return self._filter.params
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+
+        read_waiters = {} if self._read_wait else None
 
         items = peek_first(items)[1]
         if not items: return []
@@ -332,7 +357,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 if worker.exitcode != 0: #pragma: no cover
                     #exitcode -15 is keyboard interrupt...
                     if worker.exitcode != -15:
-                        print(worker.exitcode)
+                        print(f"Background process {worker.pid} failed unexpectedly with exit code {worker.exitcode}.")
                     self._main_err = True
                     event.set()
 
@@ -340,7 +365,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 #we may not have actually read anything from the input queue. If we didn't then
                 #the input queue will never empty and we'll be stuck starting processes forever.
                 if not worker.poisoned and not self._exceptions and worker.exitcode == 0:
-                    ProcessLine(worker.pipeline,callback=filter_finished_or_failed).start()
+                    ProcessLine(worker.pipeline,filter_finished_or_failed,read_waiters).start()
                 else:
                     self._n_procs -= 1
                     if self._n_procs == 0:
@@ -349,8 +374,8 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                         except ValueError: #pragma: no cover
                             pass
 
-            load_thread = ThreadLine(load_line, callback=loader_finished_or_failed)
-            filt_procs  = [ProcessLine(filter_line, callback=filter_finished_or_failed) for _ in range(self._n_procs)]
+            load_thread = ThreadLine(load_line,loader_finished_or_failed)
+            filt_procs  = [ProcessLine(filter_line,filter_finished_or_failed,read_waiters) for _ in range(self._n_procs)]
 
             try:
                 load_thread.start()
@@ -361,7 +386,11 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 event.wait()
                 if not self._main_err:
                     for p in filt_procs: p.start()
-                    yield from out_get.read()
+                    for i in out_get.read():
+                        if read_waiters and isinstance(i, UniqueKey):
+                            read_waiters[i].set()
+                        else:
+                            yield i
 
             finally:
 

@@ -126,10 +126,10 @@ class DiskCacher(Cacher[str, Iterable[str]]):
                         f.write(line.rstrip('\r\n'))
                         f.write('\n')
             except:
-                if key in self: 
+                if key in self:
                     self.rmv(key)
                 raise
-        
+
         return gzip.open(self._cache_path(key), 'rt', 'utf-8')
 
     def _cache_name(self, key: str) -> str:
@@ -156,7 +156,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
         self._cache = cache
         self._lock  = lock or Lock()
         self._array = list or [0]*2**(8*self._digest_size)
-        
+
         self._write_waits = 0 # for testing purposes only. won't be accurate in production.
         self._read_waits  = 0 # for testing purposes only. won't be accurate in production.
 
@@ -212,7 +212,6 @@ class ConcurrentCacher(Cacher[_K, _V]):
     def _acquire_read_lock(self, key):
         if self._has_write_lock(key):
             raise CobaException("The concurrent cacher was asked to enter an unrecoverable state.")
-        
         index = self._index(key)
         self._read_waits += 1
         while True:
@@ -223,11 +222,12 @@ class ConcurrentCacher(Cacher[_K, _V]):
                     self._read_waits -= 1
                     break
             time.sleep(1)
-    
+
     def _release_read_lock(self, key):
         index = self._index(key)
-        self._array[index] -= 1
-        self._locks[(current_thread().ident,key)] -= 1
+        with self._lock:
+            self._array[index] -= 1
+            self._locks[(current_thread().ident,key)] -= 1
 
     def _acquire_write_lock(self, key) -> ContextManager:
         if self._has_write_lock(key) or self._has_read_lock(key):
@@ -245,15 +245,17 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
     def _release_write_lock(self, key):
         index = self._index(key)
-        self._array[index] = 0
-        self._locks[(current_thread().ident,key)] = 0
+        with self._lock:
+            self._array[index] = 0
+            self._locks[(current_thread().ident,key)] = 0
 
     def _switch_write_to_read_lock(self, key) -> None:
         index = self._index(key)
         assert self._array[index] == -1, "You don't have write permissions"
         assert self._locks[(current_thread().ident,key)] == -1, "You don't have write permissions"
-        self._array[index] = 1
-        self._locks[(current_thread().ident,key)] = 1
+        with self._lock:
+            self._array[index] = 1
+            self._locks[(current_thread().ident,key)] = 1
 
     def _has_read_lock(self, key) -> bool:
         return self._locks[(current_thread().ident,key)] > 0

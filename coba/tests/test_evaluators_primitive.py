@@ -1,7 +1,7 @@
 import math
-import importlib.util
 import unittest
 
+from coba.utilities import PackageChecker
 from coba.environments import Environment
 from coba.learners import EpsilonBanditLearner, Learner, VowpalSoftmaxLearner, SafeLearner
 from coba.evaluators.primitives import Evaluator, SafeEvaluator, get_ope_loss
@@ -23,7 +23,7 @@ class SafeEvaluator_Tests(unittest.TestCase):
         self.assertEqual({'eval_type':'test_eval'}, SafeEvaluator(test_eval).params)
 
 class Helper_Tests(unittest.TestCase):
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_get_ope_loss(self):
 
         #VW learner

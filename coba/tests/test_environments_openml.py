@@ -19,8 +19,8 @@ class GetOnceCacher(MemoryCacher):
     def __init__(self) -> None:
         self._get_counts = {}
         super().__init__()
-    def get_set(self, key, value) -> None:    
-        if key not in self: 
+    def get_set(self, key, value) -> None:
+        if key not in self:
             self._get_counts[key] = self._get_counts.setdefault(key,0)+1
         if self._get_counts[key] > 1:
             raise Exception("Writing data again without reason.")
@@ -32,7 +32,7 @@ class ExceptionCacher(MemoryCacher):
         self._failure_key = failure_key
         self._failure_exception = failure_exception
         super().__init__()
-        
+
         super().get_set(failure_key,"")
 
     def get_set(self, key, value):
@@ -620,7 +620,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.get_set('openml_001594_data', json.dumps(data).splitlines())
         CobaContext.cacher.get_set('openml_001594_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.get_set('openml_001594_arff', arff.splitlines())
-        
+
         features,labels,tipes = zip(*[ r.labeled for r in OpenmlSource(task_id=1111).read()])
 
         self.assertEqual(len(features), 4)
@@ -888,7 +888,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             #make sure t1 has time to acuire lock
             block_2.wait()
 
-            #we shouldn't be able to acquire if openml correctly locked 
+            #we shouldn't be able to acquire if openml correctly locked
             self.assertFalse(semaphore.acquire(blocking=False))
             block_1.set() # now we release t1 to finish
             t1.join()
@@ -896,7 +896,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             #now we can acquire because openml should release when done
             self.assertTrue(semaphore.acquire(blocking=False))
 
-            #this should complete despite us acquiring above 
+            #this should complete despite us acquiring above
             #because it doesn't lock since everything is cached
             features,labels,_ = zip(*[r.labeled for r in OpenmlSource(task_id=123).read()])
 
@@ -1029,9 +1029,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[1]['actions'])
         self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[2]['actions'])
 
-        self.assertEqual([1,0], list(map(interactions[0]['rewards'].eval,['2','1'])))
-        self.assertEqual([1,0], list(map(interactions[1]['rewards'].eval,['2','1'])))
-        self.assertEqual([0,1], list(map(interactions[2]['rewards'].eval,['2','1'])))
+        self.assertEqual([1,0], list(map(interactions[0]['rewards'],['2','1'])))
+        self.assertEqual([1,0], list(map(interactions[1]['rewards'],['2','1'])))
+        self.assertEqual([0,1], list(map(interactions[2]['rewards'],['2','1'])))
 
     def test_simple_openml_source_regression_offline(self) -> None:
 
@@ -1096,9 +1096,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual([], interactions[1]['actions'])
         self.assertEqual([], interactions[2]['actions'])
 
-        self.assertEqual(0,interactions[0]['rewards'].eval(8.1))
-        self.assertEqual(0,interactions[1]['rewards'].eval(8.2))
-        self.assertEqual(0,interactions[2]['rewards'].eval(8.3))
+        self.assertEqual(0,interactions[0]['rewards'](8.1))
+        self.assertEqual(0,interactions[1]['rewards'](8.2))
+        self.assertEqual(0,interactions[2]['rewards'](8.3))
 
     def test_str(self):
         self.assertEqual('Openml(data=150)', str(OpenmlSimulation(150)))
