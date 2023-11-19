@@ -1,12 +1,11 @@
-import json
 import unittest
+import unittest.mock
 
-from coba import MappingReward
 from coba.pipes import Flatten, Encode, JsonEncode, Structure, LazyDense, LazySparse
 from coba.pipes import Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.context import NullLogger, CobaContext
-from coba.utilities import peek_first
+from coba.utilities import peek_first, PackageChecker
 
 CobaContext.logger = NullLogger()
 
@@ -380,6 +379,18 @@ class JsonEncode_Tests(unittest.TestCase):
 
     def test_not_minified_list(self):
         self.assertEqual('[1.0, 2.0]',JsonEncode(minify=False).filter([1.,2.]))
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch.")
+    def test_torch(self):
+        import torch
+        self.assertEqual('[1,2]',JsonEncode().filter(torch.tensor([1,2])))
+
+    def test_no_torch(self):
+        with unittest.mock.patch("coba.utilities.PackageChecker.torch", return_value=False):
+            with self.assertRaises(TypeError) as e:
+                JsonEncode().filter({1,2,3})
+            self.assertIn("set", str(e.exception))
+            self.assertIn("not JSON serializable", str(e.exception))
 
 class Structure_Tests(unittest.TestCase):
 

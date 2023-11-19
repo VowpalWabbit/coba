@@ -9,6 +9,7 @@ from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Mapping
 
+from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.primitives import Sparse, Dense, Categorical
 
@@ -309,11 +310,20 @@ class FactorEncoder(Encoder[int]):
 class CobaJsonEncoder(json.JSONEncoder):
     """A json encoder that allows for potential COBA extensions in the future."""
     def default(self, o: Any) -> Any:
+
+        if PackageChecker.torch(strict=False):
+            import torch
+        else:
+            torch = None
+
         try:
             return o.to_json()
         except AttributeError:
             try:
-                return vars(o)
+                if torch and isinstance(o,torch.Tensor):
+                    return o.tolist()
+                else:
+                    return vars(o)
             except TypeError:
                 return super().default(o)
 

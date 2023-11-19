@@ -226,7 +226,8 @@ class JsonEncode(Filter[Any, str]):
             self._encoder = CobaJsonEncoder()
 
     def filter(self, item: Any) -> str:
-        return self._encoder.encode(self._min(copy.deepcopy([item]))[0] if self._minify else item).replace('"|',"").replace('|"',"")
+        item = self._min(copy.deepcopy([item]))[0] if self._minify else item
+        return self._encoder.encode(item).replace('"|',"").replace('|"',"")
 
 class JsonDecode(Filter[str, Any]):
     """A filter which turns a JSON string into a Python object."""

@@ -72,7 +72,7 @@ class Multiprocessor_Tests(unittest.TestCase):
         items = list(Multiprocessor(Identity(), 1, None, read_wait=True).filter([[0,1,2,3]]))
         self.assertEqual(items, [[0,1,2,3]])
 
-    @unittest.skipUnless(PackageChecker.torch(), "Requires pytorch")
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "Requires pytorch")
     def test_torch(self):
         #https://stackoverflow.com/a/74364648/1066291
         import torch
