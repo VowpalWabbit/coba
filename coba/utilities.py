@@ -1,7 +1,7 @@
 import warnings
 import importlib.util
 
-from itertools import chain, islice, accumulate
+from itertools import chain, islice
 from collections import defaultdict
 from typing import TypeVar, Iterable, Tuple, Union, Sequence
 

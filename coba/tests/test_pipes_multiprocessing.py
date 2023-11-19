@@ -12,7 +12,7 @@ from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.pipes import Filter, ListSink, Identity, QueueSink, IterableSource, QueueSource
 
-from coba.pipes.multiprocessing import Multiprocessor, AsyncableLine, Pickler, Unpickler, EventSetter, Safe, ProcessLine
+from coba.pipes.multiprocessing import Multiprocessor, AsyncableLine, Pickler, Unpickler, EventSetter, Safe
 
 spawn_context = mp.get_context("spawn")
 
