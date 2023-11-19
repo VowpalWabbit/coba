@@ -1,5 +1,6 @@
 import unittest
 import unittest.mock
+import time
 import pickle
 
 import multiprocessing as mp
@@ -11,7 +12,7 @@ from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.pipes import Filter, ListSink, Identity, QueueSink, IterableSource, QueueSource
 
-from coba.pipes.multiprocessing import Multiprocessor, AsyncableLine, Pickler, Unpickler, EventSetter, Safe
+from coba.pipes.multiprocessing import Multiprocessor, AsyncableLine, Pickler, Unpickler, EventSetter, Safe, ProcessLine
 
 spawn_context = mp.get_context("spawn")
 
@@ -66,6 +67,19 @@ class Multiprocessor_Tests(unittest.TestCase):
     def test_single_process(self):
         items = list(Multiprocessor(Identity(), 1, None).filter([[0,1,2,3]]))
         self.assertEqual(items, [[0,1,2,3]])
+
+    def test_read_wait(self):
+        items = list(Multiprocessor(Identity(), 1, None, read_wait=True).filter([[0,1,2,3]]))
+        self.assertEqual(items, [[0,1,2,3]])
+
+    @unittest.skipUnless(PackageChecker.torch(), "Requires pytorch")
+    def test_torch(self):
+        #https://stackoverflow.com/a/74364648/1066291
+        import torch
+        iterator = Multiprocessor(Identity(), 2, None, read_wait=True).filter(torch.tensor([0,1,2,3]))
+        item = next(iterator)
+        time.sleep(.2)
+        remaining = list(iterator)
 
     def test_params(self):
         expected = ParamsFilter().params
