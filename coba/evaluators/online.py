@@ -234,20 +234,25 @@ class OffPolicyEvaluator(Evaluator):
                         on_probs     = request(log_context,log_actions,log_actions)
                         predict_time = time.time()-start_time
                         if not batched:
-                            ope_reward = sum(p*float(log_rewards.eval(a)) for p,a in zip(on_probs,log_actions))
+                            ope_reward = sum(p*float(log_rewards(a)) for p,a in zip(on_probs,log_actions))
                             on_action, on_prob = sample_actions(log_actions, on_probs)
                         else:
-                            ope_reward = [ sum(p*float(R.eval(a)) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
+                            ope_reward = [ sum(p*float(R(a)) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
                             on_action, on_prob = zip(*[sample_actions(actions, probs) for actions, probs in zip(log_actions, on_probs)])
                     else:
-                        start_time   = time.time()
+                        if not batched:
+                            on_score = request(log_context,log_actions,[log_action])
+                        else:
+                            on_score = request(log_context,log_actions,log_action)
+
+                        start_time   = time.time()                        
                         on_action, on_prob = predict(log_context, log_actions)[:2]
                         predict_time = time.time()-start_time
 
                         if not batched:
-                            ope_reward = on_prob*float(log_rewards(log_action))
+                            ope_reward = on_score*float(log_rewards(log_action))
                         else:
-                            ope_reward = [p*float(r) for p,r in zip(on_prob,log_rewards(log_action))]
+                            ope_reward = [p*float(r) for p,r in zip(on_score,log_rewards(log_action))]
                 else:
                     start_time        = time.time()
                     on_action,on_prob = predict(log_context, log_actions)[:2]

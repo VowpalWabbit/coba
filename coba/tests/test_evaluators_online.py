@@ -663,12 +663,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
                 return 0.5
 
             def predict(self, context, actions):
-                # if isinstance(context,BatchType):
-                #     raise Exception()
                 return [(2, 0.5, None), (3, 0.5, None)]
-                # return (2, 0.5)
-                # return 2, 0.5, None
-                # return 2
 
         task    = OffPolicyEvaluator(learn=False)
         learner = TestLearner()
@@ -686,6 +681,8 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
         class MyLearner:
             def request(self,context,actions,request):
                 return .5
+            def predict(self, context, actions):
+                return {'action_prob':(2, 0.5)}
 
         task    = OffPolicyEvaluator(learn=False)
         learner = MyLearner()
