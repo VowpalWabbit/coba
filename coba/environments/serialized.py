@@ -24,7 +24,7 @@ class ObjectsToZipMember(Sink[Iterable[Sequence[object]]]):
         for i,env in enumerate(envs,self._start):
             with CobaContext.logger.time(f"Writing environment {i}..."):
                 # Dump before opening the file so we
-                # can keep it open for as short a time 
+                # can keep it open for as short a time
                 # as possible.
                 dumps = list(map(pickle.dumps,env))
                 with ZipFile(self._zip,mode='a',compression=ZIP_DEFLATED) as zip:
@@ -45,7 +45,7 @@ class ZipMemberToObjects(Source[Iterable[object]]):
             pass
 
 class EnvironmentsToObjects(Filter[Environment, Iterable]):
-    def filter(self, env: Union[Environment,Sequence[Environment]]) -> Iterable[Iterable[object]]:        
+    def filter(self, env: Union[Environment,Sequence[Environment]]) -> Iterable[Iterable[object]]:
         with CobaContext.logger.time("Materializing environment..."):
             yield list(self._env_to_objects(env))
 
@@ -55,7 +55,7 @@ class EnvironmentsToObjects(Filter[Environment, Iterable]):
         yield env.params
         I = iter(env.read())
         batch = list(islice(I,1000))
-        while batch: 
+        while batch:
             yield batch
             batch = list(islice(I,1000))
 
@@ -71,7 +71,7 @@ class EnvironmentFromObjects(Environment):
 
         I = iter(self._source.read())
         version_data = list(islice(I,2))[0]
-        
+
         if version_data['version'] == 1: #pragma: no cover
             yield from I
         else:

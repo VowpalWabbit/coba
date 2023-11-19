@@ -295,7 +295,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         if kwargs and 'n' in kwargs:
             seeds = range(kwargs['n'])
         else:
-            args = kwargs.get('seed',kwargs.get('seeds',args))        
+            args = kwargs.get('seed',kwargs.get('seeds',args))
             seeds = flat(args) or [1]
 
         if isinstance(seeds,int): seeds = [seeds]

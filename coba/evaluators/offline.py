@@ -21,7 +21,7 @@ from coba.evaluators.primitives import Evaluator
 class ClassMetaEvaluator(Evaluator):
     """Describe an Environment made from a Classification dataset.
 
-    This evlaluator calculates a number of statistics which describe a given environment. These 
+    This evlaluator calculates a number of statistics which describe a given environment. These
     statistics can be used to analyze what kinds of environments a given learner performs best on.
     To make the most of this evaluator sklearn should be installed.
     """

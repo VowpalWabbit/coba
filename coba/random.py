@@ -68,7 +68,7 @@ class CobaRandom:
         else:
             r_range = max-min
             iterable = (min+r_range*r for r in islice(self._randu,n))
-        
+
         return list(iterable) if n is not None else iterable
 
     def random(self, min:float=0, max:float=1) -> float:
@@ -81,7 +81,7 @@ class CobaRandom:
         Returns:
             The generated random number in [`min`,`max`].
         """
-        return min+(max-min)*next(self._randu)        
+        return min+(max-min)*next(self._randu)
 
     def shuffle(self, items: Iterable[Any], inplace: bool = False) -> Sequence[Any]:
         """Shuffle the order of items in a sequence.
@@ -110,9 +110,9 @@ class CobaRandom:
         #i goes from 0 to n-2
         #j is always i <= j < n
         for i,r in islice(enumerate(self._randu),n-1):
-            j = i+int(r*(n-i)) 
+            j = i+int(r*(n-i))
             l[i], l[j] = l[j], l[i]
-        
+
         return l
 
     def randint(self, a:int, b:int) -> int:
@@ -191,14 +191,14 @@ class CobaRandom:
         """
         m_1 = m-1
         while True:
-            #when m is a power of 2 
+            #when m is a power of 2
             #this is equal to modulo m
             s = (a * s + c) & (m_1)
             yield s/m
 
     def _next_gaussian(self) -> Iterable[float]:
         """Generate `n` gaussian random numbers in N(0,1).
-        
+
         Random numbers are generated using the Box-Muller transform.
         """
 

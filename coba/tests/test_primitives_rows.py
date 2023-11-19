@@ -280,11 +280,11 @@ class HashableDense_Tests(unittest.TestCase):
         self.assertNotEqual([1,2,4],hash_seq)
         self.assertNotEqual([1,2,3,4],hash_seq)
         self.assertNotEqual(1,hash_seq)
-    
+
     def test_repr(self):
         hash_seq = HashableDense([1,2,3])
         self.assertEqual("[1, 2, 3]",repr(hash_seq))
-    
+
     def test_str(self):
         hash_seq = HashableDense([1,2,3])
         self.assertEqual("[1, 2, 3]",str(hash_seq))

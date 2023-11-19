@@ -1,7 +1,6 @@
 import unittest
 import pickle
 
-from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.primitives import L1Reward, HammingReward, BinaryReward, SequenceReward, MappingReward, ProxyReward
 from coba.primitives import argmax

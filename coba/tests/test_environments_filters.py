@@ -2130,7 +2130,7 @@ class Batch_Tests(unittest.TestCase):
     @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch(self):
         import torch
-        
+
         batch = list(Batch(2,'torch').filter([{'a':1,'b':None,'rewards':L1Reward(2)}]*2))[0]
 
         self.assertTrue(torch.equal(batch['a'],torch.tensor([1,1])))

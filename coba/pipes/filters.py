@@ -209,7 +209,7 @@ class JsonEncode(Filter[Any, str]):
                     obj[k] = v
                 else:
                     #rounding by any means is considerably slower than this crazy method
-                    #where we format as a truncated string and then manually remove the 
+                    #where we format as a truncated string and then manually remove the
                     #string indicators from the json via string replace methods
                     obj[k] = f"|{v:0.5g}|"
             else:
@@ -245,7 +245,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
         first, data = peek_first(data)
 
         if isinstance(first,abc.MutableSequence):
-            first_type = "list" 
+            first_type = "list"
         elif isinstance(first,Dense):
             first_type = "tuple"
         elif isinstance(first,Sparse):

@@ -48,7 +48,7 @@ class Line(ABC, Pipe):
         ...
 
 def resolve_params(pipes:Sequence[Pipe]):
-    
+
     params = [p.params for p in pipes if hasattr(p,'params')]
     keys   = [ k for p in params for k in p.keys() ]
     counts = Counter(keys)
@@ -60,7 +60,7 @@ def resolve_params(pipes:Sequence[Pipe]):
         else:
             index[key] = index.get(key,0)+1
             return f"{key}{index[key]}"
-    
+
     return { resolve_key_conflicts(k):v for p in params for k,v in p.items() }
 
 class SourceFilters(Source):
@@ -119,7 +119,7 @@ class FiltersFilter(Filter):
 
     def __iter__(self) -> Iterator[Filter]:
         return iter(self._filters)
-    
+
     def __len__(self) -> int:
         return len(self._filters)
 
@@ -151,7 +151,7 @@ class FiltersSink(Sink):
         if index == -1 or index == len(self._filter):
             return self._sink
         elif index < 0:
-            return self._filter[index+1] 
+            return self._filter[index+1]
         else:
             return self._filter[index]
 
@@ -165,7 +165,7 @@ class FiltersSink(Sink):
 class SourceSink(Line):
     def __init__(self, *pipes: Union[Source,Filter,Sink]) -> None:
         self._pipes = list(pipes)
-    
+
     def run(self) -> None:
         """Run the pipeline."""
 
@@ -214,7 +214,7 @@ class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
     def write(self, items: Iterable[Any]):
         """Write the items using the inner pipe. This method only works if the inner pipe is a Sink."""
         write = self._pipe.write
-        for item in items: 
+        for item in items:
             write(item)
 
     @property

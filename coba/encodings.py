@@ -429,7 +429,7 @@ class InteractionsEncoder:
 
         values = [ ns_pows[ns][p] for ns,p in cross_pow.items() ]
         cross  = values[0]
-        
+
         if isinstance(cross[0],str):
             for vs in values[1:]: cross = [ o+v for o in cross for v in vs ]
         else:

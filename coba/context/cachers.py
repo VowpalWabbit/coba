@@ -126,10 +126,10 @@ class DiskCacher(Cacher[str, Iterable[str]]):
                         f.write(line.rstrip('\r\n'))
                         f.write('\n')
             except:
-                if key in self: 
+                if key in self:
                     self.rmv(key)
                 raise
-        
+
         return gzip.open(self._cache_path(key), 'rt', 'utf-8')
 
     def _cache_name(self, key: str) -> str:
@@ -156,7 +156,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
         self._cache = cache
         self._lock  = lock or Lock()
         self._array = list or [0]*2**(8*self._digest_size)
-        
+
         self._write_waits = 0 # for testing purposes only. won't be accurate in production.
         self._read_waits  = 0 # for testing purposes only. won't be accurate in production.
 

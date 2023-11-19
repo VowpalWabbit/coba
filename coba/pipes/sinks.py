@@ -61,7 +61,7 @@ class DiskSink(Sink[Union[str,Sequence[str]]]):
             self._file = None
 
     def write(self, lines: Union[str,Iterable[str]]) -> None:
-        if isinstance(lines,str): 
+        if isinstance(lines,str):
             lines = [lines]
 
         lines = iter(lines)

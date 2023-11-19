@@ -213,7 +213,7 @@ class DiskCacher_Tests(unittest.TestCase):
 
         self.assertNotIn("text.csv", DiskCacher(self.Cache_Test_Dir))
         self.assertFalse((self.Cache_Test_Dir / "text.csv.gz").exists())
- 
+
     def test_bad_file_key(self):
         with self.assertRaises(CobaException):
             self.assertFalse("abcs/:/123/!@#" in DiskCacher(self.Cache_Test_Dir))
@@ -221,11 +221,11 @@ class DiskCacher_Tests(unittest.TestCase):
     def test_get_set_multiline_csv_to_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
         self.assertFalse("test.csv" in cache)
-        
+
         with cache.get_set("test.csv", lambda: ["test", "test2"]) as out:
             self.assertEqual(list(out), ["test\n", "test2\n"])
             self.assertTrue("test.csv" in cache)
-        
+
         with cache.get_set("test.csv", None) as out:
             self.assertEqual(list(out), ["test\n", "test2\n"])
             self.assertTrue("test.csv" in cache)

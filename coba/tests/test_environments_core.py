@@ -757,7 +757,7 @@ class Environments_Tests(unittest.TestCase):
                 yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
 
         envs = Environments(TestEnv()).materialize().materialize()
-        
+
         last_cache  = envs[0][-1]._cache
         first_cache = envs[0][-3]._cache
 
@@ -768,7 +768,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertIsInstance(last_cache[0]['actions'][0],Categorical)
 
     def test_grounded(self):
-        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)        
+        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
         envs = envs.grounded(10,5,4,2,3)
         env  = envs[0]
 

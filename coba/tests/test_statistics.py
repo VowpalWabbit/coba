@@ -17,7 +17,7 @@ class percentile_Tests(unittest.TestCase):
     def test_one_value(self):
         self.assertEqual(2, percentile([2], 0))
         self.assertEqual(2., percentile([2.], 0.))
-        
+
         self.assertEqual([2,2], percentile([2], [0,1]))
         self.assertEqual([2,2], percentile([2.], [0.,1.]))
 

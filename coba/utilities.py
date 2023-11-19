@@ -13,7 +13,6 @@ def coba_exit(message:str):
     raise CobaExit(message) from None
 
 class PackageChecker:
-
     @staticmethod
     def matplotlib(caller_name:str = None, strict:bool = True) -> None:
         """Raise ImportError with detailed error message if matplotlib is not installed.

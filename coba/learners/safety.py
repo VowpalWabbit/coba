@@ -198,7 +198,7 @@ class SafeLearner(Learner):
                 return method(*args,**kwargs)
 
             if prev_method==2:
-                if isinstance(args[0],str): 
+                if isinstance(args[0],str):
                     raise CobaException(
                         f"Context ({args[0]}) was not an array like so we couldn't use fallback methods. "
                         "See the exception above for the reason why fallback methods were attempted."
@@ -206,7 +206,7 @@ class SafeLearner(Learner):
 
                 pred = [ method(*a,**{k:v[i] for k,v in kwargs.items()}) for i,a in enumerate(zip(*args)) ]
 
-                if not pred: 
+                if not pred:
                     raise CobaException(
                         f"Something went wrong. No prediction was returned when using batch fallback methods "
                         f"on the args: {args}. See the exception above for the reason why fallback methods "
