@@ -186,11 +186,11 @@ class OffPolicyEvaluator(Evaluator):
             raise CobaException("Interactions need to have 'rewards' defined for OPE. This can be done using `Environments.ope_rewards`.")
 
         try:
-            learner.request(first['context'],first['actions'],first['actions'])
+            learner.score(first['context'],first['actions'])
         except Exception as ex:
-            implements_request = '`request`' not in str(ex)
+            implements_score = '`score`' not in str(ex)
         else:
-            implements_request = True
+            implements_score = True
 
         record_time     = 'time'        in self._record
         record_reward   = 'reward'      in self._record and self._predict and 'actions' in first
@@ -201,7 +201,7 @@ class OffPolicyEvaluator(Evaluator):
         record_actions  = 'actions'     in self._record
         record_rewards  = 'rewards'     in self._record and discrete
 
-        request = learner.request
+        score   = learner.score
         predict = learner.predict
         learn   = learner.learn
         info    = CobaContext.learning_info
@@ -228,10 +228,10 @@ class OffPolicyEvaluator(Evaluator):
                 learn_time   = 0
 
             if self._predict and log_actions is not None and log_rewards is not None:
-                if implements_request:
+                if implements_score:
                     if discrete:
                         start_time   = time.time()
-                        on_probs     = request(log_context,log_actions,log_actions)
+                        on_probs     = score(log_context,log_actions)
                         predict_time = time.time()-start_time
                         if not batched:
                             ope_reward = sum(p*float(log_rewards(a)) for p,a in zip(on_probs,log_actions))
@@ -240,12 +240,9 @@ class OffPolicyEvaluator(Evaluator):
                             ope_reward = [ sum(p*float(R(a)) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
                             on_action, on_prob = zip(*[sample_actions(actions, probs) for actions, probs in zip(log_actions, on_probs)])
                     else:
-                        if not batched:
-                            on_score = request(log_context,log_actions,[log_action])
-                        else:
-                            on_score = request(log_context,log_actions,log_action)
+                        on_score = score(log_context,log_actions,log_action)
 
-                        start_time   = time.time()                        
+                        start_time   = time.time()
                         on_action, on_prob = predict(log_context, log_actions)[:2]
                         predict_time = time.time()-start_time
 
@@ -349,10 +346,10 @@ class ExplorationEvaluator(Evaluator):
             raise CobaException("ExplorationEvaluator does not currently support batching")
 
         try:
-            learner.request(first['context'],first['actions'],first['actions'])
+            learner.score(first['context'],first['actions'])
         except Exception as ex:
-            if '`request`' in str(ex):
-                raise CobaException("ExplorationEvaluator requires Learners to implement a `request` method")
+            if '`score`' in str(ex):
+                raise CobaException("ExplorationEvaluator requires Learners to implement a `score` method")
 
         if self._ope and 'rewards' not in first:
             raise CobaException((
@@ -371,9 +368,9 @@ class ExplorationEvaluator(Evaluator):
         record_ope_loss = 'ope_loss'    in self._record
         record_rewards  = 'rewards'     in self._record
 
-        request = learner.request
-        learn   = learner.learn
-        info    = CobaContext.learning_info
+        score = learner.score
+        learn = learner.learn
+        info  = CobaContext.learning_info
 
         info.clear()
 
@@ -399,7 +396,7 @@ class ExplorationEvaluator(Evaluator):
             log_action_index = log_actions.index(log_action)
 
             start_time = time.time()
-            on_probs = request(log_context,log_actions,log_actions)
+            on_probs = score(log_context,log_actions)
             on_prob = on_probs[log_action_index]
             predict_time = time.time()-start_time
 

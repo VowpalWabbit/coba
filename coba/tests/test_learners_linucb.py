@@ -15,16 +15,14 @@ class LinUCBLearner_Tests(unittest.TestCase):
     def test_matrix_vector_sizes(self):
         learner = LinUCBLearner()
         probs   = learner.predict([1,2,3], [1,1,1])
-
         self.assertEqual(probs, [1/3,1/3,1/3])
         self.assertEqual(learner._theta.shape, (5,))
         self.assertEqual(learner._A_inv.shape, (5,5))
 
-    def test_request(self):
+    def test_score(self):
         learner = LinUCBLearner()
-        probs   = learner.request(None, [1,1,1], [1,1,1])
+        probs   = learner.score(None, [1,1,1])
         learner.learn(None, 1, 1, .5)
-
         self.assertEqual(probs, [1/3,1/3,1/3])
         self.assertEqual(learner._theta.shape, (2,))
         self.assertEqual(learner._A_inv.shape, (2,2))
@@ -42,7 +40,6 @@ class LinUCBLearner_Tests(unittest.TestCase):
         learner = LinUCBLearner(alpha=0.2)
         probs   = learner.predict([1,2,3], [1,2,3])
         self.assertEqual(probs, [0,0,1])
-
         learner = LinUCBLearner(alpha=0)
         probs   = learner.predict([1,2,3], [1,2,3])
         self.assertEqual(probs, [1/3,1/3,1/3])
@@ -57,7 +54,6 @@ class LinUCBLearner_Tests(unittest.TestCase):
 
         self.assertEqual(learner._theta.shape, (3,))
         self.assertEqual(learner._A_inv.shape, (3,3))
-
         self.assertAlmostEqual(learner._theta[0], 1/4, places=1)
         self.assertAlmostEqual(learner._theta[1], 4/4, places=1)
         self.assertAlmostEqual(learner._theta[2], 3/4, places=1)

@@ -1,11 +1,11 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Mapping, Sequence, Optional, Hashable
+from typing import Any, Mapping, Optional, Hashable, Union
 
 from coba.primitives import Context, Action, Actions
 from coba.statistics import OnlineVariance
-from coba.learners.primitives import Learner, PMF, PMF, Prob, requires_hashables
+from coba.learners.primitives import Learner, PMF, Prob, requires_hashables
 
 @requires_hashables
 class EpsilonBanditLearner(Learner):
@@ -27,15 +27,9 @@ class EpsilonBanditLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family": "epsilon_bandit", "epsilon": self._epsilon }
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        values    = [ self._Q[action] for action in actions ]
-        max_value = None if set(values) == {None} else max(v for v in values if v is not None)
-        max_count = sum(v==max_value for v in values)
-
-        prob_selected_randomly = 1/len(actions) * self._epsilon
-        prob_selected_greedily = 1/max_count * (1-self._epsilon)
-
-        return [ prob_selected_randomly + int(self._Q[action]==max_value)*prob_selected_greedily for action in request ]
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
+        probs = self.predict(context,actions)
+        return probs[actions.index(action)] if action else probs
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         values      = [ self._Q[action] for action in actions ]
@@ -48,7 +42,6 @@ class EpsilonBanditLearner(Learner):
         return [p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
 
     def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
-
         alpha = 1/(self._N[action]+1)
         old_Q = self._Q[action] or 0.0
 
@@ -79,20 +72,11 @@ class UcbBanditLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return { "family": "UCB_bandit" }
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        never_observed_actions = set(actions) - self._m.keys()
-
-        if never_observed_actions:
-            max_actions = never_observed_actions
-        else:
-            values      = [ self._m[a] + self._Avg_R_UCB(a) for a in actions ]
-            max_value   = max(values)
-            max_actions = [ a for a,v in zip(actions,values) if v==max_value ]
-
-        return [int(action in max_actions)/len(max_actions) for action in request]
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
+        probs = self.predict(context,actions)
+        return probs[actions.index(action)] if action else probs
 
     def predict(self, context: Context, actions: Actions) -> PMF:
-
         never_observed_actions = set(actions) - self._m.keys()
 
         if never_observed_actions:
@@ -105,7 +89,6 @@ class UcbBanditLearner(Learner):
         return [int(action in max_actions)/len(max_actions) for action in actions]
 
     def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
-
         self._t += 1
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
@@ -170,9 +153,8 @@ class FixedLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family":"fixed"}
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        probs = self._pmf
-        return [ probs[actions.index(a)] for a in request ]
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
+        return self._pmf[actions.index(action)] if action else self._pmf
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         return self._pmf
@@ -191,8 +173,8 @@ class RandomLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family":"random"}
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        return [1/len(actions)]*len(request)
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
+        return 1/len(actions) if action else [1/len(actions)]*len(actions)
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         return [1/len(actions)]*len(actions)

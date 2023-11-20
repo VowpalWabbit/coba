@@ -2,7 +2,7 @@ from coba.learners.primitives import Learner
 
 class MisguidedLearner(Learner):
     """A contextual bandit learner that is given incorrect reward information. It is
-    useful when generating logged data that is difficult in off-policy experiments.
+    useful when generating difficult logged data in off-policy experiments.
     """
     def __init__(self, learner: Learner, shifter:float, scaler:float) -> None:
         self._learner = learner
@@ -13,8 +13,8 @@ class MisguidedLearner(Learner):
     def params(self):
         return {**self._learner.params, 'misguided': [self._shifter,self._scaler]}
 
-    def request(self, context, actions, request):
-        return self._learner.request(context, actions, request)
+    def score(self, context, actions, action = None):
+        return self._learner.score(context, actions, action)
 
     def predict(self, context, actions):
         return self._learner.predict(context, actions)

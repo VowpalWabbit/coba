@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Union
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
@@ -55,9 +55,9 @@ class LinUCBLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
         probs = self.predict(context,actions)
-        return [ probs[actions.index(a)] for a in request ]
+        return probs[actions.index(action)] if action else probs
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         import numpy as np

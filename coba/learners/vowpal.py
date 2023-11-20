@@ -4,9 +4,10 @@ from sys import platform
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple, Literal
 
 from coba.exceptions import CobaException
-from coba.learners.primitives import Learner, PMF, Prob
 from coba.primitives import Sparse, Context, Action, Actions, is_batch
 from coba.utilities import PackageChecker
+
+from coba.learners.primitives import Learner, PMF, Prob, kwargs
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
@@ -283,12 +284,11 @@ class VowpalLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Sequence[Prob]:
         probs = self.predict(context,actions)[0]
-        return probs if actions == request else list(map(probs.__getitem__,map(actions.index,request)))
+        return probs[actions.index(action)] if action else probs
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> PMF:
-
+    def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:
         if not self._vw.is_initialized and is_batch(context):#pragma: no cover
             raise CobaException("VW learner does not support batched calls.")
 
@@ -339,7 +339,6 @@ class VowpalLearner(Learner):
         return probs, {'actions':actions}
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, actions: Actions = None) -> None:
-
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
 

@@ -1,12 +1,12 @@
 from collections import abc
 from math import isclose
-from typing import Any, Sequence, Tuple, Mapping, Literal
+from typing import Any, Tuple, Mapping, Literal, Union
 
 from coba.utilities import sample_actions
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.primitives import is_batch, Context, Action, Actions
-from coba.learners.primitives import Learner, Actions, Prob, kwargs, Prediction
+from coba.learners.primitives import Learner, Actions, Prob, PMF, kwargs, Prediction
 
 def first_row(pred: Prediction, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Prediction]:
     if batch_order == 'col':
@@ -230,12 +230,13 @@ class SafeLearner(Learner):
                     del self._method[key]
                     raise inner_e from outer_e
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
         try:
-            return self._safe_call('request', self.learner.request,(context,actions,request))
+            if action is None and is_batch(context): action = [None]*len(context)
+            return self._safe_call('score', self.learner.score,(context,actions,action))
         except AttributeError as ex:
-            if "'request'" in str(ex):
-                raise CobaException(("The `request` method is not implemented for this learner."))
+            if "'score'" in str(ex):
+                raise CobaException(("The `score` method is not implemented for this learner."))
             raise
 
     def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:

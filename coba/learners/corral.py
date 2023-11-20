@@ -1,6 +1,6 @@
 import math
 
-from typing import Any, Sequence, Optional, Mapping, Tuple, Literal
+from typing import Any, Sequence, Optional, Mapping, Tuple, Literal, Union
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
@@ -67,12 +67,11 @@ class CorralLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
         probs = self.predict(context,actions)[0]
-        return [ probs[actions.index(a)] for a in request ]
+        return probs[actions.index(action)] if action else probs
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:
-
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
         base_actions, base_probs, base_infos = zip(*base_predicts)
 
@@ -82,7 +81,6 @@ class CorralLearner(Learner):
         return pmf, {'info':info}
 
     def learn(self, context: Context, action: Action, reward: float, probability:float, info) -> None:
-
         assert  0 <= reward and reward <= 1, "This Corral implementation assumes a loss between 0 and 1"
 
         actions      = info[0]

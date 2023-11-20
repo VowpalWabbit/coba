@@ -11,14 +11,14 @@ class Learner_Tests(unittest.TestCase):
 
         self.assertEqual(MyLearner().params,{})
 
-    def test_request_not_implemented(self):
+    def test_score_not_implemented(self):
         class MyLearner(Learner):
             pass
 
         with self.assertRaises(CobaException) as ex:
-            MyLearner().request(None,[],[])
+            MyLearner().score(None,[],[])
 
-        self.assertIn("`request`", str(ex.exception))
+        self.assertIn("`score`", str(ex.exception))
 
     def test_predict_not_implemented(self):
         class MyLearner(Learner):

@@ -742,47 +742,53 @@ class SafeLearner_Tests(unittest.TestCase):
         self.assertEqual(calls[0],(1,3,1,.1,8))
         self.assertEqual(calls[1],(2,5,0,.9,9))
 
-    def test_request(self):
+    def test_score(self):
         class MyLearner:
-            def request(self,context,actions,request):
-                if context is None and actions == [1,2] and request == 2:
+            def score(self,context,actions,action):
+                if context is None and actions == [1,2] and action == 2:
                     return 1
 
-        self.assertEqual(SafeLearner(MyLearner()).request(None,[1,2],2), 1)
+        self.assertEqual(SafeLearner(MyLearner()).score(None,[1,2],2), 1)
 
-    def test_request_batch(self):
+    def test_score_batch(self):
         calls = []
         class TestLearner:
-            def request(self, context, actions, request):
-                if is_batch(context):
-                    raise Exception()
-                calls.append((context, actions, request))
+            def score(self, context, actions, action):
+                if is_batch(context): raise Exception()
+                calls.append((context, actions, action))
+                return .1 if action == 3 else .5 if action == 5 else None
 
         context = Batch([1,2])
         actions = Batch([[3,4],[5,6]])
-        request = Batch([[3,4],[5,6]])
+        action  = Batch([3,5])
 
-        SafeLearner(TestLearner()).request(context,actions,request)
+        calls.clear()
+        out = SafeLearner(TestLearner()).score(context,actions,action)
+        self.assertEqual(calls[0],(1,[3,4],3))
+        self.assertEqual(calls[1],(2,[5,6],5))
+        self.assertEqual(out,[.1,.5])
 
-        self.assertEqual(calls[0],(1,[3,4],[3,4]))
-        self.assertEqual(calls[1],(2,[5,6],[5,6]))
+        calls.clear()
+        out = SafeLearner(TestLearner()).score(context,actions)
+        self.assertEqual(calls[0],(1,[3,4],None))
+        self.assertEqual(calls[1],(2,[5,6],None))
 
-    def test_request_not_implemented(self):
+    def test_score_not_implemented(self):
         class MyLearner:
             pass
 
         with self.assertRaises(CobaException) as ex:
-            SafeLearner(MyLearner()).request(None,[],[])
+            SafeLearner(MyLearner()).score(None,[],[])
 
-        self.assertIn("`request`", str(ex.exception))
+        self.assertIn("`score`", str(ex.exception))
 
-    def test_request_exception(self):
+    def test_score_exception(self):
         class MyLearner:
-            def request(self,context,actions,request):
+            def score(self,context,actions,action):
                 raise AttributeError("TEST")
 
         with self.assertRaises(AttributeError) as ex:
-            SafeLearner(MyLearner()).request(None,[],[])
+            SafeLearner(MyLearner()).score(None,[],[])
 
         self.assertIn("TEST", str(ex.exception))
 

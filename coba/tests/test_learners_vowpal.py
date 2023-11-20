@@ -298,7 +298,6 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_init_learner_cb_adf(self):
         l = VowpalLearner("--cb_adf",VowpalMediatorMocked([1,2,3]))
         l.predict(None, [1,2,3])
-
         self.assertEqual(("--cb_adf", 4), l._vw._init_learner_calls[0])
 
     def test_init_learner_cb_explore_action_infer(self):
@@ -314,76 +313,57 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_predict_cb_explore_adf(self):
         vw = VowpalMediatorMocked([.25, .75])
         p  = VowpalLearner("--cb_explore_adf",vw).predict(None, ['yes','no'])
-
         self.assertEqual(2, len(vw._predict_calls[0]))
-
         self.assertEqual({'x':None }, vw._predict_calls[0][0].ns[0])
         self.assertEqual({'a':'yes'}, vw._predict_calls[0][0].ns[1])
         self.assertEqual(None       , vw._predict_calls[0][0].label)
-
         self.assertEqual({'x':None }, vw._predict_calls[0][1].ns[0])
         self.assertEqual({'a':'no'} , vw._predict_calls[0][1].ns[1])
         self.assertEqual(None       , vw._predict_calls[0][1].label)
-
         self.assertEqual(([.25, .75],{'actions':['yes','no']}), p)
 
     def test_predict_cb_adf(self):
         vw = VowpalMediatorMocked([.25, .75])
         p  = VowpalLearner("--cb_adf",vw).predict(None, ['yes','no'])
-
         self.assertEqual(2, len(vw._predict_calls[0]))
-
         self.assertEqual({'x':None }, vw._predict_calls[0][0].ns[0])
         self.assertEqual({'a':'yes'}, vw._predict_calls[0][0].ns[1])
         self.assertEqual(None       , vw._predict_calls[0][0].label)
-
         self.assertEqual({'x':None }, vw._predict_calls[0][1].ns[0])
         self.assertEqual({'a':'no'} , vw._predict_calls[0][1].ns[1])
         self.assertEqual(None       , vw._predict_calls[0][1].label)
-
         self.assertEqual(([1,0],{'actions':['yes','no']}), p)
 
-    def test_request_cb_explore(self):
+    def test_score_cb_explore(self):
         vw = VowpalMediatorMocked([0.25, 0.75])
-        p = VowpalLearner("--cb_explore 2", vw).request(None, ['yes','no'], ['yes','no'])
-
+        p = VowpalLearner("--cb_explore 2", vw).score(None, ['yes','no'])
         self.assertIsInstance(vw._predict_calls[0], VowpalEaxmpleMock)
-
         self.assertEqual({'x':None }, vw._predict_calls[0].ns)
         self.assertEqual(None       , vw._predict_calls[0].label)
-
         self.assertEqual([.25, .75], p)
 
     def test_predict_cb_explore(self):
         vw = VowpalMediatorMocked([0.25, 0.75])
         p = VowpalLearner("--cb_explore 2", vw).predict(None, ['yes','no'])
-
         self.assertIsInstance(vw._predict_calls[0], VowpalEaxmpleMock)
-
         self.assertEqual({'x':None }, vw._predict_calls[0].ns)
         self.assertEqual(None       , vw._predict_calls[0].label)
-
         self.assertEqual(([.25, .75],{'actions':['yes','no']}), p)
 
     def test_predict_cb(self):
         vw = VowpalMediatorMocked(2)
         p = VowpalLearner("--cb 2", vw).predict(None, ['yes','no'])
-
         self.assertEqual(([0,1],{'actions':['yes','no']}), p)
 
     def test_learn_cb_adf(self):
         vw = VowpalMediatorMocked()
         learner = VowpalLearner("--cb_explore_adf",vw)
-
         learner.predict(None, ['yes','no'])
         learner.learn(None,'yes', 1, 0.2,['yes','no'])
-
         self.assertEqual(2, len(vw._learn_calls[0]))
-
         self.assertEqual({'x':None }, vw._learn_calls[0][0].ns[0])
         self.assertEqual({'a':'yes'}, vw._learn_calls[0][0].ns[1])
         self.assertEqual("1:-1:0.2" , vw._learn_calls[0][0].label)
-
         self.assertEqual({'x':None }, vw._learn_calls[0][1].ns[0])
         self.assertEqual({'a':'no'} , vw._learn_calls[0][1].ns[1])
         self.assertEqual(None       , vw._learn_calls[0][1].label)
@@ -391,12 +371,9 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_learn_cb(self):
         vw = VowpalMediatorMocked()
         learner = VowpalLearner("--cb_explore", vw)
-
         learner.predict(None, ['yes','no'])
         learner.learn(None, 'no', .5, 0.2, ['yes','no'])
-
         self.assertIsInstance(vw._learn_calls[0], VowpalEaxmpleMock)
-
         self.assertEqual({'x':None}, vw._learn_calls[0].ns)
         self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
 

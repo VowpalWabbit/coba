@@ -30,23 +30,23 @@ class Learner:
         """
         return {}
 
-    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
-        """Request the probabilities for specific actions in the given context
+    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
+        """Propensity score a given action (or all actions if action is None) in the context.
 
         Args:
             context: The current context. It will either be None (multi-armed bandit),
-                a value (a single feature) a hashable tuple (dense context), or a
-                hashable dictionary (sparse context).
+                a value (a single feature), a sequence of values (dense features), or a
+                dictionary (sparse features).
             actions: The current set of actions that can be chosen in the given context.
-                Each action will either be a value (a single feature), a hashable tuple
-                (dense context), or a hashable dictionary (sparse context).
-            request: The requested  action probabilities (or densities if actions is continuous).
+                Each action will either be a value (a single feature), a sequence of values
+                (dense features), or a dictionary (sparse features).
+            action: The action to propensity score. If None all actions are scored.
 
         Returns:
-            The requested action probabilities (or densities if actions is continuous).
+            The action propensity score (or scores if action is None).
         """
         raise CobaException((
-            "The `request` interface has not been implemented for this learner."
+            "The `score` interface has not been implemented for this learner."
         ))
 
     def predict(self, context: Context, actions: Actions) -> Prediction:
@@ -54,11 +54,11 @@ class Learner:
 
         Args:
             context: The current context. It will either be None (multi-armed bandit),
-                a value (a single feature) a hashable tuple (dense context), or a
-                hashable dictionary (sparse context).
+                a value (a single feature), a sequence of values (dense features), or a
+                dictionary (sparse features).
             actions: The current set of actions to choose from in the given context.
-                Each action will either be a value (a single feature), a hashable tuple
-                (dense context), or a hashable dictionary (sparse context).
+                Each action will either be a value (a single feature), a sequence of values
+                (dense features), or a dictionary (sparse features).
 
         Returns:
             A Prediction. Several prediction formats are supported. See the type-hint for these.

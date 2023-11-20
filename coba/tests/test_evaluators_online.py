@@ -620,7 +620,7 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
         task_results = list(task.evaluate(SimpleEnvironment(OpeRewards("IPS").filter(interactions)),RecordingLearner()))
         self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
 
-    def test_batched_no_request(self):
+    def test_batched_no_score(self):
         task                 = OffPolicyEvaluator()
         learner              = BatchFixedLearner()
         interactions         = [
@@ -635,10 +635,11 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
         self.assertEqual(1,task_results[0]['reward'])
         self.assertEqual(0,task_results[1]['reward'])
 
-    def test_batched_request_discrete(self):
+    def test_batched_score_discrete(self):
 
         class TestLearner:
-            def request(self, context, actions, request):
+            def score(self, context, actions, action):
+                assert action == [None,None]
                 return [[1,0,0],[0,0,1]]
 
         task                 = OffPolicyEvaluator(learn=False)
@@ -655,9 +656,9 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
         self.assertEqual(1,task_results[0]['reward'])
         self.assertEqual(0,task_results[1]['reward'])
 
-    def test_batched_request_continuous(self):
+    def test_batched_score_continuous(self):
         class TestLearner:
-            def request(self,context,actions,request):
+            def score(self,context,actions,action):
                 if is_batch(context):
                     raise Exception()
                 return 0.5
@@ -677,9 +678,9 @@ class OffPolicyEvaluator_Tests(unittest.TestCase):
         self.assertEqual(1.5,task_results[0]['reward'])
         self.assertEqual(2.0,task_results[1]['reward'])
 
-    def test_with_request_continuous(self):
+    def test_with_score_continuous(self):
         class MyLearner:
-            def request(self,context,actions,request):
+            def score(self,context,actions,action):
                 return .5
             def predict(self, context, actions):
                 return {'action_prob':(2, 0.5)}
@@ -728,7 +729,7 @@ class ExploreEvaluator_Tests(unittest.TestCase):
 
         self.assertIn("ExplorationEvaluator does not currently support batching",str(r.exception))
 
-    def test_no_request_learner(self):
+    def test_no_score_learner(self):
         task         = ExplorationEvaluator()
         learner      = RecordingLearner(with_info=False,with_log=False)
         interactions = [LoggedInteraction(1, 2, 3, probability=1, actions=[1,2])]
@@ -736,37 +737,37 @@ class ExploreEvaluator_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as r:
             task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))
 
-        self.assertIn("ExplorationEvaluator requires Learners to implement a `request` method",str(r.exception))
+        self.assertIn("ExplorationEvaluator requires Learners to implement a `score` method",str(r.exception))
 
     def test_probability_one(self):
-        class FixedRequestLearner:
-            def request(self,*args):
+        class FixedScoreLearner:
+            def score(self,*args):
                 return [1,0,0]
             def learn(self,*args):
                 pass
         task         = ExplorationEvaluator()
-        learner      = FixedRequestLearner()
+        learner      = FixedScoreLearner()
         interactions = [LoggedInteraction(1, 2, 3, probability=1, actions=[1,2,3])]
 
         task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))
 
     def test_ope(self):
 
-        request_returns = [
+        score_returns = [
             [.25,.25,.5],
             [.05,.25,.7],
             [.25,.25,.5],
             [.05,.25,.7],
         ]
 
-        class FixedRequestLearner:
-            def request(self,*args):
-                return request_returns.pop(0)
+        class FixedScoreLearner:
+            def score(self,*args):
+                return score_returns.pop(0)
             def learn(self,*args):
                 pass
 
         task    = ExplorationEvaluator(qpct=1,record=['reward'],cinit=1,seed=2)
-        learner = FixedRequestLearner()
+        learner = FixedScoreLearner()
 
         interactions = [ LoggedInteraction(1, 2, 5, actions=[2,5,8], probability=.25) ] * 3
         task_results = list(task.evaluate(SimpleEnvironment(OpeRewards("IPS").filter(interactions)), learner))
@@ -775,35 +776,35 @@ class ExploreEvaluator_Tests(unittest.TestCase):
 
     def test_ope_false(self):
 
-        request_calls = []
+        score_calls = []
         learn_calls   = []
 
-        class FixedRequestLearner:
-            def request(self,*args):
-                request_calls.append(args)
+        class FixedScoreLearner:
+            def score(self,*args):
+                score_calls.append(args)
                 return [.25,.25,.5]
             def learn(self,*args):
                 learn_calls.append(args)
                 pass
 
         task    = ExplorationEvaluator(ope=False,qpct=1,cinit=1)
-        learner = FixedRequestLearner()
+        learner = FixedScoreLearner()
 
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ] * 6
         task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))
 
-        expected_request_call    = [(1,[2,5,8],[2,5,8])] * 7
-        expected_learn_calls     = [(1,2,3,.25)] * 6
-        expected_task_results    = [{'reward': 3.0}] * 6
+        expected_score_call   = [(1,[2,5,8],None)] * 7
+        expected_learn_calls  = [(1,2,3,.25)] * 6
+        expected_task_results = [{'reward': 3.0}] * 6
 
-        self.assertEqual(expected_request_call, request_calls)
+        self.assertEqual(expected_score_call, score_calls)
         self.assertEqual(expected_learn_calls, learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
     def test_ope_no_rewards(self):
 
         class TestLearner:
-            def request(self,*args):
+            def score(self,*args):
                 pass
             def learn(self,*args):
                 pass
@@ -817,14 +818,14 @@ class ExploreEvaluator_Tests(unittest.TestCase):
 
     def test_record_time(self):
 
-        class FixedRequestLearner:
-            def request(self,*args):
+        class FixedScoreLearner:
+            def score(self,*args):
                 return [.25,.25,.5]
             def learn(self,*args):
                 pass
 
         task    = ExplorationEvaluator(ope=False,cinit=1,qpct=1,record=['reward','time'])
-        learner = FixedRequestLearner()
+        learner = FixedScoreLearner()
 
         interactions = [ LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.25) ]
         task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))

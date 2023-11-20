@@ -9,51 +9,45 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         learner = EpsilonBanditLearner(epsilon=0.5)
         self.assertEqual({"family":"epsilon_bandit", "epsilon":0.5}, learner.params)
 
-    def test_request_no_learn(self):
+    def test_score_no_learn(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
-
-        self.assertEqual([.25,.25],learner.request(None, [1,2,3,4],[1,2]))
+        self.assertEqual([.25,.25,.25,.25],learner.score(None, [1,2,3,4]))
 
     def test_predict_no_learn(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
-
         self.assertEqual([.25,.25,.25,.25],learner.predict(None, [1,2,3,4]))
         self.assertEqual([.25,.25,.25,.25],learner.predict(None, [1,2,3,4]))
 
     def test_predict_lots_of_actions(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
-
         self.assertTrue(math.isclose(1, sum(learner.predict(None, list(range(993)))), abs_tol=.001))
 
     def test_learn_predict_no_epsilon(self):
         learner = EpsilonBanditLearner(epsilon=0)
-
         learner.learn(None, 2, 1, None)
         learner.learn(None, 1, 2, None)
         learner.learn(None, 3, 3, None)
-
         self.assertEqual([0,0,1],learner.predict(None, [1,2,3]))
 
     def test_learn_predict_epsilon(self):
         learner = EpsilonBanditLearner(epsilon=0.1)
-
         learner.learn(None, 2, 1, None)
         learner.learn(None, 1, 2, None)
         learner.learn(None, 2, 1, None)
-
+        
         preds = learner.predict(None, [1,2])
-
+        
         self.assertAlmostEqual(.95,preds[0])
         self.assertAlmostEqual(.05,preds[1])
 
-    def test_learn_request_epsilon(self):
+    def test_learn_score_epsilon(self):
         learner = EpsilonBanditLearner(epsilon=0.1)
 
         learner.learn(None, 2, 1, None)
         learner.learn(None, 1, 2, None)
         learner.learn(None, 2, 1, None)
 
-        preds = learner.request(None, [1,2],[1,2])
+        preds = learner.score(None, [1,2])
 
         self.assertAlmostEqual(.95,preds[0])
         self.assertAlmostEqual(.05,preds[1])
@@ -102,22 +96,22 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         #the last time all actions have the same value so we pick randomly
         self.assertEqual([1/3, 1/3, 1/3],learner.predict(None, actions))
 
-    def test_request_all_actions_first(self):
+    def test_score_all_actions_first(self):
 
         learner = UcbBanditLearner()
         actions = [1,2,3]
 
-        self.assertEqual([1/3, 1/3, 1/3],learner.request(None, actions, actions))
+        self.assertEqual([1/3, 1/3, 1/3],learner.score(None, actions))
         learner.learn(None, 1, 0, 0)
 
-        self.assertEqual([0,1/2,1/2],learner.request(None, actions, actions))
+        self.assertEqual([0,1/2,1/2],learner.score(None, actions))
         learner.learn(None, 2, 0, 0)
 
-        self.assertEqual([0,  0,  1],learner.request(None, actions, actions))
+        self.assertEqual([0,  0,  1],learner.score(None, actions))
         learner.learn(None, 3, 0, 0)
 
         #the last time all actions have the same value so we pick randomly
-        self.assertEqual([1/3, 1/3, 1/3],learner.request(None, actions, actions))
+        self.assertEqual([1/3, 1/3, 1/3],learner.score(None, actions))
 
     def test_learn_predict_best1(self):
         learner = UcbBanditLearner()
@@ -156,7 +150,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
 
         self.assertEqual([0, 0, 0, 1], learner.predict(None, actions))
 
-    def test_learn_requeset_best2(self):
+    def test_learn_score_best2(self):
         learner = UcbBanditLearner()
         actions = [1,2,3,4]
 
@@ -165,8 +159,8 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, 3, 0, None)
         learner.learn(None, 4, 1, None)
 
-        self.assertEqual([0, 0, 0, 1], learner.request(None, actions,actions))
-        self.assertEqual([      0, 1], learner.request(None, actions,[3,4]))
+        self.assertEqual([0, 0, 0, 1], learner.score(None, actions  ))
+        self.assertEqual(          1 , learner.score(None, actions,4))
 
 class FixedLearner_Tests(unittest.TestCase):
 
@@ -180,10 +174,10 @@ class FixedLearner_Tests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             FixedLearner([-1, 2])
 
-    def test_request(self):
+    def test_score(self):
         learner = FixedLearner([1/3,1/6,3/6])
-        self.assertEqual([1/3,1/6,3/6], learner.request(None, [1,2,3],[1,2,3]))
-        self.assertEqual([    1/6,3/6], learner.request(None, [1,2,3],[  2,3]))
+        self.assertEqual([1/3,1/6,3/6], learner.score(None, [1,2,3]  ))
+        self.assertEqual(         3/6 , learner.score(None, [1,2,3],3))
 
     def test_predict(self):
         learner = FixedLearner([1/3,1/3,1/3])
@@ -197,10 +191,10 @@ class RandomLearner_Tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({"family":"random"}, RandomLearner().params)
 
-    def test_request(self):
+    def test_score(self):
         learner = RandomLearner()
-        self.assertEqual([1/3,1/3,1/3], learner.request(None, [1,2,3],[1,2,3]))
-        self.assertEqual([        1/2], learner.request(None, [1,2  ],[  2  ]))
+        self.assertEqual([1/3,1/3,1/3], learner.score(None, [1,2,3]))
+        self.assertEqual(1/2          , learner.score(None, [1,2  ], 2))
 
     def test_predict(self):
         learner = RandomLearner()
