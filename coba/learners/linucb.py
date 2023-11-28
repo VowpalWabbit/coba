@@ -55,9 +55,8 @@ class LinUCBLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
 
-    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
-        probs = self.predict(context,actions)
-        return probs[actions.index(action)] if action else probs
+    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
+        return self.predict(context,actions)[actions.index(action)]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         import numpy as np

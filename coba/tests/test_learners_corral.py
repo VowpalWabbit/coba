@@ -28,7 +28,7 @@ class CorralLearner_Tests(unittest.TestCase):
 
     def test_importance_score(self):
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="importance")
-        mean_score = list(map(mean, zip(*[learner.score(None,[1,2]) for _ in range(10000)])) )
+        mean_score = list(map(mean, zip(*[ [learner.score(None,[1,2],1),learner.score(None,[1,2],2)] for _ in range(20000)])) )
         self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_score[0], 2)
         self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_score[1], 2)
 
@@ -52,7 +52,7 @@ class CorralLearner_Tests(unittest.TestCase):
 
     def test_off_policy_score(self):
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="off-policy")
-        mean_score = list(map(mean, zip(*[learner.score(None, [1,2]) for _ in range(10000)])) )
+        mean_score = list(map(mean, zip(*[ [learner.score(None,[1,2],1),learner.score(None,[1,2],2)] for _ in range(20000)])) )
         self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_score[0], 2)
         self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_score[1], 2)
 

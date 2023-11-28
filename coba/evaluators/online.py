@@ -1,9 +1,10 @@
 import time
 import warnings
 
-from operator import __mul__
+from operator import mul
 from statistics import mean
 from bisect import insort
+
 from typing import Any, Iterable, Sequence, Mapping, Optional, Literal
 
 from coba.exceptions import CobaException
@@ -11,152 +12,26 @@ from coba.random import CobaRandom
 from coba.context import CobaContext
 from coba.environments import Environment
 from coba.learners import Learner, SafeLearner
-from coba.primitives import is_batch, argmax
+from coba.primitives import is_batch
 from coba.statistics import percentile
-from coba.utilities import PackageChecker, peek_first, sample_actions
+from coba.utilities import PackageChecker, peek_first
 
 from coba.evaluators.primitives import Evaluator, get_ope_loss
 
-class OnPolicyEvaluator(Evaluator):
+class SequentialCB(Evaluator):
 
-    IMPLICIT_EXCLUDE = {"actions", "rewards", "action", "reward", "probability"}
-    ONLY_DISCRETE    = {'rank', 'rewards'}
+    ONLY_DISCRETE    = {'rewards'}
+    IMPLICIT_EXCLUDE = {"context", "actions", "rewards", "action", "reward", "probability", "eval_rewards", "learn_rewards"}
 
     def __init__(self,
-        record: Sequence[Literal['reward','rank','regret','time','probability','action','context','actions','rewards']] = ['reward'],
-        learn: bool = True,
-        seed: float = None) -> None:
-        """
-        Args:
-            record: The datapoints to record for each interaction.
-            learn: Indicates if learning should occur during the evaluation process.
-            seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
-        """
-
+        record: Sequence[Literal['reward','time','prob','action','context','actions','rewards','ope_loss']] = ['reward'],
+        learn : Optional[Literal['on','off','ips','dr','dm']] = 'on',
+        eval  : Optional[Literal['on','ips','dr','dm']] ='on',
+        seed  : float = None) -> None:
         self._record = [record] if isinstance(record,str) else record
-        self._learn  = learn
+        self._learn  = learn or ''
+        self._eval   = eval or ''
         self._seed   = seed
-
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
-
-        interactions = environment.read()
-        learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
-
-        first, interactions = peek_first(interactions)
-
-        if not interactions: return []
-
-        for key in ['rewards','context','actions']:
-            if key not in first:
-                raise CobaException(f"OnPolicyEvaluator requires every interaction to have '{key}'")
-
-        batched  = first and (is_batch(first.get('context')) or is_batch(first.get('actions')))
-
-        for key in ['rewards','actions']:
-            if (first[key][0] if batched else first[key]) is None:
-                raise CobaException(f"OnPolicyEvaluator requires every interaction to have a not None '{key}'")
-
-        discrete = len(first['actions'][0] if batched else first['actions']) > 0
-        if not discrete:
-            for metric in set(self._record).intersection(OnPolicyEvaluator.ONLY_DISCRETE):
-                warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
-
-        record_prob     = 'probability' in self._record
-        record_time     = 'time'        in self._record
-        record_action   = 'action'      in self._record
-        record_context  = 'context'     in self._record
-        record_actions  = 'actions'     in self._record
-        record_rewards  = 'rewards'     in self._record and discrete
-        record_rank     = 'rank'        in self._record and discrete
-        record_reward   = 'reward'      in self._record
-        record_regret   = 'regret'      in self._record
-        record_ope_loss = 'ope_loss'    in self._record
-
-        get_float  = lambda value                   : value if value is None else float(value)
-        get_reward = lambda reward                  : float(reward)
-        get_regret = lambda reward, rewards, actions: float(rewards(argmax(actions,rewards))-reward)
-        get_rank   = lambda reward, rewards, actions: sorted(map(rewards,actions)).index(reward)/(len(actions)-1)
-
-        get_reward_list  = lambda rewards,actions: list(map(rewards,actions))
-
-        predict = learner.predict
-        learn   = learner.learn
-        info    = CobaContext.learning_info
-
-        info.clear()
-
-        for interaction in interactions:
-
-            out = {}
-            interaction = interaction.copy()
-
-            context   = interaction.pop('context')
-            actions   = interaction.pop('actions')
-            rewards   = interaction.pop('rewards')
-            feedbacks = interaction.pop('feedbacks',None)
-
-            batched  = is_batch(context) or is_batch(actions)
-            discrete = len(actions[0] if batched else actions) > 0
-
-            if record_context: out['context'] = context
-            if record_actions: out['actions'] = actions
-            if record_rewards: out['rewards'] = list(map(get_reward_list,rewards,actions)) if batched else get_reward_list(rewards,actions)
-
-            start_time         = time.time()
-            action,prob,kwargs = predict(context, actions)
-            predict_time       = time.time()-start_time
-
-            reward   = rewards(action)
-            feedback = feedbacks(action) if feedbacks else None
-
-            start_time = time.time()
-            if self._learn: learn(context, action, feedback if feedbacks else reward, prob, **kwargs)
-            learn_time = time.time() - start_time
-
-            if record_time    : out['predict_time'] = predict_time
-            if record_time    : out['learn_time']   = learn_time
-            if record_prob    : out['probability']  = list(map(get_float,prob)) if batched else get_float(prob)
-            if record_action  : out['action']       = action
-            if feedbacks      : out['feedback']     = feedback
-            if record_reward  : out['reward']       = list(map(get_reward,reward)) if batched else get_reward(reward)
-            if record_regret  : out['regret']       = list(map(get_regret,reward,rewards)) if batched else get_regret(reward, rewards, actions)
-            if record_rank    : out['rank'  ]       = list(map(get_rank,reward,rewards,actions)) if batched else get_rank(reward, rewards, actions)
-            if record_ope_loss: out['ope_loss']     = get_ope_loss(learner)
-
-            out.update({k: interaction[k] for k in interaction.keys()-OnPolicyEvaluator.IMPLICIT_EXCLUDE})
-
-            if info:
-                out.update(info)
-                info.clear()
-
-            if out:
-                if batched:
-                    #we flatten batched items so output works seamlessly with Result
-                    yield from ({k:v[i] for k,v in out.items()} for i in range(len(context)))
-                else:
-                    yield out
-
-class OffPolicyEvaluator(Evaluator):
-
-    IMPLICIT_EXCLUDE = {"actions", "rewards", "action", "reward", "probability", "ope_loss"}
-
-    def __init__(self,
-        record: Sequence[Literal['reward','time','ope_loss','probability','action','context','actions','rewards']] = ['reward'],
-        learn: bool = True,
-        predict: bool = True,
-        seed: float = None) -> None:
-        """
-        Args:
-            record: The datapoints to record for each interaction.
-            learn: Indicates that off-policy learning should occur as part of the off-policy task.
-            evals: Indicates that off-policy evaluation should occur as part of the off-policy task.
-            seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
-        """
-
-        self._record  = [record] if isinstance(record,str) else record
-        self._learn   = learn
-        self._predict = predict
-        self._seed    = seed
 
         if 'ope_loss' in self._record:
             # OPE loss metric is only available for VW models
@@ -164,142 +39,231 @@ class OffPolicyEvaluator(Evaluator):
             # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
             PackageChecker.vowpalwabbit('OffPolicyEvaluator')
 
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
+    @property
+    def params(self) -> Mapping[str,Any]:
+        """Parameters describing the evaluator (used for descriptive purposes only).
 
-        interactions = environment.read()
-        learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
+        Remarks:
+            These will become columns in the evalutors table of experiment results.
+        """
+        return {'learn': self._learn, 'eval': self._eval, 'seed': self._seed }
 
-        first, interactions = peek_first(interactions)
+    def _required(self, has_score:bool) -> set:
+        learn,eval = self._learn,self._eval
 
-        if not interactions:return []
+        pred = (learn and learn != 'off') or (eval and (eval != 'ips' or not has_score))
+        off  = (learn and learn != 'on')  or (eval and eval != 'on')
+        rwds = (learn == 'on')            or (eval == 'on')
 
-        batched  = is_batch(first.get('context')) or is_batch(first.get('actions'))
-        discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
+        required_keys = set()
+        if pred: required_keys.update(['context','actions'])
+        if off : required_keys.update(['context','action','reward'])
+        if rwds: required_keys.update(['rewards'])
 
-        first_rewards = first.get('rewards',[None])[0] if batched else first.get('rewards',None)
-        first_actions = first.get('actions',[None])[0] if batched else first.get('actions',None)
+        return required_keys
 
-        if self._predict and first_actions is None:
-            raise CobaException("Interactions need to have 'actions' defined for OPE.")
+    def _validate(self, first: Mapping, has_score:bool) -> None:
+        required_keys = self._required(has_score)
+        missing_keys  = required_keys-first.keys()
 
-        if self._predict and (first_rewards is None or first_actions is None):
-            raise CobaException("Interactions need to have 'rewards' defined for OPE. This can be done using `Environments.ope_rewards`.")
+        if missing_keys:
+            raise CobaException(f"{self.__class__.__name__}(learn={self._learn or None},eval={self._eval or None}) requires {missing_keys}.")
 
-        try:
-            learner.score(first['context'],first['actions'])
-        except Exception as ex:
-            implements_score = '`score`' not in str(ex)
+        if not self._discrete(first):
+            for metric in set(self._record).intersection(SequentialCB.ONLY_DISCRETE):
+                warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
+
+    def _discrete(self,interaction):
+        if 'actions' not in interaction:
+            return False
         else:
-            implements_score = True
+            batched  = is_batch(interaction['context'])
+            actions   = interaction['actions'][0] if batched else interaction['actions']
+            discrete = len(actions or []) > 0
 
-        record_time     = 'time'        in self._record
-        record_reward   = 'reward'      in self._record and self._predict and 'actions' in first
-        record_ope_loss = 'ope_loss'    in self._record and self._predict and 'actions' in first
-        record_action   = 'action'      in self._record
-        record_prob     = 'probability' in self._record
-        record_context  = 'context'     in self._record
-        record_actions  = 'actions'     in self._record
-        record_rewards  = 'rewards'     in self._record and discrete
+        return discrete
 
-        score   = learner.score
-        predict = learner.predict
-        learn   = learner.learn
-        info    = CobaContext.learning_info
+    def _results(self,learner:SafeLearner,first:Mapping, interactions:Iterable[Mapping]) -> Iterable[Mapping[Any,Any]]:
 
+        #import here to avoid circular dependencies...
+        from coba.environments.filters import OpeRewards, BatchSafe, Batch
+
+        batched   = is_batch(first['context'])
+        discrete  = self._discrete(first)
+        has_score = learner.has_score
+
+        learn,eval = self._learn,self._eval
+
+        lrn_on  = learn == 'on'
+        lrn_off = learn == 'off'
+        lrn_ips = learn == 'ips'
+        lrn_dr  = learn == 'dr'
+        lrn_dm  = learn == 'dm'
+        val_on  = eval  == 'on'
+        val_ips = eval  == 'ips'
+        val_dr  = eval  == 'dr'
+        val_dm  = eval  == 'dm'
+
+        has_context = 'context'     in first
+        has_actions = 'actions'     in first
+        has_rewards = 'rewards'     in first
+        has_reward  = 'reward'      in first
+        has_action  = 'action'      in first
+        has_prob    = 'probability' in first
+
+        out_prob     = 'probability' in self._record and eval
+        out_time     = 'time'        in self._record
+        out_action   = 'action'      in self._record and eval
+        out_context  = 'context'     in self._record
+        out_actions  = 'actions'     in self._record and has_actions
+        out_rewards  = 'rewards'     in self._record and has_rewards and discrete
+        out_reward   = 'reward'      in self._record and eval
+        out_ope_loss = 'ope_loss'    in self._record and eval
+
+        should_pred = (learn and not lrn_off) or val_on or val_dm or val_dr or (val_ips and not has_score) or out_action
+
+        if out_rewards:
+            get_rewards = (lambda Rs,As:[[R(a) for a in A] for R,A in zip(Rs,As)]) if batched else (lambda R,A: [R(a) for a in A])
+
+        info = CobaContext.learning_info
         info.clear()
 
+        learn_type = 'IPS' if lrn_ips else 'DR' if lrn_dr else 'DM' if lrn_dm else None
+        eval_type  = 'IPS' if val_ips  else 'DR' if val_dr  else 'DM' if val_dm  else None
+
+        if learn_type:
+            interactions = BatchSafe(OpeRewards(learn_type,target='learn_rewards',features=[1,'a','xa'])).filter(interactions)
+        
+        if eval_type and eval_type != learn_type:
+            interactions = BatchSafe(OpeRewards(eval_type,target='eval_rewards',features=[1,'a','xa'])).filter(interactions)
+        
+        learn_target = 'learn_rewards'
+        eval_target  = 'eval_rewards' if eval_type and eval_type != learn_type else 'learn_rewards'
+
         for interaction in interactions:
+            context = interaction['context'     ] if has_context else None
+            actions = interaction['actions'     ] if has_actions else None
+            rewards = interaction['rewards'     ] if has_rewards else None
+            off_rwd = interaction['reward'      ] if has_reward  else None
+            off_act = interaction['action'      ] if has_action  else None
+            off_pr  = interaction['probability' ] if has_prob    else None
+
+            lrn_rwds = interaction[learn_target] if learn_type else rewards if lrn_on else None
+            val_rwds = interaction[eval_target ] if eval_type  else rewards if val_on  else None
+
+            start = time.time()
+            if should_pred: on_act,on_pr,on_kw=learner.predict(context,actions)
+            pred_time = time.time()-start
+
+            if eval:
+                if not val_ips or not has_score:
+                    eval_reward = val_rwds(on_act)
+                else:
+                    SR = learner.score(context,actions,off_act),val_rwds(off_act)
+                    eval_reward = mul(*SR) if not batched else Batch.List(map(mul,*SR))
+
+            if learn:
+                start = time.time()
+                if lrn_off: learner.learn(context, off_act, off_rwd         , off_pr         )
+                else      : learner.learn(context, on_act , lrn_rwds(on_act), on_pr , **on_kw)
+                learn_time = time.time()-start
 
             out = {}
-            interaction = interaction.copy()
 
-            log_context = interaction.pop('context')
-            log_action  = interaction.pop('action')
-            log_reward  = interaction.pop('reward')
-            log_prob    = interaction.pop('probability',None)
-            log_rewards = interaction.pop('rewards',None)
-            log_actions = interaction.pop('actions',None)
+            if out_time    : out['predict_time'] = pred_time
+            if out_time    : out['learn_time']   = learn_time
+            if out_context : out['context']      = context
+            if out_actions : out['actions']      = actions
+            if out_action  : out['action']       = on_act
+            if out_prob    : out['probability']  = on_pr
+            if out_reward  : out['reward']       = eval_reward
+            if out_rewards : out['rewards']      = get_rewards(rewards,actions)
+            if out_ope_loss: out['ope_loss']     = get_ope_loss(learner)
 
-            batched  = is_batch(log_context)
-            discrete = log_actions and len(log_actions[0] if batched else log_actions) > 0
-
-            if record_time:
-                predict_time = 0
-                learn_time   = 0
-
-            if self._predict and log_actions is not None and log_rewards is not None:
-                if implements_score:
-                    if discrete:
-                        start_time   = time.time()
-                        on_probs     = score(log_context,log_actions)
-                        predict_time = time.time()-start_time
-                        if not batched:
-                            ope_reward = sum(p*float(log_rewards(a)) for p,a in zip(on_probs,log_actions))
-                            on_action, on_prob = sample_actions(log_actions, on_probs)
-                        else:
-                            ope_reward = [ sum(p*float(R(a)) for p,a in zip(P,A)) for P,A,R in zip(on_probs,log_actions,log_rewards) ]
-                            on_action, on_prob = zip(*[sample_actions(actions, probs) for actions, probs in zip(log_actions, on_probs)])
-                    else:
-                        on_score = score(log_context,log_actions,log_action)
-
-                        start_time   = time.time()
-                        on_action, on_prob = predict(log_context, log_actions)[:2]
-                        predict_time = time.time()-start_time
-
-                        if not batched:
-                            ope_reward = on_score*float(log_rewards(log_action))
-                        else:
-                            ope_reward = [p*float(r) for p,r in zip(on_score,log_rewards(log_action))]
-                else:
-                    start_time        = time.time()
-                    on_action,on_prob = predict(log_context, log_actions)[:2]
-                    predict_time      = time.time()-start_time
-
-                    ope_reward = log_rewards(on_action)
-
-            if self._learn:
-                start_time = time.time()
-                if self._learn: learn(log_context, log_action, log_reward, log_prob)
-                learn_time = time.time() - start_time
-
-            if record_time  :  out['predict_time'] = predict_time
-            if record_time  :  out['learn_time']   = learn_time
-            if record_reward:  out['reward']       = ope_reward
-            if record_action:  out['action']       = on_action
-            if record_prob:    out['probability']  = on_prob
-            if record_context: out['context']      = log_context
-            if record_actions: out['actions']      = log_actions
-            if record_rewards: out['rewards']      = log_rewards
-
-            out.update({k: interaction[k] for k in interaction.keys()-OffPolicyEvaluator.IMPLICIT_EXCLUDE})
-
-            if record_ope_loss: out['ope_loss'] = get_ope_loss(learner) if not batched else [get_ope_loss(learner)] * len(log_context)
+            out.update({k: interaction[k] for k in interaction.keys()-SequentialCB.IMPLICIT_EXCLUDE})
 
             if info:
                 out.update(info)
                 info.clear()
 
             if out:
-                if batched:
-                    #we flatten batched items so output works seamlessly with Result
-                    yield from ({k:v[i] for k,v in out.items()} for i in range(len(log_context)))
-                else:
-                    yield out
+                yield out
 
-class ExplorationEvaluator(Evaluator):
+    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
+
+        first, interactions = peek_first(environment.read())
+        seed = self._seed if self._seed is not None else CobaContext.store.get("experiment_seed")
+
+        if not interactions: return []
+
+        from coba.environments import Unbatch
+
+        learner = SafeLearner(learner, seed)
+        self._validate(first,learner.has_score)
+        results = self._results(learner, first, interactions)
+
+        #We Unbatch to work with Result
+        yield from Unbatch().filter(results)
+
+class SequentialIGL:
 
     def __init__(self,
-        record: Sequence[Literal['context','actions','action','reward','probability','time','rewards']] = ['reward'],
-        ope: bool = None,
-        qpct: float = .005,
-        cmax: float = 1.0,
-        cinit: float = None,
-        seed: float = None) -> None:
+        record: Sequence[Literal['reward','feedback','time','prob','action','context','actions','rewards','feedbacks','ope_loss']] = ['reward','feedback'],
+        seed: int = None,
+    ) -> None:
+        self._record = list(record)
+        self._seed   = seed
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        """Parameters describing the evaluator (used for descriptive purposes only).
+
+        Remarks:
+            These will become columns in the evalutors table of experiment results.
+        """
+        return { 'seed': self._seed }
+
+
+    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
+
+        class IglEnvironment:
+            def __init__(self,env: Environment) -> None:
+                self._env = env
+            def read(self):
+                for interaction in self._env.read():
+                    interaction['true_rewards'] = interaction['rewards']
+                    interaction['rewards'] = interaction.pop('feedbacks')
+                    yield interaction
+
+        envIGL = IglEnvironment(environment)
+        record = self._record+['action']
+        seed   = self._seed
+
+        out_action   = 'action'   in self._record
+        out_feedback = 'feedback' in self._record
+        out_reward   = 'reward'   in self._record
+
+        for out in SequentialCB(record,seed=seed).evaluate(envIGL,learner):
+            if out_feedback  : out['feedback'] = out['reward']
+            if out_reward    : out['reward']   = out.pop('true_rewards')(out['action'])
+            if not out_action: del out['action']
+
+            yield out
+
+class RejectionCB(Evaluator):
+
+    def __init__(self,
+        record: Sequence[Literal['context','actions','action','reward','probability','time','rewards','ope_loss']] = ['reward'],
+        ope   : Optional[Literal['ips','dr','dm']] = None,
+        cpct  : float = .005,
+        cmax  : float = 1.0,
+        cinit : float = None,
+        seed  : float = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
             ope: Indicates whether off-policy estimates should be included from rejected training examples.
-            qpct: The unbiased case is q = 0. Smaller values give better estimates but reject more data.
+            cpct: The unbiased case is q = 0. Smaller values give better estimates but reject more data.
             cmax: The maximum value that the evaluator is allowed to use for `c` (the rejection sampling multiplier).
                 To get an unbiased estimate we need a `c` value such that c*on_prob/log_prob <= 1 for all
                 on_prob/log_prob. The value `cmax` determines the maximum value `c` can be in order to guarantee `c`
@@ -315,12 +279,24 @@ class ExplorationEvaluator(Evaluator):
 
         self._record = [record] if isinstance(record,str) else record
         self._ope    = ope
-        self._qpct   = qpct
+        self._cpct   = cpct
         self._cmax   = cmax
         self._cinit  = cinit
         self._seed   = seed
 
+    @property
+    def params(self) -> Mapping[str,Any]:
+        """Parameters describing the evaluator (used for descriptive purposes only).
+
+        Remarks:
+            These will become columns in the evalutors table of experiment results.
+        """
+        return {'ope': self._ope, 'cpct': self._cpct, 'cmax': self._cmax, 'cinit': self._cinit, 'seed': self._seed }
+
     def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
+
+        #import here to avoid circular dependencies...
+        from coba.environments.filters import OpeRewards
 
         interactions = environment.read()
         learner      = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
@@ -334,8 +310,6 @@ class ExplorationEvaluator(Evaluator):
         batched  = first and (is_batch(first.get('context')) or is_batch(first.get('actions')))
         discrete = 'actions' in first and len(first['actions'][0] if batched else first['actions']) > 0
 
-        if self._ope is None: self._ope = ('rewards' in first)
-
         if not all(k in first.keys() for k in ['context', 'action', 'reward', 'actions', 'probability']):
             raise CobaException("ExplorationEvaluator requires interactions with `['context', 'action', 'reward', 'actions', 'probability']`")
 
@@ -345,19 +319,8 @@ class ExplorationEvaluator(Evaluator):
         if batched:
             raise CobaException("ExplorationEvaluator does not currently support batching")
 
-        try:
-            learner.score(first['context'],first['actions'])
-        except Exception as ex:
-            if '`score`' in str(ex):
-                raise CobaException("ExplorationEvaluator requires Learners to implement a `score` method")
-
-        if self._ope and 'rewards' not in first:
-            raise CobaException((
-                "ExplorationEvaluator was called with ope=True but the given interactions "
-                "do not have an ope rewards. To assign ope rewards to environments call "
-                "Environments.ope_rewards() with desired parameters before running the "
-                "experiment."
-            ))
+        if not learner.has_score:
+            raise CobaException("ExplorationEvaluator requires Learners to implement a `score` method")
 
         record_time     = 'time'        in self._record
         record_reward   = 'reward'      in self._record
@@ -370,6 +333,7 @@ class ExplorationEvaluator(Evaluator):
 
         score = learner.score
         learn = learner.learn
+        pred  = learner.predict
         info  = CobaContext.learning_info
 
         info.clear()
@@ -379,6 +343,13 @@ class ExplorationEvaluator(Evaluator):
         Q           = []
         c           = self._cinit or min(list(filter(None,first_probs))+[self._cmax])
         t           = 0
+
+        ope_type = self._ope.upper() if self._ope else None
+
+        if ope_type:
+            interactions = OpeRewards(ope_type,features=[1,'a','xa']).filter(interactions)
+
+        ope_ips = ope_type == 'IPS'
 
         for interaction in interactions:
 
@@ -393,14 +364,13 @@ class ExplorationEvaluator(Evaluator):
             log_reward       = interaction.pop('reward')
             log_prob         = interaction.pop('probability')
             log_rewards      = interaction.pop('rewards',None)
-            log_action_index = log_actions.index(log_action)
 
             start_time = time.time()
-            on_probs = score(log_context,log_actions)
-            on_prob = on_probs[log_action_index]
+            on_prob  = score(log_context,log_actions,log_action)
             predict_time = time.time()-start_time
 
-            if self._ope and log_rewards: ope_rewards.append(sum(map(__mul__, on_probs, map(float,map(log_rewards,log_actions)))))
+            if ope_type:
+                ope_rewards.append(on_prob*log_rewards(log_action) if ope_ips else log_rewards(pred(log_context,log_actions)[0]))
 
             #I tested many techniques for both maintaining Q and estimating its qpct percentile...
             #Implemented here is the insort method because it provided the best runtime by far.
@@ -410,6 +380,9 @@ class ExplorationEvaluator(Evaluator):
             #However, this requires sorting the dequeue for every accepted action which is incredibly slow.
             if on_prob != 0:
                 insort(Q,log_prob/on_prob)
+
+            #c \in log_prob/on_prob
+            #so c is small when log_prob is small and on_prob is large
 
             #we want c*on_prob/log_prob <= 1 approximately (1 - qpct) of the time.
             #We know that if c <= min(log_prob) this condition will be met 100% of the time.
@@ -442,7 +415,7 @@ class ExplorationEvaluator(Evaluator):
                 if out : yield out
 
                 ope_rewards.clear()
-                c = min(percentile(Q,self._qpct,sort=False), self._cmax)
+                c = min(percentile(Q,self._cpct,sort=False), self._cmax)
 
         if ope_rewards:
             pass

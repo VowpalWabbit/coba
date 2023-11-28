@@ -111,22 +111,23 @@ class TransactionResult_Tests(unittest.TestCase):
 
 class TransactionEncode_Tests(unittest.TestCase):
     def test_empty(self):
-        self.assertEqual(list(TransactionEncode().filter([])),['["version",4]'])
+        self.assertEqual(list(TransactionEncode(None).filter([])),['["version",4]'])
+        self.assertEqual(list(TransactionEncode(1).filter([])),[])
 
     def test_experiment_dict(self):
-        self.assertEqual(list(TransactionEncode().filter([['T0',{'a':1.0}]])),['["version",4]','["experiment",{"a":1}]'])
+        self.assertEqual(list(TransactionEncode(None).filter([['T0',{'a':1.0}]])),['["version",4]','["experiment",{"a":1}]'])
 
     def test_environment_params(self):
-        self.assertEqual(list(TransactionEncode().filter([['T1',0,{'a':1.0}]])),['["version",4]','["E",0,{"a":1}]'])
+        self.assertEqual(list(TransactionEncode(None).filter([['T1',0,{'a':1.0}]])),['["version",4]','["E",0,{"a":1}]'])
 
     def test_learner_params(self):
-        self.assertEqual(list(TransactionEncode().filter([['T2',0,{'a':1.0}]])),['["version",4]','["L",0,{"a":1}]'])
+        self.assertEqual(list(TransactionEncode(None).filter([['T2',0,{'a':1.0}]])),['["version",4]','["L",0,{"a":1}]'])
 
     def test_interactions(self):
-        self.assertEqual(list(TransactionEncode().filter([['T4',[1,0],[{"R1":3},{"R1":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,4]}}]'])
+        self.assertEqual(list(TransactionEncode(None).filter([['T4',[1,0],[{"R1":3},{"R1":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,4]}}]'])
 
     def test_interaction_uneven_dictionaries(self):
-        self.assertEqual(list(TransactionEncode().filter([['T4',[1,0],[{"R1":3},{"R2":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,null],"R2":[null,4]}}]'])
+        self.assertEqual(list(TransactionEncode(None).filter([['T4',[1,0],[{"R1":3},{"R2":4}]]])),['["version",4]',r'["I",[1,0],{"_packed":{"R1":[3,null],"R2":[null,4]}}]'])
 
 class TransactionDecode_Tests(unittest.TestCase):
     def test_get_version(self):

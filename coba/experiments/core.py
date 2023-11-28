@@ -6,7 +6,7 @@ from typing import Sequence, Optional, Union, overload, Tuple
 
 from coba.environments import Environment
 from coba.learners     import Learner
-from coba.evaluators   import Evaluator, OnPolicyEvaluator
+from coba.evaluators   import Evaluator, SequentialCB
 
 from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
 from coba.context import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
@@ -23,7 +23,7 @@ class Experiment:
     def __init__(self,
         environments : Union[Environment, Sequence[Environment]],
         learners     : Union[Learner,Sequence[Learner]],
-        evaluator    : Union[Evaluator,Sequence[Evaluator]] = OnPolicyEvaluator(),
+        evaluator    : Union[Evaluator,Sequence[Evaluator]] = SequentialCB(),
         description  : str = None) -> None:
         """Instantiate an Experiment.
 
@@ -154,7 +154,7 @@ class Experiment:
         workitems = MakeTasks(self._triples,restored)
         chunker   = ChunkTasks(mt)
         process   = CobaMultiprocessor(ProcessTasks(), mp, mc, False)
-        encode    = TransactionEncode()
+        encode    = TransactionEncode(restored)
         sink      = DiskSink(result_file,batch=1) if result_file else ListSink(foreach=True)
         source    = DiskSource(result_file) if result_file else ListSource(sink.items)
         decode    = TransactionDecode()
@@ -202,7 +202,7 @@ class Experiment:
             else:
                 envs  = args[0] if len(args) > 0 else kwargs['environments']
                 lrns  = args[1] if len(args) > 1 else kwargs['learners']
-                vals  = args[2] if len(args) > 2 else kwargs.get('evaluator',OnPolicyEvaluator())
+                vals  = args[2] if len(args) > 2 else kwargs.get('evaluator',SequentialCB())
                 descr = args[3] if len(args) > 3 else kwargs.get('description',None)
                 if not isinstance(envs,abc.Sequence): envs = [envs]
                 if not isinstance(lrns,abc.Sequence): lrns = [lrns]

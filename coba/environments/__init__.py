@@ -11,7 +11,7 @@ from coba.environments.primitives import SimulatedInteraction, LoggedInteraction
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
 from coba.environments.filters    import Binary, Sparsify, Where, Noise, Grounded, OpeRewards
-from coba.environments.filters    import Repr, Finalize, Batch, BatchSafe, Chunk, Logged
+from coba.environments.filters    import Repr, Finalize, Unbatch, Batch, BatchSafe, Chunk, Logged
 
 from coba.environments.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation

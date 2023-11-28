@@ -478,9 +478,13 @@ class TransactionDecode:
             yield from map(JsonDecode().filter,transactions)
 
 class TransactionEncode:
+    def __init__(self,restored):
+        self._restored = restored
+
     def filter(self, transactions: Iterable[Any]) -> Iterable[str]:
 
-        yield JsonEncode().filter(["version",4])
+        if not self._restored:
+            yield JsonEncode().filter(["version",4])
 
         encoder = JsonEncode()
 

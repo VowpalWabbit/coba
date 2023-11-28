@@ -21,7 +21,7 @@ from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadD
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
 from coba.experiments.results import Result, moving_average, Table, TransactionResult
-from coba.evaluators import OnPolicyEvaluator
+from coba.evaluators import SequentialCB
 from coba.primitives import Categorical, HashableSparse
 
 Timeable = Callable[[],Any]
@@ -484,12 +484,12 @@ class Performance_Tests(unittest.TestCase):
             def __init__(self,interactions):
                 self.read = lambda: interactions
 
-        items = [SimulatedInteraction(1,[1,2,3],[1,2,3])]*100
-        eval  = OnPolicyEvaluator()
+        items = [SimulatedInteraction(1,[1,2,3],[1,2,3])]*20
+        eval  = SequentialCB()
         learn = DummyLearner()
 
         #most of this time is being spent in SafeLearner.predict...
-        self._assert_scale_time(items,lambda x:list(eval.evaluate(DummEnv(x),learn)), .065, print_time, number=100)
+        self._assert_scale_time(items,lambda x:list(eval.evaluate(DummEnv(x),learn)), .12, print_time, number=1000)
 
     def test_safe_learner_predict(self):
 

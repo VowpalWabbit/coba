@@ -748,7 +748,14 @@ class SafeLearner_Tests(unittest.TestCase):
                 if context is None and actions == [1,2] and action == 2:
                     return 1
 
+        self.assertTrue(SafeLearner(MyLearner()).has_score)
         self.assertEqual(SafeLearner(MyLearner()).score(None,[1,2],2), 1)
+
+    def test_no_score(self):
+        class MyLearner:
+            pass
+
+        self.assertFalse(SafeLearner(MyLearner()).has_score)
 
     def test_score_batch(self):
         calls = []
@@ -767,11 +774,6 @@ class SafeLearner_Tests(unittest.TestCase):
         self.assertEqual(calls[0],(1,[3,4],3))
         self.assertEqual(calls[1],(2,[5,6],5))
         self.assertEqual(out,[.1,.5])
-
-        calls.clear()
-        out = SafeLearner(TestLearner()).score(context,actions)
-        self.assertEqual(calls[0],(1,[3,4],None))
-        self.assertEqual(calls[1],(2,[5,6],None))
 
     def test_score_not_implemented(self):
         class MyLearner:
@@ -831,7 +833,6 @@ class SafeLearner_Tests(unittest.TestCase):
                 return {'action_prob':(3,1)}
 
         self.assertEqual(SafeLearner(MyLearner()).predict(None,[]), (3,1,{}))
-
 
 if __name__ == '__main__':
     unittest.main()

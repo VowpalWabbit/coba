@@ -30,7 +30,7 @@ class Learner:
         """
         return {}
 
-    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
+    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
         """Propensity score a given action (or all actions if action is None) in the context.
 
         Args:
@@ -40,10 +40,10 @@ class Learner:
             actions: The current set of actions that can be chosen in the given context.
                 Each action will either be a value (a single feature), a sequence of values
                 (dense features), or a dictionary (sparse features).
-            action: The action to propensity score. If None all actions are scored.
+            action: The action to propensity score.
 
         Returns:
-            The action propensity score (or scores if action is None).
+            The propensity score for the given action.
         """
         raise CobaException((
             "The `score` interface has not been implemented for this learner."

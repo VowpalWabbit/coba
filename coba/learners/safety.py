@@ -190,6 +190,15 @@ class SafeLearner(Learner):
 
         return params
 
+    @property
+    def has_score(self) -> bool:
+        try:
+            self.learner.score(None,None,None)
+        except Exception as ex:
+            return "score" not in str(ex)
+        else:
+            return True
+
     def _safe_call(self, key, method, args, kwargs = {}):
 
         if key in self._method:
@@ -230,9 +239,9 @@ class SafeLearner(Learner):
                     del self._method[key]
                     raise inner_e from outer_e
 
-    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
+
+    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
         try:
-            if action is None and is_batch(context): action = [None]*len(context)
             return self._safe_call('score', self.learner.score,(context,actions,action))
         except AttributeError as ex:
             if "'score'" in str(ex):

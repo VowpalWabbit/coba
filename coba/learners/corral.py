@@ -67,9 +67,8 @@ class CorralLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
 
-    def score(self, context: Context, actions: Actions, action: Action = None) -> Union[Prob,PMF]:
-        probs = self.predict(context,actions)[0]
-        return probs[actions.index(action)] if action else probs
+    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
+        return self.predict(context,actions)[0][actions.index(action)]
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]

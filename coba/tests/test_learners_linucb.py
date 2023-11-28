@@ -21,9 +21,8 @@ class LinUCBLearner_Tests(unittest.TestCase):
 
     def test_score(self):
         learner = LinUCBLearner()
-        probs   = learner.score(None, [1,1,1])
         learner.learn(None, 1, 1, .5)
-        self.assertEqual(probs, [1/3,1/3,1/3])
+        self.assertEqual(1/3,learner.score(None, [1,1,1],1))
         self.assertEqual(learner._theta.shape, (2,))
         self.assertEqual(learner._A_inv.shape, (2,2))
 
@@ -31,7 +30,6 @@ class LinUCBLearner_Tests(unittest.TestCase):
         learner = LinUCBLearner()
         probs   = learner.predict(None, [1,1,1])
         learner.learn(None, 1, 1, .5)
-
         self.assertEqual(probs, [1/3,1/3,1/3])
         self.assertEqual(learner._theta.shape, (2,))
         self.assertEqual(learner._A_inv.shape, (2,2))

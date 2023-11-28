@@ -252,7 +252,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_evaluators = [
-            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
+            {'evaluator_id': 0, "eval_type": "SequentialCB", 'learn':'on', 'eval':'on', 'seed':None}
         ]
         expected_interactions = [
             {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
@@ -287,7 +287,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_evaluators = [
-            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
+            {'evaluator_id': 0, "eval_type": "SequentialCB", 'learn':'on', 'eval':'on', 'seed':None}
         ]
         expected_interactions = [
             {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
@@ -322,7 +322,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_evaluators = [
-            {'evaluator_id': 0, "eval_type": "OnPolicyEvaluator"}
+            {'evaluator_id': 0, "eval_type": "SequentialCB", 'learn':'on', 'eval':'on', 'seed':None}
         ]
         expected_interactions = [
             {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},

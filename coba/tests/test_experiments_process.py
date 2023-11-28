@@ -7,7 +7,7 @@ from coba.context      import CobaContext, BasicLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation, SupervisedSimulation
 from coba.pipes        import Pipes, ListSink, Cache
 from coba.learners     import Learner
-from coba.evaluators   import OnPolicyEvaluator
+from coba.evaluators   import SequentialCB
 
 from coba.experiments.results import Result
 from coba.experiments.process import Task, MakeTasks, ChunkTasks, ProcessTasks
@@ -95,7 +95,7 @@ class MakeTasks_Tests(unittest.TestCase):
         env2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
-        evl1 = OnPolicyEvaluator()
+        evl1 = SequentialCB()
 
         triples = list(product([env1,env2],[lrn1,lrn2],[evl1]))
 
@@ -125,7 +125,7 @@ class MakeTasks_Tests(unittest.TestCase):
         env2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
-        evl1 = OnPolicyEvaluator()
+        evl1 = SequentialCB()
 
         triples = list(product([env1,env2],[lrn1,lrn2],[evl1]))[0:3]
         works   = list(MakeTasks(triples).read())

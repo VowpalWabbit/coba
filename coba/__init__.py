@@ -12,7 +12,7 @@ from coba.learners import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLear
 from coba.learners import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
 from coba.learners import MisguidedLearner
 
-from coba.evaluators import OnPolicyEvaluator, OffPolicyEvaluator, ClassMetaEvaluator, ExplorationEvaluator
+from coba.evaluators import ClassMetaEvaluator, RejectionCB, SequentialCB, SequentialIGL
 
 from coba.experiments  import Experiment, Result
 

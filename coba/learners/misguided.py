@@ -13,7 +13,7 @@ class MisguidedLearner(Learner):
     def params(self):
         return {**self._learner.params, 'misguided': [self._shifter,self._scaler]}
 
-    def score(self, context, actions, action = None):
+    def score(self, context, actions, action):
         return self._learner.score(context, actions, action)
 
     def predict(self, context, actions):

@@ -1078,23 +1078,36 @@ class Repr(EnvironmentFilter):
 
 class Batch(EnvironmentFilter):
 
-    class BatchList(list):
+    class List(list):
         is_batch: bool = True
 
-    class BatchCallable(list):
+    class Callable(list):
         is_batch: bool = True
         def __call__(self, args: Any) -> Any:
             ndim = getattr(args,'ndim',-1)
             outs = list(map(lambda f,a: f(a), self, args))
 
             if ndim == -1:
-                return outs
+                return Batch.List(outs)
             else:
                 try:
-                    t = torch # type: ignore
+                    t  = torch # type: ignore
+                    bt = Batch.Tensor
                 except:
-                    t = globals()['torch'] = __import__('torch')
-                return t.stack(outs)
+                    t  = globals()['torch'] = __import__('torch')
+                    bt = Batch._make_batch_tensor()
+                return bt(t.stack(outs))
+
+    @classmethod
+    def _make_batch_tensor(cls):
+        try:
+            return cls.Tensor
+        except:
+            import torch
+            class BatchTensor(torch.Tensor):
+                is_batch: bool = True
+            cls.Tensor = BatchTensor
+            return cls.Tensor
 
     def __init__(self, batch_size: Optional[int], batch_type: Literal['list','torch'] = 'list') -> None:
         self._batch_size = batch_size or None
@@ -1117,27 +1130,25 @@ class Batch(EnvironmentFilter):
             yield from interactions
 
         else:
-            if self._batch_type == 'torch':
-                import torch
-                class BatchTensor(torch.Tensor):
-                    is_batch: bool = True
+            callable_keys = [k for k,v in first.items() if callable(v)]
+            if self._batch_type == 'torch': self._make_batch_tensor()
 
-            batch_data_type = Batch.BatchList if self._batch_type == 'list' else BatchTensor
-            batch_call_type = Batch.BatchCallable
+            batch_data_type = Batch.List if self._batch_type == 'list' else Batch.Tensor
+            batch_call_type = Batch.Callable
 
             for batch in self._batched(interactions, self._batch_size):
 
                 new = {}
 
-                for key in first.keys() & {'rewards','feedbacks'}:
+                for key in first.keys() & callable_keys:
                     new[key] = batch_call_type(map(itemgetter(key),batch))
 
-                for key in first.keys() - {'rewards','feedbacks'}:
+                for key in first.keys() - callable_keys:
                     values = list(map(itemgetter(key),batch))
                     try:
                         new[key] = batch_data_type(values)
                     except:
-                        new[key] = Batch.BatchList(values)
+                        new[key] = Batch.List(values)
 
                 yield new
 
@@ -1160,10 +1171,10 @@ class Unbatch(EnvironmentFilter):
 
         batched_keys = [k for k,v in first.items() if is_batch(v) ]
 
-        if not batched_keys:
-            yield from interactions
-        else:
+        if batched_keys:
             yield from self._unbatch(interactions, batched_keys)
+        else:
+            yield from interactions
 
     def _unbatch(self, interactions: Iterable[Interaction], batched_keys:Sequence[str]):
         for interaction in interactions:
@@ -1189,7 +1200,9 @@ class BatchSafe(EnvironmentFilter):
         first_val  = next(iter(first.values()))
         batch_size = len(first_val) if is_batch(first_val) else None
 
-        yield from Pipes.join(Unbatch(),self._filter,Batch(batch_size)).filter(interactions)
+        pipe = Pipes.join(Unbatch(),self._filter,Batch(batch_size)) if batch_size else self._filter
+
+        yield from pipe.filter(interactions)
 
 class Finalize(EnvironmentFilter):
 
@@ -1270,7 +1283,7 @@ class Logged(EnvironmentFilter):
             raise CobaException("We were unable to create a logged representation of the interaction.")
 
         #Avoid circular dependency
-        from coba.evaluators import OnPolicyEvaluator
+        from coba.evaluators import SequentialCB
 
         seed = self._seed if self._seed is not None else CobaRandom().random()
 
@@ -1279,7 +1292,7 @@ class Logged(EnvironmentFilter):
 
         env = SimpleEnvironment(I2)
         lrn = copy.deepcopy(self._learner)
-        evaluator = OnPolicyEvaluator(record=['action','reward','probability'],seed=seed)
+        evaluator = SequentialCB(record=['action','reward','probability'],seed=seed)
 
         for interaction, log in zip(interactions,evaluator.evaluate(env,lrn)):
             out = interaction.copy()
@@ -1327,10 +1340,12 @@ class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
 
 class OpeRewards(EnvironmentFilter):
 
-    def __init__(self, rwd_type:Literal['IPS','DM','DR']=None):
+    def __init__(self, rwd_type:Literal['IPS','DM','DR']=None, target:str = 'rewards', features=[1,'x','a','xa','xxa']):
         if rwd_type in ['DM','DR']:
             PackageChecker.vowpalwabbit(f"{rwd_type} OpeRewards")
         self._rwd_type = rwd_type
+        self._target   = target
+        self._features = features
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -1343,13 +1358,34 @@ class OpeRewards(EnvironmentFilter):
             yield from interactions
 
         elif rwd_type == "IPS":
-            for log in interactions:
-                log = log.copy()
-                log['rewards'] = BinaryReward(log['action'], log['reward']/(log.get('probability') or 1))
-                yield log
+            for interaction in interactions:
+                interaction = interaction.copy()
+                interaction[self._target] = BinaryReward(interaction['action'], interaction['reward']/(interaction.get('probability') or 1))
+                yield interaction
 
         elif rwd_type in ["DM","DR"]:
             from coba.learners.vowpal import VowpalMediator
+
+            class DMReward:
+                def __init__(self,vw:VowpalMediator, context:Any) -> None:
+                    self._vw = vw
+                    self._x  = context
+
+                def __call__(self, action) -> Any:
+                    return vw.predict(vw.make_example({"x":self._x, 'a':action}))
+
+            class DRReward:
+                def __init__(self,vw:VowpalMediator, context:Any,  off_action, off_reward, off_prob) -> None:
+                    self._vw         = vw
+                    self._x          = context
+                    self._off_action = off_action
+                    self._off_reward = off_reward
+                    self._off_prob   = (off_prob or 1)
+
+                def __call__(self, action) -> Any:
+                    dm_part = vw.predict(vw.make_example({"x":self._x, 'a':action}))
+                    dr_part = (self._off_reward-dm_part)/self._off_prob if action == self._off_action else 0
+                    return dr_part + dm_part
 
             rng = CobaRandom(1)
             vw = VowpalMediator()
@@ -1357,7 +1393,16 @@ class OpeRewards(EnvironmentFilter):
             # When using cb_adf to estimate rewards for actions instead of the
             # regression we would receive rewards far outside of the expected boundaries.
             #vw.init_learner("--cb_adf --interactions xa --interactions xxa --quiet ", label_type=4)
-            vw.init_learner("--interactions xa --interactions xxa --quiet ", label_type=1)
+            
+            args = "--quiet"
+            if 'x' not in self._features: args = '--ignore_linear x ' + args
+            if 'a' not in self._features: args = '--ignore_linear a ' + args
+            if 1 not in self._features  : args = '--noconstant ' + args
+            for f in self._features:
+                if f not in ['x','a',1]:
+                    args = f'--interactions {f} ' + args
+            
+            vw.init_learner(args, label_type=1)
 
             #so that we don't run forever
             #when interactions is re-iterable
@@ -1374,25 +1419,17 @@ class OpeRewards(EnvironmentFilter):
 
                 if not L: break
 
-                for log in rng.shuffle(L):
-                    features = {"x": log['context'], "a": log['action']}
-                    label    = f"{log['reward']} {1/(log['probability'] or 1)}"
+                for interaction in rng.shuffle(L):
+                    features = {"x": interaction['context'], "a": interaction['action']}
+                    label    = f"{interaction['reward']} {1/(interaction.get('probability') or 1)}"
                     vw.learn(vw.make_example(features,label))
 
-                for log in L:
-
-                    examples = vw.make_examples({"x":log['context']}, [{"a":a} for a in log['actions']])
-                    rewards = list(map(vw.predict,examples))
+                for interaction in L:
+                    new = interaction.copy()
 
                     if rwd_type=="DR":
-                        log_index = log['actions'].index(log['action'])
-                        rewards[log_index] += (log['reward']-rewards[log_index])/(log['probability'] or 1)
+                        new[self._target] = DRReward(vw,new['context'],new['action'],new['reward'],new['probability'])
+                    else:
+                        new[self._target] = DMReward(vw,new['context'])
 
-                    log = log.copy()
-
-                    try:
-                        log['rewards'] = MappingReward(dict(zip(log['actions'],rewards)))
-                    except:
-                        log['rewards'] = SequenceReward(log['actions'],rewards)
-
-                    yield log
+                    yield new

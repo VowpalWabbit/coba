@@ -2105,7 +2105,14 @@ class Batch_Tests(unittest.TestCase):
         self.assertEqual(batches[1]['a'].is_batch, True)
         self.assertEqual(batches[1]['b'].is_batch, True)
 
-    def test_batch(self):
+    def test_batch_None(self):
+        batch = Batch(None)
+        items = list(batch.filter([{'a':1,'b':2}]*2))
+
+        self.assertEqual(batch.params,{'batch_size':None,'batch_type':'list'})
+        self.assertEqual(items,[{'a':1,'b':2}]*2)
+
+    def test_batch_1(self):
         batch = Batch(1)
 
         self.assertEqual(batch.params,{'batch_size':1,'batch_type':'list'})
@@ -2118,6 +2125,16 @@ class Batch_Tests(unittest.TestCase):
         self.assertEqual(batches[0]['b'].is_batch, True)
         self.assertEqual(batches[1]['a'].is_batch, True)
         self.assertEqual(batches[1]['b'].is_batch, True)
+
+    def test_batch_2(self):
+        batch = Batch(2)
+
+        batches = list(batch.filter([{'a':1,'b':2}]*2))
+
+        self.assertEqual(batch.params,{'batch_size':2,'batch_type':'list'})
+        self.assertEqual(batches, [{'a':[1,1],'b':[2,2]}])
+        self.assertEqual(batches[0]['a'].is_batch, True)
+        self.assertEqual(batches[0]['b'].is_batch, True)
 
     def test_batch_rewards(self):
         batch = list(Batch(2).filter([{'rewards':L1Reward(2),'b':2}]*2))[0]
@@ -2450,7 +2467,7 @@ class OpeRewards_Tests(unittest.TestCase):
         self.assertEqual(new_interactions[1]['rewards'](2),1)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
-    def test_DM(self):
+    def test_DM_hashable(self):
         interactions = [
             {'action':'c','context':'a','actions':['c','d'],'reward':1  ,'probability':.5 },
             {'action':'f','context':'b','actions':['e','f'],'reward':.25,'probability':.25},
@@ -2464,7 +2481,7 @@ class OpeRewards_Tests(unittest.TestCase):
         self.assertAlmostEqual(new_interactions[1]['rewards']('f'),.25000, places=3)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed.")
-    def test_DM_action_not_hashable(self):
+    def test_DM_not_hashable(self):
         interactions = [
             {'action':['c'],'context':'a','actions':[['c'],['d']],'reward':1  ,'probability':.5 },
             {'action':['f'],'context':'b','actions':[['e'],['f']],'reward':.25,'probability':.25},

@@ -8,10 +8,10 @@ class Evaluator(ABC):
 
     @property
     def params(self) -> Mapping[str,Any]:
-        """Parameters describing the learner (used for descriptive purposes only).
+        """Parameters describing the evaluator (used for descriptive purposes only).
 
         Remarks:
-            These will become columns in the learners table of experiment results.
+            These will become columns in the evaluators table of experiment results.
         """
         return {}
 

@@ -284,9 +284,8 @@ class VowpalLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
-    def score(self, context: Context, actions: Actions, action: Action = None) -> Sequence[Prob]:
-        probs = self.predict(context,actions)[0]
-        return probs[actions.index(action)] if action else probs
+    def score(self, context: Context, actions: Actions, action: Action) -> Sequence[Prob]:
+        return self.predict(context,actions)[0][actions.index(action)]
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:
         if not self._vw.is_initialized and is_batch(context):#pragma: no cover
