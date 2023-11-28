@@ -190,6 +190,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, actual_task_results)
 
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_dm_None(self):
         task    = SequentialCB(learn='dm',eval=None)
         learner = RecordingLearner(with_kwargs=False, with_info=False)
@@ -212,6 +213,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, actual_task_results)
 
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_dr_None(self):
         task    = SequentialCB(learn='dr',eval=None)
         learner = RecordingLearner(with_kwargs=False, with_info=False)
@@ -256,6 +258,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, actual_task_results)
 
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_None_dm(self):
         task    = SequentialCB(learn=None,eval='dm')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
@@ -278,6 +281,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, actual_task_results)
 
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_None_dr(self):
         task    = SequentialCB(learn=None,eval='dr')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
@@ -300,6 +304,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, actual_task_results)
 
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_dr_dr(self):
         task    = SequentialCB(learn='dr',eval='dr')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
@@ -323,6 +328,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, actual_task_results)
 
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_ips_dr(self):
         task    = SequentialCB(learn='ips',eval='dr')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
@@ -639,6 +645,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_off_dr_actions_prob_kwargs_info_extra(self):
         task    = SequentialCB(learn='off',eval='dr')
         learner = RecordingLearner(with_kwargs=True,with_info=True)
