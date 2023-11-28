@@ -2,8 +2,6 @@ import coba as cb
 
 def main():
 
-    cb.Environments.cache_dir("./coba_cache")
-
     oml_id = 150
     filename = f"cb_oml_{oml_id}.zip"
 
@@ -20,13 +18,11 @@ def main():
     lrn = cb.VowpalLearner(offline_vw_args)
 
     #offline performance, no need to call predict in this scenario
-    cb.Experiment(env, lrn, cb.OffPolicyEvaluator(predict=False)).run()
+    cb.Experiment(env, lrn, cb.SequentialCB(learn='off',eval=False)).run()
     lrn.finish()
 
     #online performance
     cb.Result.from_logged_envs(env).plot_learners()
-
-    return
 
 if __name__ == "__main__":
     main()
