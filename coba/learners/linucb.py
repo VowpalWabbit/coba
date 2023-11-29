@@ -13,8 +13,7 @@ class LinUCBLearner(Learner):
     out according to upper confidence bound estimates.
 
     This is an implementation of the Chu et al. (2011) LinUCB algorithm using the
-    `Sherman-Morrison formula`__ to iteratively calculate the inversion matrix. This
-    implementation's computational complexity is linear with respect to feature count.
+    `Sherman-Morrison formula`__ to iteratively calculate the inversion matrix.
 
     Remarks:
         The Sherman-Morrsion implementation used below is given in long form `here`__.
@@ -35,8 +34,8 @@ class LinUCBLearner(Learner):
         Args:
             alpha: This parameter controls the exploration rate of the algorithm. A value of 0 will cause actions
                 to be selected based on the current best point estimate (i.e., no exploration) while a value of inf
-                means that actions will be selected based solely on the bounds of the action point estimates (i.e.,
-                we will always take actions that have the largest bound on their point estimate).
+                means that actions will be selected based solely on the estimated uper bound for each action (i.e.,
+                we will always take actions that have the largest upper bound on their point estimate).
             features: Feature set interactions to use when calculating action value estimates. Context features
                 are indicated by x's while action features are indicated by a's. For example, xaa means to cross the
                 features between context and actions and actions.
@@ -55,24 +54,29 @@ class LinUCBLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
-        return self.predict(context,actions)[actions.index(action)]
-
-    def predict(self, context: Context, actions: Actions) -> PMF:
-        import numpy as np
-
-        if isinstance(actions[0], dict) or isinstance(context, dict):
+    def _initialize(self,context,action) -> None:
+        if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this implementation at this time.")
 
         if not context:
             self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') if isinstance(f,str) else f for f in self._X ]))))
 
+        d  = len(self._X_encoder.encode(x=context or [],a=action))
+        np = __import__('numpy')
+
+        self._theta = np.zeros(d)
+        self._A_inv = np.identity(d)
+        self._np    = np
+
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+        return self.predict(context,actions)[actions.index(action)]
+
+    def predict(self, context: Context, actions: Actions) -> PMF:
+        if self._A_inv is None: self._initialize(context,actions[0])
+        np = self._np
+
         context = context or []
         features = np.array([self._X_encoder.encode(x=context,a=action) for action in actions]).T
-
-        if(self._A_inv is None):
-            self._theta = np.zeros(features.shape[0])
-            self._A_inv = np.identity(features.shape[0])
 
         point_estimate = self._theta @ features
         point_bounds   = np.diagonal(features.T @ self._A_inv @ features)
@@ -83,24 +87,16 @@ class LinUCBLearner(Learner):
         return [int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
 
     def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
-        import numpy as np
+        if self._A_inv is None: self._initialize(context,action)
 
-        if isinstance(action, dict) or isinstance(context, dict):
-            raise CobaException("Sparse data cannot be handled by this algorithm.")
-
-        if not context:
-            self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') if isinstance(f,str) else f for f in self._X ]))))
+        np = self._np
 
         context = context or []
         features = np.array(self._X_encoder.encode(x=context,a=action)).T
 
-        if(self._A_inv is None):
-            self._theta = np.zeros((features.shape[0]))
-            self._A_inv = np.identity(features.shape[0])
-
         r = self._theta @ features
         w = self._A_inv @ features
-        v = features    @ w
+        v = w           @ features
 
         self._A_inv = self._A_inv - np.outer(w,w)/(1+v)
-        self._theta = self._theta + (reward-r)/(1+v) * w
+        self._theta = self._theta + (reward-r)/(1+v)*w

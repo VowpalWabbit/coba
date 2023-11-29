@@ -284,7 +284,7 @@ class VowpalLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Sequence[Prob]:
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         return self.predict(context,actions)[0][actions.index(action)]
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:

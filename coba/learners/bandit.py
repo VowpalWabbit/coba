@@ -27,7 +27,7 @@ class EpsilonBanditLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family": "epsilon_bandit", "epsilon": self._epsilon }
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         return self.predict(context,actions)[actions.index(action)]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
@@ -71,7 +71,7 @@ class UcbBanditLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return { "family": "UCB_bandit" }
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         return self.predict(context,actions)[actions.index(action)]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
@@ -151,7 +151,7 @@ class FixedLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family":"fixed"}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         return self._pmf[actions.index(action)]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
@@ -171,7 +171,7 @@ class RandomLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family":"random"}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         return 1/len(actions)
 
     def predict(self, context: Context, actions: Actions) -> PMF:

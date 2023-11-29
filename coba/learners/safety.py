@@ -240,7 +240,7 @@ class SafeLearner(Learner):
                     raise inner_e from outer_e
 
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         try:
             return self._safe_call('score', self.learner.score,(context,actions,action))
         except AttributeError as ex:

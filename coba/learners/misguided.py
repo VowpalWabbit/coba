@@ -1,4 +1,4 @@
-from coba.learners.primitives import Learner
+from coba.learners.primitives import Learner, Prob
 
 class MisguidedLearner(Learner):
     """A contextual bandit learner that is given incorrect reward information. It is
@@ -13,7 +13,7 @@ class MisguidedLearner(Learner):
     def params(self):
         return {**self._learner.params, 'misguided': [self._shifter,self._scaler]}
 
-    def score(self, context, actions, action):
+    def score(self, context, actions, action) -> Prob:
         return self._learner.score(context, actions, action)
 
     def predict(self, context, actions):

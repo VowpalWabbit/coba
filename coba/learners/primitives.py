@@ -30,7 +30,7 @@ class Learner:
         """
         return {}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Union[Prob,PMF]:
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         """Propensity score a given action (or all actions if action is None) in the context.
 
         Args:
