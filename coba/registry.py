@@ -11,7 +11,7 @@ from typing import Dict, Any, Callable, Union, Tuple, Mapping
 from coba.backports.metadata import entry_points
 from coba.exceptions import CobaException
 
-def coba_registry_class(name:str) -> Callable[[type],type]:
+def coba_registration(name:str) -> Callable[[type],type]:
 
     def registration_decorator(cls: type) -> type:
         CobaRegistry.register(name, cls)
@@ -45,7 +45,10 @@ class CobaRegistry(metaclass=CobaRegistry_meta):
 
     @classmethod
     def register(cls, name:str, tipe:type) -> None:
-        cls._registry[name] = tipe
+        if name not in cls.registry:
+            cls._registry[name] = tipe
+        elif cls._registry[name] != tipe:
+            raise CobaException(f"The class `{tipe.__name__}` has already been registered for '{name}'")
 
 class JsonMakerV1:
 

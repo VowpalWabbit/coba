@@ -1,7 +1,7 @@
 import unittest
 
 from coba.exceptions import CobaException
-from coba.registry import CobaRegistry, coba_registry_class, JsonMakerV1, JsonMakerV2
+from coba.registry import CobaRegistry, coba_registration, JsonMakerV1, JsonMakerV2
 from coba.environments import OpenmlSimulation
 
 class TestObject:
@@ -26,14 +26,25 @@ class CobaRegistry_Tests(unittest.TestCase):
         obj = CobaRegistry.registry["Null"]
         self.assertEqual("NullSink", obj.__name__)
 
+    def test_register(self):
+        class MyTestObject(TestObject): pass
+
+        CobaRegistry.register("A",MyTestObject)
+        self.assertIn("A",CobaRegistry.registry)
+
+        with self.assertRaises(CobaException) as ex:
+            CobaRegistry.register("A",str)
+
+        self.assertEqual(str(ex.exception),"The class `str` has already been registered for 'A'")
+
     def test_endpoint_loaded_after_decorator_register(self):
-        @coba_registry_class("MyTestObject")
+        @coba_registration("MyTestObject")
         class MyTestObject(TestObject): pass
         obj = CobaRegistry.registry["Null"]
         self.assertEqual("NullSink", obj.__name__)
 
-    def test_register_decorator(self):
-        @coba_registry_class("MyTestObject")
+    def test_registration_decorator(self):
+        @coba_registration("MyTestObject")
         class MyTestObject(TestObject): pass
         "MyTestObject" in CobaRegistry.registry
 
