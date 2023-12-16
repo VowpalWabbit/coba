@@ -1,13 +1,12 @@
-import json
 import math
-import copy
 
 from collections import defaultdict, abc
 from itertools import islice, chain
 from typing import Iterable, Any, Sequence, Mapping, Optional, Union
 
+import coba.json
 from coba.random import CobaRandom
-from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
+from coba.encodings import Encoder
 from coba.utilities import peek_first
 from coba.primitives import Sparse,Dense
 
@@ -181,62 +180,25 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
 class JsonEncode(Filter[Any, str]):
     """A filter which turn a Python object into JSON strings."""
 
-    def _min(self, obj):
-        #WARNING: This method doesn't handle primitive types such int, float, or str. We handle this shortcoming
-        #WARNING: by making sure no primitive type is passed to this method in filter. Accepting the shortcoming
-        #WARNING: improves the performance of this method by a few percentage points.
-
-        #JsonEncoder writes floats with .0 regardless of if they are integers so we convert them to int to save space
-        #JsonEncoder also writes floats out 16 digits so we truncate them to 5 digits here to reduce file size
-
-        if isinstance(obj,tuple):
-            obj = list(obj)
-            kv  = enumerate(obj)
-        elif isinstance(obj,list):
-            kv = enumerate(obj)
-        elif isinstance(obj,dict):
-            kv = obj.items()
-        else:
-            return obj
-
-        for k,v in kv:
-            if isinstance(v, (int,str)):
-                obj[k] = v
-            elif isinstance(v, float):
-                if v.is_integer():
-                    obj[k] = int(v)
-                elif math.isnan(v) or math.isinf(v):
-                    obj[k] = v
-                else:
-                    #rounding by any means is considerably slower than this crazy method
-                    #where we format as a truncated string and then manually remove the
-                    #string indicators from the json via string replace methods
-                    obj[k] = f"|{v:0.5g}|"
-            else:
-                obj[k] = self._min(v)
-
-        return obj
-
     def __init__(self, minify=True) -> None:
         self._minify = minify
 
         if self._minify:
-            self._encoder = CobaJsonEncoder(separators=(',', ':'))
+            self._encoder = lambda x: coba.json.dumps(coba.json.minimize(x),separators=(',', ':'))
         else:
-            self._encoder = CobaJsonEncoder()
+            self._encoder = coba.json.dumps
 
     def filter(self, item: Any) -> str:
-        item = self._min(copy.deepcopy([item]))[0] if self._minify else item
-        return self._encoder.encode(item).replace('"|',"").replace('|"',"")
+        return self._encoder(item)
 
 class JsonDecode(Filter[str, Any]):
     """A filter which turns a JSON string into a Python object."""
 
-    def __init__(self, decoder: json.decoder.JSONDecoder = CobaJsonDecoder()) -> None:
-        self._decoder = decoder
+    def __init__(self) -> None:
+        self._decoder = coba.json.loads
 
     def filter(self, item: str) -> Any:
-        return self._decoder.decode(item)
+        return self._decoder(item)
 
 class Flatten(Filter[Iterable[Any], Iterable[Any]]):
     """A filter which flattens rows in table shaped data."""

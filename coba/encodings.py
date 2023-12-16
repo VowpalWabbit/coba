@@ -1,6 +1,5 @@
 """This module contains utility classes for transforming data between encodings."""
 
-import json
 import time
 
 from numbers import Number
@@ -9,7 +8,6 @@ from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Mapping
 
-from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.primitives import Sparse, Dense, Categorical
 
@@ -306,29 +304,6 @@ class FactorEncoder(Encoder[int]):
             return list(map(self._levels.__getitem__,values))
         except KeyError as e:
             raise CobaException(f"We were unable to find {e} in {self._levels.keys()}") from None
-
-class CobaJsonEncoder(json.JSONEncoder):
-    """A json encoder that allows for potential COBA extensions in the future."""
-    def default(self, o: Any) -> Any:
-
-        if PackageChecker.torch(strict=False):
-            import torch
-        else:
-            torch = None
-
-        try:
-            return o.to_json()
-        except AttributeError:
-            try:
-                if torch and isinstance(o,torch.Tensor):
-                    return o.tolist()
-                else:
-                    return vars(o)
-            except TypeError:
-                return super().default(o)
-
-class CobaJsonDecoder(json.JSONDecoder):
-    """A json decoder that allows for potential COBA extensions in the future."""
 
 class InteractionsEncoder:
 

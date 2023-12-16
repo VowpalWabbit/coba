@@ -4,6 +4,7 @@ import timeit
 from itertools import count
 from typing import Callable, Any
 
+import coba.json
 import coba.pipes
 import coba.random
 
@@ -15,7 +16,7 @@ from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, Ope
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.primitives import BinaryReward, HammingReward
 
-from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pipes
+from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes
 
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
@@ -122,7 +123,6 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_str_performance(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = [ str(i) for i in range(100) ]
@@ -131,7 +131,6 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
 
@@ -140,7 +139,6 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_int_performance(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = list(range(100))
@@ -149,7 +147,6 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_mixed_performance(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = [ float(i) if i % 2 == 0 else str(i) for i in range(100) ]
@@ -158,7 +155,6 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
 
@@ -167,7 +163,6 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_examples_sequence_int_performance(self):
-
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
 
@@ -181,10 +176,10 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_scale_time(x, lambda x:list(res.filter(x)), .03, print_time, number=1000)
 
-    def test_jsonencode_performance(self):
-        enc = JsonEncode()
-        x = [[1.2,1.2],[1.2,1.2],{'a':1.,'b':1.}]*5
-        self._assert_scale_time(x, enc.filter, .045, print_time, number=1000)
+    def test_jsonminimize_performance(self):
+        m = coba.json.minimize
+        x = [[1.2,1.2],[1.2,1.2],{'a':1.,'b':1.}]*20
+        self._assert_scale_time(x, lambda x: m(x) , .06, print_time, number=1000)
 
     def test_arffreader_lazy_performance(self):
         attrs = [f"@attribute {i} {{1,2}}" for i in range(3)]
@@ -201,21 +196,18 @@ class Performance_Tests(unittest.TestCase):
         self._assert_scale_time(lines, lambda x:[list(l) for l in reader.filter(attrs+data+x)], .028, print_time, number=100)
 
     def test_arffattrreader_dense_performance(self):
-
         reader = ArffAttrReader(True)
         attrs = [f"@attribute {i} {{1,2}}" for i in range(3)]
 
         self._assert_call_time(lambda:list(reader.filter(attrs)), .004, print_time, number=100)
 
     def test_arffdatareader_dense_performance(self):
-
         data_lines = [",".join(["1"]*3)]*50
         reader = ArffDataReader(True)
 
         self._assert_scale_time(data_lines, lambda x:list(reader.filter(x)), .0007, print_time, number=100)
 
     def test_arfflinereader_dense_performance(self):
-
         reader = ArffLineReader(True,3)
         line = ",".join(['1']*3)
 
