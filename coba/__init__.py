@@ -21,8 +21,7 @@ from coba.utilities import peek_first
 from coba.exceptions import CobaException
 
 from coba.primitives.semantic import is_batch, Context, Action, Actions
-from coba.primitives.rewards  import L1Reward, HammingReward, BinaryReward
-from coba.primitives.rewards  import SequenceReward, MappingReward
+from coba.primitives.rewards  import L1Reward, HammingReward, BinaryReward, SequenceReward, MappingReward
 
 from coba.statistics import BootstrapCI, mean
 

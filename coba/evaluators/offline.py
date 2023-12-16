@@ -12,7 +12,6 @@ from coba.encodings import InteractionsEncoder
 from coba.learners import Learner
 from coba.environments import Environment
 from coba.exceptions import CobaExit
-from coba.primitives import argmax
 from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first
 
@@ -44,7 +43,7 @@ class ClassMetaEvaluator(Evaluator):
         env_stats = {}
 
         X = [ InteractionsEncoder('x').encode(x=c) for c   in contexts             ]
-        Y = [ argmax(a,r)                          for a,r in zip(actions,rewards) ]
+        Y = [ max(a,key=r)                         for a,r in zip(actions,rewards) ]
         X = self._dense(X)
 
         classes = list(set(Y))

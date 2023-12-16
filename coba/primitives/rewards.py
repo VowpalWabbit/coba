@@ -5,17 +5,6 @@ from coba.primitives.semantic import Action
 
 Reward = Callable[[Action],float]
 
-def argmax(actions: Sequence[Action], reward: Reward) -> Action:
-    max_r = -float('inf')
-    max_a = 0
-    for a in actions:
-        r = reward(a)
-        if r > max_r:
-            max_a = a
-            max_r = r
-
-    return max_a
-
 def extract_shape(given:Action, comparison:Action, is_comparison_list:bool=False):
 
     given_ndim = getattr(given,'ndim',-1)
@@ -41,7 +30,7 @@ def extract_shape(given:Action, comparison:Action, is_comparison_list:bool=False
 
     return compare_action, output_shape
 
-def create_shape(value:float, shape, shape_type:type):
+def create_shape(value:float, shape):
 
     if shape is None:
         return value
@@ -82,7 +71,7 @@ class BinaryReward:
         argmax = self._argmax
         comparable,shape = extract_shape(action,argmax)
         value = self._value if argmax==comparable else 0
-        return create_shape(value,shape,type(action))
+        return create_shape(value,shape)
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -109,7 +98,7 @@ class HammingReward:
 
         value = n_intersect/n_union
 
-        return create_shape(value,shape,type(action))
+        return create_shape(value,shape)
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -128,7 +117,7 @@ class SequenceReward:
     def __call__(self, action: Action) -> float:
         comparable,shape = extract_shape(action,self._actions[0])
         value = self._rewards[self._actions.index(comparable)]
-        return create_shape(value,shape,type(action))
+        return create_shape(value,shape)
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -147,7 +136,7 @@ class MappingReward:
         comparable,shape = extract_shape(action,next(iter(self._mapping.keys())))
         comparable = tuple(comparable) if isinstance(comparable,list) else comparable
         value = self._mapping[comparable]
-        return create_shape(value,shape,type(action))
+        return create_shape(value,shape)
 
     def __reduce__(self):
         #this makes the pickle smaller
@@ -166,4 +155,4 @@ class ProxyReward:
         comparable,shape = extract_shape(action,next(iter(self._mapping.keys())))
         comparable = tuple(comparable) if isinstance(comparable,list) else comparable
         value = self._reward(self._mapping[comparable])
-        return create_shape(value,shape,type(action))
+        return create_shape(value,shape)

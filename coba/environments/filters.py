@@ -18,7 +18,7 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
-from coba.primitives import BinaryReward, SequenceReward, MappingReward, ProxyReward, argmax, is_batch
+from coba.primitives import BinaryReward, SequenceReward, ProxyReward, is_batch
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Pipes, Filter, SparseDense
 
@@ -657,7 +657,7 @@ class Binary(EnvironmentFilter):
         else:
             for interaction in interactions:
                 new = interaction.copy()
-                new['rewards'] = BinaryReward(argmax(interaction['actions'], interaction['rewards']))
+                new['rewards'] = BinaryReward(max(interaction['actions'], key=interaction['rewards']))
                 yield new
 
 class Sort(EnvironmentFilter):
@@ -935,17 +935,17 @@ class Grounded(EnvironmentFilter):
         for seed, interaction in enumerate(interactions, self._seed):
 
             userid,normal = rng.choice(userid_isnormal)
-            maxarg        = argmax(interaction['actions'],interaction['rewards'])
+            argmax        = max(interaction['actions'],key=interaction['rewards'])
 
             new = interaction.copy()
 
             if not is_binary_rwd:
-                new['rewards'] = BinaryReward(maxarg)
+                new['rewards'] = BinaryReward(argmax)
 
             if normal:
-                new['feedbacks'] = Grounded.GroundedFeedback(goods,bads,maxarg,seed)
+                new['feedbacks'] = Grounded.GroundedFeedback(goods,bads,argmax,seed)
             else:
-                new['feedbacks'] = Grounded.GroundedFeedback(bads,goods,maxarg,seed)
+                new['feedbacks'] = Grounded.GroundedFeedback(bads,goods,argmax,seed)
 
             if is_sparse:
                 new['context'] = dict(userid=userid,**new['context'])

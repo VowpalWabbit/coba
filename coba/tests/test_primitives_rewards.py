@@ -3,11 +3,6 @@ import pickle
 
 from coba.utilities import PackageChecker
 from coba.primitives import L1Reward, HammingReward, BinaryReward, SequenceReward, MappingReward, ProxyReward
-from coba.primitives import argmax
-
-class argmax_Tests(unittest.TestCase):
-    def test_simple(self):
-        self.assertEqual(1,argmax([1,2,3],SequenceReward([1,2,3],[9,8,7])))
 
 class L1Reward_Tests(unittest.TestCase):
 
@@ -52,7 +47,7 @@ class L1Reward_Tests(unittest.TestCase):
 
 class BinaryReward_Tests(unittest.TestCase):
 
-    def test_binary_argmax(self):
+    def test_binary(self):
         rwd = BinaryReward(1)
 
         self.assertEqual(0, rwd(2))
@@ -61,7 +56,7 @@ class BinaryReward_Tests(unittest.TestCase):
         self.assertEqual(rwd, rwd)
         self.assertEqual(1, rwd)
 
-    def test_binary_argmax_with_value(self):
+    def test_binary_with_value(self):
         rwd = BinaryReward(1,2)
 
         self.assertEqual(0, rwd(2))
