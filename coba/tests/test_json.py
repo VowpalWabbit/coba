@@ -34,13 +34,13 @@ class minimize_Tests(unittest.TestCase):
 
     def test_nan(self):
         out = coba.json.minimize(float('nan'))
-        self.assertNotEqual(out,out)        
+        self.assertNotEqual(out,out)
 
     @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch.")
     def test_torch_tensor(self):
         import torch
         self.assertEqual(coba.json.minimize(torch.tensor([[1],[2]])), [[1],[2]])
-    
+
     @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch.")
     def test_torch_number(self):
         import torch
@@ -55,7 +55,7 @@ class dumps_Tests(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             coba.json.dumps({1,2,3})
         self.assertIn("Object of type set is not JSON serializable", str(e.exception))
-    
+
     @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch.")
     def test_torch_tensor(self):
         import torch

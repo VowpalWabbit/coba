@@ -9,7 +9,7 @@ from coba.context import CobaContext
 from coba.environments import Batch, OpeRewards, SimpleEnvironment
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.learners import Learner, VowpalSoftmaxLearner
-from coba.primitives import SequenceReward, is_batch
+from coba.primitives import DiscreteReward, is_batch
 
 from coba.evaluators import RejectionCB, SequentialCB, SequentialIGL
 
@@ -430,9 +430,9 @@ class SequentialCB_Tests(unittest.TestCase):
         task         = SequentialCB()
         learner      = FixedActionProbLearner([0,1,2],None)
         interactions = [
-            SimulatedInteraction(1,[],SequenceReward([0,1,2],[7,8,9])),
-            SimulatedInteraction(2,[],SequenceReward([0,1,2],[4,5,6])),
-            SimulatedInteraction(3,[],SequenceReward([0,1,2],[1,2,3])),
+            SimulatedInteraction(1,[],DiscreteReward([0,1,2],[7,8,9])),
+            SimulatedInteraction(2,[],DiscreteReward([0,1,2],[4,5,6])),
+            SimulatedInteraction(3,[],DiscreteReward([0,1,2],[1,2,3])),
         ]
 
         actual_task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))
@@ -675,7 +675,7 @@ class SequentialCB_Tests(unittest.TestCase):
     def test_on_on_record_time(self):
         task         = SequentialCB(['time'])
         learner      = RecordingLearner()
-        interactions = [SimulatedInteraction(1,[0,1,2],SequenceReward([0,1,2],[7,8,9]))]
+        interactions = [SimulatedInteraction(1,[0,1,2],DiscreteReward([0,1,2],[7,8,9]))]
 
         task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))
 

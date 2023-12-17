@@ -8,7 +8,7 @@ from coba.utilities import PackageChecker
 from coba.context import CobaContext, DiskCacher, NullLogger
 from coba.pipes import DiskSource, LazyDense
 from coba.exceptions import CobaException
-from coba.primitives import L1Reward, Categorical
+from coba.primitives import L1Reward, Categorical, DiscreteReward
 from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
@@ -381,12 +381,15 @@ class Environments_Tests(unittest.TestCase):
         import pandas as pd
 
         df = pd.DataFrame({'context':[1,2],'actions':[[0,1]]*2,'rewards':[[2,3]]*2})
-        expected = [{'context':1,'actions':[0,1],'rewards':[2,3]},{'context':2,'actions':[0,1],'rewards':[2,3]}]
+        expected = [
+            {'context':1,'actions':[0,1],'rewards':DiscreteReward([0,1],[2,3])},
+            {'context':2,'actions':[0,1],'rewards':DiscreteReward([0,1],[2,3])}
+        ]
 
         env = Environments.from_dataframe(df)
 
         self.assertEqual(len(env),1)
-        self.assertEqual(list(env[0].read()),expected)
+        self.assertEqual(expected, list(env[0].read()))
 
     def test_init_args(self):
         env = Environments(TestEnvironment1('A'), TestEnvironment1('B'))

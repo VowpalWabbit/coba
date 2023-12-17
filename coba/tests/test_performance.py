@@ -23,7 +23,7 @@ from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
 from coba.experiments.results import Result, moving_average, Table, TransactionResult
 from coba.evaluators import SequentialCB
-from coba.primitives import Categorical, HashableSparse
+from coba.primitives import Categorical, HashableSparse, DiscreteReward
 
 Timeable = Callable[[],Any]
 Scalable = Callable[[list],Timeable]
@@ -556,6 +556,18 @@ class Performance_Tests(unittest.TestCase):
         filterer     = lambda x: list(repr.filter(x))
 
         self._assert_scale_time(interactions, filterer, .04, print_time, number=1000)
+
+    def test_repr_repeat_with_rewards(self):
+        levels = list(map(str,range(10)))
+        actions = [Categorical(l,levels) for l in levels]
+
+        interaction = { 'actions': actions, 'rewards': DiscreteReward(actions,list(range(len(actions)))) }
+
+        interactions = [interaction]*100
+        repr         = Repr(categorical_actions='onehot_tuple')
+        filterer     = lambda x: list(repr.filter(x))
+
+        self._assert_scale_time(interactions, filterer, .1, print_time, number=1000)
 
     def test_categorical_equality(self):
         cat1 = Categorical('1',list(map(str,range(20))))

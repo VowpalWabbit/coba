@@ -12,14 +12,14 @@ class LinTSLearner(Learner):
     linear function of context and action features. Exploration is carried
     out according to the Thompson Sampling heuristic.
 
-    This is an implementation of the Agrawal et al. (2013) Thompson Sapmling algorithm 
+    This is an implementation of the Agrawal et al. (2013) Thompson Sapmling algorithm
     using the `Sherman-Morrison formula`__ to iteratively calculate the inversion matrix.
 
     Remarks:
         A small note on the stability of the Sherman-Morrison formula can be found `here`__.
 
     References:
-        Agrawal, Shipra, and Navin Goyal. "Thompson sampling for contextual bandits with 
+        Agrawal, Shipra, and Navin Goyal. "Thompson sampling for contextual bandits with
         linear payoffs." International conference on machine learning. PMLR, 2013.
 
     __ https://en.wikipedia.org/wiki/Sherman%E2%80%93Morrison_formula
@@ -30,7 +30,7 @@ class LinTSLearner(Learner):
         """Instantiate a LinUCBLearner.
 
         Args:
-            v: This parameter controls the exploration rate of the algorithm. A value of 0 will mean that no 
+            v: This parameter controls the exploration rate of the algorithm. A value of 0 will mean that no
                 exploration is performed while a value of inf will mean that the algorithm explores uniformly forever.
                 The appropriate setting of v will depend to some degree on the scale of given feature vectors and rewards.
             features: Feature set interactions to use when calculating action value estimates. Context features

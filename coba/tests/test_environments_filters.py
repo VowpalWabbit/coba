@@ -7,7 +7,7 @@ from math import isnan
 from coba.pipes        import LazyDense, LazySparse, HeadDense
 from coba.context      import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import SequenceReward, L1Reward, Categorical
+from coba.primitives   import DiscreteReward, L1Reward, Categorical, BinaryReward
 from coba.learners     import FixedLearner
 from coba.utilities    import peek_first, PackageChecker
 
@@ -733,21 +733,15 @@ class Cycle_Tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle().filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0]['rewards'])
-        self.assertEqual([1,4], mem_interactions[1]['rewards'])
-        self.assertEqual([1,5], mem_interactions[2]['rewards'])
-        self.assertEqual([1,3], mem_interactions[0]['rewards'])
-        self.assertEqual([1,4], mem_interactions[1]['rewards'])
-        self.assertEqual([1,5], mem_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,3]), mem_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,4]), mem_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,5]), mem_interactions[2]['rewards'])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([3,1], cyc_interactions[0]['rewards'])
-        self.assertEqual([4,1], cyc_interactions[1]['rewards'])
-        self.assertEqual([5,1], cyc_interactions[2]['rewards'])
-        self.assertEqual([3,1], cyc_interactions[0]['rewards'])
-        self.assertEqual([4,1], cyc_interactions[1]['rewards'])
-        self.assertEqual([5,1], cyc_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[3,1]), cyc_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[4,1]), cyc_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[5,1]), cyc_interactions[2]['rewards'])
 
     def test_after_1(self):
 
@@ -760,15 +754,15 @@ class Cycle_Tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle(after=1).filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0]['rewards'])
-        self.assertEqual([1,4], mem_interactions[1]['rewards'])
-        self.assertEqual([1,5], mem_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,3]), mem_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,4]), mem_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,5]), mem_interactions[2]['rewards'])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([1,3], cyc_interactions[0]['rewards'])
-        self.assertEqual([4,1], cyc_interactions[1]['rewards'])
-        self.assertEqual([5,1], cyc_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,3]), cyc_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[4,1]), cyc_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[5,1]), cyc_interactions[2]['rewards'])
 
     def test_after_2(self):
 
@@ -781,15 +775,15 @@ class Cycle_Tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle(after=2).filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0]['rewards'])
-        self.assertEqual([1,4], mem_interactions[1]['rewards'])
-        self.assertEqual([1,5], mem_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,3]), mem_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,4]), mem_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,5]), mem_interactions[2]['rewards'])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([1,3], cyc_interactions[0]['rewards'])
-        self.assertEqual([1,4], cyc_interactions[1]['rewards'])
-        self.assertEqual([5,1], cyc_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,3]), cyc_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,4]), cyc_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[5,1]), cyc_interactions[2]['rewards'])
 
     def test_after_10(self):
 
@@ -802,15 +796,15 @@ class Cycle_Tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle(after=10).filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0]['rewards'])
-        self.assertEqual([1,4], mem_interactions[1]['rewards'])
-        self.assertEqual([1,5], mem_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,3]), mem_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,4]), mem_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,5]), mem_interactions[2]['rewards'])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([1,3], cyc_interactions[0]['rewards'])
-        self.assertEqual([1,4], cyc_interactions[1]['rewards'])
-        self.assertEqual([1,5], cyc_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,3]), cyc_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,4]), cyc_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward([(1,0),(0,1)],[1,5]), cyc_interactions[2]['rewards'])
 
     def test_after_10_categoricals(self):
 
@@ -823,15 +817,15 @@ class Cycle_Tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle(after=10).filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0]['rewards'])
-        self.assertEqual([1,4], mem_interactions[1]['rewards'])
-        self.assertEqual([1,5], mem_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward(['a','b'],[1,3]), mem_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward(['a','b'],[1,4]), mem_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward(['a','b'],[1,5]), mem_interactions[2]['rewards'])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([1,3], cyc_interactions[0]['rewards'])
-        self.assertEqual([1,4], cyc_interactions[1]['rewards'])
-        self.assertEqual([1,5], cyc_interactions[2]['rewards'])
+        self.assertEqual(DiscreteReward(['a','b'],[1,3]), cyc_interactions[0]['rewards'])
+        self.assertEqual(DiscreteReward(['a','b'],[1,4]), cyc_interactions[1]['rewards'])
+        self.assertEqual(DiscreteReward(['a','b'],[1,5]), cyc_interactions[2]['rewards'])
 
     def test_with_action_features(self):
 
@@ -846,15 +840,15 @@ class Cycle_Tests(unittest.TestCase):
             mem_interactions = interactions
             cyc_interactions = list(Cycle(after=0).filter(mem_interactions))
 
-            self.assertEqual([1,3], mem_interactions[0]['rewards'])
-            self.assertEqual([1,4], mem_interactions[1]['rewards'])
-            self.assertEqual([1,5], mem_interactions[2]['rewards'])
+            self.assertEqual(DiscreteReward([1,2],[1,3]), mem_interactions[0]['rewards'])
+            self.assertEqual(DiscreteReward([1,2],[1,4]), mem_interactions[1]['rewards'])
+            self.assertEqual(DiscreteReward([1,2],[1,5]), mem_interactions[2]['rewards'])
 
             self.assertEqual(3, len(cyc_interactions))
 
-            self.assertEqual([1,3], cyc_interactions[0]['rewards'])
-            self.assertEqual([1,4], cyc_interactions[1]['rewards'])
-            self.assertEqual([1,5], cyc_interactions[2]['rewards'])
+            self.assertEqual(DiscreteReward([1,2],[1,3]), cyc_interactions[0]['rewards'])
+            self.assertEqual(DiscreteReward([1,2],[1,4]), cyc_interactions[1]['rewards'])
+            self.assertEqual(DiscreteReward([1,2],[1,5]), cyc_interactions[2]['rewards'])
 
     def test_params(self):
         self.assertEqual({"cycle_after":0 }, Cycle().params)
@@ -1467,13 +1461,13 @@ class Noise_Tests(unittest.TestCase):
 
         actual_interactions = list(Noise(action=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
-        self.assertEqual(2      , len(actual_interactions))
-        self.assertEqual([7]   , actual_interactions[0]['context'])
+        self.assertEqual(2          , len(actual_interactions))
+        self.assertEqual([7]        , actual_interactions[0]['context'])
         self.assertEqual([[2],[2]]  , actual_interactions[0]['actions'])
-        self.assertEqual([.2,.3], actual_interactions[0]['rewards'])
-        self.assertEqual([1]   , actual_interactions[1]['context'])
+        self.assertEqual([.2,.3]    , actual_interactions[0]['rewards'])
+        self.assertEqual([1]        , actual_interactions[1]['context'])
         self.assertEqual([[3],[4]]  , actual_interactions[1]['actions'])
-        self.assertEqual([.1,.5], actual_interactions[1]['rewards'])
+        self.assertEqual([.1,.5]    , actual_interactions[1]['rewards'])
 
     def test_action_noise3(self):
 
@@ -1629,16 +1623,14 @@ class Flatten_Tests(unittest.TestCase):
         self.assertEqual(2            , len(actual_interactions))
         self.assertEqual((7,1,0)      , actual_interactions[0]['context'])
         self.assertEqual([(1,"def"),2], actual_interactions[0]['actions'])
-        self.assertEqual([.2,.3]      , actual_interactions[0]['rewards'])
         self.assertEqual((1,0,1)      , actual_interactions[1]['context'])
         self.assertEqual([(1,"ghi"),3], actual_interactions[1]['actions'])
-        self.assertEqual([.1,.5]      , actual_interactions[1]['rewards'])
 
     def test_flatten_actions(self):
 
         interactions = [
-            SimulatedInteraction((7,1,0), [(1,("d",1)),(1,("j",1))], [.2,.3]),
-            SimulatedInteraction((1,0,1), [(1,("g",2)),(1,("l",1))], [.1,.5]),
+            GroundedInteraction((7,1,0), [(1,("d",1)),(1,("j",1))], [.2,.3],[.2,.3]),
+            GroundedInteraction((1,0,1), [(1,("g",2)),(1,("l",1))], [.1,.5],[.1,.5]),
         ]
 
         flatten_filter = Flatten()
@@ -1647,10 +1639,8 @@ class Flatten_Tests(unittest.TestCase):
         self.assertEqual(2                    , len(actual_interactions))
         self.assertEqual((7,1,0)              , actual_interactions[0]['context'])
         self.assertEqual([(1,"d",1),(1,"j",1)], actual_interactions[0]['actions'])
-        self.assertEqual([.2,.3]              , actual_interactions[0]['rewards'])
         self.assertEqual((1,0,1)              , actual_interactions[1]['context'])
         self.assertEqual([(1,"g",2),(1,"l",1)], actual_interactions[1]['actions'])
-        self.assertEqual([.1,.5]              , actual_interactions[1]['rewards'])
 
     def test_params(self):
         self.assertEqual({'flat':True}, Flatten().params)
@@ -1736,7 +1726,9 @@ class Grounded_Tests(unittest.TestCase):
     def test_01_reward(self):
         sim_interactions = [ SimulatedInteraction(0,[1,2,3],[1,0,0]) ]
         igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
-        self.assertEqual(igl_interactions[0]['rewards'], [1,0,0])
+        self.assertEqual(igl_interactions[0]['rewards'](1), 1)
+        self.assertEqual(igl_interactions[0]['rewards'](2), 0)
+        self.assertEqual(igl_interactions[0]['rewards'](3), 0)
 
     def test_not_01_reward(self):
         sim_interactions = [ SimulatedInteraction(0,[1,2,3],[0,.2,.5]) ]
@@ -1804,35 +1796,30 @@ class Repr_Tests(unittest.TestCase):
 
     def test_repr_none_none(self):
         out = next(Repr(None,None).filter([SimulatedInteraction(Categorical('1',['1','2']),[1,2],[1,2])]))
-
         self.assertEqual(Categorical('1',['1','2']),out['context'])
         self.assertEqual([1,2],out['actions'])
         self.assertEqual([1,2],out['rewards'])
 
     def test_no_categorical(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[1,2],[1,2])]))
-
         self.assertEqual([1,2,3],out['context'])
         self.assertEqual([1,2]  ,out['actions'])
         self.assertEqual([1,2]  ,out['rewards'])
 
     def test_context_categorical_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,Categorical('1',['1','2'])],[1,2],[1,2])]))
-
         self.assertEqual([1,2,1,0],out['context'])
         self.assertEqual([1,2]    ,out['actions'])
         self.assertEqual([1,2]    ,out['rewards'])
 
     def test_context_categorical_unflat(self):
         out = next(Repr('onehot_tuple','onehot').filter([SimulatedInteraction([1,2,Categorical('1',['1','2'])],[1,2],[1,2])]))
-
         self.assertEqual([1,2,(1,0)],out['context'])
         self.assertEqual([1,2]      ,out['actions'])
         self.assertEqual([1,2]      ,out['rewards'])
 
     def test_context_categorical_string(self):
         out = next(Repr('string','onehot').filter([SimulatedInteraction([Categorical('1',['1','2'])],[1,2],[1,2])]))
-
         self.assertEqual(['1'],out['context'])
         self.assertNotIsInstance(out['context'][0],Categorical)
         self.assertEqual([1,2],out['actions'])
@@ -1840,7 +1827,6 @@ class Repr_Tests(unittest.TestCase):
 
     def test_context_categorical_value_string(self):
         out = next(Repr('string','onehot').filter([SimulatedInteraction(Categorical('1',['1','2']),[1,2],[1,2])]))
-
         self.assertEqual('1',out['context'])
         self.assertNotIsInstance(out['context'],Categorical)
         self.assertEqual([1,2],out['actions'])
@@ -1848,14 +1834,12 @@ class Repr_Tests(unittest.TestCase):
 
     def test_context_categorical_value_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction(Categorical('1',['1','2']),[1,2],[1,2])]))
-
         self.assertEqual((1,0),out['context'])
         self.assertEqual([1,2],out['actions'])
         self.assertEqual([1,2],out['rewards'])
 
     def test_actions_categorical_value_onehot_tuple(self):
         out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
-
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
         self.assertEqual(out['rewards']((1,0)), 1)
@@ -1863,7 +1847,6 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_value_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
-
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
         self.assertEqual(out['rewards']((1,0)), 1)
@@ -1871,7 +1854,6 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_value_string(self):
         out = next(Repr('onehot','string').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
-
         self.assertEqual([1,2,3]  , out['context'])
         self.assertEqual(['1','2'], out['actions'])
         self.assertEqual(out['rewards']('1'), 1)
@@ -1879,7 +1861,6 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_dense_onehot_tuple_with_list(self):
         out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2']),[1]],[Categorical('2',['1','2']),[2]]],[1,2])]))
-
         self.assertEqual([1,2,3]                  , out['context'])
         self.assertEqual([[(1,0),[1]],[(0,1),[2]]], out['actions'])
         self.assertEqual(out['rewards']([(1,0),[1]]), 1)
@@ -1887,7 +1868,6 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_dense_onehot_tuple(self):
         out = next(Repr('onehot','onehot_tuple').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
-
         self.assertEqual([1,2,3]          , out['context'])
         self.assertEqual([[(1,0)],[(0,1)]], out['actions'])
         self.assertEqual(out['rewards']([(1,0)]), 1)
@@ -1895,7 +1875,6 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_dense_onehot(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
-
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([[1,0],[0,1]], out['actions'])
         self.assertEqual(out['rewards']([1,0]), 1)
@@ -1903,7 +1882,6 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_dense_string(self):
         out = next(Repr('onehot','string').filter([SimulatedInteraction([1,2,3],[[Categorical('1',['1','2'])],[Categorical('2',['1','2'])]],[1,2])]))
-
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([['1'],['2']], out['actions'])
         self.assertFalse(isinstance(out['actions'][0][0],Categorical))
@@ -1912,7 +1890,6 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_with_feedbacks(self):
         out = next(Repr('onehot','onehot_tuple').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
-
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
         self.assertEqual(out['rewards']((1,0)), 1)
@@ -1922,8 +1899,7 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_with_only_feedbacks(self):
         actions = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
-        out = next(Repr('onehot','onehot_tuple').filter([{'context':[1,2,3],'actions':actions,'feedbacks':SequenceReward(actions,[3,4])}]))
-
+        out = next(Repr('onehot','onehot_tuple').filter([{'context':[1,2,3],'actions':actions,'feedbacks':DiscreteReward(actions,[3,4])}]))
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
         self.assertEqual(out['feedbacks']((1,0)), 3)
@@ -1931,16 +1907,37 @@ class Repr_Tests(unittest.TestCase):
 
     def test_actions_categorical_str(self):
         out = next(Repr('onehot','string').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
-
         self.assertEqual([1,2,3]  , out['context'])
         self.assertEqual(['1','2'], out['actions'])
         self.assertEqual(out['rewards']('1'), 1)
         self.assertEqual(out['rewards']('2'), 2)
         self.assertEqual(out['feedbacks']('1'), 3)
         self.assertEqual(out['feedbacks']('2'), 4)
-
         self.assertNotIsInstance(out['actions'][0],Categorical)
         self.assertNotIsInstance(out['actions'][1],Categorical)
+
+    def test_repr_binary_reward(self):
+        out = next(Repr(None,'string').filter([{'actions':[Categorical('1',['1','2']),Categorical('2',['1','2'])], 'rewards':BinaryReward(Categorical('2',['1','2']),2)}]))
+        self.assertEqual(['1','2'], out['actions'])
+        self.assertEqual(out['rewards']('1'), 0)
+        self.assertEqual(out['rewards']('2'), 2)
+
+    def test_repr_discrete_reward(self):
+        actions = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
+        out = next(Repr(None,'string').filter([{'actions':actions, 'rewards':DiscreteReward(actions,[1,2])}]))
+        self.assertEqual(['1','2'], out['actions'])
+        self.assertEqual(out['rewards']('1'), 1)
+        self.assertEqual(out['rewards']('2'), 2)
+
+    def test_repr_exotic_reward(self):
+        def my_reward(action):
+            if action == '1': return 5
+            if action == '2': return 6
+        actions = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
+        out = next(Repr(None,'onehot').filter([{'actions':actions, 'rewards':my_reward}]))
+        self.assertEqual([(1,0),(0,1)], out['actions'])
+        self.assertEqual(out['rewards']((1,0)), 5)
+        self.assertEqual(out['rewards']((0,1)), 6)
 
 class Finalize_Tests(unittest.TestCase):
 
@@ -2141,7 +2138,7 @@ class Batch_Tests(unittest.TestCase):
         self.assertEqual(batch['rewards']([1,2]), [-1,0])
 
     def test_batch_feedbacks(self):
-        batch = list(Batch(2).filter([{'feedbacks':SequenceReward([0,1,2],[1,2,3]),'b':2}]*2))[0]
+        batch = list(Batch(2).filter([{'feedbacks':DiscreteReward([0,1,2],[1,2,3]),'b':2}]*2))[0]
         self.assertEqual(batch['feedbacks']([1,2]), [2,3])
 
     @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")

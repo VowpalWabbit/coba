@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Sequence, Mapping, overload
 
 from coba.primitives import Context, Action, Actions
-from coba.primitives import Reward, SequenceReward
+from coba.primitives import Reward, DiscreteReward
 from coba.pipes import Source, SourceFilters, Filter
 
 class Interaction(dict):
@@ -38,7 +38,7 @@ class SimulatedInteraction(Interaction):
 
         self['context'] = context
         self['actions'] = actions
-        self['rewards'] = rewards if not isinstance(rewards,(list,tuple)) else SequenceReward(actions,rewards)
+        self['rewards'] = rewards if not isinstance(rewards,(list,tuple)) else DiscreteReward(actions,rewards)
 
         if kwargs: self.update(kwargs)
 
@@ -65,8 +65,8 @@ class GroundedInteraction(Interaction):
 
         self['context']   = context
         self['actions']   = actions
-        self['rewards']   = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
-        self['feedbacks'] = SequenceReward(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
+        self['rewards']   = DiscreteReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
+        self['feedbacks'] = DiscreteReward(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
 
         if kwargs: self.update(kwargs)
 
@@ -107,7 +107,7 @@ class LoggedInteraction(Interaction):
         """
 
         if isinstance(kwargs.get('rewards'),(list,tuple)):
-            self['rewards'] = SequenceReward(kwargs['actions'],kwargs.pop('rewards'))
+            self['rewards'] = DiscreteReward(kwargs['actions'],kwargs.pop('rewards'))
 
         self['context'] = context
         self['action']  = action

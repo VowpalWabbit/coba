@@ -8,7 +8,7 @@ from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
-from coba.environments.primitives import Context, Action, Environment, SimulatedInteraction, SequenceReward
+from coba.environments.primitives import Context, Action, Environment, SimulatedInteraction, DiscreteReward
 
 class LambdaSimulation(Environment):
     """A simulation created from generative lambda functions."""
@@ -76,7 +76,7 @@ class LambdaSimulation(Environment):
             actions  = _actions(i, context)
             rewards  = [ _reward(i, context, action) for action in actions]
 
-            yield {'context':context,'actions':actions,'rewards': SequenceReward(actions,rewards) }
+            yield {'context':context,'actions':actions,'rewards':DiscreteReward(actions,rewards) }
 
     def __str__(self) -> str:
         return "LambdaSimulation"

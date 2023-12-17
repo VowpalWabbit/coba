@@ -18,7 +18,7 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker
-from coba.primitives import BinaryReward, SequenceReward, ProxyReward, is_batch
+from coba.primitives import BinaryReward, DiscreteReward, is_batch
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Pipes, Filter, SparseDense
 
@@ -605,14 +605,12 @@ class Cycle(EnvironmentFilter):
 
         else:
             for i,interaction in enumerate(interactions):
-
                 new = interaction.copy()
-
                 if i >= self._after:
                     actions = interaction['actions']
                     rewards = interaction['rewards']
-                    new['rewards'] = SequenceReward(actions,rotate(list(map(rewards,actions))))
-
+                    rewards = list(map(rewards,actions))
+                    new['rewards'] = DiscreteReward(actions,rotate(rewards))
                 yield new
 
 class Flatten(EnvironmentFilter):
@@ -627,16 +625,29 @@ class Flatten(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
+        first,interactions = peek_first(interactions)
+
         I1,I2,I3 = tee(interactions,3)
 
         interactions      = I1
-        flat_context_iter = self._flattener.filter(i['context'] for i in I2                   )
+        flat_context_iter = self._flattener.filter(i['context'] for i in I2                      )
         flat_actions_iter = self._flattener.filter(a            for i in I3 for a in i['actions'])
 
-        for interaction in interactions:
-            new = interaction.copy()
+        has_rewards   = 'rewards'   in first
+        has_feedbacks = 'feedbacks' in first
+
+        for old in interactions:
+            new = old.copy()
             new['context'] = next(flat_context_iter)
-            new['actions'] = list(islice(flat_actions_iter,len(interaction['actions'])))
+            new['actions'] = list(islice(flat_actions_iter,len(old['actions'])))
+
+            if new['actions'] != old['actions']:
+                if has_rewards:
+                    new['rewards'] = DiscreteReward(new['actions'],list(map(old['rewards'],old['actions'])))
+
+                if has_feedbacks:
+                    new['feedbacks'] = DiscreteReward(new['actions'],list(map(old['feedbacks'],old['actions'])))
+
             yield new
 
 class Binary(EnvironmentFilter):
@@ -833,7 +844,7 @@ class Noise(EnvironmentFilter):
             noisy_context = self._noises(context, rng, self._context_noise)
             noisy_actions = [ self._noises(a, rng, self._action_noise) for a in actions ]
             noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in map(rewards,actions) ]
-            noisy_rewards = SequenceReward(noisy_actions, noisy_rewards)
+            noisy_rewards = DiscreteReward(noisy_actions, noisy_rewards)
 
             new['context'] = noisy_context
             new['actions'] = noisy_actions
@@ -966,15 +977,6 @@ class Grounded(EnvironmentFilter):
 
 class Repr(EnvironmentFilter):
 
-    class SequenceMapping:
-        __slots__ = ('_keys', '_vals')
-        def __init__(self,keys:Sequence,vals:Sequence) -> None:
-            self._keys,self._vals = keys,vals
-        def keys(self):
-            return self._keys
-        def __getitem__(self, item):
-            return self._vals[self._keys.index(item)]
-
     def __init__(self,
         categorical_context:Literal["onehot","onehot_tuple","string"] = None,
         categorical_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
@@ -1034,7 +1036,9 @@ class Repr(EnvironmentFilter):
                         yield list(islice(actionitr,len(row)))
                 cat_actions_iter = yield_action_lists()
 
-        prev_old = None
+        reward_targets = []
+        if has_rewards: reward_targets.append('rewards')
+        if has_feedbacks: reward_targets.append('feedbacks')
 
         for old in next(tees):
 
@@ -1048,33 +1052,16 @@ class Repr(EnvironmentFilter):
 
             actions_changed = cat_actions_iter and new['actions'] != old['actions']
 
-            if actions_changed and has_rewards:
-                if isinstance(old['rewards'],BinaryReward):
-                    if old['actions'] != prev_old:
-                        prev_old   = old['actions']
-                        old_to_new = self._to_mapping(old['actions'],new['actions'])
-                    new['rewards'] = BinaryReward(old_to_new[old['rewards']._argmax])
-                else:
-                    if old['actions'] != prev_old:
-                        prev_old   = old['actions']
-                        new_to_old = self._to_mapping(new['actions'],old['actions'])
-                    new['rewards'] = ProxyReward(old['rewards'], new_to_old)
-
-            if actions_changed and has_feedbacks:
-                if old['actions'] != prev_old:
-                    prev_old   = old['actions']
-                    new_to_old = self._to_mapping(new['actions'],old['actions'])
-                new['feedbacks'] = ProxyReward(old['feedbacks'], new_to_old)
-
+            if actions_changed:
+                for target in reward_targets:
+                    if isinstance(old[target],BinaryReward):
+                        new_argmax = new['actions'][old['actions'].index(old[target]._argmax)]
+                        new[target] = BinaryReward(new_argmax,old[target]._value)
+                    elif isinstance(old[target],DiscreteReward):
+                        new[target] = DiscreteReward(new['actions'],old[target].rewards)
+                    else:
+                        new[target] = DiscreteReward(new['actions'],list(map(old[target],old['actions'])))
             yield new
-
-    def _to_mapping(self, keys, vals):
-        if isinstance(keys[0],list):
-            keys = list(map(tuple,keys))
-        try:
-            return dict(zip(keys,vals))
-        except:
-            return Repr.SequenceMapping(keys,vals)
 
 class Batch(EnvironmentFilter):
 
@@ -1393,7 +1380,7 @@ class OpeRewards(EnvironmentFilter):
             # When using cb_adf to estimate rewards for actions instead of the
             # regression we would receive rewards far outside of the expected boundaries.
             #vw.init_learner("--cb_adf --interactions xa --interactions xxa --quiet ", label_type=4)
-            
+
             args = "--quiet"
             if 'x' not in self._features: args = '--ignore_linear x ' + args
             if 'a' not in self._features: args = '--ignore_linear a ' + args
@@ -1401,7 +1388,7 @@ class OpeRewards(EnvironmentFilter):
             for f in self._features:
                 if f not in ['x','a',1]:
                     args = f'--interactions {f} ' + args
-            
+
             vw.init_learner(args, label_type=1)
 
             #so that we don't run forever

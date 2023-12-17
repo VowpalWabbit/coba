@@ -133,10 +133,10 @@ class SequentialCB(Evaluator):
 
         if learn_type:
             interactions = BatchSafe(OpeRewards(learn_type,target='learn_rewards',features=[1,'a','xa'])).filter(interactions)
-        
+
         if eval_type and eval_type != learn_type:
             interactions = BatchSafe(OpeRewards(eval_type,target='eval_rewards',features=[1,'a','xa'])).filter(interactions)
-        
+
         learn_target = 'learn_rewards'
         eval_target  = 'eval_rewards' if eval_type and eval_type != learn_type else 'learn_rewards'
 

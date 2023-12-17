@@ -24,8 +24,8 @@ from coba.environments.supervised import SupervisedSimulation
 
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
 from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Densify, Reservoir, Cycle, Scale, Unbatch
-from coba.environments.filters   import Slice, Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
-from coba.environments.filters   import MappingToInteraction, OpeRewards
+from coba.environments.filters   import Slice, Impute, Where, Riffle, Sort, Flatten, Cache, Params, Grounded
+from coba.environments.filters   import MappingToInteraction, OpeRewards, Noise
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
