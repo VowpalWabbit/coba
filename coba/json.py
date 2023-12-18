@@ -58,7 +58,7 @@ def minimize(obj,precision=5):
     return obj
 
 def loads(s, *, cls=None, object_hook=reg_get, parse_float=None, parse_int=None, parse_constant=None, object_pairs_hook=None, **kw) -> Any:
-    return json.loads(s, cls=cls, object_hook=reg_get, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+    return json.loads(s, cls=cls, object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
 
 def dumps(obj, *, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, default=reg_put, sort_keys=False, **kw) -> str:
     def _default(o: Any) -> Any:

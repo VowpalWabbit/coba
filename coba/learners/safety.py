@@ -37,7 +37,7 @@ def batch_order(predictor, pred: Prediction, context, actions) -> Literal['not',
     is_dict_col_kw = is_all_dicts and pred[0].keys() != pred[-1].keys() and len(pred)==2
     is_dict_row    = is_all_dicts and pred[0].keys() == pred[-1].keys()
 
-    if is_dict_col or is_dict_col_kw: return 'col'
+    if is_dict_col or is_dict_col_kw : return 'col'
     if is_dict_row or no_len(pred[0]): return 'row'
     #if isinstance(pred[0],dict)
 
@@ -200,7 +200,6 @@ class SafeLearner(Learner):
             return True
 
     def _safe_call(self, key, method, args, kwargs = {}):
-
         if key in self._method:
             prev_method = self._method[key]
 
@@ -239,7 +238,6 @@ class SafeLearner(Learner):
                     del self._method[key]
                     raise inner_e from outer_e
 
-
     def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         try:
             return self._safe_call('score', self.learner.score,(context,actions,action))
@@ -249,7 +247,6 @@ class SafeLearner(Learner):
             raise
 
     def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:
-
         #this logic should guarantee that we can differentiate prediction formats
         if self._prev_actions != actions:
             self._prev_actions = actions

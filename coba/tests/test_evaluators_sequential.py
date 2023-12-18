@@ -9,7 +9,7 @@ from coba.context import CobaContext
 from coba.environments import Batch, OpeRewards, SimpleEnvironment
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.learners import Learner, VowpalSoftmaxLearner
-from coba.primitives import DiscreteReward, is_batch
+from coba.primitives import L1Reward, DiscreteReward, is_batch
 
 from coba.evaluators import RejectionCB, SequentialCB, SequentialIGL
 
@@ -26,20 +26,16 @@ class BatchFixedLearner(Learner):
     def learn(self, context, action, reward, probability, **kwargs):
         pass
 
-class FixedActionProbLearner(Learner):
-    def __init__(self, actions, probs):
-        self._actions = actions
-        self._probs   = probs
+class FixedPredLearner(Learner):
+    def __init__(self, preds):
+        self._preds = preds
 
     @property
     def params(self):
         return {"family": "Recording"}
 
     def predict(self, context, actions):
-        has_p = bool(self._probs)
-        a = self._actions.pop(0)
-        p = self._probs.pop(0) if has_p else None
-        return (a, p) if has_p else (a)
+        return self._preds.pop(0)
 
     def learn(self, context, action, reward, probability, **kwargs):
         pass
@@ -102,7 +98,7 @@ class SequentialCB_Tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual(SequentialCB().params,{'learn':'on','eval':'on','seed':None})
 
-    def test_on_on_no_actions(self):
+    def test_on_no_actions(self):
         task         = SequentialCB()
         learner      = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
@@ -112,7 +108,7 @@ class SequentialCB_Tests(unittest.TestCase):
         with self.assertRaises(CobaException):
             list(task.evaluate(SimpleEnvironment(interactions), learner))
 
-    def test_on_on_no_rewards(self):
+    def test_on_no_rewards(self):
         task         = SequentialCB()
         learner      = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
@@ -353,7 +349,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, actual_task_results)
 
-    def test_on_on_none_context(self):
+    def test_on_none_context(self):
         task         = SequentialCB()
         learner      = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
@@ -378,7 +374,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_on_on_sparse_context_sparse_actions(self):
+    def test_on_sparse_context_sparse_actions(self):
         task         = SequentialCB()
         learner      = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
@@ -401,7 +397,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_on_on_dense_context_dense_actions(self):
+    def test_on_dense_context_dense_actions(self):
         task         = SequentialCB()
         learner      = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
@@ -426,9 +422,9 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_on_on_continuous_actions(self):
+    def test_on_continuous_actions(self):
         task         = SequentialCB()
-        learner      = FixedActionProbLearner([0,1,2],None)
+        learner      = FixedPredLearner([0,1,2])
         interactions = [
             SimulatedInteraction(1,[],DiscreteReward([0,1,2],[7,8,9])),
             SimulatedInteraction(2,[],DiscreteReward([0,1,2],[4,5,6])),
@@ -442,14 +438,11 @@ class SequentialCB_Tests(unittest.TestCase):
 
         # test warning about rewards metric
         task         = SequentialCB(["reward","rewards"])
-        learner      = FixedActionProbLearner([0,1,2],None)
-        with self.assertWarns(UserWarning) as w:
-            list(task.evaluate(SimpleEnvironment(interactions),learner))
-        self.assertEqual("The rewards metric can only be calculated for discrete environments", str(w.warning))
+        learner      = FixedPredLearner([0,1,2])
 
         # test for neither
         task         = SequentialCB(["reward","actions","context"])
-        learner      = FixedActionProbLearner([0,1,2],None)
+        learner      = FixedPredLearner([0,1,2])
         with self.assertWarns(UserWarning) as w:
             # Adding a dummy warning log to test the absence of any actual warning
             # Should use assertNoLogs when switching to Python 3.10+"
@@ -458,7 +451,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(1, len(w.warnings))
         self.assertEqual("Dummy warning", str(w.warning))
 
-    def test_on_on_info_kwargs(self):
+    def test_on_info_kwargs(self):
         task         = SequentialCB()
         learner      = RecordingLearner(with_kwargs=True, with_info=True)
         interactions = [
@@ -483,7 +476,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_on_on_info_kwargs_partial(self):
+    def test_on_info_kwargs_partial(self):
         task         = SequentialCB()
         learner      = RecordingLearner(with_kwargs=True, with_info=True)
         interactions = [
@@ -508,7 +501,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_on_on_record_context(self):
+    def test_on_record_context(self):
         task                 = SequentialCB(['reward','probability','context'])
         task_without_context = SequentialCB(['reward','probability'])
         learner              = RecordingLearner()
@@ -526,9 +519,9 @@ class SequentialCB_Tests(unittest.TestCase):
         result_contexts = [result['context'] for result in task_results]
         self.assertListEqual(result_contexts, [None, 1, [1,2]])
 
-    def test_on_on_record_rewards(self):
+    def test_on_record_discrete_rewards(self):
         task         = SequentialCB(['reward','rewards'])
-        learner      = FixedActionProbLearner(["action_1","action_2"],[None,None])
+        learner      = FixedPredLearner([("action_1",None),("action_2",None)])
         interactions = [
             SimulatedInteraction(1, ["action_1", "action_2", "action_3"], [1,0,0]),
             SimulatedInteraction(2, ["action_1", "action_2", "action_3"], [0,2,0]),
@@ -537,6 +530,18 @@ class SequentialCB_Tests(unittest.TestCase):
         results = list(task.evaluate(SimpleEnvironment(interactions),learner))
         self.assertListEqual([[1,0,0],[0,2,0]], [result['rewards'] for result in results])
         self.assertListEqual([1,2], [result['reward'] for result in results])
+
+    def test_on_record_continuous_rewards(self):
+        task         = SequentialCB(['reward','rewards'])
+        learner      = FixedPredLearner([1,3])
+        interactions = [
+            SimulatedInteraction(1, [], L1Reward(1)),
+            SimulatedInteraction(2, [], L1Reward(3)),
+        ]
+
+        results = list(task.evaluate(SimpleEnvironment(interactions),learner))
+        self.assertListEqual([L1Reward(1),L1Reward(3)], [result['rewards'] for result in results])
+        self.assertListEqual([0,0], [result['reward'] for result in results])
 
     def test_None_ips_score_continuous(self):
         class MyLearner:
@@ -672,7 +677,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, actual_task_results)
 
-    def test_on_on_record_time(self):
+    def test_on_record_time(self):
         task         = SequentialCB(['time'])
         learner      = RecordingLearner()
         interactions = [SimulatedInteraction(1,[0,1,2],DiscreteReward([0,1,2],[7,8,9]))]
@@ -710,7 +715,7 @@ class SequentialCB_Tests(unittest.TestCase):
         task_results = list(task.evaluate(SimpleEnvironment(interactions),RecordingLearner()))
         self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
 
-    def test_on_on_batched(self):
+    def test_on_batched(self):
 
         class SimpleLearner:
             def __init__(self) -> None:
@@ -739,7 +744,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_call, learner.learn_call)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_on_on_batched_record_rewards(self):
+    def test_on_batched_record_discrete_rewards(self):
         task         = SequentialCB(['reward','rewards'])
         learner      = BatchFixedLearner()
         interactions = [
@@ -754,6 +759,22 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(2,results[1]['reward'])
         self.assertEqual([1, 0, 0],results[0]['rewards'])
         self.assertEqual([0, 0, 2],results[1]['rewards'])
+
+    def test_on_batched_record_continuous_rewards(self):
+        task         = SequentialCB(['reward','rewards'])
+        learner      = FixedPredLearner([{'action_prob':[(1,None),(3,None)]}])
+        interactions = [
+            SimulatedInteraction(1, [], L1Reward(1)),
+            SimulatedInteraction(2, [], L1Reward(1)),
+        ]
+
+        results = list(task.evaluate(SimpleEnvironment(Batch(2).filter(interactions)), learner))
+
+        self.assertEqual(2 , len(results))
+        self.assertEqual(0 , results[0]['reward'])
+        self.assertEqual(-2, results[1]['reward'])
+        self.assertEqual(L1Reward(1),results[0]['rewards'])
+        self.assertEqual(L1Reward(1),results[1]['rewards'])
 
     def test_off_ips_batched_no_score(self):
         task                 = SequentialCB(learn='off',eval='ips')

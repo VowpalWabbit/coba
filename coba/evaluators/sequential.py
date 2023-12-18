@@ -20,7 +20,7 @@ from coba.evaluators.primitives import Evaluator, get_ope_loss
 
 class SequentialCB(Evaluator):
 
-    ONLY_DISCRETE    = {'rewards'}
+    ONLY_DISCRETE    = set()
     IMPLICIT_EXCLUDE = {"context", "actions", "rewards", "action", "reward", "probability", "eval_rewards", "learn_rewards"}
 
     def __init__(self,
@@ -71,7 +71,7 @@ class SequentialCB(Evaluator):
 
         if not self._discrete(first):
             for metric in set(self._record).intersection(SequentialCB.ONLY_DISCRETE):
-                warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
+                warnings.warn(f"The {metric} metric can only be calculated for discrete environments")#pragma: no cover
 
     def _discrete(self,interaction):
         if 'actions' not in interaction:
@@ -116,14 +116,16 @@ class SequentialCB(Evaluator):
         out_action   = 'action'      in self._record and eval
         out_context  = 'context'     in self._record
         out_actions  = 'actions'     in self._record and has_actions
-        out_rewards  = 'rewards'     in self._record and has_rewards and discrete
+        out_rewards  = 'rewards'     in self._record and has_rewards
         out_reward   = 'reward'      in self._record and eval
         out_ope_loss = 'ope_loss'    in self._record and eval
 
         should_pred = (learn and not lrn_off) or val_on or val_dm or val_dr or (val_ips and not has_score) or out_action
 
-        if out_rewards:
+        if out_rewards and discrete:
             get_rewards = (lambda Rs,As:[[R(a) for a in A] for R,A in zip(Rs,As)]) if batched else (lambda R,A: [R(a) for a in A])
+        if out_rewards and not discrete:
+            get_rewards = lambda R,_: R
 
         info = CobaContext.learning_info
         info.clear()
@@ -205,7 +207,7 @@ class SequentialCB(Evaluator):
         #We Unbatch to work with Result
         yield from Unbatch().filter(results)
 
-class SequentialIGL:
+class SequentialIGL(Evaluator):
 
     def __init__(self,
         record: Sequence[Literal['reward','feedback','time','prob','action','context','actions','rewards','feedbacks','ope_loss']] = ['reward','feedback'],
@@ -222,7 +224,6 @@ class SequentialIGL:
             These will become columns in the evalutors table of experiment results.
         """
         return { 'seed': self._seed }
-
 
     def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
 
@@ -253,7 +254,7 @@ class SequentialIGL:
 class RejectionCB(Evaluator):
 
     def __init__(self,
-        record: Sequence[Literal['context','actions','action','reward','probability','time','rewards','ope_loss']] = ['reward'],
+        record: Sequence[Literal['context','actions','action','reward','probability','time','ope_loss']] = ['reward'],
         ope   : Optional[Literal['ips','dr','dm']] = None,
         cpct  : float = .005,
         cmax  : float = 1.0,
@@ -329,7 +330,6 @@ class RejectionCB(Evaluator):
         record_context  = 'context'     in self._record
         record_prob     = 'probability' in self._record
         record_ope_loss = 'ope_loss'    in self._record
-        record_rewards  = 'rewards'     in self._record
 
         score = learner.score
         learn = learner.learn
@@ -409,7 +409,6 @@ class RejectionCB(Evaluator):
                 if record_reward  : out['reward']       = mean(ope_rewards)
                 if record_prob    : out['probability']  = on_prob
                 if record_ope_loss: out['ope_loss']     = get_ope_loss(learner)
-                if record_rewards : out['rewards']      = ope_rewards
 
                 if info: out.update(info)
                 if out : yield out
