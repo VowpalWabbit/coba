@@ -8,6 +8,7 @@ import coba.json
 import coba.pipes
 import coba.random
 
+from coba.registry import JsonMakerV2
 from coba.utilities import PackageChecker
 from coba.statistics import mean,var,percentile
 from coba.learners import VowpalMediator, SafeLearner
@@ -94,6 +95,11 @@ class Performance_Tests(unittest.TestCase):
         c       = [2,3]
         self._assert_scale_time(c, lambda x: encoder.encode(a=a,b=b,c=x), .075, print_time, number=1000)
 
+    def test_jsonmakerv2(self):
+        item = {"range": 10}
+        maker = JsonMakerV2()
+        self._assert_call_time(lambda: maker.make(item), .0013, print_time, number=1000)
+
     def test_hashable_dict_performance(self):
         items = list(enumerate(range(100)))
         self._assert_scale_time(items, HashableSparse, .0004, print_time, number=1000)
@@ -126,14 +132,12 @@ class Performance_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = [ str(i) for i in range(100) ]
-
         self._assert_call_time(lambda:vw.make_example({'x':x}, None), .04, print_time, number=1000)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
-
         ns = { 'x': [1]+[0]*1000 }
         self._assert_call_time(lambda:vw.make_example(ns, None), .03, print_time, number=1000)
 
@@ -142,7 +146,6 @@ class Performance_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
         x = list(range(100))
-
         self._assert_call_time(lambda: vw.make_example({'x':x}, None), .03, print_time, number=1000)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW not installed.")
@@ -157,7 +160,6 @@ class Performance_Tests(unittest.TestCase):
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
-
         ns = { 'x': { str(i):i for i in range(500)} }
         self._assert_call_time(lambda:vw.make_example(ns, None), .05, print_time, number=1000)
 
@@ -165,7 +167,6 @@ class Performance_Tests(unittest.TestCase):
     def test_vowpal_mediator_make_examples_sequence_int_performance(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
-
         shared   = { 'a': list(range(100))}
         separate = [{ 'x': list(range(25)) }, { 'x': list(range(25)) }]
         self._assert_call_time(lambda:vw.make_examples(shared, separate, None), .06, print_time, number=1000)
@@ -173,7 +174,6 @@ class Performance_Tests(unittest.TestCase):
     def test_reservoir_performance(self):
         res = Reservoir(2,seed=1)
         x = list(range(500))
-
         self._assert_scale_time(x, lambda x:list(res.filter(x)), .03, print_time, number=1000)
 
     def test_jsonminimize_performance(self):
@@ -198,19 +198,16 @@ class Performance_Tests(unittest.TestCase):
     def test_arffattrreader_dense_performance(self):
         reader = ArffAttrReader(True)
         attrs = [f"@attribute {i} {{1,2}}" for i in range(3)]
-
         self._assert_call_time(lambda:list(reader.filter(attrs)), .004, print_time, number=100)
 
     def test_arffdatareader_dense_performance(self):
         data_lines = [",".join(["1"]*3)]*50
         reader = ArffDataReader(True)
-
         self._assert_scale_time(data_lines, lambda x:list(reader.filter(x)), .0007, print_time, number=100)
 
     def test_arfflinereader_dense_performance(self):
         reader = ArffLineReader(True,3)
         line = ",".join(['1']*3)
-
         self._assert_call_time(lambda:reader.filter(line), .0019, print_time, number=1000)
 
     def test_structure_performance(self):

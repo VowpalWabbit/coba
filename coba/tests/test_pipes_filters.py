@@ -1,11 +1,11 @@
 import unittest
 import unittest.mock
 
-from coba.pipes import Flatten, Encode, JsonEncode, Structure, LazyDense, LazySparse
+from coba.pipes import Flatten, Encode, Structure, LazyDense, LazySparse
 from coba.pipes import Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.context import NullLogger, CobaContext
-from coba.utilities import peek_first, PackageChecker
+from coba.utilities import peek_first
 
 CobaContext.logger = NullLogger()
 
@@ -342,55 +342,6 @@ class Encode_Tests(unittest.TestCase):
     def test_ignore_missing_value(self):
         encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()}, missing_val="?")
         self.assertEqual([[(1,0,0),'?'],[(0,1,0),(1,0)],[(0,1,0),(0,1)]], list(encode.filter([[1,'?'], [2,5], [2,6]])))
-
-class JsonEncode_Tests(unittest.TestCase):
-    def test_bool_minified(self):
-        self.assertEqual('true',JsonEncode().filter(True))
-
-    def test_list_minified(self):
-        self.assertEqual('[1,2]',JsonEncode().filter([1,2.]))
-
-    def test_list_list_minified(self):
-        self.assertEqual('[1,[2,[1,2]]]',JsonEncode().filter([1,[2.,[1,2.]]]))
-
-    def test_list_tuple_minified(self):
-        data = [(1,0),(0,1)]
-        self.assertEqual('[[1,0],[0,1]]',JsonEncode().filter(data))
-        self.assertEqual([(1,0),(0,1)],data)
-
-    def test_tuple_minified(self):
-        self.assertEqual('[1,2]',JsonEncode().filter((1,2.)))
-
-    def test_dict_minified(self):
-        self.assertEqual('{"a":[1.23,2],"b":{"c":1}}',JsonEncode().filter({'a':[1.23,2],'b':{'c':1.}}))
-
-    def test_inf(self):
-        self.assertEqual('Infinity',JsonEncode().filter(float('inf')))
-        self.assertEqual('-Infinity',JsonEncode().filter(-float('inf')))
-
-    def test_nan(self):
-        self.assertEqual('NaN',JsonEncode().filter(float('nan')))
-
-    def test_not_serializable(self):
-        with self.assertRaises(TypeError) as e:
-            JsonEncode().filter({1,2,3})
-        self.assertIn("set", str(e.exception))
-        self.assertIn("not JSON serializable", str(e.exception))
-
-    def test_not_minified_list(self):
-        self.assertEqual('[1.0, 2.0]',JsonEncode(minify=False).filter([1.,2.]))
-
-    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch.")
-    def test_torch(self):
-        import torch
-        self.assertEqual('[1,2]',JsonEncode().filter(torch.tensor([1,2])))
-
-    def test_no_torch(self):
-        with unittest.mock.patch("coba.utilities.PackageChecker.torch", return_value=False):
-            with self.assertRaises(TypeError) as e:
-                JsonEncode().filter({1,2,3})
-            self.assertIn("set", str(e.exception))
-            self.assertIn("not JSON serializable", str(e.exception))
 
 class Structure_Tests(unittest.TestCase):
 

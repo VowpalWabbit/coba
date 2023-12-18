@@ -1,3 +1,4 @@
+import json
 import collections.abc
 
 from itertools import product
@@ -5,7 +6,7 @@ from typing import Sequence, Any, overload, Iterable, Union, Dict
 
 from coba.context import CobaContext
 from coba.registry import JsonMakerV1, CobaRegistry, JsonMakerV2
-from coba.pipes import Source, JsonDecode, UrlSource, Pipes
+from coba.pipes import Source, UrlSource, Pipes
 from coba.exceptions import CobaException
 
 from coba.environments.primitives import Environment
@@ -23,9 +24,7 @@ class EnvironmentsTemplateV1(Source[Sequence[Environment]]):
         self._source = UrlSource(arg) if isinstance(arg,str) else arg
 
     def read(self) -> Sequence[Environment]:
-
-        definitions: dict = JsonDecode().filter('\n'.join(self._source.read()))
-
+        definitions: dict = json.loads('\n'.join(self._source.read()))
         variables = { k: self._construct_via_method(v) for k,v in definitions.get("variables",{}).items() }
 
         def _construct(item:Any) -> Sequence[Any]:
@@ -73,7 +72,7 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
         self._user_variables = { f"${k}" if k[0] != "$" else k :v for k,v in user_vars.items() }
 
     def read(self) -> Sequence[Environment]:
-        definition: dict = JsonDecode().filter('\n'.join(self._source.read()))
+        definition: dict = json.loads('\n'.join(self._source.read()))
 
         needed_var = list(self._missing(definition.get("variables",{}))) + list(self._missing(definition.get('environments',[])))
         not_needed_user_var = [ v[1:] for v in set(self._user_variables.keys()) - set(needed_var)]
@@ -115,10 +114,10 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
         result = item
 
         if isinstance(item, str):
-            result = JsonMakerV2(CobaRegistry.registry).make(item)
+            result = JsonMakerV2().make(item)
 
         if isinstance(item, dict):
-            result = JsonMakerV2(CobaRegistry.registry).make(item)
+            result = JsonMakerV2().make(item)
 
         if isinstance(item, list):
             pieces = [ self._make(i) for i in item]

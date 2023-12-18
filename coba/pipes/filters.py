@@ -4,7 +4,6 @@ from collections import defaultdict, abc
 from itertools import islice, chain
 from typing import Iterable, Any, Sequence, Mapping, Optional, Union
 
-import coba.json
 from coba.random import CobaRandom
 from coba.encodings import Encoder
 from coba.utilities import peek_first
@@ -176,29 +175,6 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
                     pass
 
                 yield from reservoir
-
-class JsonEncode(Filter[Any, str]):
-    """A filter which turn a Python object into JSON strings."""
-
-    def __init__(self, minify=True) -> None:
-        self._minify = minify
-
-        if self._minify:
-            self._encoder = lambda x: coba.json.dumps(coba.json.minimize(x),separators=(',', ':'))
-        else:
-            self._encoder = coba.json.dumps
-
-    def filter(self, item: Any) -> str:
-        return self._encoder(item)
-
-class JsonDecode(Filter[str, Any]):
-    """A filter which turns a JSON string into a Python object."""
-
-    def __init__(self) -> None:
-        self._decoder = coba.json.loads
-
-    def filter(self, item: str) -> Any:
-        return self._decoder(item)
 
 class Flatten(Filter[Iterable[Any], Iterable[Any]]):
     """A filter which flattens rows in table shaped data."""

@@ -1,4 +1,5 @@
 import re
+import json
 import collections
 import collections.abc
 
@@ -11,13 +12,14 @@ from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee, islice
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
+import coba.json
 from coba.primitives import is_batch
 from coba.environments import Environment
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.context import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first, KeyDefaultDict
-from coba.pipes import Pipes, JsonEncode, JsonDecode, DiskSource, Source
+from coba.pipes import Pipes, DiskSource, Source
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
 
@@ -469,13 +471,11 @@ class Table:
 
 class TransactionDecode:
     def filter(self, transactions:Iterable[str]) -> Iterable[Any]:
-
         transactions = iter(transactions)
-        ver_row = JsonDecode().filter(next(transactions))
-
+        ver_row = json.loads(next(transactions))
         if ver_row[1] == 4:
             yield ver_row
-            yield from map(JsonDecode().filter,transactions)
+            yield from map(json.loads,transactions)
 
 class TransactionEncode:
     def __init__(self,restored):
@@ -483,23 +483,23 @@ class TransactionEncode:
 
     def filter(self, transactions: Iterable[Any]) -> Iterable[str]:
 
-        if not self._restored:
-            yield JsonEncode().filter(["version",4])
+        encoder = lambda x: coba.json.dumps(coba.json.minimize(x),separators=(',', ':'))
 
-        encoder = JsonEncode()
+        if not self._restored:
+            yield encoder(["version",4])
 
         for item in transactions:
             if item[0] == "T0":
-                yield encoder.filter(['experiment', item[1]])
+                yield encoder(['experiment', item[1]])
 
             elif item[0] == "T1":
-                yield encoder.filter(["E", item[1], item[2]])
+                yield encoder(["E", item[1], item[2]])
 
             elif item[0] == "T2":
-                yield encoder.filter(["L", item[1], item[2]])
+                yield encoder(["L", item[1], item[2]])
 
             elif item[0] == "T3":
-                yield encoder.filter(["V", item[1], item[2]])
+                yield encoder(["V", item[1], item[2]])
 
             elif item[0] == "T4":
                 rows_T = collections.defaultdict(list)
@@ -510,7 +510,7 @@ class TransactionEncode:
                     for key in keys:
                         rows_T[key].append(row.get(key,None))
 
-                yield encoder.filter(["I", item[1], { "_packed": rows_T }])
+                yield encoder(["I", item[1], { "_packed": rows_T }])
 
 class TransactionResult:
 

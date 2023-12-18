@@ -24,17 +24,24 @@ class CobaRegistry_meta(type):
 
     def __init__(cls, *args, **kwargs):
         cls._registry: Dict[str,type] = {}
+        cls._setstate: set = set()
         cls._endpoints_loaded = False
 
-    @property
-    def registry(cls) -> Mapping[str,type]:
-
+    def _load_endpoints(cls):
         if not cls._endpoints_loaded:
             cls._endpoints_loaded = True
             for ep in entry_points(group='coba.register'):
                 reload(ep.load()) #we use reload in case the registry has been cleared at some point
 
+    @property
+    def registry(cls) -> Mapping[str,type]:
+        cls._load_endpoints()
         return cls._registry
+
+    @property
+    def setstate(cls) -> set:
+        cls._load_endpoints()
+        return cls._setstate
 
 class CobaRegistry(metaclass=CobaRegistry_meta):
 
@@ -47,6 +54,9 @@ class CobaRegistry(metaclass=CobaRegistry_meta):
     def register(cls, name:str, tipe:type) -> None:
         if name not in cls.registry:
             cls._registry[name] = tipe
+            cls._registry[tipe] = name
+            if hasattr(tipe,'__getstate__') and hasattr(tipe,'__setstate__'):
+                cls._setstate.add(name)
         elif cls._registry[name] != tipe:
             raise CobaException(f"The class `{tipe.__name__}` has already been registered for '{name}'")
 
@@ -204,47 +214,44 @@ class JsonMakerV2:
     # {class: [{"for":[1,2]},{"for":[3,4]}] } (args foreach construction)
     # {class: {kw:{"for":[1,2]}}            } (kwargs foreach construction)
 
-    def __init__(self, registry:Dict[str,type]) -> None:
-        self._registry = registry
+    def __init__(self, registry:Dict[str,type] = None) -> None:
+        self._registry = registry or CobaRegistry.registry
 
     def make(self, recipe:Union[dict,str], strict:bool = True) -> Any:
-        if self._makeable(recipe):
-            klass = recipe if isinstance(recipe,str) else list(recipe.keys()-{'for'})[0] if isinstance(recipe,dict) else None
+        if isinstance(recipe,str) and recipe in self._registry:
+            return self._registry[recipe]()
 
-            if isinstance(recipe,str):
-                return self._registry[klass]()
+        if isinstance(recipe,dict):
+            has_for = 'for' in recipe
+            if len(recipe)-(has_for) == 1:
+                item_cls = next(iter(recipe.keys()-{'for'}))
+                klass    = self._registry.get(item_cls)
+                if klass:
+                    if has_for:
+                        items = []
+                        for value in self.make(recipe['for'], strict=False):
+                            filled_args = self._fill_template(recipe[item_cls], value)
+                            args,kwargs = self._construct_args(filled_args)
+                            items.append(klass(*args,**kwargs))
+                        return items
+                    else:
+                        args,kwargs = self._construct_args(recipe[item_cls])
+                        return klass(*args,**kwargs)
 
-            if isinstance(recipe,dict) and 'for' not in recipe:
-                args,kwargs = self._construct_args(recipe[klass])
-                return self._registry[klass](*args,**kwargs)
-
-            if isinstance(recipe,dict) and 'for' in recipe:
-                items = []
-                for value in self.make(recipe['for'], strict=False):
-                    args,kwargs = self._construct_args(self._fill_template(recipe[klass], value))
-                    items.append(self._registry[klass](*args,**kwargs))
-                return items
-
-        elif strict:
-            raise CobaException(f"We were unable to make {recipe}.") # raise helpful exception
-
-        else:
+        if not strict:
             return recipe
 
-    def _makeable(self, recipe:Union[dict,str]) -> bool:
-        item_len = 1 if isinstance(recipe,str) else len(recipe) if isinstance(recipe,dict) else 0
-        item_cls = recipe if isinstance(recipe,str) else list(recipe.keys()-{'for'})[0] if isinstance(recipe,dict) else None
-        item_for = 'for' in recipe.keys() if isinstance(recipe,dict) else False
-
-        return (item_len == 1 and item_cls in self._registry) or (item_len == 2 and item_cls in self._registry and item_for)
+        raise CobaException(f"We were unable to make {recipe}.")
 
     def _construct_args(self, args:Union[list,dict,str,int,float,None]) -> Tuple[list,dict]:
         if isinstance(args,dict):
             return [], {k:self.make(v,False)  for k,v in args.items()}
-        elif isinstance(args,list) and "**" not in args:
-            return [ self.make(a,False) for a in args], {}
-        elif isinstance(args,list) and "**" == args[-2] and isinstance(args[-1],dict) :
-            return self._construct_args(args[:-2])[0], self._construct_args(args[-1])[1]
+        if isinstance(args,list):
+            if len(args) >= 2 and args[-2] == "**":
+               args,kw = args[:-2],self._construct_args(args[-1])[1]
+            else:
+                kw = {}
+            return [ self.make(a,False) for a in args], kw
         else:
             return [ self.make(args,False) ], {}
 

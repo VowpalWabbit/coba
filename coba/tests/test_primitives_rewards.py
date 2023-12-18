@@ -1,6 +1,7 @@
 import unittest
 import pickle
 
+from coba.json import dumps,loads
 from coba.utilities import PackageChecker
 from coba.primitives import L1Reward, HammingReward, BinaryReward, DiscreteReward
 
@@ -36,8 +37,12 @@ class L1Reward_Tests(unittest.TestCase):
         actual   = L1Reward(1)(torch.tensor([0]))
         self.assertEqual(expected,actual)
 
-class BinaryReward_Tests(unittest.TestCase):
+    def test_json_serialization(self):
+        obj = loads(dumps(L1Reward(2)))
+        self.assertIsInstance(obj,L1Reward)
+        self.assertEqual(obj._argmax, 2)
 
+class BinaryReward_Tests(unittest.TestCase):
     def test_binary(self):
         rwd = BinaryReward(1)
         self.assertEqual(0, rwd(2))
@@ -122,6 +127,17 @@ class BinaryReward_Tests(unittest.TestCase):
         self.assertEqual(expected,actual)
         self.assertFalse(torch.is_tensor(actual))
 
+    def test_json_serialization(self):
+        obj = loads(dumps(BinaryReward('a')))
+        self.assertIsInstance(obj,BinaryReward)
+        self.assertEqual(obj._argmax, 'a')
+        self.assertEqual(obj._value, 1)
+
+        obj = loads(dumps(BinaryReward((0,1),2)))
+        self.assertIsInstance(obj,BinaryReward)
+        self.assertEqual(obj._argmax, (0,1))
+        self.assertEqual(obj._value, 2)
+
 class HammingReward_Tests(unittest.TestCase):
 
     def test_sequence(self):
@@ -179,6 +195,11 @@ class HammingReward_Tests(unittest.TestCase):
         self.assertTrue(torch.equal(torch.tensor([0  ]), rwd(torch.tensor([[[5],[6],[7]]]))))
         self.assertTrue(torch.equal(torch.tensor([1/2]), rwd(torch.tensor([[[1],[2],[3],[4],[5],[6],[7],[8]]]))))
 
+    def test_json_serialization(self):
+        obj = loads(dumps(HammingReward([1,2,3])))
+        self.assertIsInstance(obj,HammingReward)
+        self.assertEqual(obj._argmax, [1,2,3])
+
 class DiscreteReward_Tests(unittest.TestCase):
     def test_mapping(self):
         rwd = DiscreteReward({0:4,1:5,2:6})
@@ -232,6 +253,11 @@ class DiscreteReward_Tests(unittest.TestCase):
         rwd = DiscreteReward([(1,),(2,),(3,)],[4,5,6])
         self.assertTrue(torch.equal(torch.tensor(5)  , rwd(torch.tensor([2]))))
         self.assertTrue(torch.equal(torch.tensor([5]), rwd(torch.tensor([[2]]))))
+
+    def test_json_serialization(self):
+        obj = loads(dumps(DiscreteReward({0:1,1:2})))
+        self.assertIsInstance(obj,DiscreteReward)
+        self.assertEqual(obj._state, {0:1,1:2})
 
 if __name__ == '__main__':
     unittest.main()

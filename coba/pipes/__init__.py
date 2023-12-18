@@ -10,7 +10,7 @@ from coba.pipes.primitives import Filter, Source, Sink, Foreach, SourceFilters, 
 from coba.pipes.multiprocessing import Multiprocessor
 
 from coba.pipes.filters import Take, Shuffle, Structure, Identity, Flatten, Default, Reservoir
-from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache, Slice, Insert
+from coba.pipes.filters import Encode, Cache, Slice, Insert
 
 from coba.pipes.rows    import LabelRows, EncodeRows, HeadRows, DropRows, EncodeCatRows
 from coba.pipes.rows    import LazyDense, EncodeDense, LabelDense, KeepDense, HeadDense

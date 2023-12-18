@@ -1,3 +1,4 @@
+import json
 import collections.abc
 
 from zipfile import ZipFile, BadZipFile
@@ -9,7 +10,7 @@ from coba.context         import CobaContext, DiskCacher, DecoratedLogger, Excep
 from coba.pipes.sources   import DataFrameSource
 from coba.primitives      import Context, Action
 from coba.random          import CobaRandom
-from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
+from coba.pipes           import Pipes, Source, HttpSource, IterableSource
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 from coba.learners        import Learner
@@ -70,7 +71,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
         if definition_rsp.status_code == 404:
             root_dir_text = HttpSource("https://api.github.com/repos/mrucker/coba_prebuilds/contents/").read().content.decode('utf-8')
-            root_dir_json = JsonDecode().filter(root_dir_text)
+            root_dir_json = json.loads(root_dir_text)
             known_names   = [ obj['name'] for obj in root_dir_json if obj['name'] != "README.md" ]
             raise CobaException(f"The given prebuilt name, {name}, couldn't be found. Known names are: {known_names}")
 

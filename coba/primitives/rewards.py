@@ -1,7 +1,12 @@
+import ast
+import pickle
+
 from typing import Sequence, Mapping, Callable, overload
 
 from coba.exceptions import CobaException
 from coba.primitives.semantic import Action
+
+
 
 Reward = Callable[[Action],float]
 
@@ -31,7 +36,7 @@ def extract_shape(given:Action, comparison:Action, is_comparison_list:bool=False
             else:
                 compare_action = given[(0,)*output_ndims].tolist()
 
-            output_shape   = (1,)*output_ndims
+            output_shape = (1,)*output_ndims
 
     return compare_action, output_shape
 
@@ -62,6 +67,12 @@ class L1Reward:
     def __eq__(self, o: object) -> bool:
         return isinstance(o,L1Reward) and o._argmax == self._argmax
 
+    def __getstate__(self):
+        return self._argmax
+
+    def __setstate__(self,args):
+        self._argmax = args
+
 class BinaryReward:
     __slots__ = ('_argmax','_value')
     def __init__(self, argmax: Action, value:float=1.) -> None:
@@ -79,6 +90,13 @@ class BinaryReward:
             (isinstance(o,BinaryReward) and\
             o._argmax == self._argmax and\
             o._value == self._value)
+
+    def __getstate__(self):
+        return repr((self._argmax,) if self._value == 1 else (self._argmax,self._value))
+
+    def __setstate__(self,args):
+        args = ast.literal_eval(args)
+        self._argmax,self._value = (args[0],1) if len(args) == 1 else args
 
 class HammingReward:
     __slots__ = ('_argmax',)
@@ -99,6 +117,12 @@ class HammingReward:
 
         return create_shape(value,shape)
 
+    def __getstate__(self):
+        return repr(self._argmax)
+
+    def __setstate__(self,args):
+        self._argmax = ast.literal_eval(args)
+
 class DiscreteReward:
     __slots__ = ('_state','_default')
 
@@ -116,7 +140,6 @@ class DiscreteReward:
             self._state = args
             if len(actions) != len(rewards):
                 raise CobaException("The given actions and rewards did not line up.")
-
         else:
             self._state = args[0]
         self._default = default
@@ -147,3 +170,9 @@ class DiscreteReward:
             o.actions == self.actions and\
             o.rewards == self.rewards and\
             o._default == self._default)
+
+    def __getstate__(self):
+        return repr((self._state,self._default))
+
+    def __setstate__(self,args):
+        self._state,self._default = ast.literal_eval(args)
