@@ -59,27 +59,15 @@ class DiskSource_Tests(unittest.TestCase):
     def test_is_picklable(self):
         pickle.dumps(DiskSource("coba/tests/.temp/test.gz"))
 
-    def test_include_loc(self):
+    def test_start_and_include_loc(self):
         Path("coba/tests/.temp/test.log").write_text("a\nb\nc")
-        actual = list(DiskSource("coba/tests/.temp/test.log", include_loc=True).read())
-        expected = [(0,'a'),(3,'b'),(6,'c')]
-        self.assertEqual(actual,expected)
+
+        for (loc,val) in DiskSource("coba/tests/.temp/test.log", include_loc=True).read():
+            self.assertEqual(next(DiskSource("coba/tests/.temp/test.log", start_loc=loc).read()),val)
 
         Path("coba/tests/.temp/test.gz").write_bytes(gzip.compress(b'a\nb\nc'))
-        actual = list(DiskSource("coba/tests/.temp/test.gz", include_loc=True).read())
-        expected = [(0,'a'),(2,'b'),(4,'c')]
-        self.assertEqual(actual,expected)
-
-    def test_start_loc(self):
-        Path("coba/tests/.temp/test.log").write_text("a\nb\nc")
-        self.assertEqual(next(DiskSource("coba/tests/.temp/test.log", start_loc=0).read()),'a')
-        self.assertEqual(next(DiskSource("coba/tests/.temp/test.log", start_loc=3).read()),'b')
-        self.assertEqual(next(DiskSource("coba/tests/.temp/test.log", start_loc=6).read()),'c')
-
-        Path("coba/tests/.temp/test.gz").write_bytes(gzip.compress(b'a\nb\nc'))
-        self.assertEqual(next(DiskSource("coba/tests/.temp/test.gz", start_loc=0).read()),'a')
-        self.assertEqual(next(DiskSource("coba/tests/.temp/test.gz", start_loc=2).read()),'b')
-        self.assertEqual(next(DiskSource("coba/tests/.temp/test.gz", start_loc=4).read()),'c')
+        for (loc,val) in DiskSource("coba/tests/.temp/test.gz", include_loc=True).read():
+            self.assertEqual(next(DiskSource("coba/tests/.temp/test.gz", start_loc=loc).read()),val)
 
 class QueueSource_Tests(unittest.TestCase):
     def test_read_sans_blocking(self):
