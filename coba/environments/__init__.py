@@ -17,3 +17,4 @@ from coba.environments.synthetics import LambdaSimulation, LinearSyntheticSimula
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.openml     import OpenmlSimulation, OpenmlSource
 from coba.environments.supervised import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
+from coba.environments.results    import ResultEnvironment

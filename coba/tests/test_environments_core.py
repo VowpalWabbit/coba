@@ -69,7 +69,6 @@ class Environments_Tests(unittest.TestCase):
         if Path("coba/tests/.temp/test.zip").exists(): Path("coba/tests/.temp/test.zip").unlink()
 
     def test_save_load_one_process(self):
-
         input_environments  = [TestEnvironment2(), TestEnvironment2()]
         output_environments = Environments(input_environments).save("coba/tests/.temp/test.zip")
 
@@ -78,7 +77,6 @@ class Environments_Tests(unittest.TestCase):
             self.assertEqual(list(env_in.read()), list(env_out.read()))
 
     def test_save_load_two_process(self):
-
         input_environments = [TestEnvironment2(), TestEnvironment2()]
         output_environments = Environments(input_environments).save("coba/tests/.temp/test.zip",processes=2)
 
@@ -87,7 +85,6 @@ class Environments_Tests(unittest.TestCase):
             self.assertEqual(list(env_in.read()), list(env_out.read()))
 
     def test_save_save_no_change(self):
-
         input_environments = [TestEnvironment2(), TestEnvironment2()]
 
         Environments(input_environments).save("coba/tests/.temp/test.zip")
@@ -100,7 +97,6 @@ class Environments_Tests(unittest.TestCase):
             self.assertEqual(list(env_in.read()), list(env_out.read()))
 
     def test_save_save_change_no_overwrite(self):
-
         input_environments_1 = [TestEnvironment2(), TestEnvironment2()]
         input_environments_2 = [TestEnvironment1(3), TestEnvironment1(2)]
 
@@ -109,7 +105,6 @@ class Environments_Tests(unittest.TestCase):
             Environments(input_environments_2).save("coba/tests/.temp/test.zip")
 
     def test_save_save_change_overwrite1(self):
-
         input_environments_1 = [TestEnvironment2(), TestEnvironment2()]
         input_environments_2 = [TestEnvironment1(3), TestEnvironment1(2)]
 
@@ -125,7 +120,6 @@ class Environments_Tests(unittest.TestCase):
             self.assertEqual(list(env_in.read()), list(env_out.read()))
 
     def test_save_save_change_overwrite2(self):
-
         input_environments_1 = [TestEnvironment1(2)]
         input_environments_2 = [TestEnvironment1(2), TestEnvironment2()]
 
@@ -141,7 +135,6 @@ class Environments_Tests(unittest.TestCase):
             self.assertEqual(list(env_in.read()), list(env_out.read()))
 
     def test_save_continue(self):
-
         input_environments_1 = Environments([TestEnvironment3()])
 
         #confirming there is an error if we don't continue
@@ -163,7 +156,6 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(output_environments2[1].params, input_environments_2[0].params)
 
     def test_save_badzip_overwrite(self):
-
         Path("coba/tests/.temp/test.zip").write_text("abc")
         input_environments  = [TestEnvironment2(), TestEnvironment2()]
         output_environments = Environments(input_environments).save("coba/tests/.temp/test.zip",overwrite=True)
@@ -215,7 +207,6 @@ class Environments_Tests(unittest.TestCase):
                 Path("coba/tests/.temp/from_file.env").unlink()
 
     def test_from_prebuilt_recognized_name(self):
-
         index_url = "https://github.com/mrucker/coba_prebuilds/blob/main/test/index.json?raw=True"
         simulation_url = "https://github.com/mrucker/coba_prebuilds/blob/main/test/test.json?raw=True"
 
@@ -233,7 +224,6 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(envs[0].params['openml_data'],10)
 
     def test_from_prebuilt_unrecognized_name(self):
-
         root_directory_url = "https://api.github.com/repos/mrucker/coba_prebuilds/contents/"
 
         def mocked_requests_get(*args, **kwargs):
@@ -249,6 +239,44 @@ class Environments_Tests(unittest.TestCase):
 
             self.assertIn('nada', str(e.exception) )
             self.assertIn('test', str(e.exception) )
+
+    def test_from_result(self):
+        if Path("coba/tests/.temp/from_result.log").exists():
+            Path("coba/tests/.temp/from_result.log").unlink()
+
+        try:
+            Path("coba/tests/.temp/from_result.log").write_text('''
+                ["version",4]
+                ["E", 0, {"e":1}]
+                ["L", 0, {"l":1}]
+                ["V", 0, {"v":1}]
+                ["I",[0,0,0],{"_packed":{"actions":[[1,2],[1,2]],"rewards":[[0,1],[1,0]]}}]
+                ["I",[0,1,2],{"_packed":{"action":[1,2],"reward":[1,0]} }]
+                ["L", 1, {"l":2}]
+            ''')
+
+            env = Environments.from_result("coba/tests/.temp/from_result.log")
+
+            self.assertEqual(2, len(env))
+
+            actual = list(env[0].read())
+            expected = [
+                {'actions':[1,2],"rewards":DiscreteReward([1,2],[0,1])},
+                {'actions':[1,2],"rewards":DiscreteReward([1,2],[1,0])}
+            ]
+
+            self.assertEqual(env[0].params, {'e':1,'l':1,'v':1})
+            self.assertEqual(actual, expected)
+
+            actual = list(env[1].read())
+            expected = [{'action':1,"reward":1},{'action':2,"reward":0}]
+
+            self.assertEqual(env[1].params, {'e':1,'l':2})
+            self.assertEqual(actual,expected)
+
+        finally:
+            if Path("coba/tests/.temp/from_result.log").exists():
+                Path("coba/tests/.temp/from_result.log").unlink()
 
     def test_from_linear_synthetic(self):
         envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)

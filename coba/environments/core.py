@@ -1,13 +1,13 @@
 import json
 import collections.abc
 
-from zipfile import ZipFile, BadZipFile
 from pathlib import Path
+from zipfile import ZipFile, BadZipFile
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type, Literal
 
 from coba                 import pipes
 from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
-from coba.pipes.sources   import DataFrameSource
+from coba.pipes.sources   import DataFrameSource, DiskSource, NextSource
 from coba.primitives      import Context, Action
 from coba.random          import CobaRandom
 from coba.pipes           import Pipes, Source, HttpSource, IterableSource
@@ -22,6 +22,7 @@ from coba.environments.openml     import OpenmlSimulation
 from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
 from coba.environments.supervised import SupervisedSimulation
+from coba.environments.results    import ResultEnvironment
 
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
 from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Densify, Reservoir, Cycle, Scale, Unbatch
@@ -248,6 +249,31 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @staticmethod
     def from_dataframe(df) -> 'Environments':
         return Environments(Pipes.join(DataFrameSource(df), MappingToInteraction()))
+
+    @staticmethod
+    def from_result(path:str) -> 'Environments':
+        env_rows = collections.defaultdict(dict)
+        lrn_rows = collections.defaultdict(dict)
+        val_rows = collections.defaultdict(dict)
+        interactions = []
+
+        for (loc,line) in DiskSource(path,include_loc=True).read():
+            if line.strip():
+                trx = json.loads(line)
+                if trx[0] == "E": env_rows[trx[1]].update(trx[2])
+                if trx[0] == "L": lrn_rows[trx[1]].update(trx[2])
+                if trx[0] == "V": val_rows[trx[1]].update(trx[2])
+                if trx[0] == "I": interactions.append((loc,*trx[1],0)[:4] )
+
+        envs = []
+        for loc, env_id, lrn_id, val_id in interactions:
+            env_params = env_rows.get(env_id)
+            lrn_params = lrn_rows.get(lrn_id)
+            val_params = val_rows.get(val_id)
+            int_source = NextSource(DiskSource(path,start_loc=loc))
+            envs.append(ResultEnvironment(int_source,env_params,lrn_params,val_params))
+
+        return Environments(envs)
 
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.

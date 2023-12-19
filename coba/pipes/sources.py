@@ -2,7 +2,7 @@ import requests
 import gzip
 
 from queue import Queue
-from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Literal
+from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Literal, Tuple
 
 from coba.exceptions import CobaException
 from coba.pipes.primitives import Source
@@ -33,6 +33,19 @@ class IdentitySource(Source[Any]):
     def read(self) -> Iterable[Any]:
         return self._item
 
+class NextSource(Source[Any]):
+
+    def __init__(self, source: Source[Iterable[Any]]) -> None:
+        self._source = source
+
+    def read(self) -> Any:
+        items = self._source.read()
+        try:
+            return next(iter(items))
+        finally:
+            if hasattr(items,'close') and callable(items.close):
+                items.close()
+
 class DiskSource(Source[Iterable[str]]):
     """A source that reads a file from disk.
 
@@ -40,7 +53,7 @@ class DiskSource(Source[Iterable[str]]):
     In order to make this distinction gzip files must end with a gz extension.
     """
 
-    def __init__(self, filename:str, mode:str='r+'):
+    def __init__(self, path:str, mode:str='rt+', start_loc:int = 0, include_loc: bool = False):
         """Instantiate a DiskSource.
 
         Args:
@@ -48,32 +61,26 @@ class DiskSource(Source[Iterable[str]]):
             mode: The mode with which the file should be read.
         """
 
-        self._filename = filename
-        self._file     = None
-        self._count    = 0
-        self._mode     = mode
+        self._path        = path
+        self._mode        = mode
+        self._start_loc   = start_loc
+        self._include_loc = include_loc
 
-    def __enter__(self) -> 'DiskSource':
-        self._count += 1
+    def read(self) -> Union[Iterable[str],Iterable[Tuple[int,str]]]:
+        #this stackoverflow question raises a potential problem
+        #with this implementation https://stackoverflow.com/q/15353220/1066291
 
-        if self._file is None:
-            if ".gz" in self._filename:
-                self._file = gzip.open(self._filename, f"{self._mode}t")
-            else:
-                self._file = open(self._filename, self._mode)
+        #and this stackoverflow question points out a shortcoming
+        #with this implementation #https://stackoverflow.com/a/59168992/1066291
 
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._count -= 1
-        if self._count == 0 and self._file is not None:
-            self._file.close()
-            self._file = None
-
-    def read(self) -> Iterable[str]:
-        with self:
-            for line in self._file:
-                yield line.rstrip('\r\n')
+        opener = gzip.open if ".gz" in self._path else open
+        with opener(self._path, self._mode) as f:
+            f.seek(self._start_loc)
+            loc,line = f.tell(), f.readline()
+            while line != '':
+                line = line.rstrip('\r\n')
+                yield (loc,line) if self._include_loc else line
+                loc,line = f.tell(), f.readline()
 
 class QueueSource(Source[Iterable[Any]]):
     """A source that reads from a queue."""

@@ -3,7 +3,7 @@ from math import isfinite
 from typing import Any
 from coba.registry import CobaRegistry
 
-def reg_put(o:Any):
+def dumps_registered(o:Any):
     #I think I just support one use case:
     #  (1) getstate/setstate
     # If I support more use cases things start to become kind of brittle or the json becomes bloated.
@@ -17,7 +17,7 @@ def reg_put(o:Any):
             pass
     raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
 
-def reg_get(o:dict):
+def loads_registered(o:dict):
     if len(o) == 1:
         name = next(iter(o.keys()))
         if name in CobaRegistry.setstate:
@@ -57,10 +57,10 @@ def minimize(obj,precision=5):
 
     return obj
 
-def loads(s, *, cls=None, object_hook=reg_get, parse_float=None, parse_int=None, parse_constant=None, object_pairs_hook=None, **kw) -> Any:
+def loads(s, *, cls=None, object_hook=loads_registered, parse_float=None, parse_int=None, parse_constant=None, object_pairs_hook=None, **kw) -> Any:
     return json.loads(s, cls=cls, object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
 
-def dumps(obj, *, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, default=reg_put, sort_keys=False, **kw) -> str:
+def dumps(obj, *, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, default=dumps_registered, sort_keys=False, **kw) -> str:
     def _default(o: Any) -> Any:
         if hasattr(o,'ndim'): return o.tolist()
         if default: return default(o)

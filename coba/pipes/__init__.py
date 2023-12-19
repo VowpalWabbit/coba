@@ -17,7 +17,7 @@ from coba.pipes.rows    import LazyDense, EncodeDense, LabelDense, KeepDense, He
 from coba.pipes.rows    import LazySparse, EncodeSparse, LabelSparse, DropSparse, SparseDense
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
 from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableSource
-from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource, ListSource
+from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource, ListSource, NextSource
 from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
 
 from coba.pipes.core import Pipes

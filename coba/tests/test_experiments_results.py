@@ -1089,7 +1089,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_exception_when_no_file(self):
         with self.assertRaises(Exception):
-            Result().from_file("abcd")
+            Result.from_file("abcd")
 
     def test_from_logged_envs(self):
         class Logged1:
@@ -1149,7 +1149,7 @@ class Result_Tests(unittest.TestCase):
             {'environment_id': 1, 'learner_id': 1, 'evaluator_id': 0, 'index':2, 'reward': 2 },
         ]
 
-        res = Result().from_logged_envs([Logged1(),Logged2(),Logged3(),Logged4()])
+        res = Result.from_logged_envs([Logged1(),Logged2(),Logged3(),Logged4()])
         self.assertCountEqual(res.environments.to_dicts(), expected_envs)
         self.assertCountEqual(res.learners.to_dicts()    , expected_lrns)
         self.assertCountEqual(res.evaluators.to_dicts()  , expected_vals)
