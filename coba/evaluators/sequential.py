@@ -131,7 +131,7 @@ class SequentialCB(Evaluator):
         info.clear()
 
         learn_type = 'IPS' if lrn_ips else 'DR' if lrn_dr else 'DM' if lrn_dm else None
-        eval_type  = 'IPS' if val_ips  else 'DR' if val_dr  else 'DM' if val_dm  else None
+        eval_type  = 'IPS' if val_ips else 'DR' if val_dr else 'DM' if val_dm else None
 
         if learn_type:
             interactions = BatchSafe(OpeRewards(learn_type,target='learn_rewards',features=[1,'a','xa'])).filter(interactions)
@@ -151,7 +151,7 @@ class SequentialCB(Evaluator):
             off_pr  = interaction['probability' ] if has_prob    else None
 
             lrn_rwds = interaction[learn_target] if learn_type else rewards if lrn_on else None
-            val_rwds = interaction[eval_target ] if eval_type  else rewards if val_on  else None
+            val_rwds = interaction[eval_target ] if eval_type  else rewards if val_on else None
 
             start = time.time()
             if should_pred: on_act,on_pr,on_kw=learner.predict(context,actions)

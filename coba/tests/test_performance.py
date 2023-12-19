@@ -461,7 +461,6 @@ class Performance_Tests(unittest.TestCase):
         self._assert_scale_time(items,lambda x:list(grounded.filter(x)), .04, print_time, number=1000)
 
     def test_simple_evaluation(self):
-
         class DummyLearner:
             def predict(*args):
                 return [1,0,0]
@@ -481,7 +480,6 @@ class Performance_Tests(unittest.TestCase):
         self._assert_scale_time(items,lambda x:list(eval.evaluate(DummEnv(x),learn)), .12, print_time, number=1000)
 
     def test_safe_learner_predict(self):
-
         class DummyLearner:
             def predict(*args):return [1,0,0]
             def learn(*args): pass
@@ -490,7 +488,6 @@ class Performance_Tests(unittest.TestCase):
         self._assert_call_time(lambda:learn.predict(1,[1,2,3]), .005, print_time, number=1000)
 
     def test_safe_learner_learn(self):
-
         class DummyLearner:
             def predict(*args):return [1,0,0]
             def learn(*args): pass
