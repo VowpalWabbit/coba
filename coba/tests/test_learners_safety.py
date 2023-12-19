@@ -636,8 +636,32 @@ class SafeLearner_Tests(unittest.TestCase):
         #test shortcut logic after initial
         self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{'a':[1,2,3]}))
 
-    def test_predict_not_batched_learner_first_exception_thrown(self):
+    def test_predict_AP_batchrow_kw_batch_wrong_fallback(self):
+        class MyLearner:
+            def predict(self,context,actions):
+                return [(3,1)] if is_batch(context) else [(3,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})][context]
 
+        safe_learner = SafeLearner(MyLearner())
+
+        #test initial call
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{'a':[1,2,3]}))
+        #test shortcut logic after initial
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{'a':[1,2,3]}))
+
+    def test_predict_AP_batchrow_kw_batch_None_fallback(self):
+        class MyLearner:
+            def predict(self,context,actions):
+                return None if is_batch(context) else [(3,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})][context]
+
+        safe_learner = SafeLearner(MyLearner())
+
+        #test initial call
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{'a':[1,2,3]}))
+        #test shortcut logic after initial
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((3,1,2),(1,.5,1),{'a':[1,2,3]}))
+
+
+    def test_predict_not_batched_learner_first_exception_thrown(self):
         class MyLearner:
             calls = []
             def predict(self,*args,**kwargs):
@@ -656,7 +680,6 @@ class SafeLearner_Tests(unittest.TestCase):
         self.assertEqual(str(e.exception.__cause__),"1")
 
     def test_AP_not_batched_learn_exception_with_info(self):
-
         calls = []
         class MyLearner:
             def learn(self,*args,**kwargs):

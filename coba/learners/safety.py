@@ -1,12 +1,12 @@
-from collections import abc
 from math import isclose
-from typing import Any, Tuple, Mapping, Literal, Union
+from collections import abc
+from typing import Any, Tuple, Mapping, Literal
 
-from coba.utilities import sample_actions
+from coba.utilities import sample_actions, try_else
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.primitives import is_batch, Context, Action, Actions
-from coba.learners.primitives import Learner, Actions, Prob, PMF, kwargs, Prediction
+from coba.learners.primitives import Learner, Prob, kwargs, Prediction, PMF
 
 def first_row(pred: Prediction, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Prediction]:
     if batch_order == 'col':
@@ -27,8 +27,8 @@ def has_kwargs(pred: Prediction, batch_order:Literal['not','row','col']) -> bool
     except:
         return False
 
-def batch_order(predictor, pred: Prediction, context, actions) -> Literal['not','col','row']:
-
+def batch_order(predictor, pred: Prediction, context, actions, method=None) -> Literal['not','col','row']:
+    if method == 2: return 'row'
     if not is_batch(actions) and not is_batch(context): return 'not'
 
     no_len         = lambda item: not hasattr(item,'__len__')
@@ -56,7 +56,6 @@ def batch_order(predictor, pred: Prediction, context, actions) -> Literal['not',
     return 'row' if len(pred) == n_rows else 'col'
 
 def pred_format(std_pred:Prediction, actions:Actions, og_pred:Prediction = None):
-
     unclear_format = CobaException("We were unable to determine the prediction format from the "
     f"given value: {og_pred}. To work around this you can provide explicit format information by "
     "returnning a dict wrapper: {'pmf':<pred>}, {'action':<pred>}, or {'action_prob':<pred>}.")
@@ -143,6 +142,25 @@ def possible_action(item, actions):
     except:
         return False
 
+def batch_size(args):
+    for arg in args:
+        if is_batch(arg):
+            return len(arg)
+
+def raise_if_not_valid_out(out,expected_len):
+    def len_or_0(obj):
+        return try_else(lambda: len(obj), 0)
+    if out is None:
+        raise CobaException("The given prediction was none and did not match the batch_size.")
+    if all(isinstance(p,dict) for p in out) and out[0].keys() != out[-1].keys(): #pragma: no cover
+        out = out[0]
+    if isinstance(out,dict):
+        is_valid = expected_len == len_or_0(next(iter(out.values())))
+    else:
+        is_valid = expected_len in [len_or_0(out),len_or_0(out[0])]
+    if not is_valid:
+        raise CobaException("The given prediction did not appear to match the batch_size.")
+
 class SafeLearner(Learner):
     """A wrapper for learner-likes that guarantees interface consistency."""
 
@@ -199,69 +217,47 @@ class SafeLearner(Learner):
         else:
             return True
 
-    def _safe_call(self, key, method, args, kwargs = {}):
-        if key in self._method:
-            prev_method = self._method[key]
+    def _method1(self,method,args,kwargs):
+        return method(*args,**kwargs)
 
-            if prev_method==1:
-                return method(*args,**kwargs)
+    def _method2(self,method,args,kwargs):
+        pred = [ method(*a,**{k:v[i] for k,v in kwargs.items()}) for i,a in enumerate(zip(*args)) ]
+        if not pred:
+            raise CobaException(
+                f"Something went wrong. No prediction was returned when using batch fallback methods "
+                f"on the args: {args}. See the exception above for the reason why fallback methods "
+                "were attempted."
+            )
+        return pred
 
-            if prev_method==2:
-                if isinstance(args[0],str):
-                    raise CobaException(
-                        f"Context ({args[0]}) was not an array like so we couldn't use fallback methods. "
-                        "See the exception above for the reason why fallback methods were attempted."
-                    )
-
-                pred = [ method(*a,**{k:v[i] for k,v in kwargs.items()}) for i,a in enumerate(zip(*args)) ]
-
-                if not pred:
-                    raise CobaException(
-                        f"Something went wrong. No prediction was returned when using batch fallback methods "
-                        f"on the args: {args}. See the exception above for the reason why fallback methods "
-                        "were attempted."
-                    )
-
-                return pred
-
-        try:
+    def _safe_call(self, key, method, args, kwargs = {}, has_out = True):
+        if self._method.get(key) == 1:
+            return self._method1(method, args, kwargs)
+        elif self._method.get(key) == 2:
+            return self._method2(method, args, kwargs)
+        elif not any(map(is_batch,args)):
             self._method[key] = 1
-            return self._safe_call(key, method, args, kwargs)
-        except Exception as outer_e:
-            if not any(map(is_batch,args)):
-                raise
-            else:
+            return self._method1(method,args,kwargs)
+        else:
+            expected_size = batch_size(args)
+            try:
+                out = self._method1(method,args,kwargs)
+                if has_out: raise_if_not_valid_out(out,expected_size)
+                self._method[key] = 1
+                return out
+            except Exception as outer_e:
                 try:
+                    out = self._method2(method,args,kwargs)
+                    if has_out: raise_if_not_valid_out(out,expected_size)
                     self._method[key] = 2
-                    return self._safe_call(key, method, args, kwargs)
+                    return out
                 except Exception as inner_e:
-                    del self._method[key]
                     raise inner_e from outer_e
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
-        try:
-            return self._safe_call('score', self.learner.score,(context,actions,action))
-        except AttributeError as ex:
-            if "'score'" in str(ex):
-                raise CobaException(("The `score` method is not implemented for this learner."))
-            raise
-
-    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:
-        #this logic should guarantee that we can differentiate prediction formats
-        if self._prev_actions != actions:
-            self._prev_actions = actions
-            all_safe = 0 not in actions and 1 not in actions
-            make_safe = lambda a: float(a) if a in [0,1] else a
-            self._safe_actions = actions if all_safe else [ make_safe(a) for a in actions]
-
-        actions = self._safe_actions
-
-        pred = self._safe_call('predict', self.learner.predict, (context,actions))
-
+    def _parse_pred(self, context, actions, pred):
         if self._pred_batch is None: # first call only
             predictor         = lambda X,A: self._safe_call('predict', self.learner.predict, (X,A))
-            is_fallback       = self._method['predict'] == 2
-            self._pred_batch  = batch_order(predictor,pred,context,actions) if not is_fallback else 'row'
+            self._pred_batch  = batch_order(predictor,pred,context,actions,self._method['predict'])
             self._pred_kwargs = has_kwargs(pred,self._pred_batch)
             first_pred_row    = first_row(pred,self._pred_batch,self._pred_kwargs)
             first_actions     = actions[0] if self._pred_batch != 'not' else actions
@@ -328,10 +324,29 @@ class SafeLearner(Learner):
 
             return A,P,kwargs
 
-    def learn(self, context, action, reward, probability, **kwargs) -> None:
-
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         try:
-            self._safe_call('learn', self.learner.learn, (context,action,reward,probability), kwargs)
+            return self._safe_call('score', self.learner.score,(context,actions,action))
+        except AttributeError as ex:
+            if "'score'" in str(ex):
+                raise CobaException(("The `score` method is not implemented for this learner."))
+            raise
+
+    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:
+        #this logic should guarantee that we can differentiate prediction formats
+        #it allows us to "is" checks to see if a returned value "is" one of the actions
+        if self._prev_actions != actions:
+            self._prev_actions = actions
+            all_safe = 0 not in actions and 1 not in actions
+            make_safe = lambda a: float(a) if a in [0,1] else a
+            self._safe_actions = actions if all_safe else [ make_safe(a) for a in actions]
+
+        pred = self._safe_call('predict', self.learner.predict, (context,self._safe_actions))
+        return self._parse_pred(context, self._safe_actions, pred)
+
+    def learn(self, context, action, reward, probability, **kwargs) -> None:
+        try:
+            self._safe_call('learn', self.learner.learn, (context,action,reward,probability), kwargs, has_out=False)
         except TypeError as ex:
             if 'got an unexpected' in str(ex):
                 raise CobaException("It appears that learner.predict returned kwargs but learner.learn did not accept them.") from ex
