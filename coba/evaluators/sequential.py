@@ -24,7 +24,7 @@ class SequentialCB(Evaluator):
     IMPLICIT_EXCLUDE = {"context", "actions", "rewards", "action", "reward", "probability", "eval_rewards", "learn_rewards"}
 
     def __init__(self,
-        record: Sequence[Literal['reward','time','prob','action','context','actions','rewards','ope_loss']] = ['reward'],
+        record: Sequence[Literal['reward','time','probability','action','context','actions','rewards','ope_loss']] = ['reward'],
         learn : Optional[Literal['on','off','ips','dr','dm']] = 'on',
         eval  : Optional[Literal['on','ips','dr','dm']] ='on',
         seed  : float = None) -> None:

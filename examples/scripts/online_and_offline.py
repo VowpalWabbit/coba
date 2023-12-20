@@ -3,26 +3,30 @@ import coba as cb
 def main():
 
     oml_id = 150
-    filename = f"cb_oml_{oml_id}.zip"
+    filename = f"cb_oml_{oml_id}.log"
 
-    # run first time as online
-    online_vw_args = "--cb_explore_adf"
-    env = cb.Environments.from_openml(data_id=oml_id, take=128).logged(cb.VowpalLearner(online_vw_args)).save(filename)
+    ####################################
+    #-----run first time as online-----#
+    ####################################
 
-    assert type(env) == cb.Environments
-    assert env[0].params['openml_data'] == 150
+    lrn = cb.VowpalLearner("--cb_explore_adf")
+    env = cb.Environments.from_openml(data_id=oml_id, take=128)
+    val = cb.SequentialCB(record=['context','action','reward','probability'])
+    cb.Experiment(env, lrn, val).run(filename,seed=1.23)
+
+    #######################################################################
+    #-----run second time using logged data from the online experiment----#
+    #######################################################################
 
     # use explore_eval to evaluate exploration in offline fashion
     # https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Explore-Eval
-    offline_vw_args = "--cb_explore_adf --explore_eval"
-    lrn = cb.VowpalLearner(offline_vw_args)
+    log = cb.Environments.from_result(filename)
+    lrn = cb.VowpalLearner("--cb_explore_adf --explore_eval")
+    val = cb.SequentialCB(learn='off',eval=False)
+    cb.Experiment(log, lrn, val).run()
 
-    #offline performance, no need to call predict in this scenario
-    cb.Experiment(env, lrn, cb.SequentialCB(learn='off',eval=False)).run()
-    lrn.finish()
-
-    #online performance
-    cb.Result.from_logged_envs(env).plot_learners()
+    # performance in the original online run
+    cb.Result.from_save(filename).plot_learners()
 
 if __name__ == "__main__":
     main()
