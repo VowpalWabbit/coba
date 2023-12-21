@@ -56,8 +56,8 @@ class SequentialCB(Evaluator):
         rwds = (learn == 'on')            or (eval == 'on')
 
         required_keys = set()
-        if pred: required_keys.update(['context','actions'])
-        if off : required_keys.update(['context','action','reward'])
+        if pred: required_keys.update(['actions'])
+        if off : required_keys.update(['action','reward'])
         if rwds: required_keys.update(['rewards'])
 
         return required_keys
@@ -77,18 +77,18 @@ class SequentialCB(Evaluator):
         if 'actions' not in interaction:
             return False
         else:
-            batched  = is_batch(interaction['context'])
+            batched   = interaction and (is_batch(interaction.get('context')) or is_batch(interaction.get('actions')))
             actions   = interaction['actions'][0] if batched else interaction['actions']
-            discrete = len(actions or []) > 0
+            discrete  = len(actions or []) > 0
 
         return discrete
 
     def _results(self,learner:SafeLearner,first:Mapping, interactions:Iterable[Mapping]) -> Iterable[Mapping[Any,Any]]:
 
         #import here to avoid circular dependencies...
-        from coba.environments.filters import OpeRewards, BatchSafe, Batch
+        from coba.environments.filters import OpeRewards, Batch, BatchSafe
 
-        batched   = is_batch(first['context'])
+        batched   = first and (is_batch(first.get('context')) or is_batch(first.get('actions')))
         discrete  = self._discrete(first)
         has_score = learner.has_score
 
@@ -198,11 +198,11 @@ class SequentialCB(Evaluator):
 
         if not interactions: return []
 
-        from coba.environments import Unbatch
+        from coba.environments import Finalize, Unbatch, BatchSafe
 
         learner = SafeLearner(learner, seed)
         self._validate(first,learner.has_score)
-        results = self._results(learner, first, interactions)
+        results = self._results(learner, first, BatchSafe(Finalize()).filter(interactions))
 
         #We Unbatch to work with Result
         yield from Unbatch().filter(results)
@@ -232,8 +232,8 @@ class SequentialIGL(Evaluator):
                 self._env = env
             def read(self):
                 for interaction in self._env.read():
-                    interaction['true_rewards'] = interaction['rewards']
-                    interaction['rewards'] = interaction.pop('feedbacks')
+                    f,r = interaction['feedbacks'],interaction['rewards']
+                    interaction['feedbacks'], interaction['rewards'] = r,f
                     yield interaction
 
         envIGL = IglEnvironment(environment)
@@ -246,7 +246,7 @@ class SequentialIGL(Evaluator):
 
         for out in SequentialCB(record,seed=seed).evaluate(envIGL,learner):
             if out_feedback  : out['feedback'] = out['reward']
-            if out_reward    : out['reward']   = out.pop('true_rewards')(out['action'])
+            if out_reward    : out['reward']   = out.pop('feedbacks')(out['action'])
             if not out_action: del out['action']
 
             yield out
@@ -297,7 +297,7 @@ class RejectionCB(Evaluator):
     def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
 
         #import here to avoid circular dependencies...
-        from coba.environments.filters import OpeRewards
+        from coba.environments import OpeRewards, Finalize, BatchSafe
 
         interactions = environment.read()
         learner      = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
@@ -346,8 +346,10 @@ class RejectionCB(Evaluator):
 
         ope_type = self._ope.upper() if self._ope else None
 
+        interactions = BatchSafe(Finalize()).filter(interactions)
+
         if ope_type:
-            interactions = OpeRewards(ope_type,features=[1,'a','xa']).filter(interactions)
+            interactions = BatchSafe(OpeRewards(ope_type,features=[1,'a','xa'])).filter(interactions)
 
         ope_ips = ope_type == 'IPS'
 

@@ -346,16 +346,15 @@ class ProcessTasks_Tests(unittest.TestCase):
         ModuloLearner.n_finish = 0
 
     def test_simple(self):
-        env1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        env1 = LambdaSimulation(1, lambda i: i, lambda i,c: [0,1], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         evl1 = ObserveEvaluator()
 
         tasks = [Task((1,env1), (1,lrn1), (1,evl1))]
-
         transactions = list(ProcessTasks().filter(tasks))
 
-        self.assertIs(evl1.observed[0]._env, env1)
-        self.assertIs(evl1.observed[1]     , lrn1)
+        self.assertEqual(list(evl1.observed[0].read()),[{'context':0,'actions':[0,1],'rewards':[0,1]}])
+        self.assertIs(evl1.observed[1], lrn1)
         self.assertEqual(['T4', (1,1,1), []], transactions[0])
 
     def test_env_task(self):
@@ -371,6 +370,8 @@ class ProcessTasks_Tests(unittest.TestCase):
     def test_environment_reused(self):
         sim1 = Pipes.join(CountReadSimulation(), Cache())
 
+        list(sim1.read())
+
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
 
@@ -385,17 +386,19 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         transactions = list(ProcessTasks().filter(tasks))
 
-        self.assertIs(val1.observed[0]._env, sim1)
-        self.assertIs(val1.observed[1]     , lrn1)
+        self.assertIs(val1.observed[0].env[0], sim1[0])
+        self.assertIs(val1.observed[0].env[1], sim1[1])
+        self.assertIs(val1.observed[1]       , lrn1   )
 
-        self.assertIs(val2.observed[0]._env, sim1)
-        self.assertIs(val2.observed[1]     , lrn2)
+        self.assertIs(val2.observed[0].env[0], sim1[0])
+        self.assertIs(val2.observed[0].env[1], sim1[1])
+        self.assertIs(val2.observed[1]       , lrn2   )
 
         self.assertEqual(['T1', 0      , {'env_type': 'CountReadSimulation'}], transactions[0])
         self.assertEqual(['T4', (0,0,0), []                                 ], transactions[1])
         self.assertEqual(['T4', (0,1,1), []                                 ], transactions[2])
 
-        self.assertEqual(sim1[0].n_reads, 2)
+        self.assertEqual(sim1[0].n_reads, 1)
 
     def test_task_copy_true(self):
         lrn1 = ModuloLearner("1")

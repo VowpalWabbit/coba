@@ -8,19 +8,15 @@ from coba.pipes import Pipes, Shuffle
 class Environment_Tests(unittest.TestCase):
 
     def test_str_with_params(self):
-
         class TestEnvironment(Environment):
             def read(self):
                 return []
             @property
             def params(self):
                 return {'a':1}
-
         self.assertEqual("{'a': 1}", str(TestEnvironment()))
 
-
     def test_str_sans_params(self):
-
         class TestEnvironment(Environment):
             def read(self):
                 return []
@@ -33,7 +29,13 @@ class Environment_Tests(unittest.TestCase):
 class SafeEnvironment_Tests(unittest.TestCase):
 
     def test_params(self):
-        self.assertEqual({'env_type': 'SimpleEnvironment'}, SafeEnvironment(SimpleEnvironment()).params)
+        class WithParams:
+            def __init__(self):
+                self.params = {}
+        class SansParams:
+            pass
+        self.assertEqual({'env_type': 'WithParams'}, SafeEnvironment(WithParams()).params)
+        self.assertEqual({'env_type': 'SansParams'}, SafeEnvironment(SansParams()).params)
 
     def test_read(self):
         self.assertEqual((), SafeEnvironment(SimpleEnvironment()).read())
@@ -43,7 +45,7 @@ class SafeEnvironment_Tests(unittest.TestCase):
         self.assertEqual('SimpleEnvironment', str(SafeEnvironment(SimpleEnvironment())))
 
     def test_with_nesting(self):
-        self.assertIsInstance(SafeEnvironment(SafeEnvironment(SimpleEnvironment())).environment, SimpleEnvironment)
+        self.assertIsInstance(SafeEnvironment(SafeEnvironment(SimpleEnvironment())).env, SimpleEnvironment)
 
     def test_with_pipes(self):
         self.assertEqual({'env_type': 'SimpleEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(SimpleEnvironment(), Shuffle(1))) .params)

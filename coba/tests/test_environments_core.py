@@ -208,7 +208,6 @@ class Environments_Tests(unittest.TestCase):
 
     def test_from_prebuilt_recognized_name(self):
         index_url = "https://github.com/mrucker/coba_prebuilds/blob/main/test/index.json?raw=True"
-        simulation_url = "https://github.com/mrucker/coba_prebuilds/blob/main/test/test.json?raw=True"
 
         def mocked_requests_get(*args, **kwargs):
 
@@ -418,6 +417,13 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(len(env),1)
         self.assertEqual(expected, list(env[0].read()))
+
+    def test_from_given(self):
+        env = Environments.from_given(TestEnvironment1('A'), TestEnvironment1('B'))
+
+        self.assertEqual(2  , len(env))
+        self.assertEqual('A', env[0].params['id'])
+        self.assertEqual('B', env[1].params['id'])
 
     def test_init_args(self):
         env = Environments(TestEnvironment1('A'), TestEnvironment1('B'))
@@ -695,7 +701,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, envs[1].params['flat'])
 
     def test_noise(self):
-        envs = Environments(TestEnvironment1('A')).noise(lambda x,r: x+1, lambda x,r: x+2, lambda x,r: x+3, lambda x,r: x+4)
+        envs = Environments(TestEnvironment1('A')).noise(lambda x,r: x+1, lambda x,r: x+2, lambda x,r: x+3)
 
         self.assertEqual(1, len(envs))
 
@@ -866,9 +872,7 @@ class Environments_Tests(unittest.TestCase):
         class TestEnvironment:
             def read(self):
                 yield {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
-
         envs = Environments(TestEnvironment()).logged(FixedLearner([1,0,0]))
-
         self.assertEqual(len(envs),1)
         self.assertEqual(next(envs[0].read()),{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
 
@@ -884,7 +888,6 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(next(envs[1].read()),{'context':None, 'action':1, "reward": 0, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
 
     def test_unbatch(self):
-
         class TestEnvironment:
             def read(self):
                 yield {'context':BatchList([1,2]), 'actions':BatchList([[1,2],[3,4]]), "rewards":BatchList([L1Reward(1),L1Reward(2)]) }

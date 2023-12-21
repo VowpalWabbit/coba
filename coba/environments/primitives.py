@@ -13,8 +13,8 @@ class Interaction(dict):
     @staticmethod
     def from_dict(kwargs_dict: Mapping[str, Any]) -> 'Interaction':
         if 'feedbacks' in kwargs_dict: return GroundedInteraction(**kwargs_dict)
-        if 'rewards' in kwargs_dict: return SimulatedInteraction(**kwargs_dict)
-        if 'reward' in kwargs_dict: return LoggedInteraction(**kwargs_dict)
+        if 'reward'    in kwargs_dict: return LoggedInteraction(**kwargs_dict)
+        if 'rewards'   in kwargs_dict: return SimulatedInteraction(**kwargs_dict)
         return kwargs_dict
 
 class SimulatedInteraction(Interaction):
@@ -157,26 +157,26 @@ class SafeEnvironment(Environment):
             environment: The environment we wish to make sure has the expected interface
         """
 
-        self.environment = environment if not isinstance(environment, SafeEnvironment) else environment.environment
+        self.env = environment if not isinstance(environment, SafeEnvironment) else environment.env
 
     @property
     def params(self) -> Mapping[str, Any]:
         try:
-            params = self.environment.params
+            params = self.env.params
         except AttributeError:
             params = {}
 
         if "env_type" not in params:
 
-            if isinstance(self.environment, SourceFilters):
-                params["env_type"] = self.environment._source.__class__.__name__
+            if isinstance(self.env, SourceFilters):
+                params["env_type"] = self.env._source.__class__.__name__
             else:
-                params["env_type"] = self.environment.__class__.__name__
+                params["env_type"] = self.env.__class__.__name__
 
         return params
 
     def read(self) -> Iterable[Interaction]:
-        return self.environment.read()
+        return self.env.read()
 
     def __str__(self) -> str:
         params = dict(self.params)

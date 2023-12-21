@@ -4,10 +4,10 @@ from collections import defaultdict, Counter
 from typing import Any, Iterable, Sequence, Optional, Tuple
 
 from coba.learners import Learner, SafeLearner
-from coba.environments import Environment, SafeEnvironment, Finalize, BatchSafe, Chunk
+from coba.environments import Environment, SafeEnvironment, Chunk
 from coba.evaluators import Evaluator, SafeEvaluator
 
-from coba.pipes import Source, Filter, SourceFilters
+from coba.pipes import Pipes, Source, Filter, SourceFilters
 from coba.context import CobaContext
 from coba.utilities import peek_first
 
@@ -130,6 +130,8 @@ class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
 
     def filter(self, chunk: Iterable[Task]) -> Iterable[Any]:
 
+        from coba.environments.filters import Materialize
+
         chunk = list(chunk)
         empty_envs = set()
 
@@ -147,14 +149,19 @@ class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
                 lrn_id,lrn = (task.lrn_id,task.lrn)
                 val_id,val = (task.val_id,task.val)
 
+                if env: env = SafeEnvironment(Pipes.join(env,Materialize()))
+
                 if task.copy: lrn = deepcopy(lrn)
 
                 if env and not lrn and not val:
                     with CobaContext.logger.time(f"Peeking at Environment {env_id}..."):
+                        #sometimes an environment can't know its parameters until we've
+                        #read the first line. Therefor,e we call peek_first here and rely
+                        #on side-effect behavior to update env.params
                         peek_first(env.read())
 
                     with CobaContext.logger.time(f"Recording Environment {env_id} parameters..."):
-                        yield ["T1", env_id, SafeEnvironment(env).params]
+                        yield ["T1", env_id, env.params]
 
                 if lrn and not env and not val:
                     with CobaContext.logger.time(f"Recording Learner {lrn_id} parameters..."):
@@ -174,14 +181,7 @@ class ProcessTasks(Filter[Iterable[Task], Iterable[Any]]):
                         empty_envs.add(env_id)
                         continue
 
-                    class dummy_env:
-                        _env = env
-                        @property
-                        def params(self): return SafeEnvironment(dummy_env._env).params #pragma: no cover
-                        def read(self): return BatchSafe(Finalize()).filter(interactions)
-
                     with CobaContext.logger.time(f"Evaluating Learner {lrn_id} on Environment {env_id}..."):
-                        env = dummy_env()
                         yield ["T4", (env_id, lrn_id, val_id), list(SafeEvaluator(val).evaluate(env,lrn))]
                         if hasattr(lrn,'finish') and task.copy: lrn.finish()
 

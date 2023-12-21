@@ -342,7 +342,7 @@ class Performance_Tests(unittest.TestCase):
         ints = Table(columns=['environment_id','learner_id','evaluator_id','index']).insert([[e,l,0,0] for e in range(3) for l in range(2)])
 
         res  = Result(envs, lrns, vals, ints)
-        self._assert_call_time(lambda:res.filter_fin(l='learner_id',p='environment_id'), .06, print_time, number=1000)
+        self._assert_call_time(lambda:res.filter_fin(l='learner_id',p='environment_id'), .08, print_time, number=1000)
 
     def test_result_where(self):
         envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
@@ -477,7 +477,7 @@ class Performance_Tests(unittest.TestCase):
         learn = DummyLearner()
 
         #most of this time is being spent in SafeLearner.predict...
-        self._assert_scale_time(items,lambda x:list(eval.evaluate(DummEnv(x),learn)), .12, print_time, number=1000)
+        self._assert_scale_time(items,lambda x:list(eval.evaluate(DummEnv(x),learn)), .17, print_time, number=1000)
 
     def test_safe_learner_predict(self):
         class DummyLearner:

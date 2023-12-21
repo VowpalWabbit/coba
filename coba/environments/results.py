@@ -28,18 +28,10 @@ class ResultEnvironment(Environment):
         is_all_data = {'actions','rewards'}.issubset(interactions.keys())
         is_log_data = {'action' ,'reward' }.issubset(interactions.keys())
 
-        has_rewards     = 'rewards' in interactions
-        rewards_is_list = has_rewards and isinstance(interactions['rewards'][0],list)
-
         if not (is_all_data or is_log_data):
             raise CobaException(
                 "It is not possible to create a ResultEnvironment if the Result does "
                 "not contain at least (`actions`,`rewards`) or (`action`,`reward`).")
 
         for i in range(len(next(iter(interactions.values())))):
-            new = {k:interactions[k][i] for k in interactions.keys()}
-
-            if has_rewards and rewards_is_list:
-                new['rewards'] = DiscreteReward(new['actions'],new['rewards'])
-
-            yield new
+            yield {k:interactions[k][i] for k in interactions.keys()}

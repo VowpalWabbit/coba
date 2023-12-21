@@ -15,8 +15,8 @@ class ResultEnvironment_Tests(unittest.TestCase):
         } }]'''
         actual = list(ResultEnvironment(IdentitySource(source),None,None,None).read())
         expected = [
-            {'actions':[1,2],"rewards":DiscreteReward([1,2],[0,1])},
-            {'actions':[1,2],"rewards":DiscreteReward([1,2],[1,0])}
+            {'actions':[1,2],"rewards":[0,1]},
+            {'actions':[1,2],"rewards":[1,0]}
         ]
         self.assertEqual(actual,expected)
 

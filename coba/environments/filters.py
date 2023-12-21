@@ -7,7 +7,7 @@ from math import isnan
 from statistics import median, stdev, mode
 from numbers import Number
 from zlib import crc32
-from operator import eq, getitem, methodcaller, itemgetter
+from operator import eq, methodcaller, itemgetter
 from collections import defaultdict
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
@@ -119,13 +119,17 @@ class Scale(EnvironmentFilter):
 
         first, interactions = peek_first(Mutable().filter(interactions))
 
-        if not interactions: return []
+        if not interactions:
+            return
+
+        if 'context' not in first:
+            yield from interactions
+            return
 
         remaining_interactions = iter(interactions)
         fitting_interactions   = list(islice(remaining_interactions,self._using))
 
         first_context = first['context']
-        first_actions = first.get('actions')
 
         if isinstance(first_context, primitives.Sparse) and self._target=="context" and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
@@ -141,9 +145,9 @@ class Scale(EnvironmentFilter):
                 if len(potential_cols) == 0:
                     unscaled = []
                 elif len(potential_cols) == 1:
-                    unscaled = [ tuple(map(itemgetter(*potential_cols),map(getitem,fitting_interactions,repeat("context")))) ]
+                    unscaled = [ tuple(map(itemgetter(*potential_cols),map(itemgetter("context"),fitting_interactions))) ]
                 else:
-                    unscaled = list(zip(*map(itemgetter(*potential_cols),map(getitem,fitting_interactions,repeat("context")))))
+                    unscaled = list(zip(*map(itemgetter(*potential_cols),map(itemgetter("context"),fitting_interactions))))
             elif is_sparse_context:
                 unscalable_cols = {k for k,v in first['context'].items() if not isinstance(v,(int,float))}
                 unscaled = defaultdict(list)
@@ -274,7 +278,12 @@ class Impute(EnvironmentFilter):
 
         first, interactions = peek_first(Mutable().filter(interactions))
 
-        if not interactions: return None
+        if not interactions:
+            return
+
+        if 'context' not in first:
+            yield from interactions
+            return
 
         is_dense  = isinstance(first['context'], primitives.Dense)
         is_sparse = isinstance(first['context'], primitives.Sparse)
@@ -310,9 +319,9 @@ class Impute(EnvironmentFilter):
             if len(imputable_cols) == 0:
                 unimputed = []
             elif len(imputable_cols) == 1:
-                unimputed = [ tuple(map(itemgetter(*imputable_cols),map(getitem,using_interactions,repeat("context")))) ]
+                unimputed = [ tuple(map(itemgetter(*imputable_cols),map(itemgetter("context"),using_interactions))) ]
             else:
-                unimputed = list(zip(*map(itemgetter(*imputable_cols),map(getitem,using_interactions,repeat("context")))))
+                unimputed = list(zip(*map(itemgetter(*imputable_cols),map(itemgetter("context"),using_interactions))))
 
         elif is_sparse:
             unimputed = defaultdict(list)
@@ -433,7 +442,7 @@ class Sparsify(EnvironmentFilter):
 
             new = interaction.copy()
 
-            if self._context:
+            if self._context and 'context' in new:
                 new['context'] = self._make_sparse(new['context'], context_has_headers, 'context')
 
             if self._action and 'actions' in new:
@@ -507,7 +516,7 @@ class Densify(EnvironmentFilter):
 
             new = interaction.copy()
 
-            if self._context:
+            if self._context and 'context' in new:
                 new['context'] = self._make_dense(new['context'])
 
             if self._action and 'actions' in new:
@@ -585,8 +594,13 @@ class Cycle(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
 
-        has_actions = first and 'actions' in first
-        has_rewards = first and 'rewards' in first
+        has_actions   = first and 'actions'   in first
+        has_rewards   = first and 'rewards'   in first
+        has_feedbacks = first and 'feedbacks' in first
+
+        targets = []
+        if has_rewards  : targets.append(['rewards'  ,callable(first['rewards'  ])])
+        if has_feedbacks: targets.append(['feedbacks',callable(first['feedbacks'])])
 
         one_hot = lambda n,N: tuple([0]*n+[1]+[0]*(N-n-1))
         rotate  = lambda l: l[-1%n_actions:] + l[:-1%n_actions]
@@ -604,13 +618,14 @@ class Cycle(EnvironmentFilter):
             yield from interactions
 
         else:
-            for i,interaction in enumerate(interactions):
-                new = interaction.copy()
+            for i,old in enumerate(interactions):
+                new = old.copy()
                 if i >= self._after:
-                    actions = interaction['actions']
-                    rewards = interaction['rewards']
-                    rewards = list(map(rewards,actions))
-                    new['rewards'] = DiscreteReward(actions,rotate(rewards))
+                    for target,is_callable in targets:
+                        if not is_callable:
+                            new[target] = rotate(new[target])
+                        else:
+                            new[target] = DiscreteReward(old['actions'],rotate(list(map(old[target],old['actions']))))
                 yield new
 
 class Flatten(EnvironmentFilter):
@@ -627,26 +642,39 @@ class Flatten(EnvironmentFilter):
 
         first,interactions = peek_first(interactions)
 
+        has_context = first and 'context' in first
+        has_actions = first and 'actions' in first
+
+        if not interactions:
+            return
+
+        if not has_context and not has_actions:
+            yield from interactions
+            return
+
         I1,I2,I3 = tee(interactions,3)
 
         interactions      = I1
-        flat_context_iter = self._flattener.filter(i['context'] for i in I2                      )
-        flat_actions_iter = self._flattener.filter(a            for i in I3 for a in i['actions'])
 
-        has_rewards   = 'rewards'   in first
-        has_feedbacks = 'feedbacks' in first
+        if has_context: flat_context_iter = self._flattener.filter(i['context'] for i in I2                      )
+        if has_actions: flat_actions_iter = self._flattener.filter(a            for i in I3 for a in i['actions'])
+
+        targets = []
+        if callable(first.get('rewards'))  : targets.append('rewards')
+        if callable(first.get('feedbacks')): targets.append('feedbacks')
 
         for old in interactions:
             new = old.copy()
-            new['context'] = next(flat_context_iter)
-            new['actions'] = list(islice(flat_actions_iter,len(old['actions'])))
 
-            if new['actions'] != old['actions']:
-                if has_rewards:
-                    new['rewards'] = DiscreteReward(new['actions'],list(map(old['rewards'],old['actions'])))
+            if has_context:
+                new['context'] = next(flat_context_iter)
 
-                if has_feedbacks:
-                    new['feedbacks'] = DiscreteReward(new['actions'],list(map(old['feedbacks'],old['actions'])))
+            if has_actions:
+                new['actions'] = list(islice(flat_actions_iter,len(old['actions'])))
+
+                if targets and new['actions'] != old['actions']:
+                    for target in targets:
+                        new[target] = DiscreteReward(new['actions'],list(map(old[target],old['actions'])))
 
             yield new
 
@@ -661,14 +689,26 @@ class Binary(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
         is_discrete = 'actions' in first and 0 < len(first['actions']) and len(first['actions']) < float('inf')
+        is_callable = callable(first['rewards'])
 
         if not is_discrete:
             warnings.warn("Only discrete action rewards can be made binary. ")
             yield from interactions
+
         else:
             for interaction in interactions:
-                new = interaction.copy()
-                new['rewards'] = BinaryReward(max(interaction['actions'], key=interaction['rewards']))
+                new     = interaction.copy()
+                actions = interaction['actions']
+                rewards = interaction['rewards']
+
+                if is_callable:
+                    argmax = max(actions, key=rewards)
+                    new['rewards'] = BinaryReward(argmax)
+                else:
+                    argmax = max(range(len(actions)),key=rewards.__getitem__)
+                    new['rewards'] = [0] * len(new['actions'])
+                    new['rewards'][argmax] = 1
+
                 yield new
 
 class Sort(EnvironmentFilter):
@@ -689,6 +729,15 @@ class Sort(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
+        first, interactions = peek_first(interactions)
+
+        if not interactions:
+            return
+
+        if first and 'context' not in first:
+            yield from interactions
+            return
+
         full_sorter = lambda interaction: tuple(interaction['context']                                 )
         list_sorter = lambda interaction: tuple(interaction['context'][key]       for key in self._keys)
         dict_sorter = lambda interaction: tuple(interaction['context'].get(key,0) for key in self._keys)
@@ -697,8 +746,7 @@ class Sort(EnvironmentFilter):
         is_sparse           = isinstance(first['context'],primitives.Sparse)
 
         sorter = full_sorter if not self._keys else dict_sorter if is_sparse else list_sorter
-
-        return sorted(interactions, key=sorter)
+        yield from sorted(interactions, key=sorter)
 
 class Where(EnvironmentFilter):
     """Define Environment selection criteria for an Environments pipe."""
@@ -779,9 +827,9 @@ class Noise(EnvironmentFilter):
     """Introduce noise to an environment."""
 
     def __init__(self,
-        context: Callable[[float,CobaRandom], float] = None,
-        action : Callable[[float,CobaRandom], float] = None,
-        reward : Callable[[float,CobaRandom], float] = None,
+        context: Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
+        action : Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
+        reward : Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
         seed   : int = 1) -> None:
         """Instantiate a Noise EnvironmentFilter.
 
@@ -795,8 +843,21 @@ class Noise(EnvironmentFilter):
         self._args = (context,action,reward,seed)
         self._no_noise = lambda x, _: x
 
-        if context is None and action is None and reward is None:
-            context = lambda x, rng: x+rng.gauss(0,1)
+        def make_noiser(p):
+            if not p:
+                return None
+            elif callable(p):
+                return p
+            elif p[0] == 'g':
+                return (lambda x, rng, p=p[1:]: x+rng.gauss(*p))
+            elif p[0] == 'i':
+                return (lambda x, rng, p=p[1:]: x+rng.randint(*p))
+
+        if context is None and action is None and reward is None: context = ('g',0,1)
+
+        context = make_noiser(context)
+        action  = make_noiser(action)
+        reward  = make_noiser(reward)
 
         self._context_noise = context or self._no_noise
         self._action_noise  = action  or self._no_noise
@@ -822,8 +883,8 @@ class Noise(EnvironmentFilter):
         params = {}
 
         if self._context_noise != self._no_noise: params['context_noise'] = True
-        if self._action_noise != self._no_noise : params['action_noise' ] = True
-        if self._reward_noise != self._no_noise : params['reward_noise' ] = True
+        if self._action_noise  != self._no_noise: params['action_noise' ] = True
+        if self._reward_noise  != self._no_noise: params['reward_noise' ] = True
 
         params['noise_seed'] = self._seed
 
@@ -832,23 +893,33 @@ class Noise(EnvironmentFilter):
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         rng = CobaRandom(self._seed)
+        first,interactions = peek_first(interactions)
+
+        if not interactions:
+            return
+
+        is_callable = callable(first['rewards'])
 
         for interaction in interactions:
 
             new = interaction.copy()
 
-            context = new['context']
-            actions = new['actions']
-            rewards = new['rewards']
+            if 'context' in new:
+                context = new['context']
+                noisy_context = self._noises(context, rng, self._context_noise)
+                new['context'] = noisy_context
 
-            noisy_context = self._noises(context, rng, self._context_noise)
-            noisy_actions = [ self._noises(a, rng, self._action_noise) for a in actions ]
-            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in map(rewards,actions) ]
-            noisy_rewards = DiscreteReward(noisy_actions, noisy_rewards)
+            if 'actions' in new:
+                actions = new['actions']
+                noisy_actions = [ self._noises(a, rng, self._action_noise) for a in actions ]
+                new['actions'] = noisy_actions
 
-            new['context'] = noisy_context
-            new['actions'] = noisy_actions
-            new['rewards'] = noisy_rewards
+            if 'rewards' in new:
+                rewards = new['rewards']
+                if is_callable: rewards = map(rewards,actions)
+                noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in rewards ]
+                if is_callable: noisy_rewards = DiscreteReward(noisy_actions, noisy_rewards)
+                new['rewards'] = noisy_rewards
 
             yield new
 
@@ -932,33 +1003,51 @@ class Grounded(EnvironmentFilter):
 
         first,interactions = peek_first(interactions)
 
-        if not interactions: return []
+        if not interactions:
+            return
 
-        is_binary_rwd = set(map(first['rewards'], first['actions'])) == {0,1}
-        first_context = first['context']
+        is_callable = callable(first['rewards'])
 
-        is_sparse = isinstance(first_context,primitives.Sparse)
-        is_dense  = isinstance(first_context,primitives.Dense)
+        if is_callable:
+            is_binary_rwd = set(map(first['rewards'], first['actions'])) == {0,1}
+        else:
+            is_binary_rwd = set(first['rewards']) == {0,1}
+
+        first_context = first.get('context')
+
+        is_missing = 'context' not in first
+        is_sparse  = isinstance(first_context,primitives.Sparse)
+        is_dense   = isinstance(first_context,primitives.Dense)
 
         goods = [(g,) for g in self.goodwords]
         bads  = [(b,) for b in self.badwords ]
 
         for seed, interaction in enumerate(interactions, self._seed):
 
-            userid,normal = rng.choice(userid_isnormal)
-            argmax        = max(interaction['actions'],key=interaction['rewards'])
+            userid,normal   = rng.choice(userid_isnormal)
+            actions,rewards = interaction['actions'],interaction['rewards']
 
             new = interaction.copy()
 
-            if not is_binary_rwd:
-                new['rewards'] = BinaryReward(argmax)
+            if is_callable:
+                argmax = max(actions,key=rewards)
+                if not is_binary_rwd:
+                    new['rewards'] = BinaryReward(argmax)
+            else:
+                indmax = max(range(len(actions)),key=rewards.__getitem__)
+                argmax = actions[indmax]
+                if not is_binary_rwd:
+                    new['rewards'] = [0]*len(actions)
+                    new['rewards'][indmax] = 1
 
             if normal:
                 new['feedbacks'] = Grounded.GroundedFeedback(goods,bads,argmax,seed)
             else:
                 new['feedbacks'] = Grounded.GroundedFeedback(bads,goods,argmax,seed)
 
-            if is_sparse:
+            if is_missing:
+                new['context'] = userid
+            elif is_sparse:
                 new['context'] = dict(userid=userid,**new['context'])
             elif is_dense:
                 new['context'] = (userid,)+tuple(new['context'])
@@ -995,9 +1084,9 @@ class Repr(EnvironmentFilter):
 
         first = firsts[0]
 
-        has_context   = True #We assume this
-        has_actions   = 'actions' in first and bool(first['actions'])
-        has_rewards   = 'rewards' in first
+        has_context   = 'context'   in first
+        has_actions   = 'actions'   in first and bool(first['actions'])
+        has_rewards   = 'rewards'   in first
         has_feedbacks = 'feedbacks' in first
 
         n_tee = 1 + bool(self._cat_context and has_context) + bool(self._cat_actions and has_actions)
@@ -1037,8 +1126,8 @@ class Repr(EnvironmentFilter):
                 cat_actions_iter = yield_action_lists()
 
         reward_targets = []
-        if has_rewards: reward_targets.append('rewards')
-        if has_feedbacks: reward_targets.append('feedbacks')
+        if has_rewards   and callable(first['rewards'])  : reward_targets.append('rewards')
+        if has_feedbacks and callable(first['feedbacks']): reward_targets.append('feedbacks')
 
         for old in next(tees):
 
@@ -1191,10 +1280,7 @@ class BatchSafe(EnvironmentFilter):
 
         yield from pipe.filter(interactions)
 
-class Finalize(EnvironmentFilter):
-
-    def __init__(self, apply_repr: bool = True):
-        self._apply_repr = apply_repr
+class Materialize(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -1220,9 +1306,6 @@ class Finalize(EnvironmentFilter):
         actions_materialized = not first_has_actions or (not is_dense_actions and not is_sparse_actions or isinstance(first['actions'][0],(list,tuple,dict)))
         action_materialized  = not first_has_action  or (not is_dense_action  and not is_sparse_action  or isinstance(first['action']    ,(list,tuple,dict)))
 
-        if self._apply_repr:
-            interactions = Repr("onehot","onehot").filter(interactions)
-
         for interaction in interactions:
 
             new = interaction.copy()
@@ -1244,6 +1327,32 @@ class Finalize(EnvironmentFilter):
 
             yield new
 
+class Finalize(EnvironmentFilter):
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        first,interactions = peek_first(interactions)
+
+        if not interactions:
+            return
+
+        missing_ctx   = 'context' not in first
+        rwds_is_list  = isinstance(first.get('rewards')  ,list)
+        fbks_is_list  = isinstance(first.get('feedbacks'),list)
+
+        if not interactions: return []
+
+        interactions = Pipes.join(Materialize(),Repr("onehot","onehot")).filter(interactions)
+
+        if not (rwds_is_list or fbks_is_list):
+            yield from interactions
+        else:
+            for interaction in interactions:
+                new = interaction.copy()
+                if missing_ctx : new['context'  ] = None
+                if rwds_is_list: new['rewards'  ] = DiscreteReward(new['actions'],new['rewards'  ])
+                if fbks_is_list: new['feedbacks'] = DiscreteReward(new['actions'],new['feedbacks'])
+                yield new
+
 class Chunk(EnvironmentFilter):
     """A placeholder filter that exists only to semantically indicate how an environment pipe should be chunked for processing."""
     def filter(self, items: Iterable[Interaction]) -> Iterable[Interaction]:
@@ -1264,9 +1373,10 @@ class Logged(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
 
-        if not interactions: return []
+        if not interactions:
+            return
 
-        if 'context' not in first or 'actions' not in first or 'rewards' not in first:
+        if 'actions' not in first or 'rewards' not in first:
             raise CobaException("We were unable to create a logged representation of the interaction.")
 
         #Avoid circular dependency
@@ -1292,7 +1402,12 @@ class Mutable(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
 
-        if not interactions: return []
+        if not interactions:
+            return
+
+        if 'context' not in first:
+            yield from interactions
+            return
 
         first_is_dense   = isinstance(first['context'], primitives.Dense)
         first_is_sparse  = isinstance(first['context'], primitives.Sparse)
@@ -1354,12 +1469,13 @@ class OpeRewards(EnvironmentFilter):
             from coba.learners.vowpal import VowpalMediator
 
             class DMReward:
-                def __init__(self,vw:VowpalMediator, context:Any) -> None:
+                def __init__(self, vw:VowpalMediator, context:Any) -> None:
                     self._vw = vw
                     self._x  = context
 
                 def __call__(self, action) -> Any:
-                    return vw.predict(vw.make_example({"x":self._x, 'a':action}))
+                    feats   = {"x":self._x, 'a':action} if self._x is not None else {'a':action}
+                    return vw.predict(vw.make_example(feats))
 
             class DRReward:
                 def __init__(self,vw:VowpalMediator, context:Any,  off_action, off_reward, off_prob) -> None:
@@ -1370,7 +1486,8 @@ class OpeRewards(EnvironmentFilter):
                     self._off_prob   = (off_prob or 1)
 
                 def __call__(self, action) -> Any:
-                    dm_part = vw.predict(vw.make_example({"x":self._x, 'a':action}))
+                    feats   = {"x":self._x, 'a':action} if self._x is not None else {'a':action}
+                    dm_part = vw.predict(vw.make_example(feats))
                     dr_part = (self._off_reward-dm_part)/self._off_prob if action == self._off_action else 0
                     return dr_part + dm_part
 
@@ -1407,7 +1524,10 @@ class OpeRewards(EnvironmentFilter):
                 if not L: break
 
                 for interaction in rng.shuffle(L):
-                    features = {"x": interaction['context'], "a": interaction['action']}
+                    if 'context' in interaction:
+                        features = {"x": interaction['context'], "a": interaction['action']}
+                    else:
+                        features = {"a": interaction['action']}
                     label    = f"{interaction['reward']} {1/(interaction.get('probability') or 1)}"
                     vw.learn(vw.make_example(features,label))
 
@@ -1415,8 +1535,8 @@ class OpeRewards(EnvironmentFilter):
                     new = interaction.copy()
 
                     if rwd_type=="DR":
-                        new[self._target] = DRReward(vw,new['context'],new['action'],new['reward'],new['probability'])
+                        new[self._target] = DRReward(vw,new.get('context'),new['action'],new['reward'],new['probability'])
                     else:
-                        new[self._target] = DMReward(vw,new['context'])
+                        new[self._target] = DMReward(vw,new.get('context'))
 
                     yield new

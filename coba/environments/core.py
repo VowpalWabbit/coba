@@ -24,7 +24,7 @@ from coba.environments.synthetics import KernelSyntheticSimulation, MLPSynthetic
 from coba.environments.supervised import SupervisedSimulation
 from coba.environments.results    import ResultEnvironment
 
-from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
+from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Materialize
 from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Densify, Reservoir, Cycle, Scale, Unbatch
 from coba.environments.filters   import Slice, Impute, Where, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.filters   import MappingToInteraction, OpeRewards, Noise
@@ -275,6 +275,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
         return Environments(envs)
 
+    @staticmethod
+    def from_given(*environments: Union[Environment, Sequence[Environment]]):
+        return Environments(*environments)
+
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.
 
@@ -391,12 +395,13 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return self.filter(Where(n_interactions=n_interactions))
 
     def noise(self,
-        context: Callable[[float,CobaRandom], float] = None,
-        action : Callable[[float,CobaRandom], float] = None,
-        reward : Callable[[float,CobaRandom], float] = None,
-        seed   : int = 1) -> 'Environments':
+        context: Union[Tuple[float,float],Callable[[float,CobaRandom], float]] = None,
+        action : Union[Tuple[float,float],Callable[[float,CobaRandom], float]] = None,
+        reward : Union[Tuple[float,float],Callable[[float,CobaRandom], float]] = None,
+        seed   : Union[int,Sequence[int]] = 1) -> 'Environments':
         """Add noise to an environment's context, actions and rewards."""
-        return self.filter(Noise(context,action,reward,seed))
+        if isinstance(seed,(int,float)): seed = [seed]
+        return self.filter([Noise(context,action,reward,s) for s in seed])
 
     def flat(self) -> 'Environments':
         """Flatten environment's context and actions."""
@@ -406,7 +411,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Materialize the environments in memory. Ideal for stateful environments such as Jupyter Notebook."""
         #we use pipes.cache directly because the environment cache will copy
         #which we don't need when we materialize an environment in memory
-        envs = Environments([Pipes.join(env, Finalize(apply_repr=False), pipes.Cache(25,True)) for env in self])
+        envs = Environments([Pipes.join(env, Materialize(), pipes.Cache(25,True)) for env in self])
 
         for env in envs: list(env.read()) #force read to pre-load cache
 
@@ -440,7 +445,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def logged(self, learners: Union[Learner,Sequence[Learner]], seed:Optional[float] = 1.23) -> 'Environments':
         """Create a logged environment using the given learner for the logging policy."""
         if not isinstance(learners, collections.abc.Sequence): learners = [learners]
-        return self.filter(BatchSafe(Finalize())).filter([Logged(learner, seed) for learner in learners ])
+        return self.filter([Logged(learner, seed) for learner in learners ])
 
     def unbatch(self):
         """Unbatch interactions in the environments."""
