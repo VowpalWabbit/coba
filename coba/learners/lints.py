@@ -30,12 +30,14 @@ class LinTSLearner(Learner):
         """Instantiate a LinUCBLearner.
 
         Args:
-            v: This parameter controls the exploration rate of the algorithm. A value of 0 will mean that no
-                exploration is performed while a value of inf will mean that the algorithm explores uniformly forever.
-                The appropriate setting of v will depend to some degree on the scale of given feature vectors and rewards.
-            features: Feature set interactions to use when calculating action value estimates. Context features
-                are indicated by x's while action features are indicated by a's. For example, xaa means to cross the
-                features between context and actions and actions.
+            v: This parameter controls the exploration rate of the algorithm. A value of 0
+                will mean that no exploration is performed while a value of inf will mean
+                that the algorithm explores uniformly forever. The appropriate setting of v
+                will depend to some degree on the scale of given feature vectors and rewards.
+            features: Feature set interactions to use when calculating action value estimates.
+                Context features are indicated by x's while action features are indicated by
+                a's. For example, xaa means to cross the features between context and actions
+                and actions.
         """
         PackageChecker.numpy("LinTSLearner")
 
