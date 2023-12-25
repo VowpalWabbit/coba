@@ -12,7 +12,7 @@ from coba.random import CobaRandom
 from coba.context import CobaContext
 from coba.environments import Environment
 from coba.learners import Learner, SafeLearner
-from coba.primitives import is_batch
+from coba.primitives import is_batch, Dense, Sparse
 from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first
 
@@ -230,11 +230,36 @@ class SequentialIGL(Evaluator):
         class IglEnvironment:
             def __init__(self,env: Environment) -> None:
                 self._env = env
+
             def read(self):
-                for interaction in self._env.read():
-                    f,r = interaction['feedbacks'],interaction['rewards']
-                    interaction['feedbacks'], interaction['rewards'] = r,f
-                    yield interaction
+                first,interactions = peek_first(iter(self._env.read()))
+
+                if not interactions:
+                    return
+
+                is_missing = 'context' not in first
+                is_sparse  = not is_missing and isinstance(first['context'],Sparse)
+                is_dense   = not is_missing and isinstance(first['context'],Dense)
+
+                for interaction in interactions:
+
+                    new = interaction.copy()
+
+                    f,r = new['feedbacks'],new['rewards']
+                    new['feedbacks'],new['rewards'] = r,f
+
+                    userid = new['userid']
+
+                    if is_missing:
+                        new['context'] = userid
+                    elif is_sparse:
+                        new['context'] = dict(userid=userid,**new['context'])
+                    elif is_dense:
+                        new['context'] = (userid,)+tuple(new['context'])
+                    else:
+                        new['context'] = (userid, new['context'])
+
+                    yield new
 
         envIGL = IglEnvironment(environment)
         record = self._record+['action']

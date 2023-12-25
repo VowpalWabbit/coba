@@ -1793,14 +1793,14 @@ class Grounded_Tests(unittest.TestCase):
 
         feedbacks_0 = [igl_interactions[0]['feedbacks'](a) for a in [1,2,3]]
 
-        self.assertEqual(4, igl_interactions[0]['context'])
+        self.assertNotIn('context', igl_interactions[0])
         self.assertEqual(True,igl_interactions[0]['isnormal'])
         self.assertEqual(4, igl_interactions[0]['userid'])
         self.assertEqual([(0,), (2,), (3,)], feedbacks_0)
 
         feedbacks_1 = [igl_interactions[1]['feedbacks'](a) for a in [1,2,3]]
 
-        self.assertEqual(2, igl_interactions[1]['context'])
+        self.assertNotIn('context', igl_interactions[1])
         self.assertEqual(True,igl_interactions[1]['isnormal'])
         self.assertEqual(2, igl_interactions[1]['userid'])
         self.assertEqual([(3,),(0,),(3,)], feedbacks_1)
@@ -1854,21 +1854,6 @@ class Grounded_Tests(unittest.TestCase):
         self.assertEqual(True,igl_interactions[1]['isnormal'])
         self.assertEqual(2, igl_interactions[1]['userid'])
         self.assertEqual([(3,),(0,),(3,)], feedbacks_1)
-
-    def test_number_context(self):
-        sim_interactions = [ SimulatedInteraction(0,[1,2,3],[1,0,0]) ]
-        igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
-        self.assertEqual(igl_interactions[0]['context'], (igl_interactions[0]['userid'], 0))
-
-    def test_list_context(self):
-        sim_interactions = [ SimulatedInteraction([0],[1,2,3],[1,0,0]) ]
-        igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
-        self.assertEqual(igl_interactions[0]['context'], (igl_interactions[0]['userid'], 0))
-
-    def test_dict_context(self):
-        sim_interactions = [ SimulatedInteraction({'a':1},[1,2,3],[1,0,0]) ]
-        igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
-        self.assertEqual(igl_interactions[0]['context'], {'userid':igl_interactions[0]['userid'], 'a':1})
 
     def test_01_reward(self):
         sim_interactions = [ SimulatedInteraction(0,[1,2,3],[1,0,0]) ]

@@ -840,13 +840,23 @@ class SequentialIGL_Tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual(SequentialIGL().params,{'seed':None})
 
-    def test_two_grounded_interactions(self):
+    def test_empty_interaction(self):
+        task    = SequentialIGL()
+        learner = DummyIglLearner([[1,0,0],[0,0,1]])
+        interactions = []
+        actual_results = list(task.evaluate(SimpleEnvironment(interactions),learner))
+        self.assertEqual(actual_results, [])
+
+    def test_two_grounded_interactions_missing_context(self):
         task    = SequentialIGL()
         learner = DummyIglLearner([[1,0,0],[0,0,1]])
         interactions = [
-            GroundedInteraction(0,[1,2,3],[1,0,0],[4,5,6],userid=0,isnormal=False),
-            GroundedInteraction(1,[1,2,3],[0,1,0],[7,8,9],userid=1,isnormal=True),
+            GroundedInteraction(None,[1,2,3],[1,0,0],[4,5,6],userid=0,isnormal=False),
+            GroundedInteraction(None,[1,2,3],[0,1,0],[7,8,9],userid=1,isnormal=True),
         ]
+
+        for interaction in interactions:
+            del interaction['context']
 
         expected_predict_calls = [
             (0,[1,2,3]),
@@ -856,6 +866,93 @@ class SequentialIGL_Tests(unittest.TestCase):
         expected_learn_calls = [
             (0,1,4,1,{}),
             (1,3,9,1,{})
+        ]
+
+        expected_results = [
+            dict(reward=1,feedback=4,userid=0,isnormal=False,n_predict=1),
+            dict(reward=0,feedback=9,userid=1,isnormal=True ,n_predict=2)
+        ]
+
+        actual_results = list(task.evaluate(SimpleEnvironment(interactions),learner))
+
+        self.assertEqual(expected_results, actual_results)
+        self.assertEqual(expected_predict_calls, learner._predict_calls)
+        self.assertEqual(expected_learn_calls, learner._learn_calls)
+
+    def test_two_grounded_interactions_none_context(self):
+        task    = SequentialIGL()
+        learner = DummyIglLearner([[1,0,0],[0,0,1]])
+        interactions = [
+            GroundedInteraction(None,[1,2,3],[1,0,0],[4,5,6],userid=0,isnormal=False),
+            GroundedInteraction(None,[1,2,3],[0,1,0],[7,8,9],userid=1,isnormal=True),
+        ]
+
+        expected_predict_calls = [
+            ((0,None),[1,2,3]),
+            ((1,None),[1,2,3])
+        ]
+
+        expected_learn_calls = [
+            ((0,None),1,4,1,{}),
+            ((1,None),3,9,1,{})
+        ]
+
+        expected_results = [
+            dict(reward=1,feedback=4,userid=0,isnormal=False,n_predict=1),
+            dict(reward=0,feedback=9,userid=1,isnormal=True ,n_predict=2)
+        ]
+
+        actual_results = list(task.evaluate(SimpleEnvironment(interactions),learner))
+
+        self.assertEqual(expected_results, actual_results)
+        self.assertEqual(expected_predict_calls, learner._predict_calls)
+        self.assertEqual(expected_learn_calls, learner._learn_calls)
+
+    def test_two_grounded_interactions_dense_context(self):
+        task    = SequentialIGL()
+        learner = DummyIglLearner([[1,0,0],[0,0,1]])
+        interactions = [
+            GroundedInteraction([2],[1,2,3],[1,0,0],[4,5,6],userid=0,isnormal=False),
+            GroundedInteraction([3],[1,2,3],[0,1,0],[7,8,9],userid=1,isnormal=True),
+        ]
+
+        expected_predict_calls = [
+            ((0,2),[1,2,3]),
+            ((1,3),[1,2,3])
+        ]
+
+        expected_learn_calls = [
+            ((0,2),1,4,1,{}),
+            ((1,3),3,9,1,{})
+        ]
+
+        expected_results = [
+            dict(reward=1,feedback=4,userid=0,isnormal=False,n_predict=1),
+            dict(reward=0,feedback=9,userid=1,isnormal=True ,n_predict=2)
+        ]
+
+        actual_results = list(task.evaluate(SimpleEnvironment(interactions),learner))
+
+        self.assertEqual(expected_results, actual_results)
+        self.assertEqual(expected_predict_calls, learner._predict_calls)
+        self.assertEqual(expected_learn_calls, learner._learn_calls)
+
+    def test_two_grounded_interactions_sparse_context(self):
+        task    = SequentialIGL()
+        learner = DummyIglLearner([[1,0,0],[0,0,1]])
+        interactions = [
+            GroundedInteraction({'a':1},[1,2,3],[1,0,0],[4,5,6],userid=0,isnormal=False),
+            GroundedInteraction({'b':2},[1,2,3],[0,1,0],[7,8,9],userid=1,isnormal=True),
+        ]
+
+        expected_predict_calls = [
+            ({'userid':0,'a':1},[1,2,3]),
+            ({'userid':1,'b':2},[1,2,3])
+        ]
+
+        expected_learn_calls = [
+            ({'userid':0,'a':1},1,4,1,{}),
+            ({'userid':1,'b':2},3,9,1,{})
         ]
 
         expected_results = [

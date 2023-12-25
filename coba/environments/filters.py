@@ -1015,12 +1015,6 @@ class Grounded(EnvironmentFilter):
         else:
             is_binary_rwd = set(first['rewards']) == {0,1}
 
-        first_context = first.get('context')
-
-        is_missing = 'context' not in first
-        is_sparse  = isinstance(first_context,primitives.Sparse)
-        is_dense   = isinstance(first_context,primitives.Dense)
-
         goods = [(g,) for g in self.goodwords]
         bads  = [(b,) for b in self.badwords ]
 
@@ -1043,15 +1037,6 @@ class Grounded(EnvironmentFilter):
                 new['feedbacks'] = Grounded.GroundedFeedback(goods,bads,argmax,seed)
             else:
                 new['feedbacks'] = Grounded.GroundedFeedback(bads,goods,argmax,seed)
-
-            if is_missing:
-                new['context'] = userid
-            elif is_sparse:
-                new['context'] = dict(userid=userid,**new['context'])
-            elif is_dense:
-                new['context'] = (userid,)+tuple(new['context'])
-            else:
-                new['context'] = (userid, new['context'])
 
             new['userid'  ] = userid
             new['isnormal'] = normal
