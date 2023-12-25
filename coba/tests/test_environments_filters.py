@@ -2032,9 +2032,10 @@ class Repr_Tests(unittest.TestCase):
         actions = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
         rewards = BinaryReward(actions[1])
 
-        out = next(Repr('onehot','onehot_tuple').filter([{'context':context,'actions':actions,'rewards':rewards}]))
+        out = next(Repr('onehot','onehot_tuple').filter([{'context':context,'actions':actions,'action':Categorical('1',['1','2']),'rewards':rewards}]))
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
+        self.assertEqual((1,0)        , out['action' ])
         self.assertEqual(out['rewards'], BinaryReward((0,1)))
 
     def test_actions_categorical_value_onehot_tuple(self):

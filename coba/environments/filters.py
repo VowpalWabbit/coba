@@ -1085,10 +1085,13 @@ class Repr(EnvironmentFilter):
 
         has_context   = 'context'   in first
         has_actions   = 'actions'   in first and bool(first['actions'])
+        has_action    = 'action'    in first
         has_rewards   = 'rewards'   in first
         has_feedbacks = 'feedbacks' in first
 
-        n_tee = 1 + bool(self._cat_context and has_context) + bool(self._cat_actions and has_actions)
+        n_tee = 1 + bool(self._cat_context and has_context) + \
+                    bool(self._cat_actions and has_actions) + \
+                    bool(self._cat_actions and has_action)
 
         tees = iter([interactions]) if n_tee == 1 else iter(tee(interactions, n_tee))
 
@@ -1124,6 +1127,11 @@ class Repr(EnvironmentFilter):
                         yield list(islice(actionitr,len(row)))
                 cat_actions_iter = yield_action_lists()
 
+        if not (self._cat_actions and has_action):
+            cat_action_iter = None
+        else:
+            cat_action_iter = pipes.EncodeCatRows(self._cat_context).filter(i['action'] for i in next(tees))
+
         reward_targets = []
         if has_rewards   and callable(first['rewards'])  : reward_targets.append('rewards')
         if has_feedbacks and callable(first['feedbacks']): reward_targets.append('feedbacks')
@@ -1137,6 +1145,9 @@ class Repr(EnvironmentFilter):
 
             if cat_actions_iter:
                 new['actions'] = next(cat_actions_iter)
+
+            if cat_action_iter:
+                new['action'] = next(cat_action_iter)
 
             actions_changed = cat_actions_iter and new['actions'] != old['actions']
 
