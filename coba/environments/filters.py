@@ -949,6 +949,7 @@ class Params(EnvironmentFilter):
 class Grounded(EnvironmentFilter):
 
     class GroundedFeedback:
+        __slots__ = ('_rng','_goods','_bads','_seed','_argmax')
         def __init__(self, goods, bads, argmax, seed):
             self._rng    = None
             self._goods  = goods
@@ -958,7 +959,8 @@ class Grounded(EnvironmentFilter):
 
         @lru_cache(maxsize=None)
         def __call__(self, arg):
-            if not self._rng: self._rng = CobaRandom(self._seed)
+            if not self._rng:
+                self._rng = CobaRandom(self._seed)
             if arg == self._argmax:
                 return self._rng.choice(self._goods)
             else:
@@ -1031,14 +1033,11 @@ class Grounded(EnvironmentFilter):
 
             if is_callable:
                 argmax = max(actions,key=rewards)
-                if not is_binary_rwd:
-                    new['rewards'] = BinaryReward(argmax)
             else:
-                indmax = max(range(len(actions)),key=rewards.__getitem__)
-                argmax = actions[indmax]
-                if not is_binary_rwd:
-                    new['rewards'] = [0]*len(actions)
-                    new['rewards'][indmax] = 1
+                argmax = actions[max(range(len(actions)),key=rewards.__getitem__)]
+
+            if not is_binary_rwd:
+                new['rewards'] = BinaryReward(argmax)
 
             if normal:
                 new['feedbacks'] = Grounded.GroundedFeedback(goods,bads,argmax,seed)

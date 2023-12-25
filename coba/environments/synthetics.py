@@ -4,11 +4,12 @@ from statistics import mean
 from itertools import count, islice, cycle
 from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable, Literal
 
-from coba.exceptions import CobaException
 from coba.random import CobaRandom
+from coba.exceptions import CobaException
+from coba.primitives import DiscreteReward, Context, Action
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
-from coba.environments.primitives import Context, Action, Environment, SimulatedInteraction, DiscreteReward
+from coba.environments.primitives import Environment, SimulatedInteraction
 
 class LambdaSimulation(Environment):
     """A simulation created from generative lambda functions."""

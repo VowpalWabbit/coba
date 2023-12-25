@@ -117,6 +117,7 @@ class SimulatedInteraction_Tests(unittest.TestCase):
     def test_rewards_correct(self):
         self.assertEqual([4,5,6], SimulatedInteraction((1,2), (1,2,3), [4,5,6])['rewards'])
 
+    @unittest.skip("Old behavior")
     def test_rewards_actions_mismatch(self):
         with self.assertRaises(CobaException):
             SimulatedInteraction((1,2), (1,2,3), [4,5])

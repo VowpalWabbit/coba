@@ -1,26 +1,23 @@
 from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Sequence, Mapping, overload
 
-from coba.primitives import Context, Action, Actions
-from coba.primitives import Reward, DiscreteReward
+from coba.primitives import Context, Action, Actions, Reward
 from coba.pipes import Source, SourceFilters, Filter
 
 class Interaction(dict):
     """An individual interaction that occurs in an Environment."""
     __slots__=()
-    keywords = {}
 
     @staticmethod
     def from_dict(kwargs_dict: Mapping[str, Any]) -> 'Interaction':
-        if 'feedbacks' in kwargs_dict: return GroundedInteraction(**kwargs_dict)
-        if 'reward'    in kwargs_dict: return LoggedInteraction(**kwargs_dict)
+        if 'feedbacks' in kwargs_dict: return GroundedInteraction (**kwargs_dict)
+        if 'reward'    in kwargs_dict: return LoggedInteraction   (**kwargs_dict)
         if 'rewards'   in kwargs_dict: return SimulatedInteraction(**kwargs_dict)
         return kwargs_dict
 
 class SimulatedInteraction(Interaction):
     """Simulated data that provides rewards for every possible action."""
     __slots__=()
-    keywords = {'type', 'context', 'actions', 'rewards'}
 
     def __init__(self,
         context : Context,
@@ -38,20 +35,19 @@ class SimulatedInteraction(Interaction):
 
         self['context'] = context
         self['actions'] = actions
-        self['rewards'] = rewards if not isinstance(rewards,(list,tuple)) else DiscreteReward(actions,rewards)
+        self['rewards'] = rewards
 
         if kwargs: self.update(kwargs)
 
 class GroundedInteraction(Interaction):
     """A grounded interaction based on Interaction Grounded Learning which feedbacks instead of rewards."""
     __slots__=()
-    keywords = {'type', 'context', 'actions', 'rewards', 'feedbacks'}
 
     def __init__(self,
         context: Context,
         actions: Actions,
         rewards: Union[Reward, Sequence[float]],
-        feedbacks: Union[Reward, Sequence[Any]],
+        feedbacks: Union[Reward, Sequence[float]],
         **kwargs) -> None:
         """Instantiate GroundedInteraction.
 
@@ -65,15 +61,14 @@ class GroundedInteraction(Interaction):
 
         self['context']   = context
         self['actions']   = actions
-        self['rewards']   = DiscreteReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
-        self['feedbacks'] = DiscreteReward(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
+        self['rewards']   = rewards
+        self['feedbacks'] = feedbacks
 
         if kwargs: self.update(kwargs)
 
 class LoggedInteraction(Interaction):
     """A logged interaction with an action, reward and optional probability."""
     __slots__ = ()
-    keywords = {'type', 'context', 'action', 'reward', 'probability', 'actions', 'rewards'}
 
     @overload
     def __init__(self,
@@ -106,14 +101,11 @@ class LoggedInteraction(Interaction):
             **kwargs : Any additional information.
         """
 
-        if isinstance(kwargs.get('rewards'),(list,tuple)):
-            self['rewards'] = DiscreteReward(kwargs['actions'],kwargs.pop('rewards'))
-
         self['context'] = context
         self['action']  = action
         self['reward']  = reward
 
-        if kwargs: self.update({k:v for k,v in kwargs.items() if v is not None})
+        if kwargs: self.update(kwargs)
 
 class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """A filter that can be applied to an Environment."""

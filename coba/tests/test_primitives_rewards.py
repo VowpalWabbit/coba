@@ -2,6 +2,7 @@ import unittest
 import pickle
 
 from coba.json import dumps,loads
+from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.primitives import L1Reward, HammingReward, BinaryReward, DiscreteReward
 
@@ -258,6 +259,11 @@ class DiscreteReward_Tests(unittest.TestCase):
         obj = loads(dumps(DiscreteReward({0:1,1:2})))
         self.assertIsInstance(obj,DiscreteReward)
         self.assertEqual(obj._state, {0:1,1:2})
+
+    def test_bad_actions(self):
+        with self.assertRaises(CobaException) as r:
+            DiscreteReward([1,2],[1,2,3])
+        self.assertEqual(str(r.exception),"The given actions and rewards did not line up.")
 
 if __name__ == '__main__':
     unittest.main()
