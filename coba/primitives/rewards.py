@@ -1,12 +1,11 @@
 import ast
-import pickle
 
 from typing import Sequence, Mapping, Callable, overload
 
+from coba.json import minimize
 from coba.exceptions import CobaException
 from coba.primitives.semantic import Action
-
-
+from coba.utilities import try_else
 
 Reward = Callable[[Action],float]
 
@@ -73,6 +72,10 @@ class L1Reward:
     def __setstate__(self,args):
         self._argmax = args
 
+    def __repr__(self) -> str:
+        am = self._argmax
+        return f"L1Reward({try_else(lambda:minimize(am),f'{am:.5f}')})"
+
 class BinaryReward:
     __slots__ = ('_argmax','_value')
     def __init__(self, argmax: Action, value:float=1.) -> None:
@@ -98,6 +101,10 @@ class BinaryReward:
         args = ast.literal_eval(args)
         self._argmax,self._value = (args[0],1) if len(args) == 1 else args
 
+    def __repr__(self) -> str:
+        am = self._argmax
+        return f"BinaryReward({try_else(lambda:minimize(am),str(am))})"
+
 class HammingReward:
     __slots__ = ('_argmax',)
 
@@ -122,6 +129,10 @@ class HammingReward:
 
     def __setstate__(self,args):
         self._argmax = ast.literal_eval(args)
+
+    def __repr__(self) -> str:
+        am = self._argmax
+        return f"HammingReward({try_else(lambda:minimize(am),str(am))})"
 
 class DiscreteReward:
     __slots__ = ('_state','_default')
@@ -162,6 +173,10 @@ class DiscreteReward:
             comp,shape = extract_shape(action,actions[0])
             value = rewards[actions.index(comp)] if comp in actions else self._default
             return create_shape(value,shape)
+
+    def __repr__(self) -> str:
+        st = self._state
+        return f"DiscreteReward({try_else(lambda:minimize(st),str(st))})"
 
     def __eq__(self, o: object) -> bool:
 

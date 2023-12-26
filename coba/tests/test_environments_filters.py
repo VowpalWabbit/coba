@@ -1805,7 +1805,6 @@ class Grounded_Tests(unittest.TestCase):
         self.assertEqual(2, igl_interactions[1]['userid'])
         self.assertEqual([(3,),(0,),(3,)], feedbacks_1)
 
-
     def test_bad_users(self):
         with self.assertRaises(CobaException) as e:
             Grounded(10,20,5,2,1)
@@ -1881,6 +1880,11 @@ class Grounded_Tests(unittest.TestCase):
             c.update(['normal' if i['isnormal'] else 'bizzaro'])
 
         self.assertAlmostEqual(1,c['normal']/c['bizzaro'],1)
+
+    def test_feedbacks_repr(self):
+        sim_interactions = [ SimulatedInteraction(0,[1,2,3],[1,0,0]) ]
+        igl_interactions = next(Grounded(10,5,4,2,1).filter(sim_interactions))
+        self.assertEqual(repr(igl_interactions['feedbacks']), 'GroundedFeedback(1)')
 
     def test_feedbacks(self):
         n_words          = 50

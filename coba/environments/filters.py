@@ -14,10 +14,11 @@ from itertools import islice, chain, tee, compress, repeat
 from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping, Literal
 
 from coba            import pipes, primitives
+from coba.json       import minimize
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
-from coba.utilities  import peek_first, PackageChecker
+from coba.utilities  import peek_first, PackageChecker, try_else
 from coba.primitives import BinaryReward, DiscreteReward, is_batch
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Pipes, Filter, SparseDense
@@ -965,6 +966,10 @@ class Grounded(EnvironmentFilter):
                 return self._rng.choice(self._goods)
             else:
                 return self._rng.choice(self._bads)
+
+        def __repr__(self) -> str:
+            am = self._argmax
+            return f"GroundedFeedback({try_else(lambda:minimize(am),str(am))})"
 
     def __init__(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int) -> None:
         self._n_users  = self._cast_int(n_users , "n_users" )

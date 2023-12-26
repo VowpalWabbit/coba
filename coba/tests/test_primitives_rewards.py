@@ -43,6 +43,10 @@ class L1Reward_Tests(unittest.TestCase):
         self.assertIsInstance(obj,L1Reward)
         self.assertEqual(obj._argmax, 2)
 
+    def test_repr(self):
+        self.assertEqual(repr(L1Reward(1)),'L1Reward(1)')
+        self.assertEqual(repr(L1Reward(1.123456)),'L1Reward(1.12346)')
+
 class BinaryReward_Tests(unittest.TestCase):
     def test_binary(self):
         rwd = BinaryReward(1)
@@ -139,8 +143,11 @@ class BinaryReward_Tests(unittest.TestCase):
         self.assertEqual(obj._argmax, (0,1))
         self.assertEqual(obj._value, 2)
 
-class HammingReward_Tests(unittest.TestCase):
+    def test_repr(self):
+        self.assertEqual(repr(BinaryReward([1,2])),'BinaryReward([1, 2])')
+        self.assertEqual(repr(BinaryReward({1,2})),'BinaryReward({1, 2})')
 
+class HammingReward_Tests(unittest.TestCase):
     def test_sequence(self):
         rwd = HammingReward([1,2,3,4])
         self.assertEqual(2/4, rwd([1,3]))
@@ -200,6 +207,9 @@ class HammingReward_Tests(unittest.TestCase):
         obj = loads(dumps(HammingReward([1,2,3])))
         self.assertIsInstance(obj,HammingReward)
         self.assertEqual(obj._argmax, [1,2,3])
+
+    def test_repr(self):
+        self.assertEqual(repr(HammingReward([1,2])),'HammingReward([1, 2])')
 
 class DiscreteReward_Tests(unittest.TestCase):
     def test_mapping(self):
@@ -264,6 +274,11 @@ class DiscreteReward_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as r:
             DiscreteReward([1,2],[1,2,3])
         self.assertEqual(str(r.exception),"The given actions and rewards did not line up.")
+
+    def test_repr(self):
+        self.assertEqual(repr(DiscreteReward([1,2],[4,5])),'DiscreteReward([[1, 2], [4, 5]])')
+        self.assertEqual(repr(DiscreteReward([1.123456],[4.123456])),'DiscreteReward([[1.12346], [4.12346]])')
+        self.assertEqual(repr(DiscreteReward({1:4})),'DiscreteReward({1: 4})')
 
 if __name__ == '__main__':
     unittest.main()
