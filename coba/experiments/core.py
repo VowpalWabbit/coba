@@ -1,3 +1,4 @@
+import warnings
 
 from collections import abc
 from pathlib import Path
@@ -117,16 +118,30 @@ class Experiment:
         """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
         return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
-    def run(self, result_file:str = None, quiet:bool = False, processes:int = None, seed: Optional[int] = 1) -> Result:
+    def run(self, 
+            result_file:str = None, 
+            quiet:bool = False, 
+            processes:int = None, 
+            maxchunksperchild: Optional[int] = None,
+            maxtasksperchunk: Optional[int] = None,
+            seed: Optional[int] = 1) -> Result:
         """Run the experiment and return the results.
 
         Args:
             result_file: The file for writing and restoring results.
             quiet: Indicates that logged output should be turned off.
             processes: The number of processes to create for evaluating the experiment.
+            maxchunksperchild: The number of chunks each process evaluates before being restarted. A
+                value of 0 means that processes will survive until the end of the experiment. Unless
+                otherwise specified chunks are individual environment-learner-evaluator triples.
+            maxtasksperchunk: The maximum number of tasks a chunk can have. If a chunk has too many
+                tasks it will be split into smaller chunks. A value of 0 means that chunks are never
+                broken down into smaller chunks.
             seed: The seed that will determine all randomness within the experiment.
         """
-        mp, mc, mt = (processes or self.processes), self.maxchunksperchild, self.maxtasksperchunk
+
+        self.config(processes,maxtasksperchunk,maxchunksperchild)
+        mp,mc,mt = self.processes,self.maxchunksperchild,self.maxtasksperchunk
 
         CobaContext.store['experiment_seed'] = seed
         is_multiproc = mp > 1 or mc != 0
