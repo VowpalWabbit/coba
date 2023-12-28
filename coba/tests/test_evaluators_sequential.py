@@ -3,13 +3,14 @@ import unittest
 import unittest.mock
 import warnings
 
-from coba.utilities import PackageChecker
-from coba.exceptions import CobaException
-from coba.context import CobaContext
+from coba.utilities    import PackageChecker
+from coba.exceptions   import CobaException
+from coba.context      import CobaContext
 from coba.environments import Batch, OpeRewards, SimpleEnvironment
 from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction
-from coba.learners import Learner, VowpalSoftmaxLearner
-from coba.primitives import L1Reward, DiscreteReward, is_batch
+from coba.learners     import Learner, VowpalSoftmaxLearner
+from coba.primitives   import is_batch
+from coba.rewards      import L1Reward, DiscreteReward
 
 from coba.evaluators import RejectionCB, SequentialCB, SequentialIGL
 

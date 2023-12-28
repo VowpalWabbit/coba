@@ -1,13 +1,11 @@
 import ast
 
-from typing import Sequence, Mapping, Callable, overload
+from typing import Sequence, Mapping, overload
 
 from coba.json import minimize
 from coba.exceptions import CobaException
-from coba.primitives.semantic import Action
+from coba.primitives import Action
 from coba.utilities import try_else
-
-Reward = Callable[[Action],float]
 
 def extract_shape(given:Action, comparison:Action, is_comparison_list:bool=False):
 

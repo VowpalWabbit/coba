@@ -2,7 +2,7 @@ import unittest
 import pickle
 
 from collections import OrderedDict
-from coba.primitives.rows import Sparse, Dense, HashableSparse, HashableDense, Sparse_, Dense_
+from coba.primitives import Sparse, Dense, HashableSparse, HashableDense, Sparse_, Dense_, Categorical
 
 class DummySparse(Sparse):
 
@@ -73,24 +73,19 @@ class DummyDense_(Dense_):
         return iter(self._row)
 
 class Dense_Tests(unittest.TestCase):
-
     def test_getattr(self):
-
         class DummyClass:
             def __init__(self) -> None:
                 self.missing = True
 
         self.assertEqual(True, DummyDense(DummyClass()).missing)
-
         with self.assertRaises(AttributeError):
             self.assertEqual(True, DummyDense({'a':1}).missing)
 
     def test_eq(self):
-
         self.assertEqual(DummyDense([1,2,3]),[1,2,3])
 
     def test_bad_eq(self):
-
         self.assertNotEqual(DummyDense([1,2,3]),1)
 
     def test_copy(self):
@@ -109,24 +104,18 @@ class Dense_Tests(unittest.TestCase):
         self.assertFalse(isinstance(1 ,Dense))
 
 class Sparse_Tests(unittest.TestCase):
-
     def test_getattr(self):
-
         class DummyClass:
             def __init__(self) -> None:
                 self.missing = True
-
         self.assertEqual(True, DummySparse(DummyClass()).missing)
-
         with self.assertRaises(AttributeError):
             self.assertEqual(True, DummySparse({'a':1}).missing)
 
     def test_eq(self):
-
         self.assertEqual(DummySparse({'a':1}),{'a':1})
 
     def test_bad_eq(self):
-
         self.assertNotEqual(DummySparse({'a':1}),1)
 
     def test_copy(self):
@@ -144,9 +133,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertFalse(isinstance(1 ,Sparse))
 
 class Dense__Tests(unittest.TestCase):
-
     def test_getattr(self):
-
         class DummyClass:
             def __init__(self) -> None:
                 self.missing = True
@@ -157,11 +144,9 @@ class Dense__Tests(unittest.TestCase):
             self.assertEqual(True, DummyDense_({'a':1}).missing)
 
     def test_eq(self):
-
         self.assertEqual(DummyDense_([1,2,3]),[1,2,3])
 
     def test_bad_eq(self):
-
         self.assertNotEqual(DummyDense_([1,2,3]),1)
 
     def test_copy(self):
@@ -174,9 +159,7 @@ class Dense__Tests(unittest.TestCase):
         self.assertIsInstance(DummyDense_((1,2,3)),Dense)
 
 class Sparse__Tests(unittest.TestCase):
-
     def test_getattr(self):
-
         class DummyClass:
             def __init__(self) -> None:
                 self.missing = True
@@ -187,11 +170,9 @@ class Sparse__Tests(unittest.TestCase):
             self.assertEqual(True, DummySparse_({'a':1}).missing)
 
     def test_eq(self):
-
         self.assertEqual(DummySparse_({'a':1}),{'a':1})
 
     def test_bad_eq(self):
-
         self.assertNotEqual(DummySparse_({'a':1}),1)
 
     def test_copy(self):
@@ -204,7 +185,6 @@ class Sparse__Tests(unittest.TestCase):
         self.assertIsInstance(DummySparse_({'a':1}),Sparse)
 
 class HashableSparse_Tests(unittest.TestCase):
-
     def test_get(self):
         hash_dict = HashableSparse({'a':1,'b':2})
         self.assertEqual(1,hash_dict['a'])
@@ -292,6 +272,38 @@ class HashableDense_Tests(unittest.TestCase):
     def test_pickle(self):
         dump = HashableDense([1,2,3])
         load = pickle.loads(pickle.dumps(dump))
+
+class Categorical_Tests(unittest.TestCase):
+    def test_value(self):
+        self.assertEqual("A", Categorical("A",["A","B"]))
+
+    def test_levels(self):
+        self.assertEqual(["A","B"], Categorical("A",["A","B"]).levels)
+
+    def test_eq(self):
+        self.assertEqual(Categorical("A",["A","B"]), Categorical("A",["A","B"]))
+
+    def test_ne(self):
+        self.assertNotEqual(1, Categorical("A",["A","B"]))
+
+    def test_str(self):
+        self.assertEqual("A", str(Categorical("A",["A","B"])))
+
+    def test_repr(self):
+        self.assertEqual("Categorical('A',['A', 'B'])", repr(Categorical("A",["A","B"])))
+
+    def test_pickle(self):
+        out = pickle.loads(pickle.dumps(Categorical("A",["A","B"])))
+
+        self.assertIsInstance(out,Categorical)
+        self.assertEqual(out.levels, ['A',"B"])
+
+    def test_cast(self):
+        a = Categorical("A",["A","B"])
+        out = pickle.loads(pickle.dumps(a))
+
+        self.assertIsInstance(out,Categorical)
+        self.assertEqual(out.levels, ['A',"B"])
 
 if __name__ == '__main__':
     unittest.main()

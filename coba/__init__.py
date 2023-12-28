@@ -13,17 +13,15 @@ from coba.learners import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecb
 from coba.learners import MisguidedLearner
 
 from coba.evaluators import ClassMetaEvaluator, RejectionCB, SequentialCB, SequentialIGL
-
-from coba.experiments  import Experiment
-
+from coba.experiments import Experiment
 from coba.results import Result
 
 from coba.encodings import InteractionsEncoder
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
 
-from coba.primitives.semantic import is_batch, Context, Action, Actions
-from coba.primitives.rewards  import L1Reward, HammingReward, DiscreteReward
+from coba.primitives import is_batch, Context, Action, Actions, Rewards
+from coba.rewards import L1Reward, HammingReward, DiscreteReward
 
 from coba.statistics import BootstrapCI, mean
 

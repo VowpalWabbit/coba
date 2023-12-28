@@ -4,15 +4,16 @@ import requests
 
 from pathlib import Path
 
-from coba.utilities import PackageChecker
-from coba.context import CobaContext, DiskCacher, NullLogger
-from coba.pipes import DiskSource, LazyDense
-from coba.exceptions import CobaException
-from coba.primitives import L1Reward, Categorical, DiscreteReward
+from coba.utilities    import PackageChecker
+from coba.context      import CobaContext, DiskCacher, NullLogger
+from coba.pipes        import DiskSource, LazyDense
+from coba.exceptions   import CobaException
+from coba.primitives   import  Categorical
 from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.learners     import FixedLearner
+from coba.rewards      import L1Reward, DiscreteReward
 
 class BatchList(list):
     is_batch = True

@@ -4,7 +4,8 @@ import pickle
 from coba.json import dumps,loads
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.primitives import L1Reward, HammingReward, BinaryReward, DiscreteReward
+
+from coba.rewards import L1Reward, HammingReward, BinaryReward, DiscreteReward
 
 class L1Reward_Tests(unittest.TestCase):
 

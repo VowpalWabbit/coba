@@ -10,7 +10,7 @@ from typing import MutableSequence, MutableMapping, Callable
 from coba.exceptions import CobaException
 from coba.encodings import Encoder, CategoricalEncoder
 from coba.utilities import peek_first
-from coba.primitives.rows import Dense, Sparse
+from coba.primitives import Dense, Sparse
 
 from coba.pipes.rows import HeadRows, LazyDense, LazySparse
 from coba.pipes.primitives import Filter

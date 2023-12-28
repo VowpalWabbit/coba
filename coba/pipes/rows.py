@@ -3,7 +3,7 @@ from itertools import count, compress, chain, filterfalse, islice, repeat
 from typing import Dict, Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple, Literal
 
 from coba.primitives import Sparse, Dense, Categorical
-from coba.primitives.rows import Dense_, Sparse_
+from coba.primitives import Dense_, Sparse_
 from coba.utilities import peek_first
 from coba.pipes.primitives import Filter
 from coba.pipes.filters import Flatten

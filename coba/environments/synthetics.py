@@ -6,7 +6,8 @@ from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Ite
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
-from coba.primitives import DiscreteReward, Context, Action
+from coba.primitives import Context, Action
+from coba.rewards import DiscreteReward
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
 from coba.environments.primitives import Environment, SimulatedInteraction

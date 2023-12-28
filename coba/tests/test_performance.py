@@ -15,7 +15,7 @@ from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
-from coba.primitives import BinaryReward, HammingReward
+from coba.rewards import BinaryReward, HammingReward, DiscreteReward
 
 from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes
 
@@ -24,7 +24,7 @@ from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
 from coba.results import Result, Table, TransactionResult, moving_average
 from coba.evaluators import SequentialCB
-from coba.primitives import Categorical, HashableSparse, DiscreteReward
+from coba.primitives import Categorical, HashableSparse
 
 Timeable = Callable[[],Any]
 Scalable = Callable[[list],Timeable]

@@ -8,7 +8,7 @@ from itertools import repeat
 from importlib import reload
 from typing import Dict, Any, Callable, Union, Tuple, Mapping
 
-from coba.backports.metadata import entry_points
+from coba.backports import entry_points
 from coba.exceptions import CobaException
 
 def coba_registration(name:str) -> Callable[[type],type]:

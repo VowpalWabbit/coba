@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["coba", "coba.environments", "coba.learners", "coba.evaluators", "coba.experiments", "coba.pipes", "coba.context", "coba.contexts", "coba.backports", "coba.primitives", "coba.results"]
+packages = ["coba", "coba.environments", "coba.learners", "coba.evaluators", "coba.experiments", "coba.pipes", "coba.context", "coba.contexts", "coba.results"]
 
 [tool.setuptools.dynamic]
 version = {attr = "coba.__version__"}
@@ -21,7 +21,7 @@ license = {text = "BSD-3-Clause"}
 classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering"
 ]

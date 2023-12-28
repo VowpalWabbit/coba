@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Sequence, Mapping, overload
 
-from coba.primitives import Context, Action, Actions, Reward
+from coba.primitives import Context, Action, Actions, Rewards
 from coba.pipes import Source, SourceFilters, Filter
 
 class Interaction(dict):
@@ -20,9 +20,9 @@ class SimulatedInteraction(Interaction):
     __slots__=()
 
     def __init__(self,
-        context : Context,
-        actions : Actions,
-        rewards : Union[Reward, Sequence[float]],
+        context: Context,
+        actions: Actions,
+        rewards: Union[Rewards, Sequence[float]],
         **kwargs) -> None:
         """Instantiate SimulatedInteraction.
 
@@ -44,10 +44,10 @@ class GroundedInteraction(Interaction):
     __slots__=()
 
     def __init__(self,
-        context: Context,
-        actions: Actions,
-        rewards: Union[Reward, Sequence[float]],
-        feedbacks: Union[Reward, Sequence[float]],
+        context  : Context,
+        actions  : Actions,
+        rewards  : Union[Rewards, Sequence[float]],
+        feedbacks: Union[Rewards, Sequence[float]],
         **kwargs) -> None:
         """Instantiate GroundedInteraction.
 
@@ -73,12 +73,12 @@ class LoggedInteraction(Interaction):
     @overload
     def __init__(self,
         context: Context,
-        action: Action,
-        reward: float,
+        action : Action,
+        reward : float,
         *,
         probability: float=None,
-        actions: Actions=None,
-        rewards: Union[Reward, Sequence[float]] = None,
+        actions    : Actions=None,
+        rewards    : Union[Rewards, Sequence[float]] = None,
         **kwargs) -> None:
         ...
 
