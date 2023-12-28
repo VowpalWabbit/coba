@@ -33,6 +33,10 @@ class VowpalMediator:
         """Indicate whether init_learner has been called previously."""
         return self._vw is not None
 
+    @property
+    def params(self) -> dict:
+        return {}
+
     def init_learner(self, args:str, label_type: int) -> 'VowpalMediator':
         """Create a VW learner from a command line arg string.
 
@@ -80,6 +84,14 @@ class VowpalMediator:
         self._vw.learn(example)
         self._vw.finish_example(example)
 
+    def finish(self):
+        if self.is_initialized:
+            self._vw.finish()
+
+    def custom_ns(self, namespace: VW_Namespaces) -> VW_Namespaces:
+        """Override to transform example namespaces before they get pushed down to VW"""
+        return namespace
+
     def make_example(self, namespaces: Namespaces, label:Optional[str] = None) -> Any:
         """Create a VW example.
 
@@ -88,6 +100,7 @@ class VowpalMediator:
             label: An optional label (required if this example will be used for learning).
         """
         ns = dict(self._prep_namespaces(namespaces))
+        ns = self.custom_ns(ns)
 
         ex = self._example_init(self._vw, None, self._label_type)
         ex.push_feature_dict(self._vw, ns)
@@ -95,15 +108,6 @@ class VowpalMediator:
         ex.setup_example()
 
         return ex
-
-    def finish(self):
-        if self.is_initialized:
-            self._vw.finish()
-
-    # override to transform example before they get pushed down to VW
-    # i.e. change namespaces from the default 'x' in shared to any other namespace
-    def transform_example(self, vw_shared, vw_uniques, labels):
-        pass
 
     def make_examples(self, shared: Namespaces, uniques: Sequence[Namespaces], labels:Optional[Sequence[str]] = None) -> Sequence[Any]:
         """Create a list of VW examples.
@@ -118,7 +122,8 @@ class VowpalMediator:
         vw_shared  = dict(self._prep_namespaces(shared))
         vw_uniques = list(map(dict,map(self._prep_namespaces,uniques)))
 
-        self.transform_example(vw_shared, vw_uniques, labels)
+        vw_shared  = self.custom_ns(vw_shared)
+        vw_uniques = list(map(self.custom_ns,vw_uniques))
 
         examples = []
         for vw_unique, label in zip(vw_uniques,labels):
@@ -282,7 +287,7 @@ class VowpalLearner(Learner):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
+        return {"family": "vw", 'args': self._args.replace("--quiet","").strip(), **self._vw.params}
 
     def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         return self.predict(context,actions)[0][actions.index(action)]

@@ -9,7 +9,7 @@ from coba.learners import SafeLearner, FixedLearner, RandomLearner
 from coba.learners import EpsilonBanditLearner, UcbBanditLearner
 from coba.learners import CorralLearner, LinUCBLearner, LinTSLearner
 from coba.learners import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
-from coba.learners import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
+from coba.learners import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner, VowpalMediator
 from coba.learners import MisguidedLearner
 
 from coba.evaluators import ClassMetaEvaluator, RejectionCB, SequentialCB, SequentialIGL

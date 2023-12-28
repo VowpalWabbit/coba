@@ -3,33 +3,43 @@ This is an example script that creates and execuates an Experiment.
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
+import math
+import collections
 import coba as cb
-from coba.learners import VowpalMediator
-from typing import List
 
 # this mediator splits the 'x' namespace into multiple namespaces
-class CustomVWMediator(VowpalMediator):
-    def __init__(self, namespaces: List):
-        self.namespaces = namespaces
+class CustomVWMediator(cb.VowpalMediator):
+
+    def __init__(self, target: str, partitions: list):
+        self.target     = target
+        self.partitions = partitions
         super().__init__()
 
-    def transform_example(self, vw_shared, vw_uniques, labels):
-        DEFAULT_NS = "x"
-        num_groups = min(len(self.namespaces), len(vw_shared[DEFAULT_NS]))
-        num_feat_each_group = len(vw_shared[DEFAULT_NS]) // num_groups
+    @property
+    def params(self):
+        return {"target": self.target, "parts": self.partitions}
 
-        for k, v in vw_shared[DEFAULT_NS].items():
-            new_ns = min(int(k) // num_feat_each_group, num_groups - 1)
-            vw_shared[self.namespaces[new_ns]] = vw_shared.get(self.namespaces[new_ns], {})
-            vw_shared[self.namespaces[new_ns]][k] = v
+    def custom_ns(self, ns: dict):
+        if self.target not in ns:
+            return ns
 
-        del vw_shared[DEFAULT_NS]
+        feats  = ns.pop(self.target)
+        new_ns = collections.defaultdict(dict,ns)
 
+        n_parts   = len(self.partitions)
+        n_feats   = len(feats)
+        part_size = math.ceil(n_feats/min(n_parts, n_feats))
+
+        for i, k in enumerate(feats):
+            g = i//part_size
+            new_ns[self.partitions[g]][k] = feats[k]
+
+        return new_ns
 
 # First, we define the learners that we want to test
 learners = [
-    cb.VowpalLearner(args="-q :: --cb_explore_adf --epsilon 0.05", vw=CustomVWMediator(["b", "c"])),
-    cb.VowpalLearner(vw=CustomVWMediator(["b", "c"])),
+    cb.VowpalLearner(args="-q :: --cb_explore_adf --epsilon 0.05", vw=CustomVWMediator('x',["b", "c"])),
+    cb.VowpalLearner(vw=CustomVWMediator('x',["b", "c"])),
 ]
 
 # Next we create an environment we'd like to evaluate against
@@ -44,7 +54,7 @@ assert learners[0]._vw._vw != None
 # get_weighted_examples returns both labeled and unlabeled examples
 # we multiply by 2 since we divided by double the number of examples actually learned on
 # note: only learnable examples have labels
-loss_with_qcolcol = learners[0]._vw._vw.get_sum_loss() / learners[0]._vw._vw.get_weighted_examples() * 2
+loss_with_qcolcol    = learners[0]._vw._vw.get_sum_loss() / learners[0]._vw._vw.get_weighted_examples() * 2
 loss_without_qcolcol = learners[1]._vw._vw.get_sum_loss() / learners[1]._vw._vw.get_weighted_examples() * 2
 
 if loss_with_qcolcol > loss_without_qcolcol:
@@ -54,4 +64,4 @@ for learner in learners:
     learner.finish()
 
 # After evaluating can create a quick summary plot to get a sense of how the learners performed
-# result.plot_learners(y='reward',err='se',xlim=(10,None))
+result.plot_learners(y='reward',err='se',xlim=(10,None))

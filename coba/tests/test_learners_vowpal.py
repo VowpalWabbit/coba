@@ -29,7 +29,7 @@ class VowpalEaxmpleMock:
 
 class VowpalMediatorMocked:
 
-    def __init__(self, predict_returns = None) -> None:
+    def __init__(self, predict_returns = None, params={}) -> None:
         self._init_learner_calls  = []
         self._predict_calls       = []
         self._learn_calls         = []
@@ -37,10 +37,15 @@ class VowpalMediatorMocked:
         self._make_examples_calls = []
         self._predict_returns     = predict_returns
         self._finish_calls        = 0
+        self._params              = params
 
     @property
     def is_initialized(self):
         return len(self._init_learner_calls) > 0
+
+    @property
+    def params(self):
+        return self._params
 
     def init_learner(self, args:str, label_type: int):
         self._init_learner_calls.append((args, label_type))
@@ -256,7 +261,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(learner.params, {"Shadow":True})
 
     def test_params(self):
-        learner = VowpalLearner(vw=VowpalMediatorMocked())
+        learner = VowpalLearner(vw=VowpalMediatorMocked(params={'a':1}))
 
         expected_args = [
             "--cb_explore_adf",
@@ -269,6 +274,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(learner.params['family'], "vw")
         self.assertEqual(learner.params["args"], " ".join(expected_args))
+        self.assertEqual(learner.params['a'], 1)
 
     def test_init_no_cb_term(self):
         with self.assertRaises(CobaException):
@@ -483,6 +489,9 @@ class VowpalLearner_Tests(unittest.TestCase):
 
 @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
 class VowpalMediator_Tests(unittest.TestCase):
+
+    def test_params(self):
+        self.assertEqual(VowpalMediator().params,{})
 
     def test_args_str(self):
         vw = VowpalMediator()
