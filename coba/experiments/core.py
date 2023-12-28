@@ -1,5 +1,3 @@
-import warnings
-
 from collections import abc
 from pathlib import Path
 from itertools import product
@@ -118,10 +116,10 @@ class Experiment:
         """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
         return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
-    def run(self, 
-            result_file:str = None, 
-            quiet:bool = False, 
-            processes:int = None, 
+    def run(self,
+            result_file:str = None,
+            quiet:bool = False,
+            processes:int = None,
             maxchunksperchild: Optional[int] = None,
             maxtasksperchunk: Optional[int] = None,
             seed: Optional[int] = 1) -> Result:
