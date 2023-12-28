@@ -8,12 +8,12 @@ from coba.learners     import Learner
 from coba.evaluators   import Evaluator, SequentialCB
 
 from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
+from coba.results import Result, TransactionDecode, TransactionEncode, TransactionResult
 from coba.context import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
 from coba.exceptions import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 
 from coba.experiments.process import MakeTasks, ChunkTasks, ProcessTasks
-from coba.experiments.results import Result, TransactionDecode, TransactionEncode, TransactionResult
 
 class Experiment:
     """An Experiment using a collection of environments and learners."""

@@ -22,7 +22,7 @@ from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
-from coba.experiments.results import Result, moving_average, Table, TransactionResult
+from coba.results import Result, Table, TransactionResult, moving_average
 from coba.evaluators import SequentialCB
 from coba.primitives import Categorical, HashableSparse, DiscreteReward
 

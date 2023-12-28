@@ -11,7 +11,7 @@ from coba.pipes import Pipes, Source, Filter, SourceFilters
 from coba.context import CobaContext
 from coba.utilities import peek_first
 
-from coba.experiments.results import Result
+from coba.results import Result
 
 class Task:
 

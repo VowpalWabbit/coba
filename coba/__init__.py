@@ -14,7 +14,9 @@ from coba.learners import MisguidedLearner
 
 from coba.evaluators import ClassMetaEvaluator, RejectionCB, SequentialCB, SequentialIGL
 
-from coba.experiments  import Experiment, Result
+from coba.experiments  import Experiment
+
+from coba.results import Result
 
 from coba.encodings import InteractionsEncoder
 from coba.utilities import peek_first

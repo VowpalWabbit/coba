@@ -4,5 +4,4 @@ This module contains the Experiment evaluator, implementations of specific tasks
 during an experiment evaluation, and the Result datastructures returned after experiment evalution.
 """
 
-from coba.experiments.core    import Experiment
-from coba.experiments.results import Result, Table
+from coba.experiments.core import Experiment

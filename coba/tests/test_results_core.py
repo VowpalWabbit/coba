@@ -9,10 +9,10 @@ from coba.context import CobaContext, IndentLogger
 from coba.exceptions import CobaException, CobaExit
 from coba.statistics import BootstrapCI
 
-from coba.experiments.results import TransactionEncode,TransactionDecode,TransactionResult
-from coba.experiments.results import Result, Table, View
-from coba.experiments.results import MatplotPlotter, Points
-from coba.experiments.results import moving_average
+from coba.results.core import TransactionEncode,TransactionDecode,TransactionResult
+from coba.results.core import Result, Table, View
+from coba.results.core import MatplotPlotter, Points
+from coba.results.core import moving_average
 
 class TestPlotter:
     def __init__(self):
