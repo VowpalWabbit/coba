@@ -1,12 +1,19 @@
 import unittest
 
+from coba.pipes import Pipes, Shuffle
 from coba.exceptions import CobaException
-from coba.primitives import is_batch
-from coba.safety import SafeLearner
-from coba.safety import has_kwargs, first_row, pred_format, batch_order, possible_action, possible_pmf
+from coba.primitives import is_batch, Learner
+from coba.safety import SafeLearner, SafeEnvironment, SafeEvaluator
 
 class Batch(list):
     is_batch=True
+
+class SimpleEnvironment:
+    def __init__(self, interactions=(), params={}) -> None:
+        self.interactions = interactions
+        self.params = params
+    def read(self):
+        return self.interactions
 
 class ParamsLearner:
     def __init__(self, params):
@@ -64,341 +71,340 @@ class AmbiguousPredictionLearner:
 class batch_order_Tests(unittest.TestCase):
 
     def test_explicit_PM_not(self):
-        self.assertEqual(batch_order(None, {'pmf':1}, None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, {'pmf':1}, None, None), 'not')
 
     def test_explicit_PM_not_kw(self):
-        self.assertEqual(batch_order(None, [{'pmf':1},{}], None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, [{'pmf':1},{}], None, None), 'not')
 
     def test_PM_not(self):
-        self.assertEqual(batch_order(None, (0,1), None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, (0,1), None, None), 'not')
 
     def test_PM_not_kw(self):
-        self.assertEqual(batch_order(None, ([0,1],{}), None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, ([0,1],{}), None, None), 'not')
 
     def test_explicit_AX_not(self):
-        self.assertEqual(batch_order(None, {'action':1}, None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, {'action':1}, None, None), 'not')
 
     def test_explicit_AX_not_kw(self):
-        self.assertEqual(batch_order(None, [{'action':1},{}], None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, [{'action':1},{}], None, None), 'not')
 
     def test_AX_not(self):
-        self.assertEqual(batch_order(None, 'a', None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, 'a', None, None), 'not')
 
     def test_AX_not_kw(self):
-        self.assertEqual(batch_order(None, ('a',{}), None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, ('a',{}), None, None), 'not')
 
     def test_explicit_AP_not(self):
-        self.assertEqual(batch_order(None, {'action_prob':1}, None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, {'action_prob':1}, None, None), 'not')
 
     def test_explicit_AP_not_kw(self):
-        self.assertEqual(batch_order(None, [{'action_prob':1},{}], None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, [{'action_prob':1},{}], None, None), 'not')
 
     def test_AP_not(self):
-        self.assertEqual(batch_order(None, (0,1), None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, (0,1), None, None), 'not')
 
     def test_AP_not_kw(self):
-        self.assertEqual(batch_order(None, (0,1,{}), None, None), 'not')
+        self.assertEqual(SafeLearner.batch_order(None, (0,1,{}), None, None), 'not')
 
     def test_explicit_PM_row(self):
-        self.assertEqual(batch_order(None, [{'pmf':(1/2,1/4,1/4)}], Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [{'pmf':(1/2,1/4,1/4)}], Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_explicit_PM_row_kw(self):
-        self.assertEqual(batch_order(None, [[{'pmf':(1/2,1/4,1/4)},{}]], Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [[{'pmf':(1/2,1/4,1/4)},{}]], Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_PM_row(self):
-        self.assertEqual(batch_order(None, [(1/2,1/2)], Batch([1]), Batch([[1,2]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [(1/2,1/2)], Batch([1]), Batch([[1,2]])), 'row')
 
     def test_PM_row_kw(self):
-        self.assertEqual(batch_order(None, [((1/2,1/4,1/4),{})], Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [((1/2,1/4,1/4),{})], Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_explicit_AX_row(self):
-        self.assertEqual(batch_order(None, [{'action':1}], Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [{'action':1}], Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_explicit_AX_row_kw(self):
-        self.assertEqual(batch_order(None, [[{'action':1},{}]],Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [[{'action':1},{}]],Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_AX_row(self):
-        self.assertEqual(batch_order(None, [0], Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [0], Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_AX_row_kw(self):
-        self.assertEqual(batch_order(None, [(0,{})], Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [(0,{})], Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_explicit_AP_row(self):
-        self.assertEqual(batch_order(None, [{'action_prob':1}], Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [{'action_prob':1}], Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_explicit_AP_row_kw(self):
-        self.assertEqual(batch_order(None, [[{'action_prob':1},{}]], Batch([1]), Batch([[1,2,3]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [[{'action_prob':1},{}]], Batch([1]), Batch([[1,2,3]])), 'row')
 
     def test_AP_row(self):
-        self.assertEqual(batch_order(None, [(1,1)], Batch([1]), Batch([1])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [(1,1)], Batch([1]), Batch([1])), 'row')
 
     def test_AP_row_kw(self):
-        self.assertEqual(batch_order(None, [(1,1,{})], Batch([1]), Batch([1])), 'row')
+        self.assertEqual(SafeLearner.batch_order(None, [(1,1,{})], Batch([1]), Batch([1])), 'row')
 
     def test_explicit_PM_col(self):
-        self.assertEqual(batch_order(None, {'pmf':[1]}, Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, {'pmf':[1]}, Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_explicit_PM_col_kw(self):
-        self.assertEqual(batch_order(None, [{'pmf':[1]},{}], Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, [{'pmf':[1]},{}], Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_PM_col(self):
-        self.assertEqual(batch_order(None, [[0],[1],[0]], Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, [[0],[1],[0]], Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_PM_col_kw(self):
-        self.assertEqual(batch_order(None, [[0],[1],[0],{}], Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, [[0],[1],[0],{}], Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_explicit_AX_col(self):
-        self.assertEqual(batch_order(None, {'action':[1]}, Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, {'action':[1]}, Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_explicit_AX_col_kw(self):
-        self.assertEqual(batch_order(None, [{'action':[1]},{}], Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, [{'action':[1]},{}], Batch([1]), Batch([[1,2,3]])), 'col')
 
     #def test_AX_col(self): # this is identical to row so we process it as a row
-    #    self.assertEqual(batch_order(None, [0], Batch([1]), Batch([[1,2,3]])), 'col')
+    #    self.assertEqual(SafeLearner.batch_order(None, [0], Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_AX_col_kw(self):
-        self.assertEqual(batch_order(None, ([0],{}), Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, ([0],{}), Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_explicit_AP_col(self):
-        self.assertEqual(batch_order(None, {'action_prob':[1]}, Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, {'action_prob':[1]}, Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_explicit_AP_col_kw(self):
-        self.assertEqual(batch_order(None, [{'action_prob':[1]},{}], Batch([1]), Batch([[1,2,3]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, [{'action_prob':[1]},{}], Batch([1]), Batch([[1,2,3]])), 'col')
 
     def test_AP_col(self):
-        self.assertEqual(batch_order(None, [[0],[1]], Batch([1]), Batch([1])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, [[0],[1]], Batch([1]), Batch([1])), 'col')
 
     def test_AP_col_kw(self):
-        self.assertEqual(batch_order(None, [[0],[1],{}], Batch([1]), Batch([1])), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, [[0],[1],{}], Batch([1]), Batch([1])), 'col')
 
     def test_PM_matching_dims_col(self):
-        self.assertEqual(batch_order(lambda x,a:[[0],[1]], [[0,0],[1,1]], Batch([1,1]), Batch([[1,2],[1,2]])), 'col')
+        self.assertEqual(SafeLearner.batch_order(lambda x,a:[[0],[1]], [[0,0],[1,1]], Batch([1,1]), Batch([[1,2],[1,2]])), 'col')
 
     def test_PM_matching_dims_row(self):
-        self.assertEqual(batch_order(lambda x,a:[[0,1]], [[0,0],[1,1]], Batch([1,1]), Batch([[1,2],[1,2]])), 'row')
+        self.assertEqual(SafeLearner.batch_order(lambda x,a:[[0,1]], [[0,0],[1,1]], Batch([1,1]), Batch([[1,2],[1,2]])), 'row')
 
     def test_simple(self):
         pred = {'action_prob': [(1,2),(3,4)]}
-        self.assertEqual(batch_order(None, pred, Batch([1,1]), [[],[]]), 'col')
+        self.assertEqual(SafeLearner.batch_order(None, pred, Batch([1,1]), [[],[]]), 'col')
 
 class has_kwargs_Tests(unittest.TestCase):
     def test_batch_not(self):
-        self.assertTrue(has_kwargs((0,1,{}), 'not'))
-        self.assertTrue(has_kwargs((0,{}), 'not'))
-        self.assertTrue(has_kwargs(([.25,.25,.5],{}), 'not'))
-        self.assertTrue(has_kwargs(({'action':1},{}), 'not'))
-        self.assertFalse(has_kwargs((0,1),'not'))
-        self.assertFalse(has_kwargs(0,'not'))
-        self.assertFalse(has_kwargs([.25,.25,.5],'not'))
-        self.assertFalse(has_kwargs({'action':1}, 'not'))
+        self.assertTrue(SafeLearner.has_kwargs((0,1,{}), 'not'))
+        self.assertTrue(SafeLearner.has_kwargs((0,{}), 'not'))
+        self.assertTrue(SafeLearner.has_kwargs(([.25,.25,.5],{}), 'not'))
+        self.assertTrue(SafeLearner.has_kwargs(({'action':1},{}), 'not'))
+        self.assertFalse(SafeLearner.has_kwargs((0,1),'not'))
+        self.assertFalse(SafeLearner.has_kwargs(0,'not'))
+        self.assertFalse(SafeLearner.has_kwargs([.25,.25,.5],'not'))
+        self.assertFalse(SafeLearner.has_kwargs({'action':1}, 'not'))
 
     def test_batch_row(self):
-        self.assertTrue(has_kwargs([(0,1,{})], 'row'))
-        self.assertTrue(has_kwargs([(0,{})], 'row'))
-        self.assertTrue(has_kwargs([([.25,.25,.5],{})], 'row'))
-        self.assertTrue(has_kwargs([({'action':1},{})], 'row'))
-        self.assertFalse(has_kwargs([(0,1)],'row'))
-        self.assertFalse(has_kwargs([0],'row'))
-        self.assertFalse(has_kwargs([[.25,.25,.5]],'row'))
-        self.assertFalse(has_kwargs([{'action':1}], 'row'))
+        self.assertTrue(SafeLearner.has_kwargs([(0,1,{})], 'row'))
+        self.assertTrue(SafeLearner.has_kwargs([(0,{})], 'row'))
+        self.assertTrue(SafeLearner.has_kwargs([([.25,.25,.5],{})], 'row'))
+        self.assertTrue(SafeLearner.has_kwargs([({'action':1},{})], 'row'))
+        self.assertFalse(SafeLearner.has_kwargs([(0,1)],'row'))
+        self.assertFalse(SafeLearner.has_kwargs([0],'row'))
+        self.assertFalse(SafeLearner.has_kwargs([[.25,.25,.5]],'row'))
+        self.assertFalse(SafeLearner.has_kwargs([{'action':1}], 'row'))
 
     def test_batch_col(self):
-        self.assertTrue(has_kwargs(([0],[1],{}), 'col'))
-        self.assertTrue(has_kwargs(([0],{}), 'col'))
-        self.assertTrue(has_kwargs(([[.25,.25,.5]],{}), 'col'))
-        self.assertTrue(has_kwargs([{'action':[1]},{}], 'col'))
-        self.assertFalse(has_kwargs(([0],[1]),'col'))
-        self.assertFalse(has_kwargs([0],'col'))
-        self.assertFalse(has_kwargs([[.25,.25,.5]],'col'))
-        self.assertFalse(has_kwargs({'action':[1]},'col'))
+        self.assertTrue(SafeLearner.has_kwargs(([0],[1],{}), 'col'))
+        self.assertTrue(SafeLearner.has_kwargs(([0],{}), 'col'))
+        self.assertTrue(SafeLearner.has_kwargs(([[.25,.25,.5]],{}), 'col'))
+        self.assertTrue(SafeLearner.has_kwargs([{'action':[1]},{}], 'col'))
+        self.assertFalse(SafeLearner.has_kwargs(([0],[1]),'col'))
+        self.assertFalse(SafeLearner.has_kwargs([0],'col'))
+        self.assertFalse(SafeLearner.has_kwargs([[.25,.25,.5]],'col'))
+        self.assertFalse(SafeLearner.has_kwargs({'action':[1]},'col'))
 
 class first_row_Tests(unittest.TestCase):
 
     def test_no_batch_no_kwargs(self):
-        self.assertEqual(0      , first_row(0, 'not', False))
-        self.assertEqual((0,1)  , first_row((0,1), 'not', False))
-        self.assertEqual([0,1,0], first_row([0,1,0], 'not', False))
-        self.assertEqual({'b':1}, first_row({'b':1}, 'not', False))
+        self.assertEqual(0      , SafeLearner.first_row(0, 'not', False))
+        self.assertEqual((0,1)  , SafeLearner.first_row((0,1), 'not', False))
+        self.assertEqual([0,1,0], SafeLearner.first_row([0,1,0], 'not', False))
+        self.assertEqual({'b':1}, SafeLearner.first_row({'b':1}, 'not', False))
 
     def test_no_batch_kwargs(self):
-        self.assertEqual( 0      , first_row((0,{'a':1}), 'not', True))
-        self.assertEqual( (0,1)  , first_row((0,1,{'a':1}), 'not', True))
-        self.assertEqual( [0,1,0], first_row(([0,1,0],{'a':1}), 'not', True))
-        self.assertEqual( {'b':1}, first_row(({'b':1},{'a':1}), 'not', True))
+        self.assertEqual( 0      , SafeLearner.first_row((0,{'a':1}), 'not', True))
+        self.assertEqual( (0,1)  , SafeLearner.first_row((0,1,{'a':1}), 'not', True))
+        self.assertEqual( [0,1,0], SafeLearner.first_row(([0,1,0],{'a':1}), 'not', True))
+        self.assertEqual( {'b':1}, SafeLearner.first_row(({'b':1},{'a':1}), 'not', True))
 
     def test_row_batch_no_kwargs(self):
-        self.assertEqual( 0                , first_row([0,1], 'row', False))
-        self.assertEqual( [2,0]            , first_row(([2,0],[1,1]), 'row', False))
-        self.assertEqual( {'action':1}     , first_row([{'action':1},{'action':2}], 'row', False))
-        self.assertEqual( {'pmf':1}        , first_row([{'pmf':1},{'pmf':2}], 'row', False))
-        self.assertEqual( {'action_prob':1}, first_row([{'action_prob':1},{'action_prob':2}], 'row', False))
+        self.assertEqual( 0                , SafeLearner.first_row([0,1], 'row', False))
+        self.assertEqual( [2,0]            , SafeLearner.first_row(([2,0],[1,1]), 'row', False))
+        self.assertEqual( {'action':1}     , SafeLearner.first_row([{'action':1},{'action':2}], 'row', False))
+        self.assertEqual( {'pmf':1}        , SafeLearner.first_row([{'pmf':1},{'pmf':2}], 'row', False))
+        self.assertEqual( {'action_prob':1}, SafeLearner.first_row([{'action_prob':1},{'action_prob':2}], 'row', False))
 
     def test_row_batch_kwargs(self):
-        self.assertEqual( 0                , first_row([(0,{}),(1,{})], 'row', True))
-        self.assertEqual( [2,0]            , first_row(([2,0,{}],[1,1,{}]), 'row', True))
-        self.assertEqual( [1,0,1]          , first_row([[[1,0,1],{}]], 'row', True))
-        self.assertEqual( {'action':1}     , first_row([({'action':1},{}),({'action':2},{})], 'row', True))
-        self.assertEqual( {'pmf':1}        , first_row([({'pmf':1},{}),({'pmf':2},{})], 'row', True))
-        self.assertEqual( {'action_prob':1}, first_row([({'action_prob':1},{}),({'action_prob':2},{})], 'row', True))
+        self.assertEqual( 0                , SafeLearner.first_row([(0,{}),(1,{})], 'row', True))
+        self.assertEqual( [2,0]            , SafeLearner.first_row(([2,0,{}],[1,1,{}]), 'row', True))
+        self.assertEqual( [1,0,1]          , SafeLearner.first_row([[[1,0,1],{}]], 'row', True))
+        self.assertEqual( {'action':1}     , SafeLearner.first_row([({'action':1},{}),({'action':2},{})], 'row', True))
+        self.assertEqual( {'pmf':1}        , SafeLearner.first_row([({'pmf':1},{}),({'pmf':2},{})], 'row', True))
+        self.assertEqual( {'action_prob':1}, SafeLearner.first_row([({'action_prob':1},{}),({'action_prob':2},{})], 'row', True))
 
     def test_col_batch_no_kwargs(self):
         #the top test would be marked as 'row' so we don't need to handle it
-        #self.assertEqual( 0        ,first_row([0,1], 'col', False))
-        self.assertEqual( [2,1]            , first_row(([2,0],[1,1]), 'col', False))
-        self.assertEqual( {'action':2}     , first_row({'action':[2,1]}, 'col', False))
-        self.assertEqual( {'pmf':1}        , first_row({'pmf':[1,2]}, 'col', False))
-        self.assertEqual( {'action_prob':1}, first_row({'action_prob':[1,2]}, 'col', False))
+        self.assertEqual( [2,1]            , SafeLearner.first_row(([2,0],[1,1]), 'col', False))
+        self.assertEqual( {'action':2}     , SafeLearner.first_row({'action':[2,1]}, 'col', False))
+        self.assertEqual( {'pmf':1}        , SafeLearner.first_row({'pmf':[1,2]}, 'col', False))
+        self.assertEqual( {'action_prob':1}, SafeLearner.first_row({'action_prob':[1,2]}, 'col', False))
 
     def test_col_batch_kwargs(self):
-        self.assertEqual(  0   , first_row([(0,1),{}]      , 'col', True))
-        self.assertEqual( [2,0], first_row(([2,1],[0,1],{}), 'col', True))
-        self.assertEqual( {'action':2}     , first_row([{'action':[2,1]},{}], 'col', True))
-        self.assertEqual( {'pmf':1}        , first_row([{'pmf':[1,2]},{}], 'col', True))
-        self.assertEqual( {'action_prob':1}, first_row([{'action_prob':[1,2]},{}], 'col', True))
+        self.assertEqual(  0               , SafeLearner.first_row([(0,1),{}]      , 'col', True))
+        self.assertEqual( [2,0]            , SafeLearner.first_row(([2,1],[0,1],{}), 'col', True))
+        self.assertEqual( {'action':2}     , SafeLearner.first_row([{'action':[2,1]},{}], 'col', True))
+        self.assertEqual( {'pmf':1}        , SafeLearner.first_row([{'pmf':[1,2]},{}], 'col', True))
+        self.assertEqual( {'action_prob':1}, SafeLearner.first_row([{'action_prob':[1,2]},{}], 'col', True))
 
 class pred_format_Tests(unittest.TestCase):
 
     def test_PM_size3_explicit(self):
-        actual = pred_format({'pmf':[1,0,0]},['a','b','c'])
+        actual = SafeLearner.pred_format({'pmf':[1,0,0]},['a','b','c'])
         expected = 'PM*'
         self.assertEqual(actual,expected)
 
     def test_PM_size3_list_and_pmf_not_in_actions(self):
-        actual = pred_format([1,0,0],['a','b','c'])
+        actual = SafeLearner.pred_format([1,0,0],['a','b','c'])
         expected = 'PM'
         self.assertEqual(actual,expected)
 
     def test_PM_size3_tuple_and_pmf_not_in_actions(self):
-        actual = pred_format((1,0,0),['a','b','c'])
+        actual = SafeLearner.pred_format((1,0,0),['a','b','c'])
         expected = 'PM'
         self.assertEqual(actual,expected)
 
     def test_PM_size3_tuple_and_pmf_in_actions(self):
         pmf = tuple([1,0,0]) # see, https://stackoverflow.com/a/34147516/1066291 for why
-        actual = pred_format(pmf,[(1,0,0),(0,1,0),(0,0,1)])
+        actual = SafeLearner.pred_format(pmf,[(1,0,0),(0,1,0),(0,0,1)])
         expected = 'PM'
         self.assertEqual(actual,expected)
 
     def test_PM_size2_and_pmf0_in_actions(self):
-        actual = pred_format((1,0),[0.,1.])
+        actual = SafeLearner.pred_format((1,0),[0.,1.])
         expected = 'PM'
         self.assertEqual(actual,expected)
 
     def test_PM_size2_and_pmf_in_actions(self):
         pmf = tuple([1,0]) # see, https://stackoverflow.com/a/34147516/1066291 for why
-        actual = pred_format(pmf,[(1,0),(0,1)])
+        actual = SafeLearner.pred_format(pmf,[(1,0),(0,1)])
         expected = 'PM'
         self.assertEqual(actual,expected)
 
     def test_PM_size2_and_pmf_not_in_actions(self):
-        actual = pred_format((1,0),['a','b'])
+        actual = SafeLearner.pred_format((1,0),['a','b'])
         expected = 'PM'
         self.assertEqual(actual,expected)
 
     def test_AP_and_AP_valid_PMF(self):
-        actual = pred_format((0.,1),[0.,1])
+        actual = SafeLearner.pred_format((0.,1),[0.,1])
         expected = 'AP'
         self.assertEqual(actual,expected)
 
     def test_AP_explicit(self):
-        actual = pred_format({'action_prob':('a',1)},['a','b','c'])
+        actual = SafeLearner.pred_format({'action_prob':('a',1)},['a','b','c'])
         expected = 'AP*'
         self.assertEqual(actual,expected)
 
     def test_AP(self):
-        actual = pred_format(('a',1),['a','b','c'])
+        actual = SafeLearner.pred_format(('a',1),['a','b','c'])
         expected = 'AP'
         self.assertEqual(actual,expected)
 
     def test_AP_sum_to_1(self):
-        actual = pred_format((2,-1),[2,1])
+        actual = SafeLearner.pred_format((2,-1),[2,1])
         expected = 'AP'
         self.assertEqual(actual,expected)
 
     def test_AX_explicit(self):
-        actual = pred_format({'action':'a'},['a','b','c'])
+        actual = SafeLearner.pred_format({'action':'a'},['a','b','c'])
         expected = 'AX*'
         self.assertEqual(actual,expected)
 
     def test_AX_character(self):
-        actual = pred_format('a',['a','b','c'])
+        actual = SafeLearner.pred_format('a',['a','b','c'])
         expected = 'AX'
         self.assertEqual(actual,expected)
 
     def test_AX_string(self):
-        actual = pred_format('ab',['ab','ac','ad'])
+        actual = SafeLearner.pred_format('ab',['ab','ac','ad'])
         expected = 'AX'
         self.assertEqual(actual,expected)
 
     def test_AX_numeric(self):
-        actual = pred_format(8,[6,7,8])
+        actual = SafeLearner.pred_format(8,[6,7,8])
         expected = 'AX'
         self.assertEqual(actual,expected)
 
     def test_AX_empty_actions(self):
-        actual = pred_format(8,[])
+        actual = SafeLearner.pred_format(8,[])
         expected = 'AX'
         self.assertEqual(actual,expected)
 
     def test_AX_none_actions(self):
-        actual = pred_format(8,None)
+        actual = SafeLearner.pred_format(8,None)
         expected = 'AX'
         self.assertEqual(actual,expected)
 
     def test_AP_and_action_not_in_actions(self):
         with self.assertRaises(CobaException):
-            pred_format(('a',0),[0,1])
+            SafeLearner.pred_format(('a',0),[0,1])
 
     def test_uncertain_empty_actions(self):
         with self.assertRaises(CobaException):
-            pred_format([8,2],[])
+            SafeLearner.pred_format([8,2],[])
 
     def test_uncertain_none_actions(self):
         with self.assertRaises(CobaException):
-            pred_format([8,2],None)
+            SafeLearner.pred_format([8,2],None)
 
     def test_bad_explicit_action_prob_len(self):
         with self.assertRaises(CobaException):
-            pred_format({'action_prob':1},None)
+            SafeLearner.pred_format({'action_prob':1},None)
         with self.assertRaises(CobaException):
-            pred_format({'action_prob':(1,2,3)},None)
+            SafeLearner.pred_format({'action_prob':(1,2,3)},None)
 
     def test_bad_explicit_pmf_len(self):
         with self.assertRaises(CobaException):
-            pred_format({'pmf':[1,2,3]},[1,2])
+            SafeLearner.pred_format({'pmf':[1,2,3]},[1,2])
         with self.assertRaises(CobaException):
-            pred_format({'pmf':1},[1,2])
+            SafeLearner.pred_format({'pmf':1},[1,2])
 
     def test_bad_explicit_pmf_actions(self):
         with self.assertRaises(CobaException):
-            pred_format({'pmf':[1,2,3]},None)
+            SafeLearner.pred_format({'pmf':[1,2,3]},None)
         with self.assertRaises(CobaException):
-            pred_format({'pmf':[1,2,3]},[])
+            SafeLearner.pred_format({'pmf':[1,2,3]},[])
 
 class possible_action_Tests(unittest.TestCase):
 
     def test_possible_action(self):
-        self.assertTrue(possible_action(1,[1,2,3]))
+        self.assertTrue(SafeLearner.possible_action(1,[1,2,3]))
 
     def test_not_possible_action(self):
-        self.assertFalse(possible_action(0,[1,2,3]))
+        self.assertFalse(SafeLearner.possible_action(0,[1,2,3]))
 
     def test_not_possible_exception(self):
-        self.assertFalse(possible_action(0,1))
+        self.assertFalse(SafeLearner.possible_action(0,1))
 
 class possible_pmf_Tests(unittest.TestCase):
 
     def test_possible_pmf(self):
-        self.assertTrue(possible_pmf([1/2,1/2],[1,2]))
+        self.assertTrue(SafeLearner.possible_pmf([1/2,1/2],[1,2]))
 
     def test_not_possible_pmf_sum(self):
-        self.assertFalse(possible_pmf([1/2,1/3],[1,2]))
+        self.assertFalse(SafeLearner.possible_pmf([1/2,1/3],[1,2]))
 
     def test_not_possible_pmf_len(self):
-        self.assertFalse(possible_pmf([1/2,1/2],[1,2,3]))
+        self.assertFalse(SafeLearner.possible_pmf([1/2,1/2],[1,2,3]))
 
     def test_not_possible_pmf_exception(self):
-        self.assertFalse(possible_pmf([1/2,1/2],1))
+        self.assertFalse(SafeLearner.possible_pmf([1/2,1/2],1))
 
 class SafeLearner_Tests(unittest.TestCase):
 
@@ -778,7 +784,11 @@ class SafeLearner_Tests(unittest.TestCase):
         class MyLearner:
             pass
 
+        class MyInheritedLearner(Learner):
+            pass
+
         self.assertFalse(SafeLearner(MyLearner()).has_score)
+        self.assertFalse(SafeLearner(MyInheritedLearner()).has_score)
 
     def test_score_batch(self):
         calls = []
@@ -856,6 +866,38 @@ class SafeLearner_Tests(unittest.TestCase):
                 return {'action_prob':(3,1)}
 
         self.assertEqual(SafeLearner(MyLearner()).predict(None,[]), (3,1,{}))
+
+class SafeEnvironment_Tests(unittest.TestCase):
+
+    def test_params(self):
+        class WithParams:
+            def __init__(self):
+                self.params = {}
+        class SansParams:
+            pass
+        self.assertEqual({'env_type': 'WithParams'}, SafeEnvironment(WithParams()).params)
+        self.assertEqual({'env_type': 'SansParams'}, SafeEnvironment(SansParams()).params)
+
+    def test_read(self):
+        self.assertEqual((), SafeEnvironment(SimpleEnvironment()).read())
+
+    def test_str(self):
+        self.assertEqual('SimpleEnvironment(shuffle=1)', str(SafeEnvironment(Pipes.join(SimpleEnvironment(), Shuffle(1)))))
+        self.assertEqual('SimpleEnvironment', str(SafeEnvironment(SimpleEnvironment())))
+
+    def test_with_nesting(self):
+        self.assertIsInstance(SafeEnvironment(SafeEnvironment(SimpleEnvironment())).env, SimpleEnvironment)
+
+    def test_with_pipes(self):
+        self.assertEqual({'env_type': 'SimpleEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(SimpleEnvironment(), Shuffle(1))) .params)
+
+class SafeEvaluator_Tests(unittest.TestCase):
+    def test_simple(self):
+        self.assertEqual(1, SafeEvaluator(lambda env,lrn: 1).evaluate(None,None))
+
+    def test_params_callable(self):
+        def test_eval(env,lrn): return 1
+        self.assertEqual({'eval_type':'test_eval'}, SafeEvaluator(test_eval).params)
 
 if __name__ == '__main__':
     unittest.main()

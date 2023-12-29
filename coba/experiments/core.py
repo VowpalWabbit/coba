@@ -3,14 +3,14 @@ from pathlib import Path
 from itertools import product
 from typing import Sequence, Optional, Union, overload, Tuple
 
-from coba.evaluators   import Evaluator, SequentialCB
+from coba.evaluators import SequentialCB
 
 from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
 from coba.results import Result, TransactionDecode, TransactionEncode, TransactionResult
 from coba.context import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
 from coba.exceptions import CobaException
 from coba.multiprocessing import CobaMultiprocessor
-from coba.primitives import Learner, Environment
+from coba.primitives import Learner, Environment, Evaluator
 
 from coba.experiments.process import MakeTasks, ChunkTasks, ProcessTasks
 

@@ -11,11 +11,16 @@ from coba.exceptions  import CobaException
 from coba.random      import CobaRandom
 from coba.context     import CobaContext
 from coba.safety      import SafeLearner
-from coba.primitives  import is_batch, Dense, Sparse, Learner, Environment
+from coba.primitives  import is_batch, Dense, Sparse, Learner, Environment, Evaluator
 from coba.statistics  import percentile
 from coba.utilities   import PackageChecker, peek_first
 
-from coba.evaluators.primitives import Evaluator, get_ope_loss
+def get_ope_loss(learner) -> float:
+    # OPE loss metric is only available for VW models
+    try:
+        return learner.learner._vw._vw.get_sum_loss()
+    except AttributeError:
+        return float("nan")
 
 class SequentialCB(Evaluator):
 

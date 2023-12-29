@@ -7,11 +7,12 @@ from coba.utilities    import PackageChecker
 from coba.exceptions   import CobaException
 from coba.context      import CobaContext
 from coba.environments import Batch, OpeRewards
-from coba.learners     import VowpalSoftmaxLearner
+from coba.learners     import VowpalSoftmaxLearner, EpsilonBanditLearner
 from coba.primitives   import is_batch, Learner, SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.rewards      import L1Reward, DiscreteReward
+from coba.safety       import SafeLearner
 
-from coba.evaluators import RejectionCB, SequentialCB, SequentialIGL
+from coba.evaluators.sequential import RejectionCB, SequentialCB, SequentialIGL, get_ope_loss
 
 class SimpleEnvironment:
     def __init__(self, interactions=(), params={}) -> None:
@@ -1096,6 +1097,18 @@ class RejectionCB_Tests(unittest.TestCase):
 
         self.assertIn('predict_time', task_results[0])
         self.assertIn('learn_time', task_results[0])
+
+class Helper_Tests(unittest.TestCase):
+    @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
+    def test_get_ope_loss(self):
+
+        #VW learner
+        learner = VowpalSoftmaxLearner()
+        learner.learn(1, 1, 1, 1.0)
+        self.assertEqual(get_ope_loss(SafeLearner(learner)), -1.0)
+
+        # Non-VW learner
+        self.assertTrue(math.isnan(get_ope_loss(SafeLearner(EpsilonBanditLearner()))))
 
 if __name__ == '__main__':
     unittest.main()

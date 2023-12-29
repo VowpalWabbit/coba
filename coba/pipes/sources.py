@@ -5,8 +5,8 @@ from queue import Queue
 from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Literal, Tuple, Iterator
 
 from coba.exceptions import CobaException
-from coba.primitives import Source, Filter, resolve_params
-from coba.utilities  import try_else
+from coba.primitives import Source, Filter
+from coba.utilities  import try_else, resolve_params
 
 class SourceFilters(Source):
     def __init__(self, *pipes: Union[Source,Filter]) -> None:

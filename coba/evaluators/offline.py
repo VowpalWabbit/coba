@@ -14,9 +14,7 @@ from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first
 from coba.primitives import Environment
 
-from coba.evaluators.primitives import Evaluator
-
-class ClassMetaEvaluator(Evaluator):
+class ClassMetaEvaluator:
     """Describe an Environment made from a Classification dataset.
 
     This evlaluator calculates a number of statistics which describe a given environment. These

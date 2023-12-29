@@ -2,12 +2,12 @@ import warnings
 import importlib.util
 
 from itertools import chain, islice
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Optional, Callable
 
-from coba import CobaRandom
 from coba.exceptions import CobaExit
-from coba.random import choice
+from coba.random import CobaRandom, choice
+from coba.primitives import Pipe
 
 def coba_exit(message:str):
     #we ignore warnings before exiting in order to make jupyter's output a little cleaner
@@ -152,6 +152,7 @@ def sample_actions(
     Sample the actions weighted by their probabilities.
     """
     choice_function = rng.choice if rng else choice
+
     index = choice_function(range(len(probabilities)), probabilities)
 
     return actions[index], probabilities[index]
@@ -161,3 +162,19 @@ def try_else(f:Callable[[],Any], default: Any) -> Any:
         return f()
     except:
         return default
+
+def resolve_params(pipes: Sequence[Pipe]):
+
+    params = [p.params for p in pipes if hasattr(p,'params')]
+    keys   = [ k for p in params for k in p.keys() ]
+    counts = Counter(keys)
+    index  = {}
+
+    def resolve_key_conflicts(key):
+        if counts[key] == 1:
+            return key
+        else:
+            index[key] = index.get(key,0)+1
+            return f"{key}{index[key]}"
+
+    return { resolve_key_conflicts(k):v for p in params for k,v in p.items() }

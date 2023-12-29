@@ -1,167 +1,215 @@
 from math import isclose
 from collections import abc
-from typing import Any, Tuple, Mapping, Literal
+from typing import Union, Tuple, Mapping, Iterable, Literal, Callable, Optional, Any
 
-from coba.utilities import sample_actions, try_else
-from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.primitives import is_batch, Learner, Context, Action, Actions, Prob, PMF, kwargs, Prediction
+from coba.utilities import try_else, sample_actions
+from coba.exceptions import CobaException
+from coba.primitives import Prediction, Actions, Action, Context, Prob, kwargs
+from coba.primitives import Environment, Evaluator, Learner, Interaction, is_batch
 
-def first_row(pred: Prediction, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Prediction]:
-    if batch_order == 'col':
-        if has_kwargs and isinstance(pred[0],dict):
-            pred = pred[0]
-        if isinstance(pred,dict):
-            return {k:v[0] for k,v in pred.items()}
+class SafeEnvironment(Environment):
+    """A wrapper for environment-likes that guarantees interface consistency."""
+
+    def __init__(self, environment: Environment) -> None:
+        """Instantiate a SafeEnvironment.
+
+        Args:
+            environment: The environment we wish to make sure has the expected interface
+        """
+
+        self.env = environment if not isinstance(environment, SafeEnvironment) else environment.env
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        try:
+            params = self.env.params
+        except AttributeError:
+            params = {}
+
+        if "env_type" not in params:
+            try:
+                params["env_type"] = self.env[0].__class__.__name__
+            except:
+                params["env_type"] = self.env.__class__.__name__
+
+        return params
+
+    def read(self) -> Iterable[Interaction]:
+        return self.env.read()
+
+    def __str__(self) -> str:
+        params = dict(self.params)
+        tipe   = params.pop("env_type")
+
+        if len(params) > 0:
+            return f"{tipe}({','.join(f'{k}={v}' for k,v in params.items())})"
         else:
-            row = [p[0] for p in (pred[:-1] if has_kwargs else pred) ]
-            return row[0] if len(row) == 1 else row
-    else:
-        if batch_order == 'row': pred = pred[0]
-        return (pred[0] if len(pred)==2 else pred[:-1]) if has_kwargs else pred
-
-def has_kwargs(pred: Prediction, batch_order:Literal['not','row','col']) -> bool:
-    try:
-        return isinstance(pred[-1] if batch_order != 'row' else pred[0][-1], abc.Mapping)
-    except:
-        return False
-
-def batch_order(predictor, pred: Prediction, context, actions, method=None) -> Literal['not','col','row']:
-    if method == 2: return 'row'
-    if not is_batch(actions) and not is_batch(context): return 'not'
-
-    no_len         = lambda item: not hasattr(item,'__len__')
-    is_all_dicts   = all(isinstance(p,dict) for p in pred)
-    is_dict_col    = isinstance(pred,dict)
-    is_dict_col_kw = is_all_dicts and pred[0].keys() != pred[-1].keys() and len(pred)==2
-    is_dict_row    = is_all_dicts and pred[0].keys() == pred[-1].keys()
-
-    if is_dict_col or is_dict_col_kw : return 'col'
-    if is_dict_row or no_len(pred[0]): return 'row'
-    #if isinstance(pred[0],dict)
-
-    n_rows = len(actions)
-    n_dim1 = len(pred)
-    n_dim2 = len(pred[0])
-
-    if n_dim1 == n_dim2:
-        #The major order of pred is not determinable. So we
-        #now do a small "test" to determine the major order.
-        #n_cols will always be >= 2 so we know we can distinguish
-        class Batch(list): is_batch=True
-        pred   = predictor(Batch([context[0]]),Batch([actions[0]]))
-        n_rows = 1
-
-    return 'row' if len(pred) == n_rows else 'col'
-
-def pred_format(std_pred:Prediction, actions:Actions, og_pred:Prediction = None):
-    unclear_format = CobaException("We were unable to determine the prediction format from the "
-    f"given value: {og_pred}. To work around this you can provide explicit format information by "
-    "returnning a dict wrapper: {'pmf':<pred>}, {'action':<pred>}, or {'action_prob':<pred>}.")
-    no_act_two  = CobaException("We were given a two item pred without actions. We cannot tell "
-    "if this is an action or action_prob. Please use explicit hints to let us know by returning "
-    "either {'action':<pred>} or {'action_prob':<pred>}.")
-    no_act_pmf  = CobaException("We were given a PMF but there are no actions to choose from.")
-    bad_len_pmf = CobaException("We were given a PMF whose length did match len(actions).")
-    bad_len_ap  = lambda ap: CobaException("An explicit action_prob was passed but it is not "
-    "a two piece tuple. A valid format has the form (<action>,<prob>). We were given {ap}.")
-
-    no_len = lambda item: not hasattr(item,'__len__')
-
-    #possible std_pred:
-        #pmf, action, [action,prob], {'pmf':...}, {'action':...}, {'action_prob':...}
-
-    if isinstance(std_pred, dict):
-        if 'pmf' in std_pred:
-            pmf = std_pred['pmf']
-            if not actions: raise no_act_pmf
-            if no_len(pmf) or len(pmf) != len(actions): raise bad_len_pmf
-            return 'PM*'
-        if 'action' in std_pred:
-            return 'AX*'
-        if 'action_prob' in std_pred:
-            ap = std_pred['action_prob']
-            if no_len(ap) or len(ap) != 2:
-                raise bad_len_ap(ap)
-            return 'AP*'
-
-    if no_len(std_pred) or isinstance(std_pred,str):
-        #action
-        std_pred = [std_pred]
-    elif len(std_pred) > 2:
-        #pmf or action
-        std_pred = [std_pred]
-    elif len(std_pred) == 2:
-        #pmf, action or [action,prob]
-        if not actions:
-            raise no_act_two
-        elif any(std_pred[0] is a for a in actions):
-            #[action,prob] (this should always be correct due to _safe_actions)
-            #when could pred[0] be identified as action but it isn't?
-            #see, https://stackoverflow.com/a/306353/1066291
-            pass
-        else:
-            #pmf or action
-            std_pred = [std_pred]
-
-    #at this point pred should be
-        #[pmf], [action], [action,prob]
-
-    if len(std_pred) == 2:
-        #only [action,prob] has two items
-        return 'AP'
-
-    #now it is [pmf] or [action]
-
-    if actions == [] or actions is None:
-        #a continuous action problem
-        #so they had to return action
-        return 'AX'
-
-    if any(std_pred[0] is action for action in actions):
-        return 'AX'
-
-    if possible_pmf(std_pred[0],actions):
-        return 'PM'
-
-    if possible_action(std_pred[0],actions):
-        return 'AX'
-
-    raise unclear_format
-
-def possible_pmf(item, actions):
-    try:
-        return len(item)==len(actions) and isclose(sum(item), 1, abs_tol=.001) and all(i >=0 for i in item)
-    except:
-        return False
-
-def possible_action(item, actions):
-    try:
-        return item in actions or len(actions) == 0
-    except:
-        return False
-
-def batch_size(args):
-    for arg in args:
-        if is_batch(arg):
-            return len(arg)
-
-def raise_if_not_valid_out(out,expected_len):
-    def len_or_0(obj):
-        return try_else(lambda: len(obj), 0)
-    if out is None:
-        raise CobaException("The given prediction was none and did not match the batch_size.")
-    if all(isinstance(p,dict) for p in out) and out[0].keys() != out[-1].keys(): #pragma: no cover
-        out = out[0]
-    if isinstance(out,dict):
-        is_valid = expected_len == len_or_0(next(iter(out.values())))
-    else:
-        is_valid = expected_len in [len_or_0(out),len_or_0(out[0])]
-    if not is_valid:
-        raise CobaException("The given prediction did not appear to match the batch_size.")
+            return tipe
 
 class SafeLearner(Learner):
     """A wrapper for learner-likes that guarantees interface consistency."""
+
+    @staticmethod
+    def first_row(pred: Prediction, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Prediction]:
+        if batch_order == 'col':
+            if has_kwargs and isinstance(pred[0],dict):
+                pred = pred[0]
+            if isinstance(pred,dict):
+                return {k:v[0] for k,v in pred.items()}
+            else:
+                row = [p[0] for p in (pred[:-1] if has_kwargs else pred) ]
+                return row[0] if len(row) == 1 else row
+        else:
+            if batch_order == 'row': pred = pred[0]
+            return (pred[0] if len(pred)==2 else pred[:-1]) if has_kwargs else pred
+
+    @staticmethod
+    def has_kwargs(pred: Prediction, batch_order:Literal['not','row','col']) -> bool:
+        try:
+            return isinstance(pred[-1] if batch_order != 'row' else pred[0][-1], abc.Mapping)
+        except:
+            return False
+
+    @staticmethod
+    def batch_order(predictor, pred: Prediction, context, actions, method=None) -> Literal['not','col','row']:
+        if method == 2: return 'row'
+        if not is_batch(actions) and not is_batch(context): return 'not'
+
+        no_len         = lambda item: not hasattr(item,'__len__')
+        is_all_dicts   = all(isinstance(p,dict) for p in pred)
+        is_dict_col    = isinstance(pred,dict)
+        is_dict_col_kw = is_all_dicts and pred[0].keys() != pred[-1].keys() and len(pred)==2
+        is_dict_row    = is_all_dicts and pred[0].keys() == pred[-1].keys()
+
+        if is_dict_col or is_dict_col_kw : return 'col'
+        if is_dict_row or no_len(pred[0]): return 'row'
+        #if isinstance(pred[0],dict)
+
+        n_rows = len(actions)
+        n_dim1 = len(pred)
+        n_dim2 = len(pred[0])
+
+        if n_dim1 == n_dim2:
+            #The major order of pred is not determinable. So we
+            #now do a small "test" to determine the major order.
+            #n_cols will always be >= 2 so we know we can distinguish
+            class Batch(list): is_batch=True
+            pred   = predictor(Batch([context[0]]),Batch([actions[0]]))
+            n_rows = 1
+
+        return 'row' if len(pred) == n_rows else 'col'
+
+    @staticmethod
+    def pred_format(std_pred:Prediction, actions:Actions, og_pred:Prediction = None):
+        unclear_format = CobaException("We were unable to determine the prediction format from the "
+        f"given value: {og_pred}. To work around this you can provide explicit format information by "
+        "returnning a dict wrapper: {'pmf':<pred>}, {'action':<pred>}, or {'action_prob':<pred>}.")
+        no_act_two  = CobaException("We were given a two item pred without actions. We cannot tell "
+        "if this is an action or action_prob. Please use explicit hints to let us know by returning "
+        "either {'action':<pred>} or {'action_prob':<pred>}.")
+        no_act_pmf  = CobaException("We were given a PMF but there are no actions to choose from.")
+        bad_len_pmf = CobaException("We were given a PMF whose length did match len(actions).")
+        bad_len_ap  = lambda ap: CobaException("An explicit action_prob was passed but it is not "
+        "a two piece tuple. A valid format has the form (<action>,<prob>). We were given {ap}.")
+
+        no_len = lambda item: not hasattr(item,'__len__')
+
+        #possible std_pred:
+            #pmf, action, [action,prob], {'pmf':...}, {'action':...}, {'action_prob':...}
+
+        if isinstance(std_pred, dict):
+            if 'pmf' in std_pred:
+                pmf = std_pred['pmf']
+                if not actions: raise no_act_pmf
+                if no_len(pmf) or len(pmf) != len(actions): raise bad_len_pmf
+                return 'PM*'
+            if 'action' in std_pred:
+                return 'AX*'
+            if 'action_prob' in std_pred:
+                ap = std_pred['action_prob']
+                if no_len(ap) or len(ap) != 2:
+                    raise bad_len_ap(ap)
+                return 'AP*'
+
+        if no_len(std_pred) or isinstance(std_pred,str):
+            #action
+            std_pred = [std_pred]
+        elif len(std_pred) > 2:
+            #pmf or action
+            std_pred = [std_pred]
+        elif len(std_pred) == 2:
+            #pmf, action or [action,prob]
+            if not actions:
+                raise no_act_two
+            elif any(std_pred[0] is a for a in actions):
+                #[action,prob] (this should always be correct due to _safe_actions)
+                #when could pred[0] be identified as action but it isn't?
+                #see, https://stackoverflow.com/a/306353/1066291
+                pass
+            else:
+                #pmf or action
+                std_pred = [std_pred]
+
+        #at this point pred should be
+            #[pmf], [action], [action,prob]
+
+        if len(std_pred) == 2:
+            #only [action,prob] has two items
+            return 'AP'
+
+        #now it is [pmf] or [action]
+
+        if actions == [] or actions is None:
+            #a continuous action problem
+            #so they had to return action
+            return 'AX'
+
+        if any(std_pred[0] is action for action in actions):
+            return 'AX'
+
+        if SafeLearner.possible_pmf(std_pred[0],actions):
+            return 'PM'
+
+        if SafeLearner.possible_action(std_pred[0],actions):
+            return 'AX'
+
+        raise unclear_format
+
+    @staticmethod
+    def possible_pmf(item, actions):
+        try:
+            return len(item)==len(actions) and isclose(sum(item), 1, abs_tol=.001) and all(i >=0 for i in item)
+        except:
+            return False
+
+    @staticmethod
+    def possible_action(item, actions):
+        try:
+            return item in actions or len(actions) == 0
+        except:
+            return False
+
+    @staticmethod
+    def batch_size(args):
+        for arg in args:
+            if is_batch(arg):
+                return len(arg)
+
+    @staticmethod
+    def raise_if_not_valid_out(out,expected_len):
+        def len_or_0(obj):
+            return try_else(lambda: len(obj), 0)
+        if out is None:
+            raise CobaException("The given prediction was none and did not match the batch_size.")
+        if all(isinstance(p,dict) for p in out) and out[0].keys() != out[-1].keys(): #pragma: no cover
+            out = out[0]
+        if isinstance(out,dict):
+            is_valid = expected_len == len_or_0(next(iter(out.values())))
+        else:
+            is_valid = expected_len in [len_or_0(out),len_or_0(out[0])]
+        if not is_valid:
+            raise CobaException("The given prediction did not appear to match the batch_size.")
 
     def __init__(self, learner: Learner, seed:int=1) -> None:
         """Instantiate a SafeLearner.
@@ -238,16 +286,16 @@ class SafeLearner(Learner):
             self._method[key] = 1
             return self._method1(method,args,kwargs)
         else:
-            expected_size = batch_size(args)
+            expected_size = SafeLearner.batch_size(args)
             try:
                 out = self._method1(method,args,kwargs)
-                if has_out: raise_if_not_valid_out(out,expected_size)
+                if has_out: SafeLearner.raise_if_not_valid_out(out,expected_size)
                 self._method[key] = 1
                 return out
             except Exception as outer_e:
                 try:
                     out = self._method2(method,args,kwargs)
-                    if has_out: raise_if_not_valid_out(out,expected_size)
+                    if has_out: SafeLearner.raise_if_not_valid_out(out,expected_size)
                     self._method[key] = 2
                     return out
                 except Exception as inner_e:
@@ -256,11 +304,11 @@ class SafeLearner(Learner):
     def _parse_pred(self, context, actions, pred):
         if self._pred_batch is None: # first call only
             predictor         = lambda X,A: self._safe_call('predict', self.learner.predict, (X,A))
-            self._pred_batch  = batch_order(predictor,pred,context,actions,self._method['predict'])
-            self._pred_kwargs = has_kwargs(pred,self._pred_batch)
-            first_pred_row    = first_row(pred,self._pred_batch,self._pred_kwargs)
+            self._pred_batch  = SafeLearner.batch_order(predictor,pred,context,actions,self._method['predict'])
+            self._pred_kwargs = SafeLearner.has_kwargs(pred,self._pred_batch)
+            first_pred_row    = SafeLearner.first_row(pred,self._pred_batch,self._pred_kwargs)
             first_actions     = actions[0] if self._pred_batch != 'not' else actions
-            self._pred_format = pred_format(first_pred_row, first_actions, pred)
+            self._pred_format = SafeLearner.pred_format(first_pred_row, first_actions, pred)
 
         if self._pred_batch == 'not':
             kwargs = pred[-1] if self._pred_kwargs else {}
@@ -355,3 +403,27 @@ class SafeLearner(Learner):
 
     def __str__(self) -> str:
         return self.full_name
+
+class SafeEvaluator(Evaluator):
+    def __init__(self, evaluator: Union[Evaluator, Callable[[Environment,Learner], Union[Mapping, Iterable[Mapping]]]]) -> None:
+        self.evaluator = evaluator if not isinstance(evaluator, SafeEvaluator) else evaluator.evaluator
+
+    @property
+    def params(self):
+        try:
+            params = self.evaluator.params
+        except:
+            params = {}
+
+        if type(self.evaluator).__name__ == 'function':
+            params['eval_type'] = self.evaluator.__name__
+        else:
+            params['eval_type'] = type(self.evaluator).__name__
+
+        return params
+
+    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Union[Mapping, Iterable[Mapping]]:
+        if callable(self.evaluator):
+            return self.evaluator(environment,learner)
+        else:
+            return self.evaluator.evaluate(environment,learner)

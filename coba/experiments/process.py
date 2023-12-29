@@ -3,14 +3,11 @@ from itertools import islice
 from collections import defaultdict, Counter
 from typing import Any, Iterable, Sequence, Optional, Tuple
 
-from coba.environments import Chunk
-from coba.evaluators import Evaluator, SafeEvaluator
-
 from coba.pipes import Pipes, SourceFilters
 from coba.context import CobaContext
 from coba.utilities import peek_first
-from coba.primitives import Source, Filter, Learner, Environment, SafeEnvironment
-from coba.safety import SafeLearner
+from coba.primitives import Source, Filter, Learner, Environment, Evaluator
+from coba.safety import SafeLearner, SafeEnvironment, SafeEvaluator
 
 from coba.results import Result
 
@@ -113,6 +110,7 @@ class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
             yield from self._max_chunker(sorted(chunk, key=chunk_sorter), self._max_tasks)
 
     def _get_last_chunk(self, env):
+        from coba.environments import Chunk
         if isinstance(env, SourceFilters):
             for pipe in reversed(list(env)):
                 if isinstance(pipe, Chunk):
