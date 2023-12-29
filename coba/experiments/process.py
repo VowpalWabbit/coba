@@ -3,19 +3,18 @@ from itertools import islice
 from collections import defaultdict, Counter
 from typing import Any, Iterable, Sequence, Optional, Tuple
 
-from coba.environments import Environment, SafeEnvironment, Chunk
+from coba.environments import Chunk
 from coba.evaluators import Evaluator, SafeEvaluator
 
 from coba.pipes import Pipes, SourceFilters
 from coba.context import CobaContext
 from coba.utilities import peek_first
-from coba.primitives import Source, Filter, Learner
+from coba.primitives import Source, Filter, Learner, Environment, SafeEnvironment
 from coba.safety import SafeLearner
 
 from coba.results import Result
 
 class Task:
-
     def __init__(self,
         env : Optional[Tuple[int,Environment]],
         lrn : Optional[Tuple[int,Learner,bool]],

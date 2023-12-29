@@ -6,8 +6,7 @@ from itertools import islice, repeat, chain
 from typing import Union, Sequence, Mapping, Iterable, Any
 
 from coba.context import CobaContext
-from coba.primitives import Source, Sink, Filter
-from coba.environments.primitives import Environment, Interaction
+from coba.primitives import Source, Sink, Filter, Environment, Interaction
 
 class ObjectsToZipMember(Sink[Iterable[Sequence[object]]]):
     def __init__(self, zip:str):

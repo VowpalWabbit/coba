@@ -34,7 +34,7 @@ class Categorical(str):
         return Categorical, (str(self),list(map(str,self.levels)))
 
 ############################
-#       dense/sparse       #
+# dense/sparse             #
 ############################
 class Dense(ABC):
     __slots__=()
@@ -210,7 +210,7 @@ Dense.register(tuple)
 Dense.register(Dense_)
 
 ############################
-#        coba.pipes        #
+# coba.pipes               #
 ############################
 _T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
@@ -274,7 +274,7 @@ def resolve_params(pipes:Sequence[Pipe]):
     return { resolve_key_conflicts(k):v for p in params for k,v in p.items() }
 
 ############################
-#      coba.learners       #
+# coba.learners            #
 ############################
 Prob   = float
 PMF    = Sequence[Prob]
@@ -351,3 +351,172 @@ class Learner:
         raise CobaException((
             "The `learn` interface has not been implemented for this learner."
         ))
+
+############################
+# coba.environments        #
+############################
+class Interaction(dict):
+    """An individual interaction that occurs in an Environment."""
+    __slots__=()
+
+    @staticmethod
+    def from_dict(kwargs_dict: Mapping[str, Any]) -> 'Interaction':
+        if 'feedbacks' in kwargs_dict: return GroundedInteraction (**kwargs_dict)
+        if 'reward'    in kwargs_dict: return LoggedInteraction   (**kwargs_dict)
+        if 'rewards'   in kwargs_dict: return SimulatedInteraction(**kwargs_dict)
+        return kwargs_dict
+
+class SimulatedInteraction(Interaction):
+    """Simulated data that provides rewards for every possible action."""
+    __slots__=()
+
+    def __init__(self,
+        context: Context,
+        actions: Actions,
+        rewards: Union[Rewards, Sequence[float]],
+        **kwargs) -> None:
+        """Instantiate SimulatedInteraction.
+
+        Args
+            context : Features describing the interaction's context.
+            actions : Features describing available actions during the interaction.
+            rewards : The reward for each action in the interaction.
+            kwargs : Any additional information.
+        """
+
+        self['context'] = context
+        self['actions'] = actions
+        self['rewards'] = rewards
+
+        if kwargs: self.update(kwargs)
+
+class GroundedInteraction(Interaction):
+    """A grounded interaction based on Interaction Grounded Learning which feedbacks instead of rewards."""
+    __slots__=()
+
+    def __init__(self,
+        context  : Context,
+        actions  : Actions,
+        rewards  : Union[Rewards, Sequence[float]],
+        feedbacks: Union[Rewards, Sequence[float]],
+        **kwargs) -> None:
+        """Instantiate GroundedInteraction.
+
+        Args
+            context: Features describing the interaction's context.
+            actions: Features describing available actions during the interaction.
+            rewards: The reward for each action in the interaction.
+            feedbacks: The feedback for each action in the interaction.
+            **kwargs: Additional information that should be recorded in the interactions table of an experiment result.
+        """
+
+        self['context']   = context
+        self['actions']   = actions
+        self['rewards']   = rewards
+        self['feedbacks'] = feedbacks
+
+        if kwargs: self.update(kwargs)
+
+class LoggedInteraction(Interaction):
+    """A logged interaction with an action, reward and optional probability."""
+    __slots__ = ()
+
+    def __init__(self,
+        context: Context,
+        action: Action,
+        reward: float,
+        probability:float = None,
+        **kwargs) -> None:
+        """Instantiate LoggedInteraction.
+
+        Args
+            context: Features describing the logged context.
+            action: Features describing the action taken by the logging policy.
+            reward: The reward that was revealed when the logged action was taken.
+            probability: The probability that the logged action was taken. That is P(action|context,actions,logging policy).
+            actions: All actions that were availble to be taken when the logged action was taken. Necessary for OPE.
+            rewards: The rewards to use for off policy evaluation. These rewards will not be shown to any learners. They will
+                only be recorded in experimental results. If probability and actions is provided and rewards is None then
+                rewards will be initialized using the IPS estimator.
+            **kwargs : Any additional information.
+        """
+
+        self['context'] = context
+        self['action']  = action
+        self['reward']  = reward
+
+        if probability is not None:
+            self['probability'] = probability
+
+        if kwargs: self.update(kwargs)
+
+class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
+    """A filter that can be applied to an Environment."""
+
+    @abstractmethod
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        """Apply a filter to an Environment's interactions."""
+        ...
+
+class Environment(Source[Iterable[Interaction]], ABC):
+    """An Environment that produces Contextual Bandit data"""
+
+    @property
+    def params(self) -> Mapping[str,Any]: #pragma: no cover
+        """Paramaters describing the simulation.
+
+        Remarks:
+            These will become columns in the environments table of experiment results.
+        """
+        return {}
+
+    @abstractmethod
+    def read(self) -> Iterable[Interaction]:
+        """The sequence of interactions in the simulation.
+
+        Remarks:
+            This function should always be "re-iterable".
+        """
+        ...
+
+    def __str__(self) -> str:
+        return str(self.params) if self.params else self.__class__.__name__
+
+class SafeEnvironment(Environment):
+    """A wrapper for environment-likes that guarantees interface consistency."""
+
+    def __init__(self, environment: Environment) -> None:
+        """Instantiate a SafeEnvironment.
+
+        Args:
+            environment: The environment we wish to make sure has the expected interface
+        """
+
+        self.env = environment if not isinstance(environment, SafeEnvironment) else environment.env
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        try:
+            params = self.env.params
+        except AttributeError:
+            params = {}
+
+        if "env_type" not in params:
+            try:
+                params["env_type"] = self.env[0].__class__.__name__
+            except:
+                params["env_type"] = self.env.__class__.__name__
+
+        return params
+
+    def read(self) -> Iterable[Interaction]:
+        return self.env.read()
+
+    def __str__(self) -> str:
+        params = dict(self.params)
+        tipe   = params.pop("env_type")
+
+        if len(params) > 0:
+            return f"{tipe}({','.join(f'{k}={v}' for k,v in params.items())})"
+        else:
+            return tipe

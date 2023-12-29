@@ -9,10 +9,10 @@ from statistics import mean
 from typing import Any, Sequence, Mapping, Hashable, Optional
 
 from coba.encodings import InteractionsEncoder
-from coba.environments import Environment
 from coba.exceptions import CobaExit
 from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first
+from coba.primitives import Environment
 
 from coba.evaluators.primitives import Evaluator
 

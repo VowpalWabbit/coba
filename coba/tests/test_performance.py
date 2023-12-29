@@ -12,15 +12,16 @@ from coba.registry import JsonMakerV2
 from coba.utilities import PackageChecker
 from coba.statistics import mean,var,percentile
 from coba.learners import VowpalMediator
-from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
+from coba.environments import LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.rewards import BinaryReward, HammingReward, DiscreteReward
 from coba.safety import SafeLearner
 
-from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes
+from coba.primitives import SimulatedInteraction
 
-from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
+from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes
+from coba.pipes import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
 from coba.results import Result, Table, TransactionResult, moving_average
@@ -580,9 +581,9 @@ class Performance_Tests(unittest.TestCase):
 
     def test_impute(self):
         interactions = [
-            SimulatedInteraction((7   , 2   , "A" ), [1], [1]),
-            SimulatedInteraction((7   , 2   , "A" ), [1], [1]),
-            SimulatedInteraction((8   , 3   , "A" ), [1], [1])
+            SimulatedInteraction((7, 2, "A"), [1], [1]),
+            SimulatedInteraction((7, 2, "A"), [1], [1]),
+            SimulatedInteraction((8, 3, "A"), [1], [1])
         ] * 10
         impute = Impute("mode")
         self._assert_scale_time(interactions, lambda x:list(impute.filter(x)), .06, print_time, number=1000)

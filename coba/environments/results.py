@@ -2,8 +2,7 @@ from typing import Iterable, Mapping, Any
 
 import coba.json
 from coba.exceptions import CobaException
-from coba.primitives import Source
-from coba.environments.primitives import Environment, Interaction
+from coba.primitives import Source, Environment, Interaction
 
 class ResultEnvironment(Environment):
 

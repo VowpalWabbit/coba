@@ -1,9 +1,15 @@
 import unittest
 
-from coba.environments import SafeEnvironment, Environment, SimpleEnvironment
-from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction
+from coba.primitives import SafeEnvironment, Environment, Interaction, SimulatedInteraction, LoggedInteraction
 from coba.exceptions import CobaException
-from coba.pipes import Pipes, Shuffle
+from coba.pipes      import Pipes, Shuffle
+
+class SimpleEnvironment:
+    def __init__(self, interactions=(), params={}) -> None:
+        self.interactions = interactions
+        self.params = params
+    def read(self):
+        return self.interactions
 
 class Environment_Tests(unittest.TestCase):
 
@@ -121,14 +127,6 @@ class SimulatedInteraction_Tests(unittest.TestCase):
     def test_rewards_actions_mismatch(self):
         with self.assertRaises(CobaException):
             SimulatedInteraction((1,2), (1,2,3), [4,5])
-
-class SimpleEnvironment_Tests(unittest.TestCase):
-
-    def test_read(self):
-        self.assertEqual([1,2,3],SimpleEnvironment([1,2,3]).read())
-
-    def test_params(self):
-        self.assertEqual({'a':1},SimpleEnvironment([],{'a':1}).params)
 
 if __name__ == '__main__':
     unittest.main()

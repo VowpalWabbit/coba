@@ -2,9 +2,8 @@ import math
 import unittest
 
 from coba.utilities import PackageChecker
-from coba.environments import Environment
 from coba.learners import EpsilonBanditLearner, VowpalSoftmaxLearner
-from coba.primitives import Learner
+from coba.primitives import Learner, Environment
 from coba.safety import SafeLearner
 from coba.evaluators.primitives import Evaluator, SafeEvaluator, get_ope_loss
 

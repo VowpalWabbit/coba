@@ -6,13 +6,19 @@ import warnings
 from coba.utilities    import PackageChecker
 from coba.exceptions   import CobaException
 from coba.context      import CobaContext
-from coba.environments import Batch, OpeRewards, SimpleEnvironment
-from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction
+from coba.environments import Batch, OpeRewards
 from coba.learners     import VowpalSoftmaxLearner
-from coba.primitives   import is_batch, Learner
+from coba.primitives   import is_batch, Learner, SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.rewards      import L1Reward, DiscreteReward
 
 from coba.evaluators import RejectionCB, SequentialCB, SequentialIGL
+
+class SimpleEnvironment:
+    def __init__(self, interactions=(), params={}) -> None:
+        self.interactions = interactions
+        self.params = params
+    def read(self):
+        return self.interactions
 
 #for testing purposes
 class BatchFixedLearner(Learner):

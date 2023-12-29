@@ -6,11 +6,8 @@ from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Ite
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
-from coba.primitives import Context, Action
-from coba.rewards import DiscreteReward
+from coba.primitives import Context, Action, Environment, SimulatedInteraction
 from coba.encodings import InteractionsEncoder, OneHotEncoder
-
-from coba.environments.primitives import Environment, SimulatedInteraction
 
 class LambdaSimulation(Environment):
     """A simulation created from generative lambda functions."""

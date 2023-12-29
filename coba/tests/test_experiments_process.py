@@ -4,11 +4,11 @@ from itertools import product
 from typing import cast, Iterable
 
 from coba.context      import CobaContext, BasicLogger
-from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation, SupervisedSimulation
+from coba.environments import LambdaSimulation, Environments, LinearSyntheticSimulation, SupervisedSimulation
 from coba.pipes        import Pipes, ListSink, Cache
 from coba.evaluators   import SequentialCB
 from coba.results      import Result
-from coba.primitives   import Learner
+from coba.primitives   import Learner, SimulatedInteraction
 
 from coba.experiments.process import Task, MakeTasks, ChunkTasks, ProcessTasks
 

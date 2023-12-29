@@ -5,12 +5,12 @@ from itertools import product
 from pathlib import Path
 from typing import cast
 
-from coba.environments import Environment, LambdaSimulation, SimulatedInteraction
+from coba.environments import LambdaSimulation
 from coba.pipes import ListSink
 from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
-from coba.primitives import Categorical, Source, Learner
+from coba.primitives import Categorical, Source, Learner, Environment, SimulatedInteraction
 from coba.rewards import BinaryReward
 
 class NoParamsLearner:

@@ -7,13 +7,11 @@ from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional,
 
 from coba                 import pipes
 from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
-from coba.primitives      import Context, Action, Source, Learner
+from coba.primitives      import Context, Action, Source, Learner, Environment, EnvironmentFilter
 from coba.random          import CobaRandom
 from coba.pipes           import Pipes, HttpSource, IterableSource, DataFrameSource, DiskSource, NextSource
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
-
-from coba.environments.primitives import Environment
 
 from coba.environments.templates  import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 from coba.environments.openml     import OpenmlSimulation
@@ -22,7 +20,7 @@ from coba.environments.synthetics import KernelSyntheticSimulation, MLPSynthetic
 from coba.environments.supervised import SupervisedSimulation
 from coba.environments.results    import ResultEnvironment
 
-from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Materialize
+from coba.environments.filters   import Repr, Batch, Chunk, Logged, Materialize
 from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Densify, Reservoir, Cycle, Scale, Unbatch
 from coba.environments.filters   import Slice, Impute, Where, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.filters   import MappingToInteraction, OpeRewards, Noise

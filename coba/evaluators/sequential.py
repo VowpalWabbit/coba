@@ -7,14 +7,13 @@ from bisect import insort
 
 from typing import Any, Iterable, Sequence, Mapping, Optional, Literal
 
-from coba.exceptions   import CobaException
-from coba.random       import CobaRandom
-from coba.context      import CobaContext
-from coba.environments import Environment
-from coba.safety       import SafeLearner
-from coba.primitives   import is_batch, Dense, Sparse, Learner
-from coba.statistics   import percentile
-from coba.utilities    import PackageChecker, peek_first
+from coba.exceptions  import CobaException
+from coba.random      import CobaRandom
+from coba.context     import CobaContext
+from coba.safety      import SafeLearner
+from coba.primitives  import is_batch, Dense, Sparse, Learner, Environment
+from coba.statistics  import percentile
+from coba.utilities   import PackageChecker, peek_first
 
 from coba.evaluators.primitives import Evaluator, get_ope_loss
 

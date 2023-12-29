@@ -19,12 +19,10 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker, try_else
-from coba.primitives import is_batch, Filter, Learner
+from coba.primitives import is_batch, Filter, Learner, Interaction, EnvironmentFilter
 from coba.pipes      import Pipes, SparseDense
 from coba.rewards    import BinaryReward, DiscreteReward
 from coba.safety     import SafeLearner
-
-from coba.environments.primitives import Interaction, EnvironmentFilter, SimpleEnvironment
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -1388,7 +1386,7 @@ class Logged(EnvironmentFilter):
         I1,I2 = tee(interactions,2)
         interactions = Unbatch().filter(I1)
 
-        env = SimpleEnvironment(I2)
+        env = type("",(),{'read':lambda : I2})
         lrn = copy.deepcopy(self._learner)
         evaluator = SequentialCB(record=['action','reward','probability'],seed=seed)
 
