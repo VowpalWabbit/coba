@@ -4,10 +4,8 @@ from sys import platform
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple, Literal
 
 from coba.exceptions import CobaException
-from coba.primitives import Sparse, Context, Action, Actions, is_batch
+from coba.primitives import is_batch, Learner, Context, Action, Actions, Prob, PMF, kwargs, Sparse
 from coba.utilities import PackageChecker
-
-from coba.learners.primitives import Learner, PMF, Prob, kwargs
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]

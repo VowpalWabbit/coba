@@ -5,8 +5,7 @@ from typing import Any, Tuple, Mapping, Literal
 from coba.utilities import sample_actions, try_else
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.primitives import is_batch, Context, Action, Actions
-from coba.learners.primitives import Learner, Prob, kwargs, Prediction, PMF
+from coba.primitives import is_batch, Learner, Context, Action, Actions, Prob, PMF, kwargs, Prediction
 
 def first_row(pred: Prediction, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Prediction]:
     if batch_order == 'col':

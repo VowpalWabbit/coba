@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Mapping, Iterable, Union, Optional, Callable
 
-from coba.learners import Learner
+from coba.primitives import Learner
+
 from coba.environments import Environment
 
 class Evaluator(ABC):

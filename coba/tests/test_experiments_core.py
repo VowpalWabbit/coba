@@ -7,11 +7,10 @@ from typing import cast
 
 from coba.environments import Environment, LambdaSimulation, SimulatedInteraction
 from coba.pipes import ListSink
-from coba.learners import Learner
 from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
-from coba.primitives import Categorical, Source
+from coba.primitives import Categorical, Source, Learner
 from coba.rewards import BinaryReward
 
 class NoParamsLearner:
@@ -40,7 +39,6 @@ class ModuloLearner(Learner):
         self._learn_calls += 1
 
 class BrokenLearner(Learner):
-
     @property
     def params(self):
         return {"family": "Broken"}

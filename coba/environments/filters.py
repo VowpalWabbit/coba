@@ -19,10 +19,10 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker, try_else
-from coba.primitives import is_batch, Filter
-from coba.learners   import Learner, SafeLearner
+from coba.primitives import is_batch, Filter, Learner
 from coba.pipes      import Pipes, SparseDense
 from coba.rewards    import BinaryReward, DiscreteReward
+from coba.safety     import SafeLearner
 
 from coba.environments.primitives import Interaction, EnvironmentFilter, SimpleEnvironment
 
@@ -1367,8 +1367,8 @@ class Logged(EnvironmentFilter):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        learner_params = SafeLearner(self._learner).params
-        return { **learner_params, "learner": learner_params, "logged":True, "log_seed":self._seed}
+        lrn_params = SafeLearner(self._learner).params
+        return { **lrn_params, "learner": lrn_params, "logged":True, "log_seed":self._seed}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 

@@ -1,11 +1,32 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Mapping, Optional, Hashable, Union
+from typing import Any, Mapping, Optional, Hashable, Type
 
 from coba.primitives import Context, Action, Actions
 from coba.statistics import OnlineVariance
-from coba.learners.primitives import Learner, PMF, Prob, requires_hashables
+from coba.primitives import Dense, Sparse, HashableDense, HashableSparse, Learner, PMF, Prob
+
+def requires_hashables(cls:Type[Learner]):
+
+    def make_hashable(item):
+        if isinstance(item,Dense): return HashableDense(item)
+        if isinstance(item,Sparse): return HashableSparse(item)
+        return item
+
+    old_predict = cls.predict
+    old_learn   = cls.learn
+
+    def new_predict(self,c,A):
+        return old_predict(self,make_hashable(c),list(map(make_hashable,A)))
+
+    def new_learn(self,c,a,r,p,**kwargs):
+        old_learn(self,make_hashable(c),make_hashable(a),r,p,**kwargs)
+
+    cls.predict = new_predict
+    cls.learn   = new_learn
+
+    return cls
 
 @requires_hashables
 class EpsilonBanditLearner(Learner):

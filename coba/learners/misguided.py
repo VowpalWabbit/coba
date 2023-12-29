@@ -1,4 +1,4 @@
-from coba.learners.primitives import Learner, Prob
+from coba.primitives import Learner, Prob
 
 class MisguidedLearner(Learner):
     """A contextual bandit learner that is given incorrect reward information. It is

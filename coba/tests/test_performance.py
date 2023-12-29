@@ -11,11 +11,12 @@ import coba.random
 from coba.registry import JsonMakerV2
 from coba.utilities import PackageChecker
 from coba.statistics import mean,var,percentile
-from coba.learners import VowpalMediator, SafeLearner
+from coba.learners import VowpalMediator
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.rewards import BinaryReward, HammingReward, DiscreteReward
+from coba.safety import SafeLearner
 
 from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes
 

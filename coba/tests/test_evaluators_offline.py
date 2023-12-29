@@ -15,13 +15,13 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
 
     def test_classification_statistics_empty_interactions(self):
         simulation = SupervisedSimulation([],[])
-        row        = ClassMetaEvaluator().evaluate(simulation,None)
+        row        = ClassMetaEvaluator().evaluate(simulation)
         self.assertEqual(row, {})
 
     def test_classification_statistics_dense_sans_sklearn(self):
         with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             simulation = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
-            row        = ClassMetaEvaluator().evaluate(simulation,None)
+            row        = ClassMetaEvaluator().evaluate(simulation)
 
             self.assertEqual(2, row["class_count"])
             self.assertEqual(2, row["feature_count"])
@@ -33,7 +33,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
             c2 = [{"1":3, "2":4}, "B"]
 
             simulation = SupervisedSimulation(*zip(*[c1,c2]*10))
-            row        = ClassMetaEvaluator().evaluate(simulation,None)
+            row        = ClassMetaEvaluator().evaluate(simulation)
 
             self.assertEqual(2, row["class_count"])
             self.assertEqual(2, row["feature_count"])
@@ -45,7 +45,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
             c2 = [{"1":3,"2":4}, "B" ]
 
             simulation = SupervisedSimulation(*zip(*[c1,c2]*10))
-            row        = ClassMetaEvaluator().evaluate(simulation,None)
+            row        = ClassMetaEvaluator().evaluate(simulation)
 
             json.dumps(row)
 
@@ -56,7 +56,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
 
         simulation = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10),Noise())
-        row        = ClassMetaEvaluator().evaluate(simulation,None)
+        row        = ClassMetaEvaluator().evaluate(simulation)
 
         json.dumps(row)
 
@@ -66,7 +66,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
 
         simulation = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10),Noise())
-        row        = ClassMetaEvaluator().evaluate(simulation,None)
+        row        = ClassMetaEvaluator().evaluate(simulation)
 
         self.assertEqual(2, row["class_count"])
         self.assertEqual(2, row["feature_count"])
@@ -78,7 +78,7 @@ class MulticlassMetaEvaluator_Tests(unittest.TestCase):
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
 
         simulation = Pipes.join(SupervisedSimulation([{"1":1,"2":2},{"3":3,"4":4}]*10,["A","B"]*10), Noise())
-        row        = ClassMetaEvaluator().evaluate(simulation,None)
+        row        = ClassMetaEvaluator().evaluate(simulation)
 
         self.assertEqual(2, row["class_count"])
         self.assertEqual(4, row["feature_count"])

@@ -9,7 +9,6 @@ from statistics import mean
 from typing import Any, Sequence, Mapping, Hashable, Optional
 
 from coba.encodings import InteractionsEncoder
-from coba.learners import Learner
 from coba.environments import Environment
 from coba.exceptions import CobaExit
 from coba.statistics import percentile
@@ -25,7 +24,7 @@ class ClassMetaEvaluator(Evaluator):
     To make the most of this evaluator sklearn should be installed.
     """
 
-    def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Mapping[Any,Any]:
+    def evaluate(self, environment: Optional[Environment]) -> Mapping[Any,Any]:
 
         #sources:
         #[1]: https://arxiv.org/pdf/1808.03591.pdf (lorena2019complex)

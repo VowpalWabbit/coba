@@ -3,14 +3,14 @@ from itertools import islice
 from collections import defaultdict, Counter
 from typing import Any, Iterable, Sequence, Optional, Tuple
 
-from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, SafeEnvironment, Chunk
 from coba.evaluators import Evaluator, SafeEvaluator
 
 from coba.pipes import Pipes, SourceFilters
 from coba.context import CobaContext
 from coba.utilities import peek_first
-from coba.primitives import Source, Filter
+from coba.primitives import Source, Filter, Learner
+from coba.safety import SafeLearner
 
 from coba.results import Result
 

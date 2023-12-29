@@ -1,7 +1,9 @@
 from operator import eq
 from collections import abc, Counter
 from abc import ABC, abstractmethod
-from typing import Union, Mapping, Sequence, Iterator, Iterable, Callable, TypeVar, Generic, Any
+from typing import Union, Mapping, Sequence, Iterator, Iterable, Callable, TypeVar, Generic, Tuple, Any
+
+from coba.exceptions import CobaException
 
 def is_batch(item):
     return hasattr(item,'is_batch')
@@ -34,7 +36,6 @@ class Categorical(str):
 ############################
 #       dense/sparse       #
 ############################
-
 class Dense(ABC):
     __slots__=()
 
@@ -211,7 +212,6 @@ Dense.register(Dense_)
 ############################
 #        coba.pipes        #
 ############################
-
 _T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
 
@@ -272,3 +272,82 @@ def resolve_params(pipes:Sequence[Pipe]):
             return f"{key}{index[key]}"
 
     return { resolve_key_conflicts(k):v for p in params for k,v in p.items() }
+
+############################
+#      coba.learners       #
+############################
+Prob   = float
+PMF    = Sequence[Prob]
+kwargs = Mapping[str,Any]
+
+Prediction = Union[
+    PMF,
+    Action,
+    Tuple[Action,Prob],
+    Tuple[PMF        , kwargs],
+    Tuple[Action     , kwargs],
+    Tuple[Action,Prob, kwargs],
+]
+
+class Learner:
+    """The Learner interface for contextual bandit learning."""
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        """Parameters describing the learner (used for descriptive purposes only).
+
+        Remarks:
+            These will become columns in the learners table of experiment results.
+        """
+        return {}
+
+    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+        """Propensity score a given action (or all actions if action is None) in the context.
+
+        Args:
+            context: The current context. It will either be None (multi-armed bandit),
+                a value (a single feature), a sequence of values (dense features), or a
+                dictionary (sparse features).
+            actions: The current set of actions that can be chosen in the given context.
+                Each action will either be a value (a single feature), a sequence of values
+                (dense features), or a dictionary (sparse features).
+            action: The action to propensity score.
+
+        Returns:
+            The propensity score for the given action.
+        """
+        raise CobaException((
+            "The `score` interface has not been implemented for this learner."
+        ))
+
+    def predict(self, context: Context, actions: Actions) -> Prediction:
+        """Predict which action to take in the context.
+
+        Args:
+            context: The current context. It will either be None (multi-armed bandit),
+                a value (a single feature), a sequence of values (dense features), or a
+                dictionary (sparse features).
+            actions: The current set of actions to choose from in the given context.
+                Each action will either be a value (a single feature), a sequence of values
+                (dense features), or a dictionary (sparse features).
+
+        Returns:
+            A Prediction. Several prediction formats are supported. See the type-hint for these.
+        """
+        raise CobaException((
+            "The `predict` interface has not been implemented for this learner."
+        ))
+
+    def learn(self, context: Context, action: Action, reward: float, probability: float, **kwargs) -> None:
+        """Learn about the action taken in the context.
+
+        Args:
+            context: The context in which the action was taken.
+            action: The action that was taken.
+            reward: The reward for the given context and action (feedback for IGL problems).
+            probability: The probability the given action was taken.
+            **kwargs: Optional information returned during prediction.
+        """
+        raise CobaException((
+            "The `learn` interface has not been implemented for this learner."
+        ))

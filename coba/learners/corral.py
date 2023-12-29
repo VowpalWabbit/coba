@@ -1,13 +1,11 @@
 import math
 
-from typing import Any, Sequence, Optional, Mapping, Tuple, Literal, Union
+from typing import Any, Sequence, Optional, Mapping, Tuple, Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.primitives import Context, Action
-
-from coba.learners.safety import SafeLearner
-from coba.learners.primitives import Learner, PMF, kwargs, Actions, Prob
+from coba.primitives import Learner, Context, Action, Actions, Prob, PMF, kwargs
+from coba.safety import SafeLearner
 
 class CorralLearner(Learner):
     """A meta-learner that takes a collection of learners and determines

@@ -1,11 +1,9 @@
-from typing import Any, Mapping, Sequence, Union
+from typing import Any, Mapping, Sequence
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.primitives import Context, Action
+from coba.primitives import Learner, Context, Action, Actions, Prob, PMF
 from coba.encodings import InteractionsEncoder
-
-from coba.learners.primitives import PMF, Learner, Actions, Prob
 
 class LinTSLearner(Learner):
     """A contextual bandit learner that represents expected reward as a

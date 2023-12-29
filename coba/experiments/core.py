@@ -4,7 +4,6 @@ from itertools import product
 from typing import Sequence, Optional, Union, overload, Tuple
 
 from coba.environments import Environment
-from coba.learners     import Learner
 from coba.evaluators   import Evaluator, SequentialCB
 
 from coba.pipes import Pipes, DiskSink, ListSink, DiskSource, ListSource, Identity, Insert
@@ -12,6 +11,7 @@ from coba.results import Result, TransactionDecode, TransactionEncode, Transacti
 from coba.context import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
 from coba.exceptions import CobaException
 from coba.multiprocessing import CobaMultiprocessor
+from coba.primitives import Learner
 
 from coba.experiments.process import MakeTasks, ChunkTasks, ProcessTasks
 

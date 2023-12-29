@@ -4,8 +4,7 @@ from coba.context import CobaContext, Logger, NullLogger, BasicLogger, IndentLog
 from coba.environments import Environments, ArffSource, CsvSource, LibSvmSource, ManikSource
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, LambdaSimulation
 
-from coba.learners import Learner
-from coba.learners import SafeLearner, FixedLearner, RandomLearner
+from coba.learners import FixedLearner, RandomLearner
 from coba.learners import EpsilonBanditLearner, UcbBanditLearner
 from coba.learners import CorralLearner, LinUCBLearner, LinTSLearner
 from coba.learners import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
@@ -20,7 +19,8 @@ from coba.encodings import InteractionsEncoder
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
 
-from coba.primitives import is_batch, Context, Action, Actions, Rewards
+from coba.safety import SafeLearner
+from coba.primitives import is_batch, Context, Action, Actions, Rewards, Learner
 from coba.rewards import L1Reward, HammingReward, DiscreteReward
 
 from coba.statistics import BootstrapCI, mean

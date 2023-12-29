@@ -3,11 +3,12 @@ import unittest
 
 from coba.utilities import PackageChecker
 from coba.environments import Environment
-from coba.learners import EpsilonBanditLearner, Learner, VowpalSoftmaxLearner, SafeLearner
+from coba.learners import EpsilonBanditLearner, VowpalSoftmaxLearner
+from coba.primitives import Learner
+from coba.safety import SafeLearner
 from coba.evaluators.primitives import Evaluator, SafeEvaluator, get_ope_loss
 
 class Evaluator_Tests(unittest.TestCase):
-
     def test_params(self):
         class SubEvaluator(Evaluator):
             def evaluate(self, environment: Environment, learner: Learner):

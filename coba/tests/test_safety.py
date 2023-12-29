@@ -2,8 +2,8 @@ import unittest
 
 from coba.exceptions import CobaException
 from coba.primitives import is_batch
-from coba.learners.safety import SafeLearner
-from coba.learners.safety import has_kwargs, first_row, pred_format, batch_order, possible_action, possible_pmf
+from coba.safety import SafeLearner
+from coba.safety import has_kwargs, first_row, pred_format, batch_order, possible_action, possible_pmf
 
 class Batch(list):
     is_batch=True
