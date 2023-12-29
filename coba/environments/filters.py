@@ -19,9 +19,9 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first, PackageChecker, try_else
-from coba.primitives import is_batch
+from coba.primitives import is_batch, Filter
 from coba.learners   import Learner, SafeLearner
-from coba.pipes      import Pipes, Filter, SparseDense
+from coba.pipes      import Pipes, SparseDense
 from coba.rewards    import BinaryReward, DiscreteReward
 
 from coba.environments.primitives import Interaction, EnvironmentFilter, SimpleEnvironment

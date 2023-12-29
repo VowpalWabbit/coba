@@ -8,8 +8,9 @@ from datetime import datetime
 from typing import ContextManager, Iterator, Sequence, Union
 from copy import copy
 
-from coba.pipes import Pipes, Filter, Sink, NullSink, ConsoleSink, Identity
+from coba.primitives import Filter, Sink
 from coba.exceptions import CobaException
+from coba.pipes import Pipes, NullSink, ConsoleSink, Identity
 
 class Logger(ABC):
     """The interface for a logger."""

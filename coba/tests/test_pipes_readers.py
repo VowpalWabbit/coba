@@ -11,9 +11,7 @@ CobaContext.logger = NullLogger()
 
 class CsvReader_Tests(unittest.TestCase):
     def test_dense_with_header(self):
-
         parsed = list(CsvReader(has_header=True).filter(['a,b,c', '1,2,3']))
-
         self.assertEqual(1, len(parsed))
         self.assertEqual('1', parsed[0][0])
         self.assertEqual('1', parsed[0]['a'])
@@ -359,7 +357,6 @@ class ArffReader_Tests(unittest.TestCase):
         self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
 
     def test_sparse_categorical_0_value(self):
-
         #this is a bug in ARFF, it is not uncommon for the first class value in an ARFF class list
         #to be dropped from the actual data because it is encoded as 0. Therefore our ARFF reader
         #automatically adds a 0 value to all categorical one-hot encoders to protect against this.

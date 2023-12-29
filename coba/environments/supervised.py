@@ -1,11 +1,11 @@
 from itertools import chain
 from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping, Literal
 
-from coba.pipes import Pipes, Source, IterableSource, LabelRows, Reservoir, UrlSource, CsvReader
+from coba.pipes import Pipes, IterableSource, LabelRows, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
 from coba.utilities import peek_first
-from coba.primitives import Categorical
+from coba.primitives import Categorical, Source
 from coba.rewards import L1Reward, BinaryReward, HammingReward
 
 from coba.environments.primitives import Environment, SimulatedInteraction

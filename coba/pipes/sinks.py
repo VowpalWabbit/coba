@@ -1,11 +1,37 @@
 import gzip
 
 from queue import Queue
-from collections.abc import Iterator
 from itertools import islice
-from typing import Callable, Any, List, Union, Sequence, Iterable
+from collections import abc
+from typing import Callable, Any, List, Union, Sequence, Iterable, Mapping, Iterator
 
-from coba.pipes.primitives import Sink
+from coba.primitives import Sink, Filter, resolve_params
+from coba.utilities import try_else
+
+class FiltersSink(Sink):
+    def __init__(self, *pipes: Union[Filter,Sink]) -> None:
+        self._pipes = sum((try_else(lambda: list(p),[p]) for p in pipes),[])
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return resolve_params(list(self))
+
+    def write(self, item: Any):
+        for filter in self._pipes[:-1]:
+            item = filter.filter(item)
+        self._pipes[-1].write(item)
+
+    def __str__(self) -> str:
+        return ",".join(map(str,self._pipes))
+
+    def __getitem__(self, index: int) -> Union[Filter,Sink]:
+        return self._pipes[index]
+
+    def __iter__(self) -> Iterator[Filter]:
+        return iter(self._pipes)
+
+    def __len__(self) -> int:
+        return len(self._pipes)
 
 class NullSink(Sink[Any]):
     """A sink which does nothing with written items."""
@@ -99,7 +125,7 @@ class ListSink(Sink[Any]):
     def write(self, item) -> None:
         item = (item if self._foreach else [item])
         for i in item:
-            self.items.append(list(i) if isinstance(i, Iterator) else i)
+            self.items.append(list(i) if isinstance(i, abc.Iterator) else i)
 
 class QueueSink(Sink[Any]):
     """A sink which puts written items into a Queue."""

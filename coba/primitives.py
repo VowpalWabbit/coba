@@ -1,7 +1,7 @@
 from operator import eq
-from collections import abc
+from collections import abc, Counter
 from abc import ABC, abstractmethod
-from typing import Union, Mapping, Sequence, Iterator, Iterable, Callable, Any
+from typing import Union, Mapping, Sequence, Iterator, Iterable, Callable, TypeVar, Generic, Any
 
 def is_batch(item):
     return hasattr(item,'is_batch')
@@ -30,6 +30,10 @@ class Categorical(str):
 
     def __reduce__(self):
         return Categorical, (str(self),list(map(str,self.levels)))
+
+############################
+#       dense/sparse       #
+############################
 
 class Dense(ABC):
     __slots__=()
@@ -203,3 +207,68 @@ Dense.register(HashableDense)
 Dense.register(list)
 Dense.register(tuple)
 Dense.register(Dense_)
+
+############################
+#        coba.pipes        #
+############################
+
+_T_out = TypeVar("_T_out", bound=Any, covariant    =True)
+_T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
+
+class Pipe:
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        """Parameters describing the pipe."""
+        return { }
+
+    def __str__(self) -> str:
+        return str(self.params)
+
+class Source(ABC, Pipe, Generic[_T_out]):
+    """A pipe that can be read."""
+
+    @abstractmethod
+    def read(self) -> _T_out:
+        """Read the item."""
+        ...
+
+class Filter(ABC, Pipe, Generic[_T_in, _T_out]):
+    """A pipe that can modify an item."""
+
+    @abstractmethod
+    def filter(self, item: _T_in) -> _T_out:
+        """Filter the item."""
+        ...
+
+class Sink(ABC, Pipe, Generic[_T_in]):
+    """A pipe that writes item."""
+
+    @abstractmethod
+    def write(self, item: _T_in) -> None:
+        """Write the item."""
+        ...
+
+class Line(ABC, Pipe):
+    """A pipe that can be run."""
+
+    @abstractmethod
+    def run(self):
+        """Run the pipe."""
+        ...
+
+def resolve_params(pipes:Sequence[Pipe]):
+
+    params = [p.params for p in pipes if hasattr(p,'params')]
+    keys   = [ k for p in params for k in p.keys() ]
+    counts = Counter(keys)
+    index  = {}
+
+    def resolve_key_conflicts(key):
+        if counts[key] == 1:
+            return key
+        else:
+            index[key] = index.get(key,0)+1
+            return f"{key}{index[key]}"
+
+    return { resolve_key_conflicts(k):v for p in params for k,v in p.items() }

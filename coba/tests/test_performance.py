@@ -612,20 +612,22 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skip("Just for testing. There's not much we can do to speed up process creation.")
     def test_async_pipe(self):
-        #this takes about 2.5 with number=10
+        from multiprocessing import Process
+        #this takes about 2.3 with number=10
         def run_async1():
-            from multiprocessing import Process
-            p = Process(target=coba.pipes.Identity)
-            p.start()
-            p.join()
-
-        #this takes about 2.5 with number=10
-        pipeline = Pipes.join(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())
-        def run_async2():
-            proc = pipeline.run_async(lambda ex: None)
+            pipeline = Pipes.join(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())
+            proc = Process(target=pipeline.run)
+            proc.start()
             proc.join()
 
-        self._assert_call_time(run_async2, 2.5, print_time, number=10)
+        #this takes about 2.3 with number=10
+        def run_async2():
+            pipeline = Pipes.join(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())
+            proc = coba.pipes.ProcessLine(pipeline)
+            proc.start()
+            proc.join()
+
+        self._assert_call_time(run_async2, 2.3, True, number=10)
 
     def _assert_call_time(self, func: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         """ Test that the given func scales linearly with the number of items.

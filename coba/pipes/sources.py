@@ -2,10 +2,37 @@ import requests
 import gzip
 
 from queue import Queue
-from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Literal, Tuple
+from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Literal, Tuple, Iterator
 
 from coba.exceptions import CobaException
-from coba.pipes.primitives import Source
+from coba.primitives import Source, Filter, resolve_params
+from coba.utilities  import try_else
+
+class SourceFilters(Source):
+    def __init__(self, *pipes: Union[Source,Filter]) -> None:
+        self._pipes = sum((try_else(lambda: list(p),[p]) for p in pipes),[])
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return resolve_params(list(self))
+
+    def read(self) -> Any:
+        item = self._pipes[0].read()
+        for filter in self._pipes[1:]:
+            item = filter.filter(item)
+        return item
+
+    def __str__(self) -> str:
+        return ",".join(map(str,self._pipes))
+
+    def __getitem__(self, index:int) -> Union[Source,Filter]:
+        return self._pipes[index]
+
+    def __iter__(self) -> Iterator[Union[Source,Filter]]:
+        return iter(self._pipes)
+
+    def __len__(self) -> int:
+        return len(self._pipes)
 
 class NullSource(Source[Any]):
     """A source which always returns an empty list."""

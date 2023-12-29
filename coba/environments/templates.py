@@ -6,8 +6,9 @@ from typing import Sequence, Any, overload, Iterable, Union, Dict
 
 from coba.context import CobaContext
 from coba.registry import JsonMakerV1, CobaRegistry, JsonMakerV2
-from coba.pipes import Source, UrlSource, Pipes
+from coba.pipes import UrlSource, Pipes
 from coba.exceptions import CobaException
+from coba.primitives import Source
 
 from coba.environments.primitives import Environment
 

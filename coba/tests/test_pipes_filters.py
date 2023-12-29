@@ -1,13 +1,101 @@
 import unittest
 import unittest.mock
 
-from coba.pipes import Flatten, Encode, Structure, LazyDense, LazySparse
-from coba.pipes import Take, Identity, Shuffle, Default, Reservoir, Cache
+from coba.pipes import LazyDense, LazySparse
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.context import NullLogger, CobaContext
 from coba.utilities import peek_first
 
+from coba.pipes.filters import Flatten, Encode, Structure, Take, Identity
+from coba.pipes.filters import Shuffle, Default, Reservoir, Cache, FiltersFilter
+
 CobaContext.logger = NullLogger()
+
+class ReprFilter:
+    def __init__(self,id=""):
+        self._id = id
+
+    def __str__(self):
+        return f"ReprFilter{self._id}"
+
+    def filter(self, item):
+        return item
+
+class ParamsFilter:
+    @property
+    def params(self):
+        return {'filter':"ParamsFilter"}
+
+    def filter(self,item):
+        return item
+
+class NoParamsFilter:
+    def filter(self,item):
+        return item
+
+class FiltersFilter_Tests(unittest.TestCase):
+
+    def test_init_filters(self):
+
+        filter = FiltersFilter(ReprFilter("1"), ReprFilter("2"))
+
+        self.assertEqual(2, len(filter._filters))
+        self.assertIsInstance(filter._filters[0], ReprFilter)
+        self.assertIsInstance(filter._filters[1], ReprFilter)
+        self.assertEqual("ReprFilter1,ReprFilter2", str(filter))
+
+    def test_init_filtersfilter(self):
+
+        filter = FiltersFilter(FiltersFilter(ReprFilter(), ReprFilter()), ReprFilter())
+
+        self.assertEqual(3, len(filter._filters))
+        self.assertIsInstance(filter._filters[0], ReprFilter)
+        self.assertIsInstance(filter._filters[1], ReprFilter)
+        self.assertIsInstance(filter._filters[2], ReprFilter)
+        self.assertEqual("ReprFilter,ReprFilter,ReprFilter", str(filter))
+
+    def test_read1(self):
+
+        self.assertEqual([0,1,2], list(FiltersFilter(ReprFilter(), ReprFilter()).filter(range(3))))
+
+    def test_read2(self):
+
+        self.assertEqual([0,1,2], list(FiltersFilter(FiltersFilter(ReprFilter(), ReprFilter()), ReprFilter()).filter(range(3))))
+
+    def test_params(self):
+        source = FiltersFilter(NoParamsFilter(), NoParamsFilter())
+        self.assertEqual({}, source.params)
+
+        source = FiltersFilter(NoParamsFilter(), ParamsFilter())
+        self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+        source = FiltersFilter(ParamsFilter(), NoParamsFilter())
+        self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+        source = FiltersFilter(ParamsFilter(), ParamsFilter())
+        self.assertEqual({'filter1':'ParamsFilter','filter2':'ParamsFilter'}, source.params)
+
+    def test_len(self):
+        self.assertEqual(2,len(FiltersFilter(ReprFilter("1"), ReprFilter("2"))))
+
+    def test_getitem(self):
+        filter1 = ReprFilter("1")
+        filter2 = ReprFilter("2")
+
+        pipe = FiltersFilter(filter1, filter2)
+
+        self.assertIs(pipe[0],filter1)
+        self.assertIs(pipe[1],filter2)
+
+        self.assertIs(pipe[-1],filter2)
+        self.assertIs(pipe[-2],filter1)
+
+    def test_iter(self):
+        filter1 = ReprFilter("1")
+        filter2 = ReprFilter("2")
+
+        pipes = list(FiltersFilter(filter1, filter2))
+        self.assertEqual(pipes, [filter1,filter2])
 
 class Identity_Tests(unittest.TestCase):
 

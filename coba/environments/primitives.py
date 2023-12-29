@@ -1,8 +1,8 @@
 from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Sequence, Mapping, overload
 
-from coba.primitives import Context, Action, Actions, Rewards
-from coba.pipes import Source, SourceFilters, Filter
+from coba.primitives import Context, Action, Actions, Rewards, Source, Filter
+from coba.pipes import SourceFilters
 
 class Interaction(dict):
     """An individual interaction that occurs in an Environment."""
@@ -161,7 +161,7 @@ class SafeEnvironment(Environment):
         if "env_type" not in params:
 
             if isinstance(self.env, SourceFilters):
-                params["env_type"] = self.env._source.__class__.__name__
+                params["env_type"] = self.env[0].__class__.__name__
             else:
                 params["env_type"] = self.env.__class__.__name__
 

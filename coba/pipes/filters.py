@@ -2,14 +2,37 @@ import math
 
 from collections import defaultdict, abc
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Mapping, Optional, Union
+from typing import Iterable, Any, Sequence, Mapping, Optional, Union, Iterator
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder
-from coba.utilities import peek_first
-from coba.primitives import Sparse,Dense
+from coba.utilities import peek_first, try_else
+from coba.primitives import Sparse, Dense, Filter, resolve_params
 
-from coba.pipes.primitives import Filter
+class FiltersFilter(Filter):
+    def __init__(self, *pipes: Filter):
+        self._filters = sum((try_else(lambda: list(p),[p]) for p in pipes),[])
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return resolve_params(list(self))
+
+    def filter(self, items: Any) -> Any:
+        for filter in self._filters:
+            items = filter.filter(items)
+        return items
+
+    def __str__(self) -> str:
+        return ",".join(map(str,self._filters))
+
+    def __getitem__(self, index: int) -> Filter:
+        return self._filters[index]
+
+    def __iter__(self) -> Iterator[Filter]:
+        return iter(self._filters)
+
+    def __len__(self) -> int:
+        return len(self._filters)
 
 class Identity(Filter[Any, Any]):
     """A filter which returns what is given."""

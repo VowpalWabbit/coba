@@ -2,11 +2,8 @@ from collections import abc
 from itertools import count, compress, chain, filterfalse, islice, repeat
 from typing import Dict, Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple, Literal
 
-from coba.primitives import Sparse, Dense, Categorical
-from coba.primitives import Dense_, Sparse_
+from coba.primitives import Dense_, Sparse_, Sparse, Dense, Categorical, Filter
 from coba.utilities import peek_first
-from coba.pipes.primitives import Filter
-from coba.pipes.filters import Flatten
 
 class LazyDense(Dense_):
     __slots__ = ('_row','_enc','headers','missing')
@@ -546,6 +543,7 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
             rows = self._encode_values(rows, first)
 
         if self._tipe == 'onehot':
+            from coba.pipes.filters import Flatten
             rows = Flatten().filter(rows)
 
         return rows

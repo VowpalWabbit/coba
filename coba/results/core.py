@@ -13,13 +13,13 @@ from itertools import chain, repeat, accumulate, groupby, count, compress, group
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
 import coba.json
-from coba.primitives import is_batch
+from coba.primitives import is_batch, Source
 from coba.environments import Environment
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.context import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first, KeyDefaultDict
-from coba.pipes import Pipes, DiskSource, Source
+from coba.pipes import Pipes, DiskSource
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
 

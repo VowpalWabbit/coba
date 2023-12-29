@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import cast
 
 from coba.environments import Environment, LambdaSimulation, SimulatedInteraction
-from coba.pipes import Source, ListSink
+from coba.pipes import ListSink
 from coba.learners import Learner
 from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
-from coba.primitives import Categorical
+from coba.primitives import Categorical, Source
 from coba.rewards import BinaryReward
 
 class NoParamsLearner:

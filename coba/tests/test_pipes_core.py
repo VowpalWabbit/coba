@@ -5,27 +5,32 @@ import multiprocessing as mp
 from typing import Iterable, Any
 
 from coba.exceptions import CobaException
-from coba.pipes import Filter, ListSink, IterableSource, Foreach, SourceFilters
+from coba.pipes import ListSink, IterableSource, Foreach
 
 from coba.pipes.core import Pipes
 
-class ReprSink(ListSink):
-    def __init__(self, params={}) -> None:
-        self._params = params
-        super().__init__()
+class SingleItemIdentity:
+    def filter(self,item):
+        return item
 
+class ReprSink:
+    def __init__(self,params={}) -> None:
+        self.items = []
+        self.params = params
     def __str__(self):
         return "ReprSink"
+    def write(self,item):
+        self.items.append(item)
 
-    @property
-    def params(self):
-        return self._params
-
-class ReprSource(IterableSource):
+class ReprSource:
+    def __init__(self,items=[]):
+        self.items = items
     def __str__(self):
         return "ReprSource"
+    def read(self):
+        return self.items
 
-class ReprFilter(Filter):
+class ReprFilter:
     def __init__(self,id=""):
         self._id = id
 
@@ -35,12 +40,12 @@ class ReprFilter(Filter):
     def filter(self, item: Any) -> Any:
         return item
 
-class ProcessNameFilter(Filter):
+class ProcessNameFilter:
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         for _ in items:
             yield mp.current_process().name
 
-class ExceptionFilter(Filter):
+class ExceptionFilter:
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise Exception("Exception Filter")
 
@@ -51,21 +56,17 @@ class Pipes_Tests(unittest.TestCase):
         sink   = ListSink()
 
         Pipes.join(source, ProcessNameFilter(), sink).run()
-
         self.assertEqual(sink.items[0], ['MainProcess']*10)
 
     def test_filter_order(self):
-
         class AddFilter:
             def filter(self,items):
                 for item in items:
                     yield item+1
-
         class MultFilter:
             def filter(self,items):
                 for item in items:
                     yield item*2
-
         self.assertEqual([4,6], list(Pipes.join(AddFilter(), MultFilter()).filter([1,2])))
 
     def test_exception(self):
@@ -85,34 +86,43 @@ class Pipes_Tests(unittest.TestCase):
 
     def test_join_source_foreach_filter(self):
         filter = Pipes.join(ReprSource([1,2]), Foreach(ReprFilter()))
-        self.assertIsInstance(filter, SourceFilters)
+        self.assertEqual(list(filter.read()), [1,2])
 
     def test_join_filters_sink_repr(self):
-        filters = [ReprFilter(),ReprFilter()]
-        sink    = ReprSink()
-        self.assertEqual("ReprFilter,ReprFilter,ReprSink", str(Pipes.join(*filters, sink)))
+        self.assertEqual("ReprFilter,ReprFilter,ReprSink", str(Pipes.join(ReprFilter(),ReprFilter(),ReprSink())))
 
     def test_join_filters_repr(self):
         self.assertEqual("ReprFilter,ReprFilter", str(Pipes.join(ReprFilter(), ReprFilter())))
 
     def test_join_source_sink_repr(self):
-        source  = ReprSource()
-        sink    = ReprSink()
-        self.assertEqual("ReprSource,ReprSink", str(Pipes.join(source, sink)))
+        self.assertEqual("ReprSource,ReprSink", str(Pipes.join(ReprSource(), ReprSink())))
 
     def test_join_flattens_filters(self):
-        filter1 = Pipes.join(ReprFilter())
-        filter2 = Pipes.join(filter1, ReprFilter())
-        filter3 = Pipes.join(filter2, filter2)
-        self.assertEqual(4, len(filter3._filters))
+        filter = Pipes.join(ReprFilter())
+        filter = Pipes.join(filter, ReprFilter())
+        filter = Pipes.join(filter, filter)
+        self.assertEqual(4, len(filter))
 
     def test_bad_exception(self):
-
         with self.assertRaises(CobaException):
             Pipes.join()
-
         with self.assertRaises(CobaException):
             Pipes.join(object())
+
+class Foreach_Tests(unittest.TestCase):
+    def test_filter(self):
+        self.assertEqual([0,1,2],  list(Foreach(SingleItemIdentity()).filter(range(3))))
+
+    def test_write(self):
+        sink = ListSink()
+        Foreach(sink).write(range(3))
+        self.assertEqual([0,1,2], sink.items)
+
+    def test_str(self):
+        self.assertEqual("ReprSink", str(Foreach(ReprSink())))
+
+    def test_params(self):
+        self.assertEqual({'a':1}, Foreach(ReprSink(params={'a':1})).params)
 
 if __name__ == '__main__':
     unittest.main()

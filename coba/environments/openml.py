@@ -5,10 +5,10 @@ from operator import attrgetter
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
-from coba.pipes import Pipes, Source
+from coba.pipes import Pipes
 from coba.pipes import HttpSource, ArffReader, DropRows, LabelRows
 from coba.context import CobaContext
-from coba.primitives import Sparse, Dense
+from coba.primitives import Sparse, Dense, Source
 from coba.exceptions import CobaException
 
 from coba.environments.supervised import SupervisedSimulation

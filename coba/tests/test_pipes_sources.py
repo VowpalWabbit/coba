@@ -10,7 +10,7 @@ from pathlib import Path
 from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.context import NullLogger, CobaContext
-from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource
+from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource, SourceFilters
 from coba.pipes.sources import HttpSource, LambdaSource, IterableSource, DataFrameSource, NextSource
 
 CobaContext.logger = NullLogger()
@@ -25,6 +25,113 @@ class BrokenQueue:
 
     def put(self,item):
         raise self._exception
+
+class ReprSource:
+    def __init__(self,items):
+        self.items = items
+    def __str__(self):
+        return "ReprSource"
+    def read(self):
+        return self.items
+
+class ParamsSource:
+    @property
+    def params(self):
+        return {'source':"ParamsSource"}
+
+    def read(self):
+        return 1
+
+class NoParamsSource:
+    def read(self):
+        return 1
+
+class ReprFilter:
+    def __init__(self,id=""):
+        self._id = id
+
+    def __str__(self):
+        return f"ReprFilter{self._id}"
+
+    def filter(self, item):
+        return item
+
+class ParamsFilter:
+    @property
+    def params(self):
+        return {'filter':"ParamsFilter"}
+
+    def filter(self,item):
+        return item
+
+class NoParamsFilter:
+    def filter(self,item):
+        return item
+
+class SourceFilters_Tests(unittest.TestCase):
+    def test_init_source_filters(self):
+        source = SourceFilters(ReprSource([1,2]), ReprFilter(), ReprFilter())
+        self.assertEqual(3, len(source))
+        self.assertIsInstance(source[0], ReprSource)
+        self.assertIsInstance(source[1], ReprFilter)
+        self.assertIsInstance(source[2], ReprFilter)
+        self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(source))
+
+    def test_sourcefilter_filters(self):
+        source = SourceFilters(SourceFilters(ReprSource([1,2]), ReprFilter()), ReprFilter())
+        self.assertEqual(3, len(source))
+        self.assertIsInstance(source[0], ReprSource)
+        self.assertIsInstance(source[1], ReprFilter)
+        self.assertIsInstance(source[2], ReprFilter)
+        self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(source))
+
+    def test_read1(self):
+        source = SourceFilters(ReprSource([1,2]), ReprFilter(), ReprFilter())
+        self.assertEqual([1,2], list(source.read()))
+
+    def test_read2(self):
+        source = SourceFilters(SourceFilters(ReprSource([1,2]), ReprFilter()), ReprFilter())
+        self.assertEqual([1,2], list(source.read()))
+
+    def test_params(self):
+        source = SourceFilters(NoParamsSource(), NoParamsFilter())
+        self.assertEqual({}, source.params)
+        source = SourceFilters(NoParamsSource(), ParamsFilter())
+        self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+        source = SourceFilters(NoParamsSource(), NoParamsFilter(), ParamsFilter())
+        self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+        source = SourceFilters(ParamsSource(), NoParamsFilter(), ParamsFilter())
+        self.assertEqual({'source':'ParamsSource','filter':'ParamsFilter'}, source.params)
+
+        source = SourceFilters(ParamsSource(), ParamsFilter(), ParamsFilter())
+        self.assertEqual({'source':'ParamsSource','filter1':'ParamsFilter','filter2':'ParamsFilter'}, source.params)
+
+    def test_len(self):
+        self.assertEqual(3, len(SourceFilters(ReprSource([1,2]), ReprFilter(), ReprFilter())))
+
+    def test_getitem(self):
+        source  = ReprSource([1,2])
+        filter1 = ReprFilter()
+        filter2 = ReprFilter()
+
+        pipe = SourceFilters(source, filter1, filter2)
+
+        self.assertIs(pipe[0],source)
+        self.assertIs(pipe[1],filter1)
+        self.assertIs(pipe[2],filter2)
+
+        self.assertIs(pipe[-1],filter2)
+        self.assertIs(pipe[-2],filter1)
+        self.assertIs(pipe[-3],source)
+
+    def test_iter(self):
+        source  = ReprSource([1,2])
+        filter1 = ReprFilter()
+        filter2 = ReprFilter()
+        pipes = list(SourceFilters(source, filter1, filter2))
+        self.assertEqual(pipes, [source,filter1,filter2])
 
 class NullSource_Tests(unittest.TestCase):
     def test_read(self):

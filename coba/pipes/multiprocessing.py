@@ -4,15 +4,16 @@ import multiprocessing as mp
 
 from collections.abc import Iterator
 from queue import Empty
-from traceback import format_tb
-from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any, Literal
+from typing import Iterable, Mapping, Callable, Union, Any
 
+from coba.primitives import Filter, Line
 from coba.utilities import peek_first, PackageChecker
 from coba.exceptions import CobaException
-from coba.pipes.primitives import Filter, Line, SourceSink
+
+from coba.pipes.lines   import ProcessLine,ThreadLine,SourceSink
 from coba.pipes.filters import Slice
 from coba.pipes.sources import IterableSource, QueueSource
-from coba.pipes.sinks import QueueSink
+from coba.pipes.sinks   import QueueSink
 
 # handle not picklable (this is handled by explicitly pickling) (UNITTESTED)
 # handle empty list (this is done  naturally) (UNITTESTED)
@@ -45,165 +46,33 @@ class UniqueKey:
     def __eq__(self, value: object) -> bool:
         return isinstance(value,UniqueKey) and value._n == self._n
 
-class ProcessLine(spawn_context.Process):
+class MyProcessLine(ProcessLine):
 
     ### We create a lock so that we can safely receive any possible exceptions. Empirical
     ### tests showed that creating a Pipe and Lock doesn't seem to slow us down too much.
 
     def __init__(self, line: Line, callback: Callable = None, read_wait_store:dict = None):
-
-        self._line         = line
-        self._callback     = callback
-        self._exception    = None
-        self._traceback    = None
-        self._poisoned     = False
         self._read_waiters = read_wait_store
-        super().__init__(daemon=True)
+        super().__init__(line,callback)
 
     def start(self) -> None:
-        callback               = self._callback
-        self._callback         = None
-        self._recv, self._send = spawn_context.Pipe(False)
-        self._lock             = spawn_context.Lock()
-        read_waiters           = self._read_waiters
-        self._read_waiters     = None
+        rw = self._read_waiters
+        del self._read_waiters
 
-        self._wait     = None if read_waiters is None else spawn_context.Event()
-        self._wait_key = None if read_waiters is None else UniqueKey()
-        if read_waiters is not None: read_waiters[self._wait_key] = self._wait
+        if rw is not None:
+            self._wait         = spawn_context.Event()
+            self._wait_key     = UniqueKey()
+            rw[self._wait_key] = self._wait
 
         super().start()
-
-        if callback:
-            def join_and_call(self=self):
-                self.join()
-                callback(self)
-            mt.Thread(target=join_and_call,daemon=True).start()
 
     def run(self): #pragma: no cover (coverage can't be tracked for code that runs on background prcesses)
-        try:
-            self._line.run()
 
-            if self._wait:
-                self._line[-1].write([self._wait_key])
-                self._wait.wait()
+        super().run()
 
-        except Exception as e:
-            if str(e).startswith("Can't get attribute"):
-                ex,tb = CobaException(
-                    "We attempted to evaluate your code in multiple processes but we were unable to find all the code "
-                    "definitions needed to pass the tasks to the processes. The two most common causes of this error are: "
-                    "1) a learner or simulation is defined in a Jupyter Notebook cell or 2) a necessary class definition "
-                    "exists inside the `__name__=='__main__'` code block in the main execution script. In either case you "
-                    "can choose one of four simple solutions: 1) pip install cloudpickle into your python environment, 2) "
-                    "evaluate your code on a single process, 3) if in Jupyter notebook define all necessary classes in a "
-                    "separate file and include the classes via import statements, or 4) move your class definitions outside "
-                    "the `__name__ == '__main__'` check."
-                ),None
-            else:
-                ex,tb = e,format_tb(e.__traceback__)
-        except KeyboardInterrupt as e:
-            ex,tb = e,None
-        else:
-            ex,tb = None,None
-
-        self._send.send((ex, tb, hasattr(self._line[0],'_poisoned') and self._line[0]._poisoned))
-
-    def join(self) -> None:
-        super().join()
-        self._get_result()
-
-    @property
-    def pipeline(self) -> Line:
-        return self._line
-
-    @property
-    def traceback(self) -> Sequence[str]:
-        return self._traceback
-
-    @property
-    def exception(self) -> Optional[Exception]:
-        return self._exception
-
-    @property
-    def poisoned(self) -> bool:
-        return self._poisoned
-
-    def _get_result(self):
-        with self._lock:
-            if not self._recv.closed:
-                if self._recv.poll():
-                    ex,tb,po = self._recv.recv()
-                    self._exception = ex
-                    self._traceback = tb
-                    self._poisoned  = po
-                self._send.close()
-                self._recv.close()
-
-class ThreadLine(mt.Thread):
-
-    def __init__(self, line: Line, callback: Callable = None) -> None:
-        self._line      = line
-        self._callback  = callback
-        self._exception = None
-        self._traceback = None
-        self._poisoned  = False
-        super().__init__(daemon=True)
-
-    def start(self) -> None:
-
-        super().start()
-
-        if self._callback:
-            #we start a thread and join so that the callback
-            #is not called until the thread is no longer alive
-            def join_and_call():
-                self.join()
-                self._callback(self)
-            mt.Thread(target=join_and_call,daemon=True).start()
-
-    def run(self) -> None:
-        try:
-            self._line.run()
-        except Exception as e:
-            self._exception = e
-            self._traceback = format_tb(e.__traceback__)
-        self._poisoned  = hasattr(self._line[0],'_poisoned') and self._line[0]._poisoned
-
-    @property
-    def pipeline(self) -> Line:
-        return self._line
-
-    @property
-    def traceback(self) -> Sequence[str]:
-        return self._traceback
-
-    @property
-    def exception(self) -> Optional[Exception]:
-        return self._exception
-
-    @property
-    def poisoned(self) -> bool:
-        return self._poisoned
-
-class AsyncableLine(SourceSink):
-
-    def run_async(self,
-        callback:Callable[['AsyncableLine',Optional[Exception],Optional[str]],None]=None,
-        mode:Literal['process','thread']='process') -> Union[ThreadLine,ProcessLine]:
-        """Run the pipeline asynchronously."""
-
-        mode = mode.lower()
-
-        if mode == "process":
-            worker = ProcessLine(line=self, callback=callback)
-        elif mode == "thread":
-            worker = ThreadLine(line=self, callback=callback)
-        else:
-            raise CobaException(f"Unrecognized pipe async mode {mode}. Valid values are 'process' and 'thread'.")
-
-        worker.start()
-        return worker
+        if hasattr(self,'_wait'):
+            self._line[-1].write([self._wait_key])
+            self._wait.wait()
 
 class Safe:
     def __init__(self, filter: Filter):
@@ -310,10 +179,9 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         return self._filter.params
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-
         read_waiters = {} if self._read_wait else None
-
         items = peek_first(items)[1]
+
         if not items: return []
 
         if self._max_processes == 1 and self._maxtasksperchild is None:
@@ -327,7 +195,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             in_queue  = spawn_context.Queue(maxsize=self._max_processes*2)
             out_queue = spawn_context.Queue()
             in_put    = QueueSink(in_queue,foreach=True)
-            in_get    = QueueSource(in_queue)
+            in_get    = QueueSource(in_queue) #make one of these for each process??
             out_put   = QueueSink(out_queue,foreach=True)
             out_get   = QueueSource(out_queue)
             pickler   = Pickler()
@@ -365,7 +233,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 #we may not have actually read anything from the input queue. If we didn't then
                 #the input queue will never empty and we'll be stuck starting processes forever.
                 if not worker.poisoned and not self._exceptions and worker.exitcode == 0:
-                    ProcessLine(worker.pipeline,filter_finished_or_failed,read_waiters).start()
+                    MyProcessLine(worker.pipeline,filter_finished_or_failed,read_waiters).start()
                 else:
                     self._n_procs -= 1
                     if self._n_procs == 0:
@@ -375,7 +243,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                             pass
 
             load_thread = ThreadLine(load_line,loader_finished_or_failed)
-            filt_procs  = [ProcessLine(filter_line,filter_finished_or_failed,read_waiters) for _ in range(self._n_procs)]
+            filt_procs  = [MyProcessLine(filter_line,filter_finished_or_failed,read_waiters) for _ in range(self._n_procs)]
 
             try:
                 load_thread.start()

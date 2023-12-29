@@ -7,10 +7,9 @@ from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional,
 
 from coba                 import pipes
 from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
-from coba.pipes.sources   import DataFrameSource, DiskSource, NextSource
-from coba.primitives      import Context, Action
+from coba.primitives      import Context, Action, Source
 from coba.random          import CobaRandom
-from coba.pipes           import Pipes, Source, HttpSource, IterableSource
+from coba.pipes           import Pipes, HttpSource, IterableSource, DataFrameSource, DiskSource, NextSource
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 from coba.learners        import Learner

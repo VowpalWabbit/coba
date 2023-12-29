@@ -6,18 +6,19 @@ functionality is not sufficient. That being said, a good understanding of the pa
 in coba.pipes can help one understand how to best take advantage what Coba has to offer.
 """
 
-from coba.pipes.primitives import Filter, Source, Sink, Foreach, SourceFilters, StopPipe
 from coba.pipes.multiprocessing import Multiprocessor
 
 from coba.pipes.filters import Take, Shuffle, Structure, Identity, Flatten, Default, Reservoir
-from coba.pipes.filters import Encode, Cache, Slice, Insert
+from coba.pipes.filters import Encode, Cache, Slice, Insert, FiltersFilter
 
 from coba.pipes.rows    import LabelRows, EncodeRows, HeadRows, DropRows, EncodeCatRows
 from coba.pipes.rows    import LazyDense, EncodeDense, LabelDense, KeepDense, HeadDense
 from coba.pipes.rows    import LazySparse, EncodeSparse, LabelSparse, DropSparse, SparseDense
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
-from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableSource
+from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableSource, DataFrameSource
 from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource, ListSource, NextSource
-from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
+from coba.pipes.sources import SourceFilters
+from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink, FiltersSink
+from coba.pipes.lines   import SourceSink, ThreadLine, ProcessLine
 
-from coba.pipes.core import Pipes
+from coba.pipes.core import Pipes, Foreach

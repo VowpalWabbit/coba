@@ -7,9 +7,10 @@ from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, SafeEnvironment, Chunk
 from coba.evaluators import Evaluator, SafeEvaluator
 
-from coba.pipes import Pipes, Source, Filter, SourceFilters
+from coba.pipes import Pipes, SourceFilters
 from coba.context import CobaContext
 from coba.utilities import peek_first
+from coba.primitives import Source, Filter
 
 from coba.results import Result
 

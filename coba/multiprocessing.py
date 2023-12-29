@@ -2,9 +2,10 @@ import multiprocessing as mp
 from ctypes import c_short
 from typing import Iterable, Any, Dict
 
-from coba.utilities import coba_exit, peek_first
-from coba.context   import CobaContext, ConcurrentCacher, Logger, Cacher
-from coba.pipes     import Pipes, Filter, Sink, Multiprocessor, Foreach, QueueSink, QueueSource
+from coba.utilities  import coba_exit, peek_first
+from coba.context    import CobaContext, ConcurrentCacher, Logger, Cacher
+from coba.primitives import Filter, Sink
+from coba.pipes      import Multiprocessor, Foreach, QueueSink, QueueSource, ThreadLine, SourceSink
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
@@ -58,7 +59,8 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 read_stdlog   = QueueSource(stdlog)
                 write_stdlog  = QueueSink(stdlog)
 
-                stdlog_writer = Pipes.join(read_stdlog,Foreach(CobaContext.logger.sink)).run_async(mode="thread")
+                stdlog_writer = ThreadLine(SourceSink(read_stdlog,Foreach(CobaContext.logger.sink)))
+                stdlog_writer.start()
 
                 logger = CobaContext.logger
                 cacher = ConcurrentCacher(CobaContext.cacher,array,lock)

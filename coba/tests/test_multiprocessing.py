@@ -8,7 +8,8 @@ from typing import Iterable, Any
 from coba.context         import CobaContext, NullLogger
 from coba.context         import NullCacher, MemoryCacher
 from coba.context         import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
-from coba.pipes           import Filter, ListSink, Identity
+from coba.pipes           import ListSink, Identity
+from coba.primitives      import Filter
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 

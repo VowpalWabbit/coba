@@ -1,8 +1,8 @@
 from typing import Iterable, Mapping, Any
 
 import coba.json
-from coba.pipes import Source
 from coba.exceptions import CobaException
+from coba.primitives import Source
 from coba.environments.primitives import Environment, Interaction
 
 class ResultEnvironment(Environment):
