@@ -6,12 +6,12 @@ from coba.primitives import Learner, Context, Action, Actions, Prob, PMF
 from coba.encodings import InteractionsEncoder
 
 class LinUCBLearner(Learner):
-    """A contextual bandit learner that represents expected reward as a
-    linear function of context and action features. Exploration is carried
-    out according to upper confidence bound estimates.
+    """A contextual bandit learner using upper confidence bounds to explore.
 
-    This is an implementation of the Chu et al. (2011) LinUCB algorithm using the
-    `Sherman-Morrison formula`__ to iteratively calculate the inversion matrix.
+    This is an implementation of the Chu et al. (2011) LinUCB algorithm. The 
+    `Sherman-Morrison formula`__ is utilized to iteratively calculate the 
+    inversion matrix. Expected reward is represented as a linear function 
+    of context and action features.
 
     Remarks:
         The Sherman-Morrsion implementation used below is given in long form `here`__.

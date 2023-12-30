@@ -8,8 +8,7 @@ from coba.primitives import Learner, Context, Action, Actions, Prob, PMF, kwargs
 from coba.safety import SafeLearner
 
 class CorralLearner(Learner):
-    """A meta-learner that takes a collection of learners and determines
-    which is best in an environment.
+    """A contextual bandit learner that optimizes a collection of learners.
 
     This is an implementation of the Agarwal et al. (2017) Corral algorithm
     and requires that the reward is always in [0,1].

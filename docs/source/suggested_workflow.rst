@@ -81,7 +81,7 @@ particular we'd like to highlight five benefits of using the suggested workflow:
 
 1. Experiments can be executed on remote servers so long as the result logs can be retreived.
 2. Interrupted experiments can resume at the point of interruption since result logs save regularly.
-3. Result logs can easily be backedup, archived, and shared with other researchers.
+3. Result logs can be easily backed-up, archived, and shared with other researchers.
 4. Long after an experiment is finished logs can be re-explored or tested for new hypothesis.
 5. Analysis can start even before experiments finish since partial logs can be loaded in Jupyter.
 

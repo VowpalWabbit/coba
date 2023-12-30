@@ -1,19 +1,18 @@
 ﻿.. _coba-context:
 
 coba.context
-=============
+============
 
 .. automodule:: coba.context
 
 Core
-~~~~~~~~~~
+~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       CobaContext
-      InteractionContext
 
 Interfaces
 ~~~~~~~~~~

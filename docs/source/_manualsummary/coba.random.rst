@@ -1,12 +1,12 @@
 ﻿.. _coba-random:
 
 coba.random
-=============
+===========
 
 .. automodule:: coba.random
 
 Core
-~~~~~~~~~~
+~~~~
 
    .. autosummary::
       :toctree: ../_autosummary

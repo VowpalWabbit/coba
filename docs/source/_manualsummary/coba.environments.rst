@@ -14,28 +14,6 @@ Core
 
       Environments
 
-Interfaces
-~~~~~~~~~~
-
-   .. autosummary::
-      :toctree: ../_autosummary
-      :template: class_with_ctor.rst
-
-      Environment
-      SimulatedEnvironment
-      LoggedEnvironment
-
-Interaction Types
-~~~~~~~~~~~~~~~~~
-
-   .. autosummary::
-      :toctree: ../_autosummary
-      :template: class_with_ctor.rst
-
-      Interaction
-      SimulatedInteraction
-      LoggedInteraction
-
 Raw Data Sources
 ~~~~~~~~~~~~~~~~
    .. autosummary::
@@ -44,7 +22,7 @@ Raw Data Sources
 
       CsvSource
       ArffSource
-      LibsvmSource
+      LibSvmSource
       ManikSource
       OpenmlSource
 
@@ -61,6 +39,8 @@ Simulated Environments
       OpenmlSimulation
       LinearSyntheticSimulation
       NeighborsSyntheticSimulation
+      KernelSyntheticSimulation
+      MLPSyntheticSimulation
 
 Environment Filters
 ~~~~~~~~~~~~~~~~~~~
@@ -69,7 +49,6 @@ Environment Filters
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
-      EnvironmentFilter
       Sort
       Scale
       Cycle
@@ -79,5 +58,6 @@ Environment Filters
       Take
       Reservoir
       Identity
-      Sparse
+      Sparsify
+      Densify
       Where

@@ -70,7 +70,7 @@ class Line(ABC, Pipe):
         ...
 
 class Interaction(dict):
-    """An individual interaction that occurs in an Environment."""
+    """An interaction requiring a decision."""
     __slots__=()
 
     @staticmethod
@@ -81,7 +81,7 @@ class Interaction(dict):
         return kwargs_dict
 
 class SimulatedInteraction(Interaction):
-    """Simulated data that provides rewards for every possible action."""
+    """An interaction with reward information for every possible action."""
     __slots__=()
 
     def __init__(self,
@@ -91,7 +91,7 @@ class SimulatedInteraction(Interaction):
         **kwargs) -> None:
         """Instantiate SimulatedInteraction.
 
-        Args
+        Args:
             context : Features describing the interaction's context.
             actions : Features describing available actions during the interaction.
             rewards : The reward for each action in the interaction.
@@ -105,7 +105,7 @@ class SimulatedInteraction(Interaction):
         if kwargs: self.update(kwargs)
 
 class GroundedInteraction(Interaction):
-    """A grounded interaction based on Interaction Grounded Learning which feedbacks instead of rewards."""
+    """An interaction with feedbacks for Interaction Grounded Learning."""
     __slots__=()
 
     def __init__(self,
@@ -116,7 +116,7 @@ class GroundedInteraction(Interaction):
         **kwargs) -> None:
         """Instantiate GroundedInteraction.
 
-        Args
+        Args:
             context: Features describing the interaction's context.
             actions: Features describing available actions during the interaction.
             rewards: The reward for each action in the interaction.
@@ -132,7 +132,7 @@ class GroundedInteraction(Interaction):
         if kwargs: self.update(kwargs)
 
 class LoggedInteraction(Interaction):
-    """A logged interaction with an action, reward and optional probability."""
+    """An interaction with the reward and propensity score for a single action."""
     __slots__ = ()
 
     def __init__(self,
@@ -143,7 +143,7 @@ class LoggedInteraction(Interaction):
         **kwargs) -> None:
         """Instantiate LoggedInteraction.
 
-        Args
+        Args:
             context: Features describing the logged context.
             action: Features describing the action taken by the logging policy.
             reward: The reward that was revealed when the logged action was taken.
@@ -152,7 +152,7 @@ class LoggedInteraction(Interaction):
             rewards: The rewards to use for off policy evaluation. These rewards will not be shown to any learners. They will
                 only be recorded in experimental results. If probability and actions is provided and rewards is None then
                 rewards will be initialized using the IPS estimator.
-            **kwargs : Any additional information.
+            **kwargs: Any additional information.
         """
 
         self['context'] = context
@@ -165,7 +165,7 @@ class LoggedInteraction(Interaction):
         if kwargs: self.update(kwargs)
 
 class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
-    """A filter that can be applied to an Environment."""
+    """An Environment Modifier."""
 
     @abstractmethod
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
@@ -173,7 +173,7 @@ class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC
         ...
 
 class Environment(Source[Iterable[Interaction]], ABC):
-    """An Environment that produces Contextual Bandit data"""
+    """A source of Interactions."""
 
     @property
     def params(self) -> Mapping[str,Any]: #pragma: no cover
@@ -197,7 +197,7 @@ class Environment(Source[Iterable[Interaction]], ABC):
         return str(self.params) if self.params else self.__class__.__name__
 
 class Learner(ABC):
-    """The Learner interface for contextual bandit learning."""
+    """An agent that acts and learns."""
 
     @property
     def params(self) -> Mapping[str,Any]:
@@ -209,19 +209,15 @@ class Learner(ABC):
         return {}
 
     def score(self, context: Context, actions: Actions, action: Action) -> Prob:
-        """Propensity score a given action (or all actions if action is None) in the context.
+        """Propensity score an action.
 
         Args:
-            context: The current context. It will either be None (multi-armed bandit),
-                a value (a single feature), a sequence of values (dense features), or a
-                dictionary (sparse features).
-            actions: The current set of actions that can be chosen in the given context.
-                Each action will either be a value (a single feature), a sequence of values
-                (dense features), or a dictionary (sparse features).
+            context: The current context.
+            actions: The current set of actions that can be chosen.
             action: The action to propensity score.
 
         Returns:
-            The propensity score for the given action.
+            The propensity score of the given action. That is, P(action|context,actions).
         """
         raise NotImplementedError((
             "The `score` interface has not been implemented for this learner."
@@ -260,6 +256,7 @@ class Learner(ABC):
         ))
 
 class Evaluator(ABC):
+    """An Estimator of Learner performance in an Environment."""
 
     @property
     def params(self) -> Mapping[str,Any]:

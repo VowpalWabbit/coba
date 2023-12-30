@@ -9,26 +9,24 @@ from coba.learners.vowpal import VowpalRndLearner
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.primitives import HashableSparse
-from coba.learners import (
+from coba.learners.vowpal import (
     VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner,
     VowpalBagLearner, VowpalCoverLearner, VowpalRegcbLearner,
-    VowpalSquarecbLearner, VowpalOffPolicyLearner, VowpalMediator
+    VowpalSquarecbLearner, VowpalOffPolicyLearner, VowpalMediator,
+    make_args
 )
 
 class VowpalInherited(VowpalLearner):
-
     @property
     def params(self):
         return {"Shadow":True}
 
 class VowpalEaxmpleMock:
-
     def __init__(self,ns,label):
         self.ns         = ns
         self.label      = label
 
 class VowpalMediatorMocked:
-
     def __init__(self, predict_returns = None, params={}) -> None:
         self._init_learner_calls  = []
         self._predict_calls       = []
@@ -69,7 +67,6 @@ class VowpalMediatorMocked:
         self._finish_calls+=1
 
 class VowpalEpsilonLearner_Tests(unittest.TestCase):
-
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalEpsilonLearner()
@@ -109,7 +106,6 @@ class VowpalSoftmaxLearner_Tests(unittest.TestCase):
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalSoftmaxLearner(vw=VowpalMediatorMocked()))), VowpalSoftmaxLearner)
 
 class VowpalBagLearner_Tests(unittest.TestCase):
-
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalBagLearner()
@@ -139,7 +135,6 @@ class VowpalCoverLearner_Tests(unittest.TestCase):
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalCoverLearner(vw=VowpalMediatorMocked()))), VowpalCoverLearner)
 
 class VowpalRndLearner_Tests(unittest.TestCase):
-
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalRndLearner()
@@ -164,7 +159,6 @@ class VowpalRndLearner_Tests(unittest.TestCase):
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalRndLearner(vw=VowpalMediatorMocked()))), VowpalRndLearner)
 
 class VowpalRegcbLearner_Tests(unittest.TestCase):
-
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalRegcbLearner()
@@ -180,7 +174,6 @@ class VowpalRegcbLearner_Tests(unittest.TestCase):
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalRegcbLearner(vw=VowpalMediatorMocked()))), VowpalRegcbLearner)
 
 class VowpalSquarecbLearner_Tests(unittest.TestCase):
-
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalSquarecbLearner()
@@ -195,7 +188,6 @@ class VowpalSquarecbLearner_Tests(unittest.TestCase):
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalSquarecbLearner(vw=VowpalMediatorMocked()))), VowpalSquarecbLearner)
 
 class VowpalOffpolicyLearner_Tests(unittest.TestCase):
-
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalOffPolicyLearner()
@@ -209,10 +201,9 @@ class VowpalOffpolicyLearner_Tests(unittest.TestCase):
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalOffPolicyLearner(vw=VowpalMediatorMocked()))), VowpalOffPolicyLearner)
 
-class VowpalLearner_Tests(unittest.TestCase):
-
+class make_args_Tests(unittest.TestCase):
     def test_make_args(self):
-        args = VowpalLearner.make_args(vw_kwargs={
+        args = make_args(vw_kwargs={
             "cb_explore_adf": True,
             "softmax": True,
             "random_seed": 123
@@ -221,7 +212,7 @@ class VowpalLearner_Tests(unittest.TestCase):
                          "--interactions axx", "--ignore_linear x"}, set(args))
 
     def test_make_args_no_const_or_linear(self):
-        args = VowpalLearner.make_args(vw_kwargs={
+        args = make_args(vw_kwargs={
             "cb_explore_adf": True,
             "softmax": True,
             "quiet": False,
@@ -232,7 +223,7 @@ class VowpalLearner_Tests(unittest.TestCase):
                          "--ignore_linear a", "--ignore_linear x"}, set(args))
 
     def test_make_args_extra_kwargs(self):
-        args = VowpalLearner.make_args(vw_kwargs={
+        args = make_args(vw_kwargs={
             "cb_explore_adf": True,
             "softmax": True,
             "quiet": False,
@@ -246,7 +237,7 @@ class VowpalLearner_Tests(unittest.TestCase):
                              "--noconstant", "--interactions axx", "--ignore_linear a", "--ignore_linear x"}, set(args))
 
     def test_make_args_dash_in_name(self):
-        args = VowpalLearner.make_args(vw_kwargs={
+        args = make_args(vw_kwargs={
             "cb_explore_adf": True,
             "--softmax": True,
             "-l": 0.1,
@@ -256,6 +247,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertSetEqual({"--cb_explore_adf", "--softmax", "-l 0.1", "--quiet", "--noconstant", "--interactions axx",
                              "--ignore_linear a", "--ignore_linear x"}, set(args))
 
+class VowpalLearner_Tests(unittest.TestCase):
     def test_inheritance_after_pickle(self):
         learner = pickle.loads(pickle.dumps(VowpalInherited(vw=VowpalMediatorMocked())))
         self.assertEqual(learner.params, {"Shadow":True})
@@ -489,7 +481,6 @@ class VowpalLearner_Tests(unittest.TestCase):
 
 @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
 class VowpalMediator_Tests(unittest.TestCase):
-
     def test_params(self):
         self.assertEqual(VowpalMediator().params,{})
 
@@ -502,14 +493,12 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':'a'}, None)
-
         self.assertTrue(hasattr(ex, "setup_done"))
 
     def test_make_example_single_string_value(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':'a'}, None)
-
         self.assertTrue(hasattr(ex, "setup_done"))
         self.assertEqual([(ex.get_feature_id("x","0=a"),1)],list(ex.iter_features()))
 
@@ -517,49 +506,42 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':5}, None)
-
         self.assertEqual([(ex.get_feature_id("x",'0'),5)],list(ex.iter_features()))
 
     def test_make_example_dict_numeric_value(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':{'a':5}}, None)
-
         self.assertEqual([(ex.get_feature_id("x","a"),5)],list(ex.iter_features()))
 
     def test_make_example_hashable_sparse_numeric_value(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':HashableSparse({'a':5})}, None)
-
         self.assertEqual([(ex.get_feature_id("x","a"),5)],list(ex.iter_features()))
 
     def test_make_example_dict_string_value(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':{'a':'b'}}, None)
-
         self.assertEqual([(ex.get_feature_id("x","a=b"),1)],list(ex.iter_features()))
 
     def test_make_example_list_numeric_value(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':[2]}, None)
-
         self.assertEqual([(ex.get_feature_id("x",'0'),2)],list(ex.iter_features()))
 
     def test_make_example_empty_list(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':[2], 'y':[]}, None)
-
         self.assertEqual([(ex.get_feature_id("x",'0'),2)],list(ex.iter_features()))
 
     def test_make_example_list_string_value(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':['a']}, None)
-
         self.assertEqual([(ex.get_feature_id("x","0=a"),1)],list(ex.iter_features()))
 
     def test_make_example_list_mixed_value(self):

@@ -17,11 +17,11 @@ def requires_hashables(cls:Type[Learner]):
     old_predict = cls.predict
     old_learn   = cls.learn
 
-    def new_predict(self,c,A):
-        return old_predict(self,make_hashable(c),list(map(make_hashable,A)))
+    def new_predict(self, context: Context, actions: Actions):
+        return old_predict(self, make_hashable(context), list(map(make_hashable,actions)))
 
-    def new_learn(self,c,a,r,p,**kwargs):
-        old_learn(self,make_hashable(c),make_hashable(a),r,p,**kwargs)
+    def new_learn(self,context: Context, action: Action, reward:float, probability: float):
+        old_learn(self, make_hashable(context), make_hashable(action), reward, probability)
 
     cls.predict = new_predict
     cls.learn   = new_learn
@@ -30,7 +30,7 @@ def requires_hashables(cls:Type[Learner]):
 
 @requires_hashables
 class EpsilonBanditLearner(Learner):
-    """A bandit learner using epsilon-greedy for exploration."""
+    """Select the greedy action with probability (1-epsilon)."""
 
     def __init__(self, epsilon: float=.05) -> None:
         """Instantiate an EpsilonBanditLearner.
@@ -70,7 +70,7 @@ class EpsilonBanditLearner(Learner):
 
 @requires_hashables
 class UcbBanditLearner(Learner):
-    """A bandit learner using upper confidence bound estimates for exploration.
+    """Select the action with the highest upper confidence bound estimate.
 
     This algorithm is an implementation of Auer et al. (2002) UCB1-Tuned algorithm
     and requires that all rewards are in [0,1].
@@ -155,7 +155,7 @@ class UcbBanditLearner(Learner):
         return var + math.sqrt(2*ln(t)/s)
 
 class FixedLearner(Learner):
-    """A learner that selects actions according to a fixed distribution."""
+    """Select actions from a fixed distribution and learn nothing."""
 
     def __init__(self, pmf: PMF) -> None:
         """Instantiate a FixedLearner.
@@ -182,7 +182,7 @@ class FixedLearner(Learner):
         pass
 
 class RandomLearner(Learner):
-    """A learner that selects actions according to a uniform distribution."""
+    """Select actions from a uniform distribution and learn nothing."""
 
     def __init__(self):
         """Instantiate a RandomLearner."""

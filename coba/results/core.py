@@ -165,14 +165,14 @@ class View:
         return key in self._data
 
 class Table:
+    """Tabular data with an index."""
+
     __slots__ = ('_data', '_columns', '_indexes', '_lohis')
-    """A container class for storing tabular data."""
     #Potentially overkill, however, by having our own "simple" table implementation we can provide
     #several useful pieces of functionality out of the box. Additionally, when working with
     #very large experiments pandas can become quite slow while Table works acceptably.
 
     def __init__(self, data:Union[Mapping, Sequence[Mapping], Sequence[Sequence]] = (), columns: Sequence[str] = (), indexes: Sequence[str]= ()):
-
         self._columns = tuple(columns) or tuple(data)
         self._lohis   = None
 
@@ -246,7 +246,6 @@ class Table:
         return self
 
     def index(self, *indx) -> 'Table':
-
         if not indx: return self
         if not self._data: return self
         indx = [col for col in indx if col in self._columns]
@@ -306,7 +305,6 @@ class Table:
             return Table(View(self._data,selection), self._columns, self._indexes)
 
     def groupby(self, level:int, select:Union[None,Literal['table','count'],str]='table') -> Iterable[Tuple[Tuple,Any]]:
-
         self._lohis = self._lohis or self._calc_lohis()
         grp_cols = [self._data[hdr] for hdr in self._indexes[:level]]
 
@@ -350,13 +348,10 @@ class Table:
         yield from map(dict,map(zip,keys,vals))
 
     def __getitem__(self,idx1):
-
         if isinstance(idx1,str):
             return self._data[idx1]
-
         if isinstance(idx1,slice):
             return [self._data[col] for col in self._columns[idx1]]
-
         try:
             return [self._data[col] for col in idx1]
         except:
@@ -379,7 +374,6 @@ class Table:
         print(str(self))
 
     def _calc_lohis(self):
-
         if not self._indexes: return {}
 
         lohis = [[(0,len(self))]]
@@ -397,7 +391,6 @@ class Table:
             lo = new_hi
 
     def _compare(self,lo,hi,col,arg,comparison,method):
-
         if isinstance(arg,dict) and len(arg) == 1:
             key,value = list(arg.items())[0]
             if key in ['=','!=','<=','<','>','>=','match','in']:
@@ -618,7 +611,6 @@ class Plotter:
         pass
 
 class MatplotPlotter(Plotter):
-
     def plot(self,
         ax,
         lines: Sequence[Points],
@@ -769,7 +761,7 @@ class MatplotPlotter(Plotter):
                 plt.close()
 
 class Result:
-    """A class representing the result of an Experiment."""
+    """Data produced by an Experiment."""
 
     @staticmethod
     def from_source(source: Source[Iterable[str]]) -> 'Result':

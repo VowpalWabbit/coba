@@ -15,6 +15,38 @@ VW_Namespaces = Dict[str,VW_Features]
 
 DEFAULT_NAMESPACE_INTERACTIONS = (1, 'a', 'ax', 'axx')
 
+def make_args(vw_kwargs: Dict[str, Any], namespace_interactions: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS) -> Sequence[str]:
+    """
+    Turn settings into VW command line arguments.
+
+        Args:
+        vw_kwargs: Keyword argument dict that gets translated into VW CLI arguments
+        namespace_interactions: A sequence of namespace interactions to use during learning.
+    """
+    args = []
+    vw_kwargs['quiet'] = vw_kwargs.get('quiet', True)
+
+    for k,v in vw_kwargs.items():
+        if v is not False and v is not None:
+            if not k.startswith("-"):
+                k = ("-" if len(k)==1 else "--") + k
+            args.append(k if (v is True) else f"{k} {v}")
+
+    noconstant = sum([n for n in namespace_interactions if isinstance(n, (int, float))]) == 0
+    ignore_linear = set(['x', 'a']) - set(namespace_interactions)
+    interactions = [n for n in namespace_interactions if isinstance(n, str) and len(n) > 1]
+
+    if noconstant:
+        args.append(f"--noconstant")
+
+    for interaction in interactions:
+        args.append(f"--interactions {interaction}")
+
+    for ignore in ignore_linear:
+        args.append(f"--ignore_linear {ignore}")
+
+    return args
+
 class VowpalMediator:
     """A class to handle all communication between Coba and VW."""
 
@@ -205,7 +237,7 @@ class VowpalMediator:
         return self._args
 
 class VowpalLearner(Learner):
-    """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
+    """A wrapper around Vowpal Wabbit's python interface to support CB learning.
 
     Remarks:
         This learner requires that the Vowpal Wabbit package be installed. This package can be
@@ -215,42 +247,6 @@ class VowpalLearner(Learner):
     __ https://vowpalwabbit.org/tutorials/contextual_bandits.html
     __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
-
-    @staticmethod
-    def make_args(
-            vw_kwargs: Dict[str, Any],
-            namespace_interactions: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-    ) -> Sequence[str]:
-        """
-        Turn settings into VW command line arguments.
-
-         Args:
-            vw_kwargs: Keyword argument dict that gets translated into VW CLI arguments
-            namespace_interactions: A sequence of namespace interactions to use during learning.
-        """
-        args = []
-        vw_kwargs['quiet'] = vw_kwargs.get('quiet', True)
-
-        for k,v in vw_kwargs.items():
-            if v is not False and v is not None:
-                if not k.startswith("-"):
-                    k = ("-" if len(k)==1 else "--") + k
-                args.append(k if (v is True) else f"{k} {v}")
-
-        noconstant = sum([n for n in namespace_interactions if isinstance(n, (int, float))]) == 0
-        ignore_linear = set(['x', 'a']) - set(namespace_interactions)
-        interactions = [n for n in namespace_interactions if isinstance(n, str) and len(n) > 1]
-
-        if noconstant:
-            args.append(f"--noconstant")
-
-        for interaction in interactions:
-            args.append(f"--interactions {interaction}")
-
-        for ignore in ignore_linear:
-            args.append(f"--ignore_linear {ignore}")
-
-        return args
 
     def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet", vw: VowpalMediator = None) -> None:
         """Instantiate a VowpalLearner.
@@ -290,7 +286,7 @@ class VowpalLearner(Learner):
     def score(self, context: Context, actions: Actions, action: Action) -> Prob:
         return self.predict(context,actions)[0][actions.index(action)]
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:
+    def predict(self, context: Context, actions: Actions) -> Tuple[PMF,kwargs]:
         if not self._vw.is_initialized and is_batch(context):#pragma: no cover
             raise CobaException("VW learner does not support batched calls.")
 
@@ -384,14 +380,16 @@ class VowpalLearner(Learner):
         self._finish()
 
     def finish(self):
+        """Finish all pending work (e.g., write buffers to disk)."""
         self._finish()
 
     def __del__(self):
         self._finish()
 
 class VowpalEpsilonLearner(VowpalLearner):
-    """A wrapper around VowpalLearner that provides more documentation. For more
-        information on the types of exploration algorithms availabe in VW see `here`__.
+    """Epsilon-greedy exploration with a VW contextual bandit learner.
+    
+    More information on VW exploration algorithms can be found `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
@@ -416,15 +414,17 @@ class VowpalEpsilonLearner(VowpalLearner):
         }
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
-        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
 
 class VowpalSoftmaxLearner(VowpalLearner):
-    """A wrapper around VowpalLearner that provides more documentation. For more
-        information on the types of exploration algorithms availabe in VW see `here`__.
+    """Softmax exploration with a VW contextual bandit learner.
+    
+    More information on VW exploration algorithms can be found `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
+
 
     def __init__(self,
                  softmax: float=10,
@@ -450,12 +450,13 @@ class VowpalSoftmaxLearner(VowpalLearner):
         }
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
-        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
 
 class VowpalBagLearner(VowpalLearner):
-    """A wrapper around VowpalLearner that provides more documentation. For more
-        information on the types of exploration algorithms availabe in VW see `here`__.
+    """Bootstrap aggregated policy exploration with a VW contextual bandit learner.
+
+    More information on VW exploration algorithms can be found `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
@@ -482,14 +483,13 @@ class VowpalBagLearner(VowpalLearner):
         }
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
-        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
 
 class VowpalCoverLearner(VowpalLearner):
-    """A wrapper around VowpalLearner that provides more documentation. For more
-        information on the types of exploration algorithms availabe in VW see `here`__.
+    """Online Cover exploration with a VW contextual bandit learner.
 
-    For more information on this algorithm see Agarwal et al. (2014).
+    For more information on this algorithm see Agarwal et al. (2014) and `here`__.
 
     References:
         Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming
@@ -520,10 +520,22 @@ class VowpalCoverLearner(VowpalLearner):
         }
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
-        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
 
 class VowpalRndLearner(VowpalLearner):
+    """Random Network Distillation exploration with a VW contextual bandit learner.
+
+    Inspired by Random Network Distillation, this explorer constructs an auxiliary prediction
+    problem whose expected target value is zero and uses the prediction magnitude to construct
+    a confidence interval. In the contextual bandit case this is equivalent to a randomized
+    approximation to the LinUCB bound.
+
+    For more information see the `wiki`__.
+
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
+    """
+
     def __init__(self,
                  rnd: int = 3,
                  features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
@@ -532,13 +544,7 @@ class VowpalRndLearner(VowpalLearner):
                  rnd_invlambda: Optional[float] = None,
                  seed: Optional[int] = 1,
                  **kwargs) -> None:
-        """
-        Inspired by Random Network Distillation, this explorer constructs an auxiliary prediction problem whose
-        expected target value is zero and uses the prediction magnitude to construct a confidence interval. In the
-        contextual bandit case this is equivalent to a randomized approximation to the LinUCB bound.
-
-        For more information see the `wiki`__.
-        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
+        """Instantiate a VowpalRndLearner.
 
         Args:
             rnd: Number of predictors
@@ -559,12 +565,13 @@ class VowpalRndLearner(VowpalLearner):
         }
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
-        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
 
 class VowpalRegcbLearner(VowpalLearner):
-    """A wrapper around VowpalLearner that provides more documentation. For more
-        information on the types of exploration algorithms availabe in VW see `here`__.
+    """RegCB exploration with a VW contextual bandit learner.
+
+    For more information on this algorithm see Foster et al. (2014) and `here`__.
 
     References:
         Foster, D., Agarwal, A., Dudik, M., Luo, H. & Schapire, R.. (2018). Practical Contextual
@@ -582,7 +589,7 @@ class VowpalRegcbLearner(VowpalLearner):
         """Instantiate a VowpalRegcbLearner.
 
         Args:
-            mode: Indicates whether exploration should only predict the optimal upper bound action or
+            mode: Indicate that exploration should only predict the optimal upper bound action or
                 should use an elimination technique to remove actions that no longer seem plausible
                 and pick randomly from the remaining actions.
             features: A list of namespaces and interactions to use when learning reward functions.
@@ -601,12 +608,13 @@ class VowpalRegcbLearner(VowpalLearner):
 
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
-        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
 
 class VowpalSquarecbLearner(VowpalLearner):
-    """A wrapper around VowpalLearner that provides more documentation. For more
-        information on the types of exploration algorithms availabe in VW see `here`__.
+    """SquareCB exploration with a VW contextual bandit learner.
+
+    For more information on this algorithm see Foster et al. (2020) and `here`__.
 
     References:
         Foster, D.& Rakhlin, A.. (2020). Beyond UCB: Optimal and Efficient Contextual Bandits with Regression
@@ -644,16 +652,18 @@ class VowpalSquarecbLearner(VowpalLearner):
             vw_kwargs["elim"] = True
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
-        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
 
 class VowpalOffPolicyLearner(VowpalLearner):
-    """A wrapper around VowpalLearner that provides more documentation. For more
-        information on the types of exploration algorithms availabe in VW see `here`__.
+    """A VW contextual bandit learner without any exploration.
 
-        This wrapper performs policy learning without any exploration. This is only correct
-        when training examples come from a logging policy so that any exploration on our
-        part would be irrelevant.
+    This wrapper performs policy learning without any exploration. This is
+    correct when training examples come from a logging policy that controls 
+    all exploration.
+
+    Remarks:
+        More information on VW exploration algorithms can be found `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
@@ -676,5 +686,5 @@ class VowpalOffPolicyLearner(VowpalLearner):
         }
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
-        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)

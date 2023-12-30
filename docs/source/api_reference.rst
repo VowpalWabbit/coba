@@ -7,7 +7,9 @@ API Reference
 
    coba.learners
    coba.environments
+   coba.evaluators
    coba.experiments
-   coba.pipes
    coba.context
    coba.random
+   coba.primitives
+   coba.results

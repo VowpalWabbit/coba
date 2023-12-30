@@ -24,7 +24,6 @@ author = 'Mark Rucker'
 # The full version, including alpha/beta/rc tags
 release = '4.5'
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -43,7 +42,6 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
-
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -88,8 +86,10 @@ autodoc_class_signature = "separated"
 import coba.learners
 import coba.environments
 import coba.experiments
-import coba.pipes
+import coba.evaluators
+import coba.results
 import coba.context
+import coba.primitives
 import coba.context.core
 
 def set_module(module):
@@ -103,17 +103,11 @@ def set_module(module):
 set_module(coba.learners)
 set_module(coba.environments)
 set_module(coba.experiments)
-set_module(coba.pipes)
 set_module(coba.context)
 
 #we have to point to meta because sphinx can't handle class level properties
 coba.context.core.CobaContext_meta.__module__ = "coba.context"
 coba.context.core.CobaContext_meta.__name__ = "CobaContext"
 coba.context.__dict__['CobaContext'] = coba.context.core.CobaContext_meta
-
-#we have to point to meta because sphinx can't handle class level properties
-coba.context.core.InteractionContext_meta.__module__ = "coba.context"
-coba.context.core.InteractionContext_meta.__name__ = "InteractionContext"
-coba.context.__dict__['InteractionContext'] = coba.context.core.InteractionContext_meta
 
 autosummary_generate_overwrite = False
