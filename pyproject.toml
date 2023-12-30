@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["coba", "coba.environments", "coba.learners", "coba.evaluators", "coba.experiments", "coba.pipes", "coba.context", "coba.contexts", "coba.results"]
+packages = ["coba", "coba.environments", "coba.learners", "coba.evaluators", "coba.experiments", "coba.pipes", "coba.context", "coba.results"]
 
 [tool.setuptools.dynamic]
 version = {attr = "coba.__version__"}
