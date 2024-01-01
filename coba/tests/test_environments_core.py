@@ -1,14 +1,14 @@
 import unittest
 import unittest.mock
-import requests
 
+from urllib import request
 from pathlib import Path
 
 from coba.utilities    import PackageChecker
 from coba.context      import CobaContext, DiskCacher, NullLogger
-from coba.pipes        import DiskSource, LazyDense
+from coba.pipes        import DiskSource, LazyDense, HttpSource
 from coba.exceptions   import CobaException
-from coba.primitives   import  Categorical
+from coba.primitives   import Categorical
 from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
@@ -207,38 +207,51 @@ class Environments_Tests(unittest.TestCase):
             if Path("coba/tests/.temp/from_file.env").exists():
                 Path("coba/tests/.temp/from_file.env").unlink()
 
-    def test_from_prebuilt_recognized_name(self):
+    @unittest.mock.patch('coba.environments.core.HttpSource')
+    def test_from_prebuilt_recognized_name(self, mock):
         index_url = "https://github.com/mrucker/coba_prebuilds/blob/main/test/index.json?raw=True"
 
-        def mocked_requests_get(*args, **kwargs):
+        mock.return_value.read.return_value = '{ "environments": { "OpenmlSimulation": 10 } }'
 
-            if args[0] == index_url:
-                return MockResponse(200, b'{ "environments": { "OpenmlSimulation": 10 } }')
-
-            return MockResponse(None, 404, [])
-
-        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
-            envs = Environments.from_prebuilt("test")
-
+        envs = Environments.from_prebuilt("test")
         self.assertEqual(1, len(envs))
         self.assertEqual(envs[0].params['openml_data'],10)
+        mock.assert_called_once_with(index_url)
 
-    def test_from_prebuilt_unrecognized_name(self):
-        root_directory_url = "https://api.github.com/repos/mrucker/coba_prebuilds/contents/"
+    @unittest.mock.patch('coba.environments.core.HttpSource')
+    def test_from_prebuilt_unrecognized_name(self, mock):
+        index_url = "https://github.com/mrucker/coba_prebuilds/blob/main/nada/index.json?raw=True"
+        root_url  = "https://api.github.com/repos/mrucker/coba_prebuilds/contents/"
 
-        def mocked_requests_get(*args, **kwargs):
+        def func(first_time=[True]):
+            if first_time[0]:
+                first_time[0] = False
+                raise request.HTTPError('',404,'','','')
+            else:
+                return '[{ "name":"test"}]'
 
-            if args[0] == root_directory_url:
-                return MockResponse(200, b'[{ "name":"test"}]')
+        # init.return_value = None
+        mock.return_value.read.side_effect = func
 
-            return MockResponse(404, None)
+        with self.assertRaises(CobaException) as e:
+            Environments.from_prebuilt("nada")
 
-        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
-            with self.assertRaises(CobaException) as e:
-                envs = Environments.from_prebuilt("nada")
+        self.assertIn('nada', str(e.exception) )
+        self.assertIn('test', str(e.exception) )
+        self.assertEqual(mock.call_args_list[0][0][0], index_url)
+        self.assertEqual(mock.call_args_list[1][0][0], root_url)
 
-            self.assertIn('nada', str(e.exception) )
-            self.assertIn('test', str(e.exception) )
+    @unittest.mock.patch('coba.environments.core.HttpSource')
+    def test_from_prebuilt_unexpected_error(self, mock):
+
+        ex = request.HTTPError('',420,'','','')
+
+        mock.return_value.read.side_effect = ex
+
+        with self.assertRaises(request.HTTPError) as r:
+            Environments.from_prebuilt("nada")
+
+        self.assertIs(r.exception,ex)
 
     def test_from_result(self):
         if Path("coba/tests/.temp/from_result.log").exists():
@@ -392,6 +405,30 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('c' , env[0].params['label_type'])
         self.assertEqual(200 , env[1].params['openml_task'])
         self.assertEqual('c' , env[1].params['label_type'])
+
+    def test_from_feurer(self):
+        actual_tasks = set([e.params['openml_task'] for e in Environments.from_feurer()])
+
+        expected_tasks = {232,236,241,245,253,254,256,258,260,262,267,271,273,275,279,288,336,340,
+            2119,2120,2121,2122,2123,2125,2356,3044,3047,3048,3049,3053,3054,3055,75089,75092,75093,
+            75097,75098,75100,75105,75108,75109,75112,75114,75115,75116,75118,75120,75121,75125,75126,
+            75127,75129,75131,75133,75134,75136,75139,75141,75142,75143,75146,75147,75148,75149,75153,
+            75154,75156,75157,75159,75161,75163,75166,75169,75171,75173,75174,75176,75178,75179,75180,
+            75184,75185,75187,75192,75193,75195,75196,75199,75210,75212,75213,75215,75217,75219,75221,
+            75223,75225,75232,75233,75234,75235,75236,75237,75239,75250,126021,126024,126025,126026,
+            126028,126029,126030,126031,146574,146575,146576,146577,146578,146583,146586,146592,146593,
+            146594,146596,146597,146600,146601,146602,146603,146679,166859,166866,166872,166875,166882,
+            166897,166905,166906,166913,166915,166931,166932,166944,166950,166951,166953,166956,166957,
+            166958,166959,166970,166996,167083,167085,167086,167087,167088,167089,167090,167094,167096,
+            167097,167099,167100,167101,167103,167104,167105,167106,167149,167152,167161,167168,167181,
+            167184,167185,167190,167200,167201,167202,167203,167204,167205,168785,168791,168792,168793,
+            168794,168795,168796,168797,168798,189779,189786,189828,189829,189836,189840,189841,189843,
+            189844,189845,189846,189858,189859,189860,189861,189862,189863,189864,189865,361282,189869,
+            189870,189871,189872,189873,189874,189875,189878,189880,189881,189882,189883,189884,189887,
+            189890,189893,189894,189899,189900,189902,189905,189906,189908,189909,190154,190155,190156,
+            190157,190158,190159,211720,211721,211722,211723,211724}
+
+        self.assertEqual(actual_tasks,expected_tasks)
 
     def test_from_lambda(self):
         context = lambda index,rng               : [ round(r,2) for r in rng.randoms(5) ]

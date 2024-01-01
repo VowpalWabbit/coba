@@ -1,9 +1,9 @@
 import unittest
 import unittest.mock
-import requests.exceptions
 import pickle
 import gzip
 
+from urllib import request, error
 from queue import Queue
 from pathlib import Path
 
@@ -11,7 +11,7 @@ from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.context import NullLogger, CobaContext
 from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource, SourceFilters
-from coba.pipes.sources import HttpSource, LambdaSource, IterableSource, DataFrameSource, NextSource
+from coba.pipes.sources import HttpSource, LambdaSource, IterableSource, DataFrameSource, NextSource, DelimSource
 
 CobaContext.logger = NullLogger()
 
@@ -207,13 +207,72 @@ class QueueSource_Tests(unittest.TestCase):
         list(QueueSource(BrokenQueue(EOFError())).read())
         list(QueueSource(BrokenQueue(BrokenPipeError())).read())
 
+class DelimSource_Tests(unittest.TestCase):
+    def test_splitlines(self):
+        source = IdentitySource(['a\nb']*2)
+        self.assertEqual(list(DelimSource(source).read()),['a','ba','b'])
+        source = IdentitySource(['a\nb\n']*2)
+        self.assertEqual(list(DelimSource(source).read()),['a','b','a','b'])
+
+    def test_delim(self):
+        source = IdentitySource(['a,b']*2)
+        self.assertEqual(list(DelimSource(source,',').read()),['a','ba','b'])
+        source = IdentitySource(['a,b,']*2)
+        self.assertEqual(list(DelimSource(source,',').read()),['a','b','a','b'])
+
 class HttpSource_Tests(unittest.TestCase):
-    def test_read(self):
+
+    def test_chunk_size_none(self):
         try:
-            with HttpSource("http://www.google.com").read() as response:
-                self.assertIn(b"google", response.content)
-        except requests.exceptions.ConnectionError as e:
-            pass
+            self.assertIn("google", HttpSource("http://www.google.com",chunk_size=None).read().lower())
+        except error.URLError as e:
+            if 'getaddrinfo failed' in str(e): pass #no internet connection
+            else: raise
+
+    def test_chunk_size_1024(self):
+        try:
+            self.assertIn("google", ' '.join(HttpSource("http://www.google.com",chunk_size=1024).read()))
+        except error.URLError as e:
+            if 'getaddrinfo failed' in str(e): pass #no internet connection
+            else: raise
+
+    def test_gzip(self):
+        import io
+        import gzip
+
+        text='abcdefg'
+        B = gzip.compress(text.encode('utf-8'))
+        self.assertEqual(HttpSource._byte_it_('gzip','utf-8',None,io.BytesIO(B)),text)
+
+    def test_deflate(self):
+        import io
+        import zlib
+
+        text='abcdefg'
+        o = zlib.compressobj()
+        o.compress(text.encode('utf-8'))
+        B = o.flush()
+        self.assertEqual(HttpSource._byte_it_('deflate','utf-8',None,io.BytesIO(B)),text)
+
+    def test_no_compression(self):
+        import io
+
+        text='abcdefg'
+        B = text.encode('utf-8')
+        self.assertEqual(HttpSource._byte_it_(None,'utf-8',None,io.BytesIO(B)),text)
+
+    def test_bad_status_code(self):
+        try:
+            req  = request.Request('https://google.com',headers={'Accept-Encoding':'gzip, deflate'})
+            resp = request.urlopen(req)
+            with unittest.mock.patch('coba.pipes.sources.request.urlopen') as mock:
+                mock.side_effect = request.HTTPError('',405,'','',resp)
+                with self.assertRaises(request.HTTPError) as r:
+                    list(HttpSource("http://www.google.com",chunk_size=1024).read())
+            self.assertIn("google", r.exception.fp.read())
+        except error.URLError as e:
+            if 'getaddrinfo failed' in str(e): pass #no internet connection
+            else: raise
 
 class ListSource_Tests(unittest.TestCase):
     def test_read_1(self):

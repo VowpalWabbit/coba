@@ -388,7 +388,7 @@ class VowpalLearner(Learner):
 
 class VowpalEpsilonLearner(VowpalLearner):
     """Epsilon-greedy exploration with a VW contextual bandit learner.
-    
+
     More information on VW exploration algorithms can be found `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -419,7 +419,7 @@ class VowpalEpsilonLearner(VowpalLearner):
 
 class VowpalSoftmaxLearner(VowpalLearner):
     """Softmax exploration with a VW contextual bandit learner.
-    
+
     More information on VW exploration algorithms can be found `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -659,7 +659,7 @@ class VowpalOffPolicyLearner(VowpalLearner):
     """A VW contextual bandit learner without any exploration.
 
     This wrapper performs policy learning without any exploration. This is
-    correct when training examples come from a logging policy that controls 
+    correct when training examples come from a logging policy that controls
     all exploration.
 
     Remarks:

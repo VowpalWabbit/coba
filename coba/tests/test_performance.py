@@ -20,7 +20,7 @@ from coba.safety import SafeLearner
 
 from coba.primitives import SimulatedInteraction
 
-from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes
+from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes, DelimSource, IdentitySource, HttpSource
 from coba.pipes import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
@@ -414,6 +414,20 @@ class Performance_Tests(unittest.TestCase):
         items = [1,0]*300
         self._assert_scale_time(items, lambda x:var(x), .075, print_time, number=1000)
 
+    def test_http_source(self):
+        import io
+        import gzip
+
+        text=(','.join(map(str,range(1000)))*10)
+        B = gzip.compress(text.encode('utf-8'))
+
+        self._assert_call_time(lambda: list(HttpSource._byte_it_('gzip', 'utf-8', 4*1024, io.BytesIO(B))), .045, print_time, number=1000)
+
+    def test_delim_source(self):
+        text='\n'.join(map(str,range(1000)))
+        I = [text]*2
+        self._assert_scale_time(I, lambda i: list(DelimSource(IdentitySource(i)).read()), .085, print_time, number=1000)
+
     def test_lazy_dense_init_get(self):
         I = ['1']*100
         self._assert_call_time(lambda:LazyDense(lambda:I)[2], .12, print_time, number=100000)
@@ -629,7 +643,7 @@ class Performance_Tests(unittest.TestCase):
             proc.start()
             proc.join()
 
-        self._assert_call_time(run_async2, 2.3, True, number=10)
+        self._assert_call_time(run_async2, 2.3, print_time, number=10)
 
     def _assert_call_time(self, func: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         """ Test that the given func scales linearly with the number of items.

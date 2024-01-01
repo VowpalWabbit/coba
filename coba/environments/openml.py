@@ -1,12 +1,12 @@
 import time
 import json
 
+from urllib import request
 from operator import attrgetter
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
-from coba.pipes import Pipes
-from coba.pipes import HttpSource, ArffReader, DropRows, LabelRows
+from coba.pipes import Pipes, HttpSource, ArffReader, DropRows, LabelRows
 from coba.context import CobaContext
 from coba.primitives import Sparse, Dense, Source
 from coba.exceptions import CobaException
@@ -104,14 +104,14 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             if self._target in ignore: ignore.pop(ignore.index(self._target))
 
             label_type = 'c' if task_type==1 else 'r' if task_type==2 else None
-
             drop_row = attrgetter('missing') if self._drop_missing else None
-            lines    = self._get_arff_lines(data_descr["file_id"], None)
-            reader   = ArffReader()
-            drop     = DropRows(drop_cols=ignore, drop_row=drop_row)
-            label    = LabelRows(self._target, label_type)
 
-            return Pipes.join(reader, drop, label).filter(lines)
+            lines = self._get_arff_lines(data_descr["file_id"], None)
+            reader= ArffReader()
+            drop  = DropRows(drop_cols=ignore, drop_row=drop_row)
+            label = LabelRows(self._target, label_type)
+
+            yield from Pipes.join(reader, drop, label).filter(lines)
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -141,76 +141,58 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             self._clear_cache()
             raise
 
-    def _http_request(self, url:str) -> Iterable[str]:
-        api_key = CobaContext.api_keys['openml']
+    def _http_request(self, url: str, tries: int = 0) -> Iterable[str]:
+        api_key   = CobaContext.api_keys.get('openml')
         semaphore = CobaContext.store.get("openml_semaphore")
-        is_bytes = None
 
-        # An attempt to be considerate and stagger/limit our hits of their REST API.
-        # Openml doesn't publish any rate-limiting guidelines so this is just a guess.
+        # In an attempt to be considerate we stagger/limit our hits of the REST API.
+        # Openml doesn't publish any rate-limiting guidelines, so this is just a guess.
         # if semaphore is not None it indictes that we are in a CobaMultiprocessor.
         if semaphore: time.sleep(2*random())
 
-        with HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
+        try:
+            KB = 1024
+            MB = 1024*KB
+            if api_key: url = f"{url}?api_key={api_key}"
+            yield from HttpSource(url, timeout=20, chunk_size=10*MB).read()
 
-            if response.status_code == 412:
-                if 'please provide api key' in response.text:
-                    message = (
-                        "Openml has requested an API Key to access openml's rest API. A key can be obtained by creating "
-                        "an openml account at openml.org. Once a key has been obtained it should be placed within "
-                        "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                    raise CobaException(message)
+        except TimeoutError:
+            if tries >= 3: raise
+            yield from self._http_request(url, tries+1)
+            return
 
-                if 'authentication failed' in response.text:
-                    message = (
-                        "The API Key you provided no longer seems to be valid. You may need to create a new one by "
-                        "logging into your openml account and regenerating a key. After regenerating the new key "
-                        "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                    raise CobaException(message)
+        except request.HTTPError as e:
+            status, content = e.code, e.fp.read()
 
-            if response.status_code == 404:
+            if status == 412 and 'please provide api key' in content.lower():
+                raise CobaException(
+                    "Openml has requested an API key to access openml's rest API. A key can be obtained by creating "
+                    "an openml account at openml.org. Once a key has been obtained it should be placed within "
+                    "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+
+            if status == 412 and 'authentication failed' in content.lower():
+                raise CobaException(
+                    "The API key you provided no longer seems to be valid. You may need to create a new one by "
+                    "logging into your openml account and regenerating a key. After regenerating the new key "
+                    "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+
+            if status == 404:
                 raise CobaException("We're sorry but we were unable to find the requested dataset on openml.")
 
-            if response.status_code != 200:
-                raise CobaException(f"An error was returned by openml: {response.text}")
+            raise CobaException(f"An error was returned by openml: {content}")
 
-            # NOTE: These two checks need to be gated with a status code failure
-            # NOTE: otherwise this will cause the data to be downloaded all at once
-            # NOTE: unfortunately I don't know the appropriate status code so commenting out for now
-            # if "Usually due to high server load" in response.text:
-            #     message = (
-            #         "Openml has experienced an error that they believe is the result of high server loads. "
-            #         "Openml recommends that you try again in a few seconds. Additionally, if not already "
-            #         "done, consider setting up a DiskCache in a coba config file to reduce the number of "
-            #         "openml calls in the future.")
-            #     raise CobaException(message) from None
-
-            # if '' == response.text:
-            #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
-
-            for b in response.iter_lines(decode_unicode=True):
-                #some openml data-sets aren't marked as utf-8
-                #in this case the response won't properly decode
-                #so we need to check for this and handle it.
-                if is_bytes is None: is_bytes = isinstance(b,bytes)
-                yield b.decode('utf-8') if is_bytes else b
 
     def _get_data_descr(self, data_id:int) -> Dict[str,Any]:
-
         descr_txt = " ".join(self._get_data(f'https://openml.org/api/v1/json/data/{data_id}', self._cache_keys['data']))
         descr_obj = json.loads(descr_txt)["data_set_description"]
-
         return descr_obj
 
     def _get_feat_descr(self, data_id:int) -> Sequence[Dict[str,Any]]:
-
         descr_txt = " ".join(self._get_data(f'https://openml.org/api/v1/json/data/features/{data_id}', self._cache_keys['feat']))
         descr_obj = json.loads(descr_txt)["data_features"]["feature"]
-
         return descr_obj
 
     def _get_task_descr(self, task_id) -> Dict[str,Any]:
-
         descr_txt = " ".join(self._get_data(f'https://openml.org/api/v1/json/task/{task_id}', self._cache_keys['task']))
         descr_obj = json.loads(descr_txt)['task']
 
@@ -222,10 +204,8 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         return { 'id': task_id, 'type': task_type, 'data': data_id, 'target': target}
 
     def _get_arff_lines(self, file_id:str, md5_checksum:str) -> Iterable[str]:
-
             arff_url = f"https://openml.org/data/v1/download/{file_id}"
             arff_key = self._cache_keys['arff']
-
             return self._get_data(arff_url, arff_key, md5_checksum)
 
     def _clear_cache(self) -> None:
@@ -233,7 +213,6 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             CobaContext.cacher.rmv(key)
 
     def _source_already_cached(self) -> bool:
-
         old_data_id = self._data_id
         all_cached  = False
 

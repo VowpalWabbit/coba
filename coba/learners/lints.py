@@ -8,9 +8,9 @@ from coba.encodings import InteractionsEncoder
 class LinTSLearner(Learner):
     """A contextual bandit learner using Thompson Sampling for exploration.
 
-    This is an implementation of the Agrawal et al. (2013) Thompson Sapmling 
-    algorithm. The `Sherman-Morrison formula`__ is utilized to iteratively 
-    calculate the inversion matrix. Expected reward is represented as a 
+    This is an implementation of the Agrawal et al. (2013) Thompson Sapmling
+    algorithm. The `Sherman-Morrison formula`__ is utilized to iteratively
+    calculate the inversion matrix. Expected reward is represented as a
     linear function of context and action features.
 
     Remarks:

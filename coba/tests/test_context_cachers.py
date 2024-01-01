@@ -163,21 +163,32 @@ class DiskCacher_Tests(unittest.TestCase):
         with self.assertRaises(CobaException):
             DiskCacher(None)
 
+    def test_overwrite_empty_cache(self):
+        cache = DiskCacher(self.Cache_Test_Dir)
+        Path(cache._cache_path('test.csv')).touch()
+
+        self.assertTrue("test.csv" in cache)
+        with cache.get_set("test.csv", lambda:["test"]) as out:
+            self.assertTrue("test.csv" in cache)
+            self.assertEqual(list(out), ["test\r\n"])
+        with cache.get_set("test.csv", None) as out:
+            self.assertEqual(list(out), ["test\r\n"])
+
     def test_write_csv_to_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
         self.assertFalse("test.csv" in cache)
         with cache.get_set("test.csv", lambda:["test"]) as out:
             self.assertTrue("test.csv" in cache)
-            self.assertEqual(list(out), ["test\n"])
+            self.assertEqual(list(out), ["test\r\n"])
         with cache.get_set("test.csv", None) as out:
-            self.assertEqual(list(out), ["test\n"])
+            self.assertEqual(list(out), ["test\r\n"])
 
     def test_write_multiline_csv_to_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
         self.assertFalse("test.csv" in cache)
         with cache.get_set("test.csv", lambda:["test", "test2"]) as out:
             self.assertTrue("test.csv" in cache)
-            self.assertEqual(list(out), ["test\n", "test2\n"])
+            self.assertEqual(list(out), ["test\r\n", "test2\r\n"])
 
     def test_rmv_csv_from_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
@@ -223,11 +234,11 @@ class DiskCacher_Tests(unittest.TestCase):
         self.assertFalse("test.csv" in cache)
 
         with cache.get_set("test.csv", lambda: ["test", "test2"]) as out:
-            self.assertEqual(list(out), ["test\n", "test2\n"])
+            self.assertEqual(list(out), ["test\r\n", "test2\r\n"])
             self.assertTrue("test.csv" in cache)
 
         with cache.get_set("test.csv", None) as out:
-            self.assertEqual(list(out), ["test\n", "test2\n"])
+            self.assertEqual(list(out), ["test\r\n", "test2\r\n"])
             self.assertTrue("test.csv" in cache)
 
 class ConcurrentCacher_Test(unittest.TestCase):

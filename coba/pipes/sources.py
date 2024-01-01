@@ -1,8 +1,11 @@
-import requests
+import codecs
 import gzip
+import zlib
 
+from io import StringIO, BytesIO
 from queue import Queue
-from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Literal, Tuple, Iterator
+from urllib import request
+from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Tuple, Iterator
 
 from coba.exceptions import CobaException
 from coba.primitives import Source, Filter
@@ -138,22 +141,109 @@ class QueueSource(Source[Iterable[Any]]):
         except (EOFError,BrokenPipeError,TypeError):
             pass
 
-class HttpSource(Source[Union[requests.Response, Iterable[str]]]):
-    """A source that reads from a web URL."""
+from http.client import HTTPResponse
 
-    def __init__(self, url: str, mode: Literal["response","lines"] = "response") -> None:
+class HttpSource(Source[Union[str,Iterable[str]]]):
+    """Get content from a web URL."""
+
+    def __init__(self, url: str, chunk_size=None, timeout:float=None) -> None:
         """Instantiate an HttpSource.
 
         Args:
-            url: url that we should request an HTTP response from.
-            mode: Return the response object if mode=`response` otherwise just return the response's lines.
+            url: Location we should get an HTTP response from.
+            chunk_size: The number of bytes to read at a time.
+            timeout: Seconds to wait for a response before failing.
         """
-        self._url = url
-        self._mode = mode
+        self._url        = url
+        self._chunk_size = chunk_size
+        self._timeout    = timeout
 
-    def read(self) -> Union[requests.Response, Iterable[str]]:
-        response = requests.get(self._url, stream=True) #by default this includes the header accept-encoding gzip and deflate
-        return response if self._mode == "response" else response.iter_lines(decode_unicode=True)
+    @staticmethod
+    def _byte_io_(encoding:str, charset:str, bites: BytesIO) -> StringIO:# pragma: no cover
+        # No longer used, but kept here because it is
+        # the fastest implementation for this pattern.
+        bites = gzip.open(bites) if encoding else bites
+        return codecs.getreader(charset)(bites)
+
+    @staticmethod
+    def _resp_io_(resp: HTTPResponse) -> StringIO:
+        # No longer used, but kept here because it is
+        # the fastest implementation for this pattern.
+        encoding = resp.headers.get('Content-Encoding')
+        charset  = next(iter(resp.info().get_charsets()),'utf-8')
+        return HttpSource._byte_io_(encoding,charset,resp)
+
+    @staticmethod
+    def _byte_it_(encoding:str, charset:str, chunk:int, bites: BytesIO) -> Union[str,Iterable[str]]:
+        # this is faster than the _byte_io_ pattern but we don't have
+        # as many guardrails because we're rolling a lot of our own code
+        if encoding == 'deflate':
+            decomp = zlib.decompressobj(-zlib.MAX_WBITS).decompress
+        elif encoding == "gzip":
+            decomp = zlib.decompressobj(16+zlib.MAX_WBITS).decompress
+        else:
+            decomp = lambda x: x
+
+        if not chunk:
+            with bites as b:
+                return decomp(b.read()).decode(charset)
+        else:
+            def chunks(decomp,charset,size,bites):
+                with bites as b:
+                    while chunk := b.read(size):
+                        yield decomp(chunk).decode(charset)
+
+            return DelimSource(IterableSource(chunks(decomp,charset,chunk,bites))).read()
+
+    @staticmethod
+    def _resp_it_(resp: HTTPResponse, chunk:int = None) -> Union[str,Iterable[str]]:
+        encoding = resp.headers.get('Content-Encoding')
+        charset  = next(iter(resp.info().get_charsets()),None) or 'utf-8'
+        return HttpSource._byte_it_(encoding,charset,chunk,resp)
+
+    def read(self) -> Union[str,Iterable[str]]:
+        try:
+            req  = request.Request(self._url,headers={'Accept-Encoding':'gzip, deflate'})
+            return self._resp_it_(request.urlopen(req, timeout=self._timeout), self._chunk_size)
+        except request.HTTPError as e:
+            raise request.HTTPError(e.url, e.code, e.msg, e.hdrs, self._resp_io_(e.fp))
+
+class DelimSource(Source[Iterable[str]]):
+    """Chunk an Iterable[str] by delimeter."""
+
+    def __init__(self, source: Source[Iterable[str]], delimeter:str = None) -> None:
+        self._source = source
+        self._delim  = delimeter
+
+    def read(self) -> Iterable[str]:
+        pending     = None
+        split_lines = not self._delim
+        delim       = self._delim
+
+        if split_lines:
+            for text in filter(None,self._source.read()):
+                lines = text.splitlines()
+                if pending:
+                    lines[0] = pending + lines[0]
+                    pending = None
+                if text[-1] not in '\r\n':
+                    pending = lines.pop()
+                yield from lines
+        else:
+            for text in filter(None,self._source.read()):
+                lines = text.split(delim)
+                if pending:
+                    lines[0] = pending + lines[0]
+                    pending = None
+                if text[-1] != delim:
+                    pending = lines.pop()
+                else:
+                    lines.pop() #this makes the delim case behave similar to splitlines
+
+                yield from lines
+
+        if pending is not None:
+            yield pending
 
 class IterableSource(Source[Iterable[Any]]):
     """A source that reads from an iterable."""
@@ -214,7 +304,7 @@ class UrlSource(Source[Iterable[str]]):
         self._url = url
 
         if url.startswith("http://") or url.startswith("https://"):
-            self._source = HttpSource(url, mode='lines')
+            self._source = HttpSource(url)
         elif url.startswith("file://"):
             self._source = DiskSource(url[7:])
         elif "://" not in url:

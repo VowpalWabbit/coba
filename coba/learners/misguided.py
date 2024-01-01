@@ -2,7 +2,7 @@ from coba.primitives import Learner, Context, Actions, Action, Prob
 
 class MisguidedLearner(Learner):
     """A learner trained on incorrect reward information.
-    
+
     Remarks:
         This is useful to generate difficult logged data in off-policy experiments.
     """

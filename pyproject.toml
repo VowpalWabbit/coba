@@ -25,9 +25,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering"
 ]
-dependencies = [
-    'requests>=2',
-]
 
 [project.urls]
 Homepage = "https://github.com/vowpalwabbit/coba"

@@ -1,3 +1,5 @@
+import os
+import codecs
 import gzip
 import time
 
@@ -115,6 +117,9 @@ class DiskCacher(Cacher[str, Iterable[str]]):
 
     def get_set(self, key: str, getter: Union[Callable[[], Iterable[str]],Iterable[str]]) -> ContextManager[Iterable[str]]:
 
+        if key in self and os.path.getsize(self._cache_path(key)) == 0:
+            self.rmv(key)
+
         if key not in self:
             try:
                 lines = getter() if callable(getter) else getter
@@ -130,7 +135,7 @@ class DiskCacher(Cacher[str, Iterable[str]]):
                     self.rmv(key)
                 raise
 
-        return gzip.open(self._cache_path(key), 'rt', 'utf-8')
+        return codecs.getreader('utf-8')(gzip.open(self._cache_path(key)))
 
     def _cache_name(self, key: str) -> str:
         if not all(c.isalnum() or c in (' ','.','_') for c in key):
