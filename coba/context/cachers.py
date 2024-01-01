@@ -1,5 +1,4 @@
 import os
-import codecs
 import gzip
 import time
 
@@ -135,7 +134,7 @@ class DiskCacher(Cacher[str, Iterable[str]]):
                     self.rmv(key)
                 raise
 
-        return codecs.getreader('utf-8')(gzip.open(self._cache_path(key)))
+        return gzip.open(self._cache_path(key),mode='rt',encoding='utf-8')
 
     def _cache_name(self, key: str) -> str:
         if not all(c.isalnum() or c in (' ','.','_') for c in key):

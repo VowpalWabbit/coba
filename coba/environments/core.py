@@ -287,7 +287,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         Remarks:
             For Task ids 232, 3044, 75105, and 211723 every row has a missing feature. These
             environments will be empty when drop_missing is True. Task id 189866 has been
-            updated to 361282, a new version of the original dataset due to REST api issues
+            updated to 361282, a new version of the original dataset that fixes api issues
             with the old dataset.
 
         """

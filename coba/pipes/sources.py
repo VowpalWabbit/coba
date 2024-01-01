@@ -2,7 +2,7 @@ import codecs
 import gzip
 import zlib
 
-from io import StringIO, BytesIO
+from io import StringIO, BytesIO, TextIOWrapper
 from queue import Queue
 from urllib import request
 from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Tuple, Iterator
@@ -159,18 +159,20 @@ class HttpSource(Source[Union[str,Iterable[str]]]):
         self._timeout    = timeout
 
     @staticmethod
-    def _byte_io_(encoding:str, charset:str, bites: BytesIO) -> StringIO:# pragma: no cover
-        # No longer used, but kept here because it is
-        # the fastest implementation for this pattern.
+    def _byte_io_(encoding:str, charset:str, bites: BytesIO) -> StringIO:
+        # In my testing TextIOWrapper is a little slower than
+        # codecs.getreader(charset). That said the format of
+        # new lines in codecs is inconsistent across platforms
+        # making unit testing problematic. Additionally, Python,
+        # sees TextIOWrapper as a pure upgrade codecs.getreader.
+        # https://peps.python.org/pep-0400/
         bites = gzip.open(bites) if encoding else bites
-        return codecs.getreader(charset)(bites)
+        return TextIOWrapper(bites,encoding=charset)
 
     @staticmethod
     def _resp_io_(resp: HTTPResponse) -> StringIO:
-        # No longer used, but kept here because it is
-        # the fastest implementation for this pattern.
         encoding = resp.headers.get('Content-Encoding')
-        charset  = next(iter(resp.info().get_charsets()),'utf-8')
+        charset  = next(iter(resp.info().get_charsets()),None) or 'utf-8'
         return HttpSource._byte_io_(encoding,charset,resp)
 
     @staticmethod
