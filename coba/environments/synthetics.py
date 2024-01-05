@@ -1,7 +1,8 @@
 import math
 
+from operator import mul
 from statistics import mean
-from itertools import count, islice, cycle
+from itertools import count, islice, cycle, repeat
 from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable, Literal
 
 from coba.random import CobaRandom
@@ -411,7 +412,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
     def _gaussian_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
         return math.exp(-sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)])/gamma)
 
-class MLPSyntheticSimulation(LambdaSimulation):
+class MLPSyntheticSimulation(Environment):
     """A synthetic simulation whose reward function belongs to the MLP family.
 
     The MLP architecture has a single hidden layer with sigmoid activation and one output
@@ -437,72 +438,74 @@ class MLPSyntheticSimulation(LambdaSimulation):
         if n_actions < 2:
             raise CobaException("MLP synthetic environments must have at least two actions.")
 
-
         self._args = (n_interactions, n_actions, n_context_features, n_action_features, seed)
 
         self._n_actions          = n_actions
         self._n_context_features = n_context_features
         self._n_action_features  = n_action_features
+        self._n_interactions     = n_interactions
         self._seed               = seed
 
-        rng = CobaRandom(seed)
+    def read(self):
 
-        input_layer_size  = n_context_features+n_action_features
-        hidden_layer_size = 50
+        rng = CobaRandom(self._seed)
 
-        self._bias = 0
+        n_context_features = self._n_context_features
+        n_action_features  = self._n_action_features
+        n_actions          = self._n_actions
 
-        if input_layer_size:
-            hidden_weights       = [ [ rng.gausses(input_layer_size,0,1.5) for _ in range(hidden_layer_size) ] for _ in range(1 if n_action_features else n_actions) ]
-            hidden_activation    = lambda x: 1/(1+math.exp(-x)) #sigmoid activation
-            hidden_output        = lambda inputs,weights: hidden_activation(sum([ i*w for i,w in zip(inputs,weights)]))
-            self._output_weights = rng.gausses(hidden_layer_size)
+        # a lot of emprical experiments showed
+        # these values hit a sweet spot in terms
+        # of reward variation and complexity
+        hidden = 10
+        power  = 10
+
+        if n_action_features:
+            #f(x+a1) = r1; f(x+a2) = r2
+            input_size  = n_context_features + n_action_features
+            hidden_size = hidden
+            output_size = 1
         else:
-            self._output_weights = rng.gausses(n_actions)
+            #f(x or 1) = [r1,r2,...]
+            input_size  = n_context_features or 1
+            hidden_size = hidden
+            output_size = n_actions
 
-        def context(index:int, rng:CobaRandom) -> Context:
-            return tuple(rng.gausses(n_context_features)) if n_context_features else None
+        hidden_weights    = [ rng.gausses(input_size,0,1.5) for _ in range(hidden_size) ]
+        hidden_activation = lambda x: 1/(1+math.exp(-x)) #sigmoid activation
+        output_weights    = [ [ w**power for w in rng.randoms(hidden_size,0,1)] for _ in range(output_size) ]
+        output_weights    = [ [ w/sum(weights) for w in weights ] for weights in output_weights ]
 
-        def actions(index:int, context: Context, rng:CobaRandom) -> Sequence[Action]:
+        if n_context_features:
+            context_iter = iter(rng.gausses(n_context_features) for _ in repeat(1))
+        else:
+            context_iter = iter(repeat(None))
+
+        if n_action_features:
+            actions_iter = iter([rng.gausses(n_action_features) for _ in range(n_actions)] for _ in repeat(1))
+        else:
+            actions_iter = iter(repeat(OneHotEncoder().fit_encodes(range(n_actions))))
+
+        def f(input):
+            hidden_out = [ hidden_activation(sum(map(mul,input,weights))) for weights in hidden_weights ]
+            output_val = [ sum(map(mul,hidden_out,weights))               for weights in output_weights ]
+            return output_val
+
+        for _ in range(self._n_interactions):
+
+            context = next(context_iter)
+            actions = next(actions_iter)
+
             if n_action_features:
-                return [ (rng.gausses(n_action_features)) for _ in range(n_actions)]
+                rewards = [ f( (context or []) + action )[0] for action in actions ]
             else:
-                return OneHotEncoder().fit_encodes(range(n_actions))
+                rewards = f( [1] if context is None else context )
 
-        def reward(index:int, context:Context, action:Action, rng:CobaRandom) -> float:
-
-            #handles None context
-            context = context or []
-
-            if not n_action_features and not n_context_features:
-                return self._bias + self._output_weights[action.index(1)]
-
-            if n_action_features:
-                I = list(context)+list(action)
-                W = self._output_weights
-                H = hidden_weights[0]
-            else:
-                I = list(context)
-                W = self._output_weights
-                H = hidden_weights[action.index(1)]
-
-            hidden_outputs = [ hidden_output(I,h) for h in H]
-
-            return self._bias + sum([w*hout for w,hout in zip(W, hidden_outputs) ])
-
-        rewards = [ reward(i,c,a,rng) for i in range(100) for c in [ context(i,rng)] for a in actions(i,c,rng) ]
-
-        m = mean(rewards)
-        s = (max(rewards)-min(rewards)) or 1
-
-        self._bias = 0.5-m/s
-        self._output_weights = [ w/s for w in self._output_weights ]
-
-        super().__init__(n_interactions, context, actions, reward, self._seed)
+            yield {'context': context, 'actions': actions, 'rewards': rewards}
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {**super().params, "env_type": "MLPSynthetic" }
+        return {"env_type": "MLPSynthetic", 'seed': self._seed }
 
     def __reduce__(self) -> Tuple[object, ...]:
         return (MLPSyntheticSimulation, self._args)

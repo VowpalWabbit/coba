@@ -563,13 +563,13 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_simple_no_context_no_action_features(self):
 
-        simulation = MLPSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=0)
+        simulation = MLPSyntheticSimulation(500,n_actions=100,n_context_features=0,n_action_features=0)
         interactions = list(simulation.read())
 
         self.assertEqual(500 , len(interactions))
-        self.assertEqual(2   , len(interactions[0]['actions']))
+        self.assertEqual(100 , len(interactions[0]['actions']))
         self.assertEqual(None, interactions[0]['context'])
-        self.assertEqual(2   , len(interactions[0]['actions'][0]))
+        self.assertEqual(100 , len(interactions[0]['actions'][0]))
 
         rewards = [ r for i in interactions for r in i['rewards'] ]
         self.assertLess(max(rewards),1.2)
