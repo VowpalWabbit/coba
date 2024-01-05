@@ -47,6 +47,18 @@ class CobaRandom:
         self._randu = self._next_uniform(116646453,seed,9,2**30)
         self._randg = self._next_gaussian()
 
+    def random(self, min:float=0, max:float=1) -> float:
+        """Generate a uniform random number in [`min`,`max`].
+
+        Args:
+            min: The minimum value for the random numbers.
+            max: The maximum value for the random numbers.
+
+        Returns:
+            The generated random number in [`min`,`max`].
+        """
+        return min+(max-min)*next(self._randu)
+
     def randoms(self, n:int, min:float=0, max:float=1) -> Sequence[float]:
         """Generate `n` uniform random numbers in [`min`,`max`).
 
@@ -70,18 +82,6 @@ class CobaRandom:
             iterable = (min+r_range*r for r in islice(self._randu,n))
 
         return list(iterable) if n is not None else iterable
-
-    def random(self, min:float=0, max:float=1) -> float:
-        """Generate a uniform random number in [`min`,`max`].
-
-        Args:
-            min: The minimum value for the random numbers.
-            max: The maximum value for the random numbers.
-
-        Returns:
-            The generated random number in [`min`,`max`].
-        """
-        return min+(max-min)*next(self._randu)
 
     def shuffle(self, items: Iterable[Any], inplace: bool = False) -> Sequence[Any]:
         """Shuffle the order of items in a sequence.

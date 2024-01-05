@@ -61,7 +61,7 @@ class Encoder(Generic[_T_out], ABC):
         """Encode the given values.
 
         Args:
-            values: The values toencode.
+            values: The values to encode.
 
         Returns:
             The encoded values.
@@ -72,7 +72,7 @@ class Encoder(Generic[_T_out], ABC):
         """Fit and then encode the given values.
 
         Args:
-            values: The values toencode.
+            values: The values to encode.
 
         Returns:
             The encoded values.
@@ -199,7 +199,6 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         return OneHotEncoder(values = values, err_if_unknown = self._err_if_unknown)
 
     def encode(self, value: Any) -> Tuple[int,...]:
-
         if self._onehots is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
@@ -209,7 +208,6 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             raise CobaException(f"We were unable to find {e} in {list(self._onehots.keys())}")
 
     def encodes(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
-
         if self._onehots is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
@@ -248,7 +246,6 @@ class CategoricalEncoder(Encoder[Categorical]):
             raise CobaException("This encoder must be fit before it can be used.")
 
     def encodes(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
-
         try:
             return list(map(self._categoricals.__getitem__,values))
         except KeyError as e:
@@ -271,7 +268,6 @@ class FactorEncoder(Encoder[int]):
         self._levels         = None
 
         if values:
-
             values = sorted(set(values), key=lambda v: values.index(v))
             levels  = [ i + 1 for i in range(len(values)) ]
 
@@ -286,7 +282,6 @@ class FactorEncoder(Encoder[int]):
         return FactorEncoder(values = values, err_if_unknown = self._err_if_unknown)
 
     def encode(self, value: Any) -> int:
-
         if self._levels is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
@@ -296,7 +291,6 @@ class FactorEncoder(Encoder[int]):
             raise CobaException(f"We were unable to find {e} in {self._levels.keys()}") from None
 
     def encodes(self, values: Sequence[Any]) -> Sequence[int]:
-
         if self._levels is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
@@ -318,7 +312,6 @@ class InteractionsEncoder:
         self._ns_max_pow = { n:int(max(p.get(n,0) for p in self._cross_pows.values())) for n in set(''.join(str_interactions)) }
 
     def encode(self, **ns_raw_values: Union[str, float, Sequence[Union[str,float]], Mapping[Union[str,int],Union[str,float]]]) -> Union[Sequence[float], Mapping[str,float]]:
-
         self.n+= 1
 
         ns_raw_values = { k:v if v is not None else [] for k,v in ns_raw_values.items() }
@@ -370,6 +363,7 @@ class InteractionsEncoder:
             if self._constant: encoded['const'] = self._constant
 
             return encoded
+
         else:
             start = time.time()
             val_pows = { ns: pows(ns_values[ns], max_pow) for ns, max_pow in self._ns_max_pow.items() }
@@ -390,7 +384,6 @@ class InteractionsEncoder:
     def _pows(self, values: Sequence[Union[str,float]], degree):
         #WARNING: This function has been extremely optimized. Please baseline performance before and after making any changes.
         #WARNING: You can find three existing performance tests in test_performance.
-
         if not values: return []
 
         starts = [1]*len(values)
@@ -409,7 +402,6 @@ class InteractionsEncoder:
     def _cross(self, ns_pows, cross_pow):
         #WARNING: This function has been extremely optimized. Test speed before and after making any changes.
         #WARNING: Look in test_performance for three existing performance tests.
-
         if any(ns_pows[k] == [] for k in cross_pow.keys()): return []
 
         values = [ ns_pows[ns][p] for ns,p in cross_pow.items() ]

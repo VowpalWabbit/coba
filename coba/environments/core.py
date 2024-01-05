@@ -10,6 +10,7 @@ from coba                 import pipes
 from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
 from coba.primitives      import Context, Action, Source, Learner, Environment, EnvironmentFilter
 from coba.random          import CobaRandom
+from coba.primitives      import Dense, Sparse
 from coba.pipes           import Pipes, HttpSource, IterableSource, DataFrameSource, DiskSource, NextSource
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
@@ -29,38 +30,52 @@ from coba.environments.filters   import MappingToInteraction, OpeRewards, Noise
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
 class Environments(collections.abc.Sequence, Sequence[Environment]):
-    """A friendly wrapper around commonly used environment functionality."""
+    """An friendly API for common environment functionality."""
 
     @staticmethod
-    def cache_dir(path:Union[str,Path]) -> Type['Environments']:
+    def cache_dir(path:Union[str,Path]='~/.cache/coba') -> Type['Environments']:
+        """Set the cache directory for openml sources.
+
+        Args:
+            path: A path to a directory to cache openml sources.
+
+        Returns:
+            The Environments class.
+        """
         CobaContext.cacher = DiskCacher(path)
         return Environments
 
-    @overload
     @staticmethod
-    def from_template(filesource:Source[Iterable[str]], **user_vars) -> 'Environments': ...
+    def from_template(source: Union[str,Source[Iterable[str]]], **user_vars) -> 'Environments':
+        """Create Environments from a template file.
 
-    @overload
-    @staticmethod
-    def from_template(fileurl:str, **user_vars) -> 'Environments': ...
+        Args:
+            **user_vars: overrideable template variables
 
-    @staticmethod
-    def from_template(arg, **user_vars) -> 'Environments':
-        """Instantiate Environments from an environment template file with user defined variables."""
+        Returns:
+            An Environments object.
+        """
         try:
-            return Environments(*EnvironmentsTemplateV2(arg, **user_vars).read())
+            return Environments(*EnvironmentsTemplateV2(source, **user_vars).read())
         except Exception as e: #pragma: no cover
             try:
                 #try previous version of definition files. If previous versions also fail
                 #then we raise the exception given by the most up-to-date version so that
                 #changes can be made to conform to the latest version.
-                return Environments(*EnvironmentsTemplateV1(arg).read())
+                return Environments(*EnvironmentsTemplateV1(source).read())
             except:
                 raise e
 
     @staticmethod
     def from_prebuilt(name:str) -> 'Environments':
-        """Instantiate Environments from a pre-built definition made for diagnostics and comparisons across projects."""
+        """Create Environments from a pre-built definition.
+
+        Args:
+            name: The desired pre-built environment.
+
+        Returns:
+            An Environments object.
+        """
 
         repo_url       = "https://github.com/mrucker/coba_prebuilds/blob/main"
         definition_url = f"{repo_url}/{name}/index.json?raw=True"
@@ -88,11 +103,19 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         n_action_features: int = 5,
         reward_features: Sequence[str] = ["a","xa"],
         seed: Union[int,Sequence[int]] = 1) -> 'Environments':
-        """A synthetic simulation whose rewards are linear with respect to the given reward features.
+        """Create Environments using linear reward functions.
 
-        The simulation's rewards are determined via a linear function with respect to the given reward features. When
-        no context or action features are requested reward features are calculted using a constant feature of 1 for
-        non-existant features.
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
+            reward_features: The features in the simulation's linear reward function.
+            seed: The seed used to generate all random values. If seed is a list then
+                an separate environment will be created for each seed.
+
+        Returns:
+            An Environments object.
         """
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
@@ -107,11 +130,20 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         n_context_features: int = 5,
         n_action_features: int = 5,
         n_neighborhoods: int = 30,
-        seed: int = 1) -> 'Environments':
-        """A synthetic simulation whose reward values are determined by neighborhoods.
+        seed: Union[int,Sequence[int]] = 1) -> 'Environments':
+        """Create Environments using nearest neighbors reward functions.
 
-        The simulation's rewards are determined by the neighborhood (location) of given
-        context and action pairs. A neighborhood's reward is determined by random assignment.
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
+            n_neighborhoods: The number of distinct reward value neighborhoods.
+            seed: The seed used to generate all random values. If seed is a list then
+                an separate environment will be created for each seed.
+
+        Returns:
+            An Environments object.
         """
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
@@ -130,7 +162,23 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         degree: int = 3,
         gamma: float = 1,
         seed: Union[int,Sequence[int]] = 1) -> 'Environments':
-        """A synthetic simulation whose reward function is created from kernel basis functions."""
+        """Create Environments using kernel-based reward functions.
+
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
+            n_exemplars: The number of exemplar context-action pairs.
+            kernel: The family of the kernel basis functions.
+            degree: This argument is only relevant when using polynomial kernels.
+            gamma: This argument is only relevant when using exponential kernels.
+            seed: The seed used to generate all random values. If seed is a list then
+                an separate environment will be created for each seed.
+
+        Returns:
+            An Environments object.
+        """
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
         args = (n_interactions, n_actions, n_context_features, n_action_features, n_exemplars, kernel, degree, gamma)
@@ -143,11 +191,24 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         n_actions:int = 10,
         n_context_features:int = 10,
         n_action_features:int = 10,
-        seed: int = 1) -> 'Environments':
-        """A synthetic simulation whose reward function belongs to the MLP family.
+        seed: Union[int,Sequence[int]] = 1) -> 'Environments':
+        """Create Environments using kernel-based reward functions.
 
-        The MLP architecture has a single hidden layer with sigmoid activation and one output
-        value calculated from a random linear combination of the hidden layer's output.
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
+            seed: The seed used to generate all random values. If seed is a list then
+                an separate environment will be created for each seed.
+
+        Remarks:
+            The MLP architecture has a single hidden layer with sigmoid
+            activation and one output value calculated from a random
+            linear combination of the hidden layer's output.
+
+        Returns:
+            An Environments object.
         """
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
@@ -157,26 +218,70 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @overload
     @staticmethod
-    def from_openml(data_id: Union[int,Sequence[int]],
+    def from_openml(
+        data_id: Union[int,Sequence[int]],
         drop_missing: bool = True,
         take: int = None,
         *,
         target:str = None,
         label_type:Literal['c','r','m'] = None) -> 'Environments':
         ...
+        """Create Environments using openml datasets.
+
+        Args:
+            data_id: The data id for a dataset on openml (i.e., openml.org/d/{id}).
+                If data_id is a list then an environment will be created for each id.
+            drop_missing: Drop data rows with missing values.
+            take: The interaction count for the simulation (selected at random).
+            target: The column that should be marked as the label in the source.
+            label_type: Is the label a classification, regression or multilabel type.
+
+        Returns:
+            An Environments object.
+        """
 
     @overload
     @staticmethod
-    def from_openml(*,task_id: Union[int,Sequence[int]],
+    def from_openml(
+        *,
+        task_id: Union[int,Sequence[int]],
         drop_missing: bool = True,
         take: int = None,
         target:str = None,
         label_type:Literal['m','c','r'] = None) -> 'Environments':
         ...
+        """Create Environments using openml datasets.
+
+        Args:
+            data_id: The data id for a dataset on openml (i.e., openml.org/d/{id}).
+                If data_id is a list then an environment will be created for each id.
+            task_id: The task id for a task on openml (i.e., openml.org/t/{id}).
+                If task_id is a list then an environment will be created for each id.
+            drop_missing: Drop data rows with missing values.
+            take: The interaction count for the simulation (selected at random).
+            target: The column that should be marked as the label in the source.
+            label_type: Is the label a classification, regression or multilabel type.
+
+        Returns:
+            An Environments object.
+        """
 
     @staticmethod
     def from_openml(*args,**kwargs) -> 'Environments':
-        """Create a SimulatedEnvironment from datasets available on openml."""
+        """Create Environments using openml datasets.
+
+        Args:
+            task_id: The task id for a task on openml (i.e., openml.org/t/{id}).
+                If task_id is a list then an environment will be created for each id.
+            drop_missing: Drop data rows with missing values.
+            take: The interaction count for the simulation (selected at random).
+            target: The column that should be marked as the label in the source.
+            label_type: Is the label a classification, regression or multilabel type.
+
+        Returns:
+            An Environments object.
+
+        """
 
         kwargs.update(zip(['data_id','drop_missing','take'], args))
 
@@ -194,11 +299,25 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @overload
     @staticmethod
     def from_supervised(
-        source: Source,
+        source: Source[Union[Iterable[Dense], Iterable[Sparse],Iterable[Tuple[Any,Any]]]],
         label_col: Union[int,str] = None,
-        label_type: Literal["C","R"] = "C",
+        label_type: Literal["c","r","m"] = None,
         take: int = None) -> 'Environments':
-        """Create a SimulatedEnvironment from a supervised dataset"""
+        """Create Environments using a supervised dataset.
+
+        Args:
+            source: A source that reads the supervised data. Coba natively
+                provides support for csv, arff, libsvm, and manik data sources.
+            label_col: The header or index of the label in each example. If None
+                the source must return an iterable of tuple pairs where the first
+                item are features and the second item is a label.
+            label_type: Is the label a classification, regression or multilabel type.
+                If None the label type will be inferred based on the data source.
+            take: The interaction count for the simulation (selected at random).
+
+        Returns:
+            An Environments object.
+        """
         ...
 
     @overload
@@ -206,17 +325,51 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def from_supervised(
         X = Sequence[Any],
         Y = Sequence[Any],
-        label_type: Literal["C","R"] = "C") -> 'Environments':
-        """Create a SimulatedEnvironment from a supervised dataset"""
+        label_type: Literal["c","r","m"] = None) -> 'Environments':
+        """Create Environments using a supervised dataset.
+
+        Args:
+            X: The features to use when creating contexts.
+            Y: The labels to use when creating actions and rewards.
+            label_type: Is the label a classification, regression or multilabel type.
+                If None the label type will be inferred based on the data source.
+
+        Returns:
+            An Environments object.
+        """
         ...
 
     @staticmethod
     def from_supervised(*args, **kwargs) -> 'Environments':
-        """Create a SimulatedEnvironment from a supervised dataset"""
+        """Create Environments using a supervised dataset.
+
+        Args:
+            source: A source that reads the supervised data. Coba natively
+                provides support for csv, arff, libsvm, and manik data sources.
+            label_col: The header or index of the label in each example. If None
+                the source must return an iterable of tuple pairs where the first
+                item are features and the second item is a label.
+            X: The features to use when creating contexts.
+            Y: The labels to use when creating actions and rewards.
+            label_type: Is the label a classification, regression or multilabel type.
+                If None the label type will be inferred based on the data source.
+            take: The interaction count for the simulation (selected at random).
+
+        Returns:
+            An Environments object.
+        """
         return Environments(SupervisedSimulation(*args, **kwargs))
 
     @staticmethod
     def from_save(path:str) -> 'Environments':
+        """Create Environments using a save file.
+
+        Args:
+            path: Path to an Environments save file.
+
+        Returns:
+            An Environments object.
+        """
         envs = []
         for name in ZipFile(path).namelist():
             envs.append(EnvironmentFromObjects(ZipMemberToObjects(path,name)))
@@ -274,22 +427,25 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return Environments(envs)
 
     @staticmethod
-    def from_given(*environments: Union[Environment, Sequence[Environment]]):
+    def from_custom(*environments: Union[Environment, Sequence[Environment]]):
         return Environments(*environments)
 
     @staticmethod
     def from_feurer(drop_missing: bool = True) -> 'Environments':
-        """Create environments from the 247 openml tasks in https://arxiv.org/abs/2007.04074.
+        """Create Environments using the Feurer benchmark.
 
         Args:
             drop_missing: Exclude interactions with missing context features.
 
         Remarks:
+            The description of the benchmark is provided at https://arxiv.org/abs/2007.04074.
             For Task ids 232, 3044, 75105, and 211723 every row has a missing feature. These
             environments will be empty when drop_missing is True. Task id 189866 has been
             updated to 361282, a new version of the original dataset that fixes api issues
             with the old dataset.
 
+        Returns:
+            An Environments object.
         """
 
         task_ids = [232,236,241,245,253,254,256,258,260,262,267,271,273,275,279,288,336,340,
@@ -440,7 +596,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         if isinstance(seed,(int,float)): seed = [seed]
         return self.filter([Noise(context,action,reward,s) for s in seed])
 
-    def flat(self) -> 'Environments':
+    def flatten(self) -> 'Environments':
         """Flatten environment's context and actions."""
         return self.filter(Flatten())
 

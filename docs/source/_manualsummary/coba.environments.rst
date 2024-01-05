@@ -5,17 +5,16 @@ coba.environments
 
 .. automodule:: coba.environments
 
-Core
-~~~~
+   .. rubric:: Core
 
    .. autosummary::
-      :toctree: ../_autosummary
+      :toctree: ../_manualsummary
       :template: class_with_ctor.rst
 
       Environments
 
-Raw Data Sources
-~~~~~~~~~~~~~~~~
+   .. rubric:: Raw Data Sources
+
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
@@ -26,9 +25,7 @@ Raw Data Sources
       ManikSource
       OpenmlSource
 
-
-Simulated Environments
-~~~~~~~~~~~~~~~~~~~~~~
+   .. rubric:: Simulated Environments
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -42,8 +39,7 @@ Simulated Environments
       KernelSyntheticSimulation
       MLPSyntheticSimulation
 
-Environment Filters
-~~~~~~~~~~~~~~~~~~~
+   .. rubric:: Environment Filters
 
    .. autosummary::
       :toctree: ../_autosummary

@@ -5,8 +5,7 @@ coba.learners
 
 .. automodule:: coba.learners
 
-Dummy Learners
-~~~~~~~~~~~~~~
+   .. rubric:: Dummy Learners
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -15,8 +14,7 @@ Dummy Learners
       RandomLearner
       FixedLearner
 
-Bandit Learners
-~~~~~~~~~~~~~~~
+   .. rubric:: Bandit Learners
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -25,35 +23,28 @@ Bandit Learners
       EpsilonBanditLearner
       UcbBanditLearner
 
-Contextual Bandit Learners
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+   .. rubric:: Contextual Bandit Learners
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       LinUCBLearner
+      LinTSLearner
+      VowpalEpsilonLearner
+      VowpalSoftmaxLearner
+      VowpalBagLearner
+      VowpalCoverLearner
+      VowpalRegcbLearner
+      VowpalRndLearner
+      VowpalSquarecbLearner
+      VowpalOffPolicyLearner
+      CorralLearner
 
-Vowpal Contextual Bandit Learners
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   .. rubric:: General Learners
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       VowpalLearner
-      VowpalEpsilonLearner
-      VowpalSoftmaxLearner
-      VowpalBagLearner
-      VowpalCoverLearner
-      VowpalRegcbLearner
-      VowpalSquarecbLearner
-
-Meta Learners
-~~~~~~~~~~~~~
-
-   .. autosummary::
-      :toctree: ../_autosummary
-      :template: class_with_ctor.rst
-
-      CorralLearner

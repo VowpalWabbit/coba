@@ -2,7 +2,7 @@ import json
 import collections.abc
 
 from itertools import product
-from typing import Sequence, Any, overload, Iterable, Union, Dict
+from typing import Sequence, Iterable, Union, Dict, Any
 
 from coba.context import CobaContext
 from coba.registry import JsonMakerV1, CobaRegistry, JsonMakerV2
@@ -12,15 +12,8 @@ from coba.primitives import Source, Environment
 
 class EnvironmentsTemplateV1(Source[Sequence[Environment]]):
 
-    @overload
-    def __init__(self, filesource:Source[Iterable[str]]) -> None: ...
-
-    @overload
-    def __init__(self, filename:str) -> None: ...
-
-    def __init__(self,arg) -> None:
-
-        self._source = UrlSource(arg) if isinstance(arg,str) else arg
+    def __init__(self, source: Union[Source[Iterable[str]],str]) -> None:
+        self._source = UrlSource(source) if isinstance(source,str) else source
 
     def read(self) -> Sequence[Environment]:
         definitions: dict = json.loads('\n'.join(self._source.read()))
@@ -60,14 +53,8 @@ class EnvironmentsTemplateV1(Source[Sequence[Environment]]):
 
 class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
 
-    @overload
-    def __init__(self, source:Source[Iterable[str]], **user_vars) -> None: ...
-
-    @overload
-    def __init__(self, url:str, **user_vars) -> None: ...
-
-    def __init__(self,arg, **user_vars) -> None:
-        self._source = UrlSource(arg) if isinstance(arg,str) else arg
+    def __init__(self, source: Union[str,Source[Iterable[str]]], **user_vars) -> None:
+        self._source = UrlSource(source) if isinstance(source,str) else source
         self._user_variables = { f"${k}" if k[0] != "$" else k :v for k,v in user_vars.items() }
 
     def read(self) -> Sequence[Environment]:

@@ -1,15 +1,15 @@
 from itertools import chain
-from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping, Literal
+from typing import Any, Iterable, Union, Sequence, overload, Dict, Literal, Tuple
 
 from coba.pipes import Pipes, IterableSource, LabelRows, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
 from coba.utilities import peek_first
-from coba.primitives import Categorical, Source, Environment, SimulatedInteraction
+from coba.primitives import Categorical, Source, Environment, SimulatedInteraction, Dense, Sparse
 from coba.rewards import L1Reward, BinaryReward, HammingReward
 
-class CsvSource(Source[Iterable[MutableSequence]]):
-    """Load a source (either local or remote) in CSV format.
+class CsvSource(Source[Iterable[Dense]]):
+    """Load a csv source (either local or remote).
 
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
@@ -25,7 +25,7 @@ class CsvSource(Source[Iterable[MutableSequence]]):
         reader = CsvReader(has_header, **dialect)
         self._source = Pipes.join(source, reader)
 
-    def read(self) -> Iterable[MutableSequence]:
+    def read(self) -> Iterable[Dense]:
         """Read and parse the csv source."""
         return self._source.read()
 
@@ -37,10 +37,11 @@ class CsvSource(Source[Iterable[MutableSequence]]):
     def __str__(self) -> str:
         return str(self._source)
 
-class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping]]]):
-    """Load a source (either local or remote) in ARFF format.
+class ArffSource(Source[Union[Iterable[Dense], Iterable[Sparse]]]):
+    """Load an arff source (either local or remote).
 
-    This is primarily used by SupervisedSimulation to create Environments for Experiments.
+    Remarks:
+        https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
     def __init__(self,source: Union[str,Source[Iterable[str]]]) -> None:
@@ -52,7 +53,7 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
         source       = UrlSource(source) if isinstance(source,str) else source
         self._source = Pipes.join(source, ArffReader())
 
-    def read(self) -> Union[Iterable[MutableSequence], Iterable[MutableMapping]]:
+    def read(self) -> Union[Iterable[Dense], Iterable[Sparse]]:
         """Read and parse the arff source."""
         return self._source.read()
 
@@ -64,10 +65,11 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
     def __str__(self) -> str:
         return str(self._source)
 
-class LibSvmSource(Source[Iterable[MutableMapping]]):
-    """Load a source (either local or remote) in libsvm format.
+class LibSvmSource(Source[Iterable[Sparse]]):
+    """Load a libsvm source (either local or remote).
 
-    This is primarily used by SupervisedSimulation to create Environments for Experiments.
+    Remarks:
+        https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass.html
     """
 
     def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
@@ -79,7 +81,7 @@ class LibSvmSource(Source[Iterable[MutableMapping]]):
         source       = UrlSource(source) if isinstance(source,str) else source
         self._source = Pipes.join(source, LibsvmReader())
 
-    def read(self) -> Iterable[MutableMapping]:
+    def read(self) -> Iterable[Sparse]:
         """Read and parse the libsvm source."""
         return self._source.read()
 
@@ -91,10 +93,12 @@ class LibSvmSource(Source[Iterable[MutableMapping]]):
     def __str__(self) -> str:
         return str(self._source)
 
-class ManikSource(Source[Iterable[MutableMapping]]):
-    """Load a source (either local or remote) in Manik format.
+class ManikSource(Source[Iterable[Sparse]]):
+    """Load a manik source (either local or remote).
 
-    This is primarily used by SupervisedSimulation to create Environments for Experiments.
+    Remarks:
+        http://manikvarma.org/downloads/XC/XMLRepository.html
+
     """
 
     def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
@@ -106,7 +110,7 @@ class ManikSource(Source[Iterable[MutableMapping]]):
         source       = UrlSource(source) if isinstance(source,str) else source
         self._source = Pipes.join(source, ManikReader())
 
-    def read(self) -> Iterable[MutableMapping]:
+    def read(self) -> Iterable[Sparse]:
         """Read and parse the manik source."""
         return self._source.read()
 
@@ -119,11 +123,11 @@ class ManikSource(Source[Iterable[MutableMapping]]):
         return str(self._source)
 
 class SupervisedSimulation(Environment):
-    """Create a contextual bandit simulation using an existing supervised regression or classification dataset."""
+    """Create a contextual bandit environment using a regression or classification dataset."""
 
     @overload
     def __init__(self,
-        source: Source = None,
+        source: Source[Union[Iterable[Dense], Iterable[Sparse], Iterable[Tuple[Any,Any]]]] = None,
         label_col: Union[int,str] = None,
         label_type: Literal["c","r","m"] = None,
         take: int = None) -> None:

@@ -524,7 +524,7 @@ class VowpalCoverLearner(VowpalLearner):
         super().__init__(vw_args_string, vw)
 
 class VowpalRndLearner(VowpalLearner):
-    """Random Network Distillation exploration with a VW contextual bandit learner.
+    """RND exploration with a VW contextual bandit learner.
 
     Inspired by Random Network Distillation, this explorer constructs an auxiliary prediction
     problem whose expected target value is zero and uses the prediction magnitude to construct
@@ -656,7 +656,7 @@ class VowpalSquarecbLearner(VowpalLearner):
         super().__init__(vw_args_string, vw)
 
 class VowpalOffPolicyLearner(VowpalLearner):
-    """A VW contextual bandit learner without any exploration.
+    """No exploration with a VW contextual bandit learner.
 
     This wrapper performs policy learning without any exploration. This is
     correct when training examples come from a logging policy that controls

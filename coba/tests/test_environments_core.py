@@ -456,8 +456,8 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(len(env),1)
         self.assertEqual(expected, list(env[0].read()))
 
-    def test_from_given(self):
-        env = Environments.from_given(TestEnvironment1('A'), TestEnvironment1('B'))
+    def test_from_custom(self):
+        env = Environments.from_custom(TestEnvironment1('A'), TestEnvironment1('B'))
 
         self.assertEqual(2  , len(env))
         self.assertEqual('A', env[0].params['id'])
@@ -730,7 +730,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual((1,2), envs[1].params['where_n_interactions'])
 
     def test_flatten(self):
-        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).flat()
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).flatten()
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
