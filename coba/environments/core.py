@@ -101,6 +101,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         n_actions:int = 5,
         n_context_features: int = 5,
         n_action_features: int = 5,
+        n_coefficients:Optional[int] = 5,
         reward_features: Sequence[str] = ["a","xa"],
         seed: Union[int,Sequence[int]] = 1) -> 'Environments':
         """Create Environments using linear reward functions.
@@ -110,6 +111,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             n_actions: The number of actions each interaction should have.
             n_context_features: The number of features each context should have.
             n_action_features: The number of features each action should have.
+            n_coefficients The number of non-zero weights in the final reward function.
             reward_features: The features in the simulation's linear reward function.
             seed: The seed used to generate all random values. If seed is a list then
                 an separate environment will be created for each seed.
@@ -119,7 +121,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
-        args = (n_interactions, n_actions, n_context_features, n_action_features, reward_features)
+        args = (n_interactions, n_actions, n_context_features, n_action_features, n_coefficients, reward_features)
 
         return Environments([LinearSyntheticSimulation(*args, s) for s in seed])
 

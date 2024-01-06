@@ -292,7 +292,7 @@ class Environments_Tests(unittest.TestCase):
                 Path("coba/tests/.temp/from_result.log").unlink()
 
     def test_from_linear_synthetic(self):
-        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
+        envs = Environments.from_linear_synthetic(100,2,3,4,5,["xa"],5)
         env  = envs[0]
 
         self.assertIsInstance(env, LinearSyntheticSimulation)
@@ -501,10 +501,8 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(1  , len(envs_1))
         self.assertEqual('A', envs_1[0].params['id'])
-
         self.assertEqual(1  , len(envs_2))
         self.assertEqual('B', envs_2[0].params['id'])
-
         self.assertEqual(2  , len(envs_3))
         self.assertEqual('A', envs_3[0].params['id'])
         self.assertEqual('B', envs_3[1].params['id'])
@@ -625,6 +623,7 @@ class Environments_Tests(unittest.TestCase):
 
     def test_sparse(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).sparse(False,True)
+
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(False, envs[0].params['sparse_c'])
@@ -635,6 +634,7 @@ class Environments_Tests(unittest.TestCase):
 
     def test_dense(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).dense(10,'hashing',False,True)
+
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(10, envs[0].params['dense_n'])
@@ -646,7 +646,6 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('hashing', envs[1].params['dense_m'])
         self.assertEqual(False, envs[1].params['dense_c'])
         self.assertEqual(True, envs[1].params['dense_a'])
-
         self.assertIsNot(envs[0][-1],envs[1][-1])
 
     def test_take(self):
@@ -664,7 +663,6 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , len(envs))
         self.assertEqual(2   , envs[0].params['take'])
         self.assertEqual(2   , envs[1].params['take'])
-
         self.assertFalse(list(envs[0].read()))
         self.assertTrue(list(envs[1].read()))
 
@@ -723,7 +721,6 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).where(n_interactions = (1,2))
 
         self.assertEqual(2    , len(envs))
-
         self.assertEqual('A'  , envs[0].params['id'])
         self.assertEqual((1,2), envs[0].params['where_n_interactions'])
         self.assertEqual('B'  , envs[1].params['id'])
@@ -742,7 +739,6 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments(TestEnvironment1('A')).noise(lambda x,r: x+1, lambda x,r: x+2, lambda x,r: x+3)
 
         self.assertEqual(1, len(envs))
-
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(True, envs[0].params['context_noise'])
         self.assertEqual(True, envs[0].params['action_noise'])
@@ -752,7 +748,6 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments(TestEnvironment1('A')).riffle(2,1)
 
         self.assertEqual(1, len(envs))
-
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(2, envs[0].params['riffle_spacing'])
         self.assertEqual(1, envs[0].params['riffle_seed'])
@@ -761,7 +756,6 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments(TestEnvironment1('A')).sort()
 
         self.assertEqual(1, len(envs))
-
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual('*', envs[0].params['sort'])
 
@@ -773,8 +767,8 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('onehot', envs[0].params['categoricals_in_context'])
 
     def test_materialize(self):
-        envs  = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
-        envs += Environments.from_linear_synthetic(10 ,2,3,4,["xa"],6)
+        envs  = Environments.from_linear_synthetic(100,2,3,4,5,["xa"],5)
+        envs += Environments.from_linear_synthetic(10 ,2,3,4,5,["xa"],6)
 
         envs = envs.materialize()
 
@@ -843,7 +837,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertIsInstance(last_cache[0]['actions'][0],Categorical)
 
     def test_grounded(self):
-        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
+        envs = Environments.from_linear_synthetic(100,2,3,4,5,["xa"],5)
         envs = envs.grounded(10,5,4,2,3)
         env  = envs[0]
 

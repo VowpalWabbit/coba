@@ -140,8 +140,17 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
 class LinearSyntheticSimulation_Tests(unittest.TestCase):
 
-    def test_single_feature(self):
+    def test_bad_features(self):
+        sim = LinearSyntheticSimulation(500,n_actions=2,n_context_features=1,n_action_features=0,reward_features="x")
+        self.assertEqual(sim._reward_features,['x'])
 
+        with self.assertRaises(CobaException):
+            LinearSyntheticSimulation(500,n_actions=2,n_context_features=1,n_action_features=0,reward_features="a")
+
+        with self.assertRaises(CobaException):
+            LinearSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=1,reward_features="x")
+
+    def test_single_feature(self):
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=1,n_action_features=0,reward_features=["x"])
         interactions = list(simulation.read())
 
@@ -151,11 +160,10 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(2, len(interactions[0]['actions'][0]))
 
         rewards = interactions[0]['rewards']
-        self.assertAlmostEqual(rewards[0],0.3591,places=3)
-        self.assertAlmostEqual(rewards[1],0.9525,places=3)
+        self.assertAlmostEqual(rewards[0],0.4545,places=3)
+        self.assertAlmostEqual(rewards[1],0.5144,places=3)
 
     def test_simple_context_action_features(self):
-
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,reward_features=["a","xa"])
         interactions = list(simulation.read())
 
@@ -172,7 +180,6 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_context_no_action_features(self):
-
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0,reward_features=["a","xa"])
         interactions = list(simulation.read())
 
@@ -191,7 +198,6 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_action_features(self):
-
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=4,reward_features=["a","xa"])
         interactions = list(simulation.read())
 
@@ -208,15 +214,12 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_and_no_action_features(self):
-
-        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=0,reward_features=["a","xa"])
+        simulation = LinearSyntheticSimulation(500, n_actions=1000, n_context_features=0, n_action_features=0, reward_features=["a","xa"])
         interactions = list(simulation.read())
 
         self.assertEqual(500, len(interactions))
         self.assertEqual(None, interactions[0]['context'])
-        self.assertEqual(2, len(interactions[0]['actions']))
-        self.assertEqual((1,0), interactions[0]['actions'][0])
-        self.assertEqual((0,1), interactions[0]['actions'][1])
+        self.assertEqual(1000, len(interactions[0]['actions']))
 
         rewards = [ r for i in interactions for r in i['rewards'] ]
         self.assertLess(max(rewards),1.2)
@@ -232,7 +235,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(2     , env.params['seed'])
 
     def test_str(self):
-        self.assertEqual("LinearSynth(A=2,c=3,a=4,R=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,["xa"],2)))
+        self.assertEqual("LinearSynth(A=2,c=3,a=4,R=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,5,["xa"],2)))
 
     def test_pickle(self):
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,reward_features=["a","xa"], seed=2)

@@ -3,7 +3,7 @@ import math
 from operator import mul
 from statistics import mean
 from itertools import count, islice, cycle, repeat
-from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable, Literal
+from typing import Sequence, Tuple, Callable, Optional, Iterable, Literal, Dict, Any, overload
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
@@ -115,6 +115,139 @@ class LambdaSimulation(Environment):
                 "allows us to create the interactions in memory ahead of time and convert to an in-memory simulation to pickle).")
             raise CobaException(message)
 
+class LinearSyntheticSimulation(Environment):
+    """A synthetic simulation whose rewards are linear with respect to the given reward features.
+
+    The simulation's rewards are linear with respect to the requrested reward features. When no context
+    or action features are requested these terms are removed from the requested reward features.
+    """
+
+    def __init__(self,
+        n_interactions:int,
+        n_actions:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
+        n_coefficients:Optional[int] = 5,
+        reward_features:Sequence[str] = ["a","xa"],
+        seed:int = 1) -> None:
+        """Instantiate a LinearSyntheticSimulation.
+
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
+            n_coefficients The number of non-zero weights in the final reward function.
+            reward_features: The features in the simulation's linear reward function.
+            seed: The random number seed used to generate all features, weights and noise in the simulation.
+        """
+
+        if n_actions < 2:
+            raise CobaException("Linear synthetic environments must have at least two actions")
+
+        if isinstance(reward_features,str):
+            reward_features = [reward_features]
+
+        if n_action_features or n_context_features:
+            feats = ''.join(reward_features)
+            if not n_action_features: feats = feats.replace('a','')
+            if not n_context_features: feats = feats.replace('x','')
+            if not feats and n_context_features: raise CobaException("Reward features must include `x`")
+            if not feats and n_action_features: raise CobaException("Reward features must include `a`")
+
+        self._n_interactions     = n_interactions
+        self._n_actions          = n_actions
+        self._n_context_features = n_context_features
+        self._n_action_features  = n_action_features
+        self._n_coefficients     = n_coefficients
+        self._reward_features    = reward_features
+        self._seed               = seed
+
+    def read(self):
+        n_actions          = self._n_actions
+        n_action_features  = self._n_action_features
+        n_context_features = self._n_context_features
+        n_coefficients     = self._n_coefficients
+        reward_features    = self._reward_features
+
+        if not n_context_features:
+            reward_features = list(set(filter(None,[f.replace('x','') for f in reward_features])))
+
+        if not n_action_features:
+            reward_features = list(set(filter(None,[f.replace('a','') for f in reward_features])))
+
+        rng           = CobaRandom(self._seed)
+        feats_encoder = InteractionsEncoder(reward_features)
+        feature_count = len(feats_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
+
+        if n_action_features:
+            output_size = 1 #f(x+a1) = r1; f(x+a2) = r2
+        else:
+            output_size = n_actions #f(x or 1) = [r1,r2,...]
+
+        weights_count  = n_coefficients or feature_count or 1
+        output_weights = [[0]*(feature_count or 1) for _ in range(output_size)]
+        for i in range(output_size):
+            indexes = rng.shuffle(range(feature_count or 1))
+            weights = rng.randoms(weights_count,-1,1) if reward_features else rng.randoms(weights_count)
+            for j,w in zip(indexes,weights):
+                output_weights[i][j] = w
+
+        output_biases  = [0] * len(output_weights)
+        output_scalars = [1] * len(output_weights)
+
+        phis    = lambda n: rng.randoms(n,-1,1)
+        onehots = OneHotEncoder().fit_encodes(range(n_actions))
+
+        calln       = (lambda callable,n: [callable() for _ in range(n)])
+        context_gen = (lambda: phis(n_context_features   )) if n_context_features else (lambda: None   )
+        action_gen  = (lambda: phis(n_action_features    )) if n_action_features  else (lambda: None   )
+        actions_gen = (lambda: calln(action_gen,n_actions)) if n_action_features  else (lambda: onehots)
+        feats_gen   = (lambda: feats_encoder.encode(x=next(context_iter),a=next(action_iter)))
+
+        context_iter = iter(context_gen,'forever')
+        action_iter  = iter(action_gen ,'forever')
+        actions_iter = iter(actions_gen,'forever')
+        feats_iter   = iter(feats_gen  ,'forever')
+
+        def f(x):
+            return [ bias + scalar * sum(map(mul,(x or [1]),weights)) for weights,bias,scalar in zip(output_weights,output_biases,output_scalars) ]
+
+        if reward_features:
+            get_range    = lambda r: max(r)-min(r)
+            output_cols  = list(zip(*map(f,islice(feats_iter,100))))
+            global_range = get_range(sum(output_cols,()))
+
+            has_x = n_context_features >=1
+            gt_1  = len(output_weights[0]) > 1
+
+            for i,col in enumerate(output_cols):
+
+                # when the reward functions are linear with respect to an individual
+                # feature local scaling will make reward functions more or less identical
+                output_range = get_range(col) if gt_1 else global_range if has_x else 1
+
+                output_scalars[i] = 1/output_range            #scale to ~[0,1]
+                output_biases[i]  = .5-mean(col)/output_range #center at ~.5
+
+        for _ in range(self._n_interactions):
+            context = next(context_iter)
+            actions = next(actions_iter)
+
+            if n_action_features:
+                rewards = [f(feats_encoder.encode(x=context,a=action))[0] for action in actions]
+            else:
+                rewards = f(feats_encoder.encode(x=context))
+
+            yield {'context': context, 'actions': actions, 'rewards': rewards}
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {"env_type":"LinearSynthetic", "reward_features": self._reward_features, 'n_coeff':self._n_coefficients, "seed": self._seed}
+
+    def __str__(self) -> str:
+        return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
+
 class NeighborsSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward values are determined by neighborhoods.
 
@@ -187,98 +320,6 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
 
     def __reduce__(self) -> Tuple[object, ...]:
         return (NeighborsSyntheticSimulation, self._args)
-
-class LinearSyntheticSimulation(LambdaSimulation):
-    """A synthetic simulation whose rewards are linear with respect to the given reward features.
-
-    The simulation's rewards are linear with respect to the requrested reward features. When no context
-    or action features are requested these terms are removed from the requested reward features.
-    """
-
-    def __init__(self,
-        n_interactions:int,
-        n_actions:int = 10,
-        n_context_features:int = 10,
-        n_action_features:int = 10,
-        reward_features:Sequence[str] = ["a","xa"],
-        seed:int = 1) -> None:
-        """Instantiate a LinearSyntheticSimulation.
-
-        Args:
-            n_interactions: The number of interactions the simulation should have.
-            n_actions: The number of actions each interaction should have.
-            n_context_features: The number of features each context should have.
-            n_action_features: The number of features each action should have.
-            reward_features: The features in the simulation's linear reward function.
-            seed: The random number seed used to generate all features, weights and noise in the simulation.
-        """
-
-        if n_actions < 2:
-            raise CobaException("Linear synthetic environments must have at least two actions")
-
-        self._args = (n_interactions, n_actions, n_context_features, n_action_features, reward_features, seed)
-
-        self._n_actions          = n_actions
-        self._n_context_features = n_context_features
-        self._n_action_features  = n_action_features
-        self._reward_features    = reward_features
-        self._seed               = seed
-
-        if not self._n_context_features:
-            reward_features = list(set(filter(None,[ f.replace('x','') for f in reward_features])))
-
-        if not self._n_action_features:
-            reward_features = list(set(filter(None,[ f.replace('a','') for f in reward_features])))
-
-        rng           = CobaRandom(seed)
-        feats_encoder = InteractionsEncoder(reward_features)
-        one_hot_acts  = OneHotEncoder().fit_encodes(range(n_actions))
-
-        feature_count = len(feats_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
-        weight_parts  = n_actions if n_context_features and not n_action_features else 1
-        weight_count  = feature_count or n_actions
-
-        self._weights = [ rng.gausses(weight_count,0,1) for _ in range(weight_parts) ]
-        self._biases  = [ 0 ] * weight_parts
-
-        def context(index:int, rng: CobaRandom) -> Context:
-            return rng.randoms(n_context_features,-1.5,1.5) or None
-
-        def actions(index:int,context: Context, rng: CobaRandom) -> Sequence[Action]:
-            return [ rng.randoms(n_action_features,-1.5,1.5) for _ in range(n_actions) ] if n_action_features else one_hot_acts
-
-        def reward(index:int,context:Context, action:Action, rng: CobaRandom) -> float:
-
-            F = feats_encoder.encode(x=context,a=action) if feature_count else action
-            W = self._weights[0 if weight_parts==1 else action.index(1)]
-            b = self._biases [0 if weight_parts==1 else action.index(1)]
-
-            return b+sum([w*f for w,f in zip(W,F)])
-
-        interaction_rewards = [ [reward(i,c,a,None) for a in actions(i,c,rng)] for i in range(100) for c in [ context(i,rng)] ]
-
-        parts_rewards  = [sum(interaction_rewards,[])] if weight_parts == 1 else list(zip(*interaction_rewards))
-        global_rewards = sum(interaction_rewards,[])
-        global_scale   = max(global_rewards)-min(global_rewards)
-
-        is_global_scale = weight_count == 1
-
-        for i, part_rewards in enumerate(parts_rewards):
-            scale            = global_scale if is_global_scale else (max(part_rewards)-min(part_rewards)) or 1
-            self._weights[i] = [w/scale for w in self._weights[i]]
-            self._biases[i]  = 0.5-mean(part_rewards)/scale
-
-        super().__init__(n_interactions, context, actions, reward, seed=self._seed)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return {**super().params, "env_type":"LinearSynthetic", "reward_features": self._reward_features }
-
-    def __reduce__(self) -> Tuple[object, ...]:
-        return (LinearSyntheticSimulation, self._args)
-
-    def __str__(self) -> str:
-        return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
 
 class KernelSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward function is created from kernel basis functions.
@@ -438,8 +479,6 @@ class MLPSyntheticSimulation(Environment):
         if n_actions < 2:
             raise CobaException("MLP synthetic environments must have at least two actions.")
 
-        self._args = (n_interactions, n_actions, n_context_features, n_action_features, seed)
-
         self._n_actions          = n_actions
         self._n_context_features = n_context_features
         self._n_action_features  = n_action_features
@@ -457,8 +496,8 @@ class MLPSyntheticSimulation(Environment):
         # a lot of emprical experiments showed
         # these values hit a sweet spot in terms
         # of reward variation and complexity
-        hidden = 10
-        power  = 10
+        hidden = 20
+        power  = 32
 
         if n_action_features:
             #f(x+a1) = r1; f(x+a2) = r2
@@ -499,16 +538,13 @@ class MLPSyntheticSimulation(Environment):
             if n_action_features:
                 rewards = [ f( (context or []) + action )[0] for action in actions ]
             else:
-                rewards = f( [1] if context is None else context )
+                rewards = f(context or [1])
 
             yield {'context': context, 'actions': actions, 'rewards': rewards}
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {"env_type": "MLPSynthetic", 'seed': self._seed }
-
-    def __reduce__(self) -> Tuple[object, ...]:
-        return (MLPSyntheticSimulation, self._args)
+        return {"env_type": "MLPSynthetic", 'seed': self._seed}
 
     def __str__(self) -> str:
         return f"MLPSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},seed={self._seed})"
