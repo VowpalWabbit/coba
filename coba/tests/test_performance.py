@@ -72,30 +72,30 @@ class Performance_Tests(unittest.TestCase):
     def test_dense_interaction_x_encode_performance(self):
         encoder = InteractionsEncoder(["x"])
         x       = list(range(25))
-        self._assert_scale_time(x, lambda x: encoder.encode(x=x), .045, print_time, number=1000)
+        self._assert_scale_time(x, lambda x: encoder.encode(x=x), .023, print_time, number=1000)
 
     def test_dense_interaction_xx_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])
         x       = list(range(10))
-        self._assert_call_time(lambda: encoder.encode(x=x), .035, print_time, number=1000)
+        self._assert_call_time(lambda: encoder.encode(x=x), .019, print_time, number=1000)
 
     def test_sparse_interaction_xx_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])
         x       = dict(zip(map(str,range(10)), count()))
-        self._assert_call_time(lambda: encoder.encode(x=x), .047, print_time, number=1000)
+        self._assert_call_time(lambda: encoder.encode(x=x), .033, print_time, number=1000)
 
     def test_sparse_interaction_xxa_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])
         x       = dict(zip(map(str,range(10)), count()))
         a       = [1,2,3]
-        self._assert_call_time(lambda: encoder.encode(x=x,a=a), .049, print_time, number=1000)
+        self._assert_call_time(lambda: encoder.encode(x=x,a=a), .030, print_time, number=1000)
 
     def test_sparse_interaction_abc_encode_performance(self):
         encoder = InteractionsEncoder(["aabc"])
         a       = dict(zip(map(str,range(5)), count()))
         b       = [1,2]
         c       = [2,3]
-        self._assert_scale_time(c, lambda x: encoder.encode(a=a,b=b,c=x), .075, print_time, number=1000)
+        self._assert_scale_time(c, lambda x: encoder.encode(a=a,b=b,c=x), .05, print_time, number=1000)
 
     def test_jsonmakerv2(self):
         item = {"range": 10}
