@@ -3,11 +3,11 @@ import math
 from operator import mul
 from statistics import mean
 from itertools import count, islice, cycle, repeat
-from typing import Sequence, Tuple, Callable, Optional, Iterable, Literal, Dict, Any, overload
+from typing import Sequence, Tuple, Callable, Optional, Iterable, Literal, Mapping, Any, overload
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
-from coba.primitives import Context, Action, Environment, SimulatedInteraction
+from coba.primitives import Context, Action, Environment, Interaction
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
 class LambdaSimulation(Environment):
@@ -56,7 +56,7 @@ class LambdaSimulation(Environment):
         if seed is not None: self._seed = seed
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         params = { "env_type": "LambdaSimulation" }
 
         if hasattr(self, '_seed'):
@@ -64,7 +64,7 @@ class LambdaSimulation(Environment):
 
         return params
 
-    def read(self) -> Iterable[SimulatedInteraction]:
+    def read(self) -> Iterable[Interaction]:
         rng = None if not self._make_rng else CobaRandom(self._seed)
 
         _context = lambda i    : self._context(i    ,rng) if rng else self._context(i   )
@@ -89,7 +89,7 @@ class LambdaSimulation(Environment):
             type(self).__name__ = _name
 
         @property
-        def params(self) -> Dict[str, Any]:
+        def params(self) -> Mapping[str, Any]:
             return self._params
 
         def read(self):
@@ -163,7 +163,7 @@ class LinearSyntheticSimulation(Environment):
         self._reward_features    = reward_features
         self._seed               = seed
 
-    def read(self):
+    def read(self) -> Iterable[Interaction]:
         n_actions          = self._n_actions
         n_action_features  = self._n_action_features
         n_context_features = self._n_context_features
@@ -242,13 +242,13 @@ class LinearSyntheticSimulation(Environment):
             yield {'context': context, 'actions': actions, 'rewards': rewards}
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {"env_type":"LinearSynthetic", "reward_features": self._reward_features, 'n_coeff':self._n_coefficients, "seed": self._seed}
 
     def __str__(self) -> str:
         return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
 
-class NeighborsSyntheticSimulation(LambdaSimulation):
+class NeighborsSyntheticSimulation(Environment):
     """A synthetic simulation whose reward values are determined by neighborhoods.
 
     The simulation's rewards are determined by the location of given context and action pairs. These locations
@@ -274,8 +274,6 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
             seed: The random number seed used to generate all contexts and action rewards.
         """
 
-        self._args = (n_interactions, n_actions, n_context_features, n_action_features, n_neighborhoods, seed)
-
         self._n_interactions  = n_interactions
         self._n_actions       = n_actions
         self._n_context_feats = n_context_features
@@ -283,43 +281,46 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
         self._n_neighborhoods = n_neighborhoods
         self._seed            = seed
 
+    def read(self) -> Iterable[Interaction]:
+        n_interactions  = self._n_interactions
+        n_actions       = self._n_actions
+        n_context_feats = self._n_context_feats
+        n_action_feats  = self._n_action_feats
+        n_neighborhoods = self._n_neighborhoods
+
         rng = CobaRandom(self._seed)
 
-        def context_gen():
-            return tuple(rng.gausses(n_context_features,0,1)) if n_context_features else None
+        phis    = lambda n: tuple(rng.gausses(n,0,1))
+        onehots = OneHotEncoder().fit_encodes(range(n_actions))
 
-        def actions_gen():
-            if not n_action_features:
-                return OneHotEncoder().fit_encodes(range(n_actions))
-            else:
-                return [ tuple(rng.gausses(n_action_features,0,1)) for _ in range(n_actions) ]
+        calln       = (lambda callable,n: [callable() for _ in range(n)])
+        context_gen = (lambda: phis(n_context_feats      )) if n_context_feats else (lambda: None   )
+        action_gen  = (lambda: phis(n_action_feats       )) if n_action_feats  else (lambda: None   )
+        actions_gen = (lambda: calln(action_gen,n_actions)) if n_action_feats  else (lambda: onehots)
 
-        contexts               = list(set([ context_gen() for _ in range(self._n_neighborhoods) ]))
-        context_actions        = { c: actions_gen() for c in contexts }
-        context_action_rewards = { (c,a):rng.random() for c in contexts for a in context_actions[c] }
+        context_iter = iter(context_gen,'forever')
+        actions_iter = iter(actions_gen,'forever')
+
+        contexts        = list(set(islice(context_iter,n_neighborhoods)))
+        context_actions = { c: next(actions_iter) for c in contexts    }
+        context_rewards = { c:rng.randoms(n_actions) for c in contexts }
 
         context_iter = iter(cycle(contexts))
 
-        def context(index:int):
-            return next(context_iter)
+        for _ in range(n_interactions):
 
-        def actions(index:int, context:Tuple[float,...]):
-            return context_actions[context]
+            context = next(context_iter)
+            actions = context_actions[context]
+            rewards = context_rewards[context]
 
-        def reward(index:int, context:Tuple[float,...], action:Tuple[int,...]):
-            return context_action_rewards[(context,action)]
-
-        return super().__init__(self._n_interactions, context, actions, reward)
+            yield {'context': context, 'actions': actions, 'rewards': rewards}
 
     @property
-    def params(self) -> Dict[str, Any]:
-        return {**super().params, "env_type": "NeighborsSynthetic", "n_neighborhoods": self._n_neighborhoods }
+    def params(self) -> Mapping[str, Any]:
+        return {"env_type": "NeighborsSynthetic", "n_neighborhoods": self._n_neighborhoods, 'seed': self._seed }
 
     def __str__(self) -> str:
         return f"NeighborsSynth(A={self._n_actions},c={self._n_context_feats},a={self._n_action_feats},N={self._n_neighborhoods},seed={self._seed})"
-
-    def __reduce__(self) -> Tuple[object, ...]:
-        return (NeighborsSyntheticSimulation, self._args)
 
 class KernelSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward function is created from kernel basis functions.
@@ -424,7 +425,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
         super().__init__(n_interactions, context, actions, reward, self._seed)
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         params = {**super().params, "env_type": "KernelSynthetic", "n_exemplars": self._n_exemplars, 'kernel': self._kernel}
 
         if self._kernel == "polynomial":
@@ -485,7 +486,7 @@ class MLPSyntheticSimulation(Environment):
         self._n_interactions     = n_interactions
         self._seed               = seed
 
-    def read(self):
+    def read(self) -> Iterable[Interaction]:
 
         rng = CobaRandom(self._seed)
 
@@ -543,7 +544,7 @@ class MLPSyntheticSimulation(Environment):
             yield {'context': context, 'actions': actions, 'rewards': rewards}
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {"env_type": "MLPSynthetic", 'seed': self._seed}
 
     def __str__(self) -> str:
