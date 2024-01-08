@@ -275,7 +275,7 @@ class Resevoir_Tests(unittest.TestCase):
 
 class Where_Tests(unittest.TestCase):
 
-    def test_filter(self):
+    def test_n_interactions(self):
         items = [ 1,2,3 ]
         self.assertEqual([]     , list(Where(n_interactions=2       ).filter(items)))
         self.assertEqual([]     , list(Where(n_interactions=4       ).filter(items)))
@@ -288,11 +288,28 @@ class Where_Tests(unittest.TestCase):
         self.assertEqual([1,2,3], list(Where(n_interactions=3       ).filter(items)))
         self.assertEqual([1,2,3], list(Where(                       ).filter(items)))
 
+    def test_n_actions(self):
+        items = [ {'actions':[1,2,3]} ] * 3
+        self.assertEqual([]     , list(Where(n_actions=2       ).filter(items)))
+        self.assertEqual([]     , list(Where(n_actions=4       ).filter(items)))
+        self.assertEqual([]     , list(Where(n_actions=(None,1)).filter(items)))
+        self.assertEqual([]     , list(Where(n_actions=(4,None)).filter(items)))
+
+        self.assertEqual(items, list(Where(n_actions=(1,None)).filter(items)))
+        self.assertEqual(items, list(Where(n_actions=(None,4)).filter(items)))
+        self.assertEqual(items, list(Where(n_actions=(1,4)   ).filter(items)))
+        self.assertEqual(items, list(Where(n_actions=3       ).filter(items)))
+        self.assertEqual(items, list(Where(                  ).filter(items)))
+
     def test_params(self):
         self.assertEqual({'where_n_interactions':(None,1)}, Where(n_interactions=(None,1)).params)
         self.assertEqual({'where_n_interactions':(4,None)}, Where(n_interactions=(4,None)).params)
         self.assertEqual({'where_n_interactions':1       }, Where(n_interactions=1       ).params)
+        self.assertEqual({'where_n_actions'     :(None,1)}, Where(n_actions     =(None,1)).params)
+        self.assertEqual({'where_n_actions'     :(4,None)}, Where(n_actions     =(4,None)).params)
+        self.assertEqual({'where_n_actions'     :1       }, Where(n_actions     =1       ).params)
         self.assertEqual({                               }, Where(                       ).params)
+
 
 class Scale_Tests(unittest.TestCase):
 

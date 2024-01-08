@@ -751,14 +751,18 @@ class Sort(EnvironmentFilter):
 class Where(EnvironmentFilter):
     """Define Environment selection criteria for an Environments pipe."""
 
-    def __init__(self, *, n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> None:
+    def __init__(self, *,
+        n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None,
+        n_actions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> None:
         """Instantiate a Where filter.
 
         Args:
             n_interactions: The minimum, maximum or exact number of interactions Environments must have.
+            n_actions: The minimum, maximum or exact number of actions interactions must have.
         """
 
         self._n_interactions = n_interactions
+        self._n_actions = n_actions
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -767,34 +771,30 @@ class Where(EnvironmentFilter):
         if self._n_interactions is not None:
             params["where_n_interactions"] = self._n_interactions
 
+        if self._n_actions is not None:
+            params["where_n_actions"] = self._n_actions
+
         return params
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        interactions = iter(interactions)
+        n_int = self._n_interactions
+        n_int = list(n_int) if isinstance(n_int,(list,tuple)) else [n_int]*2
 
-        if self._n_interactions is None or self._n_interactions == (None,None):
-            min_interactions  = None
-            max_interactions  = None
-            take_interactions = 0
-        elif isinstance(self._n_interactions, int):
-            min_interactions  = self._n_interactions
-            max_interactions  = self._n_interactions
-            take_interactions = self._n_interactions+1
-        else:
-            min_interactions  = self._n_interactions[0]
-            max_interactions  = self._n_interactions[1]
-            take_interactions = max(filter(lambda x: x is not None, list(self._n_interactions)))+1
+        n_act = self._n_actions
+        n_act = list(n_act) if isinstance(n_act,(list,tuple)) else [n_act]*2
 
-        taken_interactions = list(islice(interactions, take_interactions))
+        firstn,interactions = peek_first(interactions, n=1+next(filter(None,[*n_int,-1])))
 
-        if max_interactions is not None and len(taken_interactions) > max_interactions:
-            return []
+        if not interactions or not self._in_min_max(len(firstn), *n_int):
+            return
 
-        if min_interactions is not None and len(taken_interactions) < min_interactions:
-            return []
+        for interaction in interactions:
+            if n_act == [None,None] or self._in_min_max(len(interaction['actions']),*n_act):
+                yield interaction
 
-        return chain(taken_interactions, interactions)
+    def _in_min_max(self,v:int, minv:Optional[float], maxv:Optional[float]):
+        return (minv is None or minv <= v) and (maxv is None or v <= maxv)
 
 class Riffle(EnvironmentFilter):
     """Riffle shuffle Interactions by taking actions from the end and evenly distributing into the beginning."""

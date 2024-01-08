@@ -11,7 +11,7 @@ from coba.primitives import Context, Action, Environment, SimulatedInteraction
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
 class LambdaSimulation(Environment):
-    """A simulation created from generative lambda functions."""
+    """A contextual bandit environment created from generative lambda functions."""
 
     @overload
     def __init__(self,

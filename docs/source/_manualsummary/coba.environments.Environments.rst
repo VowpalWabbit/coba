@@ -6,17 +6,9 @@ Environments
 .. currentmodule:: coba.environments
 
 .. autoclass:: Environments
+   :exclude-members: __init__, __new__, mro
 
-   .. rubric:: Settings
-
-   .. autosummary::
-      :toctree: ../_autosummary
-      :template: base.rst
-
-      ~Environments.cache_dir
-
-   .. rubric:: Creators
-
+   .. rubric:: Create
    .. autosummary::
       :toctree: ../_autosummary
       :template: base.rst
@@ -29,44 +21,77 @@ Environments
       ~Environments.from_kernel_synthetic
       ~Environments.from_neighbors_synthetic
       ~Environments.from_mlp_synthetic
-
       ~Environments.from_result
       ~Environments.from_save
       ~Environments.from_supervised
       ~Environments.from_template
 
-   .. rubric:: Filters
+   .. rubric:: Select
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: base.rst
 
+      ~Environments.slice
+      ~Environments.take
+      ~Environments.reservoir
+      ~Environments.where
+
+   .. rubric:: Reorder
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: base.rst
+
+      ~Environments.riffle
+      ~Environments.shuffle
+      ~Environments.sort
+
+   .. rubric:: Precondition
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: base.rst
+
+      ~Environments.dense
+      ~Environments.flatten
+      ~Environments.impute
+      ~Environments.repr
+      ~Environments.scale
+      ~Environments.sparse
+
+   .. rubric:: Noise
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: base.rst
+
+      ~Environments.cycle
+      ~Environments.noise
+
+   .. rubric:: Transform
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: base.rst
+
+      ~Environments.binary
+      ~Environments.grounded
+      ~Environments.logged
+      ~Environments.ope_rewards
+
+   .. rubric:: Control
    .. autosummary::
       :toctree: ../_autosummary
       :template: base.rst
 
       ~Environments.batch
-      ~Environments.binary
       ~Environments.cache
       ~Environments.chunk
-      ~Environments.count
-      ~Environments.cycle
-      ~Environments.dense
-      ~Environments.filter
-      ~Environments.flatten
-      ~Environments.grounded
-      ~Environments.impute
-      ~Environments.index
-      ~Environments.logged
       ~Environments.materialize
-      ~Environments.noise
-      ~Environments.ope_rewards
-      ~Environments.params
-      ~Environments.repr
-      ~Environments.reservoir
-      ~Environments.riffle
       ~Environments.save
-      ~Environments.scale
-      ~Environments.shuffle
-      ~Environments.slice
-      ~Environments.sort
-      ~Environments.sparse
-      ~Environments.take
       ~Environments.unbatch
-      ~Environments.where
+
+   .. rubric:: Other
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: base.rst
+
+      ~Environments.filter
+      ~Environments.cache_dir
+      ~Environments.params

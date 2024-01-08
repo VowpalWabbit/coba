@@ -123,7 +123,7 @@ class ManikSource(Source[Iterable[Sparse]]):
         return str(self._source)
 
 class SupervisedSimulation(Environment):
-    """Create a contextual bandit environment using a regression or classification dataset."""
+    """A contextual bandit environment created from supervised data."""
 
     @overload
     def __init__(self,

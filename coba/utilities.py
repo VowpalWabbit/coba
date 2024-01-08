@@ -138,8 +138,8 @@ def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], It
     items = iter(items)
     first = list(islice(items,n))
 
-    items = [] if not first else chain(first,items)
-    first = None if not first else first[0] if n==1 else first
+    items = [] if not first and n>0 else chain(first,items)
+    first = [] if n==0 else None if not first else first[0] if n==1 else first
 
     return first, items
 

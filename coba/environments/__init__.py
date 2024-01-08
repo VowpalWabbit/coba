@@ -1,9 +1,4 @@
-"""This module contains core functionality for working with contextual bandit environments.
-
-This module contains the abstract interfaces for common types of contextual bandit environments,
-several concrete implementations of these environments for use in experiments, and various filters that
-can be applied to environments to modify them in useful ways (e.g., shuffling, scaling, and imputing).
-"""
+"""Core environment creation and modification."""
 
 from coba.environments.core       import Environments
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache

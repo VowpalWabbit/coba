@@ -1,4 +1,4 @@
-"""This module contains all public learners and learner interfaces."""
+"""Core learner implementations."""
 
 from coba.learners.bandit     import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral     import CorralLearner
