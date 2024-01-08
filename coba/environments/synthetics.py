@@ -1,8 +1,8 @@
 import math
 
-from operator import mul,add
+from operator import mul,add,sub
 from statistics import mean
-from itertools import count, islice, cycle, repeat
+from itertools import count, islice, repeat
 from typing import Sequence, Tuple, Callable, Optional, Iterable, Literal, Mapping, Any, overload
 
 from coba.random import CobaRandom
@@ -341,7 +341,7 @@ class NeighborsSyntheticSimulation(Environment):
             worlds = [list(zip(map(add,(c or [] for c in context_iter),action_iter),rng.randoms(n_neighborhoods))) for _ in range(n_actions)]
 
         def dist(X,Y):
-            return sum([(x-y)**2 for x,y in zip(X,Y)])
+            return sum([z*z for z in map(sub,X,Y)])
 
         def f(x):
             return [ min(world, key=lambda w: dist(w[0],x))[1] for world in worlds ]
