@@ -9,7 +9,7 @@ from coba.primitives import Categorical, Source, Environment, SimulatedInteracti
 from coba.rewards import L1Reward, BinaryReward, HammingReward
 
 class CsvSource(Source[Iterable[Dense]]):
-    """Load a csv source (either local or remote).
+    """Load a csv dataset.
 
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
@@ -38,7 +38,7 @@ class CsvSource(Source[Iterable[Dense]]):
         return str(self._source)
 
 class ArffSource(Source[Union[Iterable[Dense], Iterable[Sparse]]]):
-    """Load an arff source (either local or remote).
+    """Load an arff dataset.
 
     Remarks:
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
@@ -66,7 +66,7 @@ class ArffSource(Source[Union[Iterable[Dense], Iterable[Sparse]]]):
         return str(self._source)
 
 class LibSvmSource(Source[Iterable[Sparse]]):
-    """Load a libsvm source (either local or remote).
+    """Load a libsvm dataset.
 
     Remarks:
         https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass.html
@@ -94,7 +94,7 @@ class LibSvmSource(Source[Iterable[Sparse]]):
         return str(self._source)
 
 class ManikSource(Source[Iterable[Sparse]]):
-    """Load a manik source (either local or remote).
+    """Load a manik dataset.
 
     Remarks:
         http://manikvarma.org/downloads/XC/XMLRepository.html

@@ -11,7 +11,7 @@ Environments
    .. rubric:: Create
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
+      :nosignatures:
 
       ~Environments.from_dataframe
       ~Environments.from_custom
@@ -29,7 +29,7 @@ Environments
    .. rubric:: Select
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
+      :nosignatures:
 
       ~Environments.slice
       ~Environments.take
@@ -39,7 +39,7 @@ Environments
    .. rubric:: Reorder
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
+      :nosignatures:
 
       ~Environments.riffle
       ~Environments.shuffle
@@ -48,7 +48,7 @@ Environments
    .. rubric:: Precondition
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
+      :nosignatures:
 
       ~Environments.dense
       ~Environments.flatten
@@ -60,7 +60,7 @@ Environments
    .. rubric:: Noise
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
+      :nosignatures:
 
       ~Environments.cycle
       ~Environments.noise
@@ -68,7 +68,7 @@ Environments
    .. rubric:: Transform
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
+      :nosignatures:
 
       ~Environments.binary
       ~Environments.grounded
@@ -78,7 +78,7 @@ Environments
    .. rubric:: Control
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
+      :nosignatures:
 
       ~Environments.batch
       ~Environments.cache
@@ -90,7 +90,7 @@ Environments
    .. rubric:: Other
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
+      :nosignatures:
 
       ~Environments.filter
       ~Environments.cache_dir

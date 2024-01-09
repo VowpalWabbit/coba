@@ -25,21 +25,21 @@ from coba.rewards    import BinaryReward, DiscreteReward
 from coba.safety     import SafeLearner
 
 class Identity(pipes.Identity, EnvironmentFilter):
-    """Return whatever interactions are given to the filter."""
+    """Return interactions unchanged."""
     pass
 
 class Take(pipes.Take, EnvironmentFilter):
-    """Take a fixed number of interactions from an Environment."""
+    """Take the first n interactions."""
     pass
 
 class Slice(pipes.Slice, EnvironmentFilter):
-    """Take a slice of interactions from an Environment."""
+    """Take a slice of interactions."""
     pass
 
 class Shuffle(pipes.Shuffle, EnvironmentFilter):
-    """Shuffle a sequence of Interactions in an Environment."""
+    """Shuffle interaction order."""
 
-    def filter(self, interactions: Iterable[Interaction]) -> Sequence[Any]:
+    def filter(self, interactions: Iterable[Interaction]) -> Sequence[Interaction]:
         first, interactions = peek_first(interactions)
 
         if not interactions:
@@ -70,17 +70,17 @@ class Shuffle(pipes.Shuffle, EnvironmentFilter):
             yield from super().filter(interactions)
 
 class Reservoir(pipes.Reservoir, EnvironmentFilter):
-    """Take a fixed number of random Interactions from an Environment."""
+    """Take n random interactions."""
     pass
 
 class Cache(pipes.Cache, EnvironmentFilter):
-    """Cache all interactions that come before this filter and use the cache in the future."""
+    """Cache given interactions."""
 
     def filter(self, items: Iterable[Interaction]) -> Iterable[Interaction]:
         yield from map(methodcaller('copy'), super().filter(items))
 
 class Scale(EnvironmentFilter):
-    """Shift and scale features to precondition them before learning."""
+    """Scale and shift features."""
 
     def __init__(self,
         shift: Union[Number,Literal["min","mean","med"]] = 0,
@@ -255,12 +255,12 @@ class Impute(EnvironmentFilter):
         stat : Literal["mean","median","mode"] = "mean",
         indicator: bool = True,
         using: Optional[int] = None):
-        """Instantiate an Impute filter.
+        """Impute missing data.
 
         Args:
-            stat: The statistic to use for impuatation.
-            indicator: Indicates whether a new binary feature should be added for missingness.
-            using: The number of interactions to use to calculate the imputation statistics.
+            stats: The statistic to use for imputation.
+            indicator: Indicates whether a binary feature should be added for missingness.
+            using: The number of interactions to use to calculate imputation statistics.
         """
 
         assert stat in ["mean","median","mode"]
@@ -275,7 +275,6 @@ class Impute(EnvironmentFilter):
         return { "impute_stat": self._stat, "impute_using": self._using, "impute_indicator":self._miss }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-
         first, interactions = peek_first(Mutable().filter(interactions))
 
         if not interactions:
@@ -413,7 +412,7 @@ class Impute(EnvironmentFilter):
             return None
 
 class Sparsify(EnvironmentFilter):
-    """Sparsify an environment's feature representation."""
+    """Ensure that features are sparse."""
 
     def __init__(self, context:bool = True, action:bool = False):
         """Instantiate a Sparsify filter.
@@ -470,7 +469,7 @@ class Sparsify(EnvironmentFilter):
         return {default_header:value}
 
 class Densify(EnvironmentFilter):
-    """Densify an environment's feature representation."""
+    """Ensure that features are dense."""
 
     def __init__(self,
         n_feats: int = 400,
@@ -480,14 +479,18 @@ class Densify(EnvironmentFilter):
         """Instantiate a Densify filter.
 
         Args:
-            n_feats: The number of features to use when densifying a sparse entry.
-            method: The method used to convert sparse representation to dense representation.
-            The "lookup" method produces a more efficient feature representation but its memory
-            usage expand to the cardinality of the sparse features. The "hashing" method utilizes
-            a less efficient feature representation but does not use any memory beyond the features.
-            When using the 'hashing' method `n_feats` should be set to a large number such as 2**18.
+            n_feats: The number of features densified environment should have.
+            method: How sparse features are turned into dense features. The hashing
+                trick is more memory efficient but may have collisions. The lookup
+                method is less memory efficient but guaranteed to have no collisions.
             context: If True then contexts should be made sparse otherwise leave them alone.
             action: If True then actions should be made sparse otherwise leave them alone.
+
+            Remarks:
+                The "lookup" method produces a more efficient feature representation but its memory
+                usage expand to the cardinality of the sparse features. The "hashing" method utilizes
+                a less efficient feature representation but does not use any memory beyond the features.
+                When using the 'hashing' method `n_feats` should be set to a large number such as 2**16.
         """
 
         self._n_feats = n_feats
@@ -573,16 +576,16 @@ class Densify(EnvironmentFilter):
             return SparseDense(values, self._n_feats)
 
 class Cycle(EnvironmentFilter):
-    """Cycle all rewards associated with actions by one place.
+    """Cycle reward values.
 
-    This filter is useful for testing an algorithms response to a non-stationary shock.
+    Useful for testing a learner's response to a non-stationary shock.
     """
 
     def __init__(self, after:int = 0):
         """Instantiate a Cycle filter.
 
         Args:
-            after: How many interactions should be seen before applying the cycle filter.
+            after: The number of interactions to wait before cycling reward values.
         """
         self._after = after
 
@@ -629,7 +632,7 @@ class Cycle(EnvironmentFilter):
                 yield new
 
 class Flatten(EnvironmentFilter):
-    """Flatten the context and action features for interactions."""
+    """Flatten contexts and actions."""
 
     def __init__(self):
         self._flattener = pipes.Flatten()
@@ -679,15 +682,15 @@ class Flatten(EnvironmentFilter):
             yield new
 
 class Binary(EnvironmentFilter):
-    """Binarize all rewards to either 1 (max rewards) or 0 (all others)."""
+    """Transform reward values to 1 or 0."""
 
     @property
     def params(self) -> Mapping[str, Any]:
         return { "binary": True }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-
         first, interactions = peek_first(interactions)
+
         is_discrete = 'actions' in first and 0 < len(first['actions']) and len(first['actions']) < float('inf')
         is_callable = callable(first['rewards'])
 
@@ -712,7 +715,7 @@ class Binary(EnvironmentFilter):
                 yield new
 
 class Sort(EnvironmentFilter):
-    """Sort a sequence of Interactions in an Environment."""
+    """Sort interactions by features."""
 
     def __init__(self, *keys: Union[str,int,Sequence[Union[str,int]]]) -> None:
         """Instantiate a Sort filter.
@@ -749,7 +752,7 @@ class Sort(EnvironmentFilter):
         yield from sorted(interactions, key=sorter)
 
 class Where(EnvironmentFilter):
-    """Define Environment selection criteria for an Environments pipe."""
+    """Select for characteristics"""
 
     def __init__(self, *,
         n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None,
@@ -797,7 +800,7 @@ class Where(EnvironmentFilter):
         return (minv is None or minv <= v) and (maxv is None or v <= maxv)
 
 class Riffle(EnvironmentFilter):
-    """Riffle shuffle Interactions by taking actions from the end and evenly distributing into the beginning."""
+    """Riffle shuffle interactions."""
 
     def __init__(self, spacing: int = 3, seed=1) -> None:
         """Instantiate a Riffle filter.
@@ -824,7 +827,7 @@ class Riffle(EnvironmentFilter):
         return interactions
 
 class Noise(EnvironmentFilter):
-    """Introduce noise to an environment."""
+    """Add noise to values."""
 
     def __init__(self,
         context: Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
@@ -935,7 +938,7 @@ class Noise(EnvironmentFilter):
         return value if not isinstance(value,(int,float)) else noiser(value, rng)
 
 class Params(EnvironmentFilter):
-    """Add parameters to an environment."""
+    """Add params to an environment."""
     def __init__(self, params: Mapping[str, Any]) -> None:
         self._params = params
 
@@ -947,6 +950,7 @@ class Params(EnvironmentFilter):
         return interactions
 
 class Grounded(EnvironmentFilter):
+    """Transform simulated interactions to IGL interactions."""
 
     class GroundedFeedback:
         __slots__ = ('_rng','_goods','_bads','_seed','_argmax')
@@ -971,6 +975,20 @@ class Grounded(EnvironmentFilter):
             return f"GroundedFeedback({try_else(lambda:minimize(am),str(am))})"
 
     def __init__(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int) -> None:
+        """Instantiate a Grounded filter.
+
+        Args:
+            n_users: The number of users in the grounded environment.
+            n_normal: The number of users with normal grounded behavior.
+            n_words: The number of potential feedback words for users.
+            n_good: The number of words that mean good out of the n_words.
+            seed: Seed for all random values.
+
+        Remarks:
+            See `here`__ for more on interaction grounded learning.
+
+        __ https://proceedings.mlr.press/v139/xie21e.html
+        """
         self._n_users  = self._cast_int(n_users , "n_users" )
         self._n_normal = self._cast_int(n_normal, "n_normal")
         self._n_words  = self._cast_int(n_words , "n_words" )
@@ -1053,10 +1071,17 @@ class Grounded(EnvironmentFilter):
         raise CobaException(f"{value_name} must be a whole number and not {value}.")
 
 class Repr(EnvironmentFilter):
+    """Change representation of categorical data."""
 
     def __init__(self,
         categorical_context:Literal["onehot","onehot_tuple","string"] = None,
         categorical_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
+        """Instantiate a Repr filter.
+
+        Args:
+            cat_context: How to represent categorical data in contexts.
+            cat_actions: How to represent categorical data in actions.
+        """
         self._cat_context = categorical_context
         self._cat_actions = categorical_actions
 
@@ -1152,7 +1177,7 @@ class Repr(EnvironmentFilter):
             yield new
 
 class Batch(EnvironmentFilter):
-
+    """Batch interactions."""
     class List(list):
         is_batch: bool = True
 
@@ -1185,6 +1210,13 @@ class Batch(EnvironmentFilter):
             return cls.Tensor
 
     def __init__(self, batch_size: Optional[int], batch_type: Literal['list','torch'] = 'list') -> None:
+        """Instantiate a Batch filter.
+
+        Args:
+            batch_size: The number of interactions in a batched interaction.
+            batch_type: The type of batch for interaction values.
+        """
+
         self._batch_size = batch_size or None
         self._batch_type = batch_type
 
@@ -1238,10 +1270,11 @@ class Batch(EnvironmentFilter):
             batch = list(islice(it, n))
 
 class Unbatch(EnvironmentFilter):
+    """Unbatch interactions."""
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-
         first, interactions = peek_first(interactions)
+
         if not interactions: return []
 
         batched_keys = [k for k,v in first.items() if is_batch(v) ]
@@ -1264,8 +1297,14 @@ class Unbatch(EnvironmentFilter):
                 yield new
 
 class BatchSafe(EnvironmentFilter):
+    """Make a filter agnostic to batching."""
 
     def __init__(self, filter: EnvironmentFilter) -> None:
+        """Instantiate a BatchSafe filter.
+
+        Args:
+            filter: The filter to make agnostic to batching.
+        """
         self._filter = filter
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
@@ -1280,9 +1319,14 @@ class BatchSafe(EnvironmentFilter):
         yield from pipe.filter(interactions)
 
 class Materialize(EnvironmentFilter):
+    """Materialize an environment.
+
+    Remarks:
+        This only materializes lazily evaluated interaction data.
+        This filter does not cache the materialized interactions.
+    """
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-
         first, interactions = peek_first(interactions)
 
         if not interactions: return []
@@ -1327,6 +1371,13 @@ class Materialize(EnvironmentFilter):
             yield new
 
 class Finalize(EnvironmentFilter):
+    """Final preparation for built-in Evaluators.
+
+    Remarks:
+        This filter does two things:
+            1. Materializes all lazy data
+            2. Turns categorical types into one-hot encodings
+    """
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         first,interactions = peek_first(interactions)
@@ -1353,13 +1404,37 @@ class Finalize(EnvironmentFilter):
                 yield new
 
 class Chunk(EnvironmentFilter):
-    """A placeholder filter that exists only to semantically indicate how an environment pipe should be chunked for processing."""
+    """Indicate where to chunk.
+
+    Remarks:
+        Functionally this filter does nothing. This filter
+        only has an effect when environments are passed to
+        Experiment. In that case, this is useful if an early
+        part of an Environments pipeline takes considerable
+        time to evaluate (e.g., `logged`). Placing a chunk
+        after a long-running filter means that the filter
+        will only be executed once. After that, the results
+        will be resued by all pipes downstream of the chunk.
+    """
+
     def filter(self, items: Iterable[Interaction]) -> Iterable[Interaction]:
         return items
 
 class Logged(EnvironmentFilter):
+    """Transform simulated interactions to logged interactions."""
 
     def __init__(self, learner: Learner, seed: Optional[float] = 1.23) -> None:
+        """Instantiate a Logged filter.
+
+        Args:
+            learners: The learners that will be used as the logging policy.
+                An environment will be created for every learner provided.
+            seed: The seed for used for all random number generation.
+
+        Remarks:
+            Adds 'action', 'reward', and 'probability' to interactions with 'context',
+            'actions', and 'rewards'.
+        """
         self._learner = learner
         self._seed    = seed
 
@@ -1396,6 +1471,7 @@ class Logged(EnvironmentFilter):
             yield out
 
 class Mutable(EnvironmentFilter):
+    """Make all feature containers mutable (i.e., list or dict)."""
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -1436,12 +1512,24 @@ class Mutable(EnvironmentFilter):
                 yield interaction.copy()
 
 class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
+    """Map dicts to Interactions."""
     def filter(self, items: Iterable[Mapping]) -> Iterable[Interaction]:
         yield from map(Interaction.from_dict,items)
 
 class OpeRewards(EnvironmentFilter):
+    """Transform logged interactions to simulated interactions."""
 
     def __init__(self, rwd_type:Literal['IPS','DM','DR']=None, target:str = 'rewards', features=[1,'x','a','xa','xxa']):
+        """Instantiate an OpeRewards filter.
+
+        Args:
+            rewards_type: How to estimate the rewards function from the logged
+            data (i.e., inverse propensity score, direct method, or doubly robust).
+
+        Remarks:
+            Adds 'rewards' to interactions with 'context', 'action', 'reward',
+            and 'probability'.
+        """
         if rwd_type in ['DM','DR']:
             PackageChecker.vowpalwabbit(f"{rwd_type} OpeRewards")
         self._rwd_type = rwd_type

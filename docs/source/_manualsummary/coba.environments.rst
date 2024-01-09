@@ -5,7 +5,8 @@ coba.environments
 
 .. automodule:: coba.environments
 
-   .. rubric:: Core
+Friendly API
+~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_manualsummary
@@ -13,7 +14,8 @@ coba.environments
 
       Environments
 
-   .. rubric:: Raw Data Sources
+Sources
+~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -25,7 +27,8 @@ coba.environments
       ManikSource
       OpenmlSource
 
-   .. rubric:: Simulated Environments
+Simulations
+~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -39,21 +42,35 @@ coba.environments
       KernelSyntheticSimulation
       MLPSyntheticSimulation
 
-   .. rubric:: Environment Filters
+Filters
+~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
-      Sort
-      Scale
-      Cycle
-      Impute
+      Batch
+      BatchSafe
       Binary
-      Shuffle
-      Take
-      Reservoir
-      Identity
-      Sparsify
+      Cache
+      Chunk
+      Cycle
       Densify
+      Finalize
+      Flatten
+      Grounded
+      Impute
+      Logged
+      Noise
+      OpeRewards
+      Repr
+      Reservoir
+      Riffle
+      Scale
+      Shuffle
+      Slice
+      Sort
+      Sparsify
+      Take
+      Unbatch
       Where

@@ -2,7 +2,7 @@
 
 from coba.environments.core       import Environments
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
-from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
+from coba.environments.filters    import Slice, Sort, Scale, Cycle, Impute, Flatten, Params
 from coba.environments.filters    import Binary, Densify, Sparsify, Where, Noise, Grounded, OpeRewards
 from coba.environments.filters    import Repr, Finalize, Unbatch, Batch, BatchSafe, Chunk, Logged
 

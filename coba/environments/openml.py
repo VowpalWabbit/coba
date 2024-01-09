@@ -14,7 +14,7 @@ from coba.exceptions import CobaException
 from coba.environments.supervised import SupervisedSimulation
 
 class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
-    """Load a source from openml.org"""
+    """Load an openml.org dataset."""
 
     @overload
     def __init__(self, *, data_id:int, drop_missing:bool=True, target:str = None):

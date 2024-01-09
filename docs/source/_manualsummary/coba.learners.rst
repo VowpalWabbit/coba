@@ -5,7 +5,8 @@ coba.learners
 
 .. automodule:: coba.learners
 
-   .. rubric:: Dummy Learners
+Dummy Learners
+~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -14,7 +15,8 @@ coba.learners
       RandomLearner
       FixedLearner
 
-   .. rubric:: Bandit Learners
+Bandit Learners
+~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -23,7 +25,8 @@ coba.learners
       EpsilonBanditLearner
       UcbBanditLearner
 
-   .. rubric:: Contextual Bandit Learners
+Contextual Bandit Learners
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -41,7 +44,8 @@ coba.learners
       VowpalOffPolicyLearner
       CorralLearner
 
-   .. rubric:: General Learners
+General Learners
+~~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary

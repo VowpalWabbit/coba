@@ -237,7 +237,7 @@ class VowpalMediator:
         return self._args
 
 class VowpalLearner(Learner):
-    """A wrapper around Vowpal Wabbit's python interface to support CB learning.
+    """A Vowpal Wabbit wrapper.
 
     Remarks:
         This learner requires that the Vowpal Wabbit package be installed. This package can be

@@ -30,7 +30,7 @@ from coba.environments.filters   import MappingToInteraction, OpeRewards, Noise
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
 class Environments(collections.abc.Sequence, Sequence[Environment]):
-    """An friendly API for common environment functionality."""
+    """A friendly API for common environment functionality."""
 
     @staticmethod
     def cache_dir(path:Union[str,Path]='~/.cache/coba') -> Type['Environments']:
@@ -305,7 +305,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         label_col: Union[int,str] = None,
         label_type: Literal["c","r","m"] = None,
         take: int = None) -> 'Environments':
-        """Create Environments using a supervised dataset.
+        """Create Environments from supervised datasets.
 
         Args:
             source: A source that reads the supervised data. Coba natively
@@ -454,7 +454,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @staticmethod
     def from_custom(*environments: Union[Environment, Sequence[Environment]]):
-        """Create Environments object from a collection of Custom Environments.
+        """Create Environments from Environment.
 
         Args:
             *environments: Create an Environments from the environments.
@@ -548,10 +548,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
         Args:
             n_feats: The number of features densified environment should have.
-            method: How to turn sparse features into dense features. The hashing
-                trick is more memory efficient but may have collisions. The
-                lookup method is less memory efficient but guaranteed to have no
-                collisions.
+            method: How sparse features are turned into dense features. The hashing
+                trick is more memory efficient but may have collisions. The lookup
+                method is less memory efficient but guaranteed to have no collisions.
             context: Densify context features.
             action: Densify action features.
 
@@ -610,7 +609,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return Environments(ordered)
 
     def sort(self, *keys: Union[str,int,Sequence[Union[str,int]]]) -> 'Environments':
-        """Sort interactions according to context.
+        """Sort interactions by features.
 
         Args:
             *keys: The index or keys for context features.
@@ -627,7 +626,8 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             spacing: The number of interactions from the beginning
                 between each interaction shuffled in from the end.
             seed: The seed used to determine the location of each
-                ending interaction when placed within its beginning space.
+                ending interaction when placed within its beginning
+                space.
 
         Returns:
             An Environments object.
@@ -647,7 +647,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return self.filter([Cycle(a) for a in after])
 
     def params(self, params: Mapping[str,Any]) -> 'Environments':
-        """Add params to the environments.
+        """Add params to environments.
 
         Args:
             params: Parameter values to add to each Environment in Environments.
@@ -683,7 +683,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return self.filter(Slice(start,stop,step))
 
     def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]=1, strict:bool = False) -> 'Environments':
-        """Take a random sample of interactions.
+        """Take n random interactions.
 
         Args:
             n_interactions: The maximum number of interactions to sample.
@@ -702,7 +702,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax",
         targets:Literal["context"] = "context",
         using: Optional[int] = None) -> 'Environments':
-        """Scale and shift features to precondition.
+        """Scale and shift features.
 
         Args:
             shift: The statistic to use to shift each context feature.
@@ -711,8 +711,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             using: The number of interactions to use when calculating statistics.
 
         Remarks:
-            For example, `scale('mean','std')` would standardize all context features
-            while `scale('med','iqr')` would apply what sklearn calls a RobustScaler.
+            For example, `scale('mean', 'std')` would standardize all context features
+            while `scale('med', 'iqr')` would apply what sklearn calls a RobustScaler
+            to all context features.
 
         Returns:
             An Environments object.
@@ -745,11 +746,11 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def where(self,*,
             n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None,
             n_actions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> 'Environments':
-        """Select Environments by where clause.
+        """Select for characteristics.
 
         Args:
-            n_interactions: The min, max or exact number of interactions Environments must have.
-            n_actions: The min, max or exact number of actions interactions must have.
+            n_interactions: The min, max or exact number of interactions an Environment must have.
+            n_actions: The min, max or exact number of actions an interaction must have.
 
         Returns:
             An Environments object.
@@ -761,7 +762,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         action : Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
         reward : Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
         seed   : Union[int,Sequence[int]] = 1) -> 'Environments':
-        """Add noise to Environments.
+        """Add noise to values.
 
         Args:
             context: A distribution with shape parameters or a callable that returns a noisy value.
@@ -785,7 +786,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Flatten contexts and actions.
 
         Example:
-            This {'context': [[1,2],3]} would become {'context':[1,2,3]}.
+            An interaction {'context': [[1,2],3]} would become {'context':[1,2,3]}.
 
         Returns:
             An Environments object.
@@ -793,7 +794,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return self.filter(Flatten())
 
     def materialize(self) -> 'Environments':
-        """Materialize all Environments.
+        """Materialize and cache all environments.
 
         Remarks:
             Ideal for stateful environments such as Jupyter Notebook where
@@ -817,7 +818,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return envs
 
     def grounded(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int=1) -> 'Environments':
-        """Transform simulated interactions to Interaction Grounded Learning interactions.
+        """Transform simulated interactions to IGL interactions.
 
         Args:
             n_users: The number of users in the grounded environment.
@@ -827,7 +828,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             seed: Seed for all random values.
 
         Remarks:
-            See `here`__ for mre on interaction grounded learning.
+            See `here`__ for more on interaction grounded learning.
 
         Returns:
             An Environments object.
