@@ -23,15 +23,36 @@ def get_ope_loss(learner) -> float:
         return float("nan")
 
 class SequentialCB(Evaluator):
+    """Sequential evaluation for CB learners."""
 
-    ONLY_DISCRETE    = set()
-    IMPLICIT_EXCLUDE = {"context", "actions", "rewards", "action", "reward", "probability", "eval_rewards", "learn_rewards"}
+    _ONLY_DISCRETE    = set()
+    _IMPLICIT_EXCLUDE = {"context", "actions", "rewards", "action", "reward", "probability", "eval_rewards", "learn_rewards"}
 
     def __init__(self,
-        record: Sequence[Literal['reward','time','probability','action','context','actions','rewards','ope_loss']] = ['reward'],
+        record: Sequence[Literal['reward','time','probability','action','context','actions','rewards']] = ['reward'],
         learn : Optional[Literal['on','off','ips','dr','dm']] = 'on',
         eval  : Optional[Literal['on','ips','dr','dm']] ='on',
         seed  : float = None) -> None:
+        """Instantiate a SequentialCB evaluator.
+
+        Args:
+            record: Variables to record for each learner interaction.
+            learn: action and reward revealed to learner on `learn` call:
+                *on* --- on-policy action/reward (requires 'actions' and 'rewards'),
+                *off* --- off-policy action/reward (requires 'action' and 'reward'),
+                *ips* --- on-policy action/ips-reward (requires 'actions', 'action', 'reward', and 'probability'),
+                *dr* --- on-policy action/dr-reward (requires 'actions', 'action', and 'reward'),
+                *dm* --- on-policy action/dm-reward (requires 'actions', 'action', and 'reward'),
+                *None* --- `learn` is not called.
+            eval: reward recorded given learner prediction:
+                *on* --- actual reward (requires 'actions' and 'rewards'),
+                *ips* --- ips-reward (requires 'actions', 'action', 'reward', and 'probability'),
+                *dr* --- dr-reward (requires 'actions', 'action', and 'reward'),
+                *dm* --- dm-reward (requires 'actions', 'action', and 'reward'),
+                *None* --- no reward is recorded.
+            seed: Determine which action is played when learners return an action PMF.
+        """
+
         self._record = [record] if isinstance(record,str) else record
         self._learn  = learn or ''
         self._eval   = eval or ''
@@ -45,11 +66,6 @@ class SequentialCB(Evaluator):
 
     @property
     def params(self) -> Mapping[str,Any]:
-        """Parameters describing the evaluator (used for descriptive purposes only).
-
-        Remarks:
-            These will become columns in the evalutors table of experiment results.
-        """
         return {'learn': self._learn, 'eval': self._eval, 'seed': self._seed }
 
     def _required(self, has_score:bool) -> set:
@@ -74,7 +90,7 @@ class SequentialCB(Evaluator):
             raise CobaException(f"{self.__class__.__name__}(learn={self._learn or None},eval={self._eval or None}) requires {missing_keys}.")
 
         if not self._discrete(first):
-            for metric in set(self._record).intersection(SequentialCB.ONLY_DISCRETE):
+            for metric in set(self._record).intersection(SequentialCB._ONLY_DISCRETE):
                 warnings.warn(f"The {metric} metric can only be calculated for discrete environments")#pragma: no cover
 
     def _discrete(self,interaction):
@@ -186,7 +202,7 @@ class SequentialCB(Evaluator):
             if out_rewards : out['rewards']      = get_rewards(rewards,actions)
             if out_ope_loss: out['ope_loss']     = get_ope_loss(learner)
 
-            out.update({k: interaction[k] for k in interaction.keys()-SequentialCB.IMPLICIT_EXCLUDE})
+            out.update({k: interaction[k] for k in interaction.keys()-SequentialCB._IMPLICIT_EXCLUDE})
 
             if info:
                 out.update(info)
@@ -212,21 +228,23 @@ class SequentialCB(Evaluator):
         yield from Unbatch().filter(results)
 
 class SequentialIGL(Evaluator):
+    """Sequential evaluation for IGL learners."""
 
     def __init__(self,
-        record: Sequence[Literal['reward','feedback','time','prob','action','context','actions','rewards','feedbacks','ope_loss']] = ['reward','feedback'],
-        seed: int = None,
-    ) -> None:
+        record: Sequence[Literal['reward','feedback','time','prob','action','context','actions','rewards','feedbacks']] = ['reward','feedback'],
+        seed: int = None) -> None:
+        """Instantiate SequentialIGL learners.
+
+        Args:
+            record: Variables to record for each learner interaction.
+            seed: Determine which action is played when learners return an action PMF.
+        """
+
         self._record = list(record)
         self._seed   = seed
 
     @property
     def params(self) -> Mapping[str,Any]:
-        """Parameters describing the evaluator (used for descriptive purposes only).
-
-        Remarks:
-            These will become columns in the evalutors table of experiment results.
-        """
         return { 'seed': self._seed }
 
     def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:
@@ -281,19 +299,42 @@ class SequentialIGL(Evaluator):
             yield out
 
 class RejectionCB(Evaluator):
+    """Rejective evaluation for CB learners.
+
+    This evaluator uses rejection sampling to simulate on-policy learner performance
+    using only off-policy logged data. For this to work the evaluator requires each
+    interaction to have 'actions', 'action', 'reward', and 'probability'.
+
+    This gives an unbiased estimation of on-policy performance assuming two conditions
+
+        1. The reward distribution of each interaction is stationary.
+        2. The `cpct` parameter of the evaluator is set to 0.
+
+    Remarks:
+        This is an implementation of Dudík et al. (2012). The `cpct` parameter of our
+        implementation is what Dudík calls *q* and `cinit` is Dudík calls `c1`. To use
+        double-robust off-policy estimation as Dudík does also set `ope` to 'dr'.
+
+    References:
+        * Miroslav Dudík, Dumitru Erhan, John Langford, and Lihong Li. 2012. Sample-efficient
+          nonstationary policy evaluation for contextual bandits. In Proceedings of the
+          Twenty-Eighth Conference on Uncertainty in Artificial Intelligence (UAI'12). AUAI
+          Press, Arlington, Virginia, USA, 247-254.
+    """
 
     def __init__(self,
-        record: Sequence[Literal['context','actions','action','reward','probability','time','ope_loss']] = ['reward'],
+        record: Sequence[Literal['context','actions','action','reward','probability','time']] = ['reward'],
         ope   : Optional[Literal['ips','dr','dm']] = None,
         cpct  : float = .005,
         cmax  : float = 1.0,
         cinit : float = None,
         seed  : float = None) -> None:
-        """
+        """Instantiate a RejectionCB evaluator.
+
         Args:
             record: The datapoints to record for each interaction.
             ope: Indicates whether off-policy estimates should be included from rejected training examples.
-            cpct: The unbiased case is q = 0. Smaller values give better estimates but reject more data.
+            cpct: The unbiased case is q = 0. Smaller values give better estimates but rejects more data.
             cmax: The maximum value that the evaluator is allowed to use for `c` (the rejection sampling multiplier).
                 To get an unbiased estimate we need a `c` value such that c*on_prob/log_prob <= 1 for all
                 on_prob/log_prob. The value `cmax` determines the maximum value `c` can be in order to guarantee `c`
@@ -305,8 +346,6 @@ class RejectionCB(Evaluator):
             seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """
 
-        #An implementation of https://arxiv.org/ftp/arxiv/papers/1210/1210.4862.pdf
-
         self._record = [record] if isinstance(record,str) else record
         self._ope    = ope
         self._cpct   = cpct
@@ -316,11 +355,6 @@ class RejectionCB(Evaluator):
 
     @property
     def params(self) -> Mapping[str,Any]:
-        """Parameters describing the evaluator (used for descriptive purposes only).
-
-        Remarks:
-            These will become columns in the evalutors table of experiment results.
-        """
         return {'ope': self._ope, 'cpct': self._cpct, 'cmax': self._cmax, 'cinit': self._cinit, 'seed': self._seed }
 
     def evaluate(self, environment: Optional[Environment], learner: Optional[Learner]) -> Iterable[Mapping[Any,Any]]:

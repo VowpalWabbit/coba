@@ -929,7 +929,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return self.filter([OpeRewards(r) for r in rewards_type])
 
     def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
-        """Save an Environments pipeline to disk.
+        """Save Environments to disk.
 
         Args:
             path: The location to save Environments (the file will be a zip archive).

@@ -256,7 +256,7 @@ class Learner(ABC):
         ))
 
 class Evaluator(ABC):
-    """An Estimator of Learner performance in an Environment."""
+    """Interface to Evaluate a Learner on an Environment."""
 
     @property
     def params(self) -> Mapping[str,Any]:
