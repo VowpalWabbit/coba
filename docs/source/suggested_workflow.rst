@@ -37,7 +37,7 @@ Example Code Changes
 
     #(2) Store the experiment's result log in memory
     ##################################################
-    result = exp.evaluate()
+    result = exp.run()
 
     #(3) Visualize the result of the experiment
     ##################################################
@@ -64,7 +64,7 @@ highlighted for easy comparison.
 
     #(2) Write the experiment's result log to file (changed)
     ##################################################
-    exp.evaluate("result.log")
+    exp.run("result.log")
 
     #(3) In a Jupyter notebook cell somewhere (changed)
     ##################################################

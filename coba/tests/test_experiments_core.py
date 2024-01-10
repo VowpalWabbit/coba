@@ -625,7 +625,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
 
             CobaContext.logger = BasicLogger(ListSink())
 
-            experiment.evaluate()
+            experiment.run()
 
             self.assertEqual(3, len(CobaContext.logger.sink.items))
             self.assertIn("pickle", CobaContext.logger.sink.items[1])

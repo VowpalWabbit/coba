@@ -15,7 +15,7 @@ from coba.primitives import Learner, Environment, Evaluator
 from coba.experiments.process import MakeTasks, ChunkTasks, ProcessTasks
 
 class Experiment:
-    """An Experiment using a collection of environments and learners."""
+    """Experiment for environments, learners and evaluators."""
 
     @overload
     def __init__(self,
@@ -45,7 +45,15 @@ class Experiment:
         """
 
     def __init__(self, *args,**kwargs) -> None:
-        """Instantiate an Experiment."""
+        """Instantiate an Experiment.
+
+        Args:
+            environments: The collection of environments to use in the experiment.
+            learners: The collection of learners to use in the experiment.
+            evaluator: The evaluation task we wish to perform on learners and environments.
+            eval_tuples: The learner-environment-evaluator triples we wish to evaluate.
+            description: A description of the experiment for documentaiton purposes.
+        """
 
         if 'evaluation_task' in kwargs:
             raise CobaException(
@@ -75,11 +83,9 @@ class Experiment:
 
     def config(self,
         processes: int = None,
-        maxchunksperchild: Optional[int] = None,
-        maxtasksperchunk: Optional[int] = None) -> 'Experiment':
+        maxchunksperchild: int = None,
+        maxtasksperchunk: int = None) -> 'Experiment':
         """Configure how the experiment will be executed.
-
-        A value of `None` for any item means the CobaContext.experiment will be used.
 
         Args:
             processes: The number of processes to create for evaluating the experiment.
@@ -88,6 +94,9 @@ class Experiment:
             maxtasksperchunk: The maximum number of tasks a chunk can have. If a chunk has too many
                 tasks it will be split into smaller chunks. A value of 0 means that chunks are never
                 broken down into smaller chunks.
+
+        Returns:
+            The configured Experiment.
         """
 
         assert processes is None or processes > 0, "The given number of processes is invalid. Must be greater than 0."
@@ -119,8 +128,8 @@ class Experiment:
             result_file:str = None,
             quiet:bool = False,
             processes:int = None,
-            maxchunksperchild: Optional[int] = None,
-            maxtasksperchunk: Optional[int] = None,
+            maxchunksperchild: int = None,
+            maxtasksperchunk: int = None,
             seed: Optional[int] = 1) -> Result:
         """Run the experiment and return the results.
 
@@ -135,6 +144,9 @@ class Experiment:
                 tasks it will be split into smaller chunks. A value of 0 means that chunks are never
                 broken down into smaller chunks.
             seed: The seed that will determine all randomness within the experiment.
+
+        Returns:
+            Result of the experiment.
         """
 
         self.config(processes,maxtasksperchunk,maxchunksperchild)
@@ -190,15 +202,6 @@ class Experiment:
         del CobaContext.store['experiment_seed']
 
         return Pipes.join(source,decode,result).read()
-
-    def evaluate(self, result_file:str = None) -> Result:
-        """Evaluate the experiment and return the results (this is a backwards compatible proxy for the run method).
-
-        Args:
-            result_file: The file for writing and restoring results .
-        """
-
-        return self.run(result_file=result_file)
 
     def _parse_init_args(self,*args,**kwargs) -> Tuple[Sequence[Tuple[Environment,Learner]], Evaluator, Optional[str]]:
         #we know this with 100% certainty
