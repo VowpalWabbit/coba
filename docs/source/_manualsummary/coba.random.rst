@@ -15,15 +15,17 @@ Core
       CobaRandom
 
 Functions
-~~~~~~~~~~
+~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
-      :template: base.rst
 
       seed
+      choice
+      gauss
+      gausses
+      randint
+      randints
       random
       randoms
-      randint
-      choice
       shuffle

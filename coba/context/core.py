@@ -43,9 +43,9 @@ class ExperimentConfig:
         self.chunk_by         : Literal["source","task"] = chunk_by
 
 class CobaContext_meta(type):
-    """Concurrent global execution context accessible to all Coba classes.
+    """Global execution context.
 
-    Coba context can either be set directly or set in a .coba configuration file.
+    CobaContext attributes can be set programatically or in a config file.
     """
 
     _api_keys      = None
@@ -143,7 +143,7 @@ class CobaContext_meta(type):
 
     @property
     def api_keys(cls) -> Dict[str,str]:
-        """Global dictionary of API keys."""
+        """Global API key collection."""
         cls._api_keys = cls._api_keys if cls._api_keys else cls._config['api_keys']
         return cls._api_keys
 
@@ -173,9 +173,11 @@ class CobaContext_meta(type):
 
     @property
     def store(cls) -> Dict[str,Any]:
-        """A global, concurrent store of objects.
+        """Global store of objects.
 
-        This store will be correctly marshalled to background processes if multiprocessing is used.
+        Remarks:
+            This store will be marshalled to background
+            processes when multiprocessing is used.
         """
         return cls._store
 
@@ -191,7 +193,7 @@ class CobaContext_meta(type):
 
     @property
     def search_paths(cls) -> Sequence[Path]:
-        """The sequence of search paths for .coba configuration files."""
+        """Global search paths for config files."""
         return cls._search_paths
 
     @search_paths.setter
@@ -200,10 +202,12 @@ class CobaContext_meta(type):
 
     @property
     def learning_info(cls) -> Dict[str,Any]:
-        """Information that will be stored in Result.interactions for more in-depth analysis later.
+        """Golbal Learner info.
 
-        These values are stored in the Result.interactions table. This means leaners can log information on
-        each learn/predict call and researchers can access it after the experiment for in-depth analysis.
+        Remarks:
+            When using coba evaluators values stored in learning info will be
+            moved to evaluator results. This makes it possible to log information
+            on learn/predict calls for later analysis on the performance of a learner.
         """
         cls._learning_info = cls._learning_info if cls._learning_info is not None else {}
         return cls._learning_info

@@ -145,15 +145,15 @@ class DiskCacher(Cacher[str, Iterable[str]]):
         return Path(self._cache_dir).expanduser()/self._cache_name(key)
 
 class ConcurrentCacher(Cacher[_K, _V]):
-    """A cacher that is multi-process safe."""
+    """A cacher that is multiprocess safe."""
 
     def __init__(self, cache:Cacher[_K, _V], list: Sequence = None, lock: Lock = None):
         """Instantiate a ConcurrentCacher.
 
         Args:
-            cache: The base cacher that we wish to make multi-process safe.
-            list: A shared memory object which allows us to track read and write locks
-            lock: The memory synchronization object to be used to ensure read/write safety
+            cache: Base cacher to make read/write safe across multiple processes.
+            list: Shared memory object that allows tracking of read/write locks.
+            lock: Synchronization object to be used to ensure read/write safety.
         """
         self._digest_size = 2
 

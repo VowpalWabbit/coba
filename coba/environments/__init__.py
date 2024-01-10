@@ -1,4 +1,4 @@
-"""Core environment creators and modifiers."""
+"""Environment creators and modifiers."""
 
 from coba.environments.core       import Environments
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache

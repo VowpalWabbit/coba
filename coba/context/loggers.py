@@ -34,7 +34,7 @@ class Logger(ABC):
             message: The message or exception that should be logged.
 
         Returns:
-            A ContextManager that can be used to communicate log hierarchy.
+            A ContextManager that controls hierarchy.
         """
         ...
 
@@ -46,7 +46,7 @@ class Logger(ABC):
             message: The message that should be logged.
 
         Returns:
-            A ContextManager that indicates when to stop timing.
+            A ContextManager that controls when timing stops.
         """
         ...
 
@@ -76,7 +76,7 @@ class NullLogger(Logger):
         return nullcontext(self)
 
 class BasicLogger(Logger):
-    """A Logger with flat hierarchy and separate begin/end messages."""
+    """A Logger with flat hierarchy."""
 
     def __init__(self, sink: Sink[str] = ConsoleSink()):
         """Instantiate a BasicLogger.
@@ -133,7 +133,7 @@ class BasicLogger(Logger):
         return self._time_context(message)
 
 class IndentLogger(Logger):
-    """A Logger with indentation hierarchy and a single timed log with total runtime."""
+    """A Logger with indented hierarchy."""
 
     def __init__(self, sink: Sink[str] = ConsoleSink()):
         """Instantiate an IndentLogger.
@@ -239,7 +239,7 @@ class ExceptionLogger(Logger):
         return nullcontext(self)
 
 class DecoratedLogger(Logger):
-    """A Logger which decorates a base logger."""
+    """A Logger which decorates a logger."""
 
     def __init__(self, pre_decorators: Sequence[Filter], logger: Logger, post_decorators: Sequence[Filter]):
         """Instantiate DecoratedLogger.
@@ -272,16 +272,21 @@ class DecoratedLogger(Logger):
         return self._copy_logger.time(self._pre_decorator.filter(message))
 
     def undecorate(self) -> Logger:
+        """Remove the decorator.
+
+        Returns:
+            The original logger without a decorator.
+        """
         return self._original_logger
 
 class NameLog(Filter[str,str]):
-    """A log decorator that names the process writing the log."""
+    """Add process name to logs."""
 
     def filter(self, log: str) -> str:
         return f"pid-{current_process().pid:<6} -- {log}"
 
 class StampLog(Filter[str,str]):
-    """A log decorator that adds a timestamp to logs."""
+    """Add timestamp to logs."""
 
     def filter(self, log: str) -> str:
         return f"{self._now().strftime('%Y-%m-%d %H:%M:%S')} -- {log}"
@@ -290,7 +295,7 @@ class StampLog(Filter[str,str]):
         return datetime.now()
 
 class ExceptLog(Filter[Union[str,Exception],str]):
-    """A Log decorator that turns exceptions into messages."""
+    """Add stack traces to logs."""
 
     def filter(self, log: Union[str,Exception]) -> str:
         if isinstance(log, str):

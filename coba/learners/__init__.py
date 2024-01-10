@@ -1,4 +1,4 @@
-"""Core learner implementations."""
+"""Learner implementations."""
 
 from coba.learners.bandit     import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral     import CorralLearner

@@ -1,14 +1,7 @@
-"""A custom implementation of random number generation.
-
-This module follows the pattern of the standard library's random module by creating
-by instantiation an internal, global Random class and then referencing that in all
-the public methods in to maintain state.
+"""Random number generation with deterministic generation according to a seed.
 
 Remarks:
-    This implementation has been made to guarantee the reproducibility of experiments
-    according to integer seeds across all versions of Python. The standard implementation
-    of random within Python has had a few variations in implementation in the past and
-    could always change in the future, making randomization by seed potentially non-fixed.
+    This implementation guarantees coba reproducibility independent of other generators.
 """
 
 import math
@@ -19,10 +12,10 @@ from operator import le
 from typing import Optional, Iterable, Sequence, Any
 
 class CobaRandom:
-    """A random number generator that is consistent across python implementations."""
+    """A random number generator."""
 
     def __init__(self, seed: Optional[float] = None) -> None:
-        """Instantiate a CobaRandom.
+        """Instantiate a CobaRandom generator.
 
         Args:
             seed: The seed to use when starting random number generation.
@@ -90,12 +83,14 @@ class CobaRandom:
             items: The items that are to be shuffled.
             inplace: Shuffle the items in their given container.
 
-        Returns:
-            A sequence with the given items in a new order.
-
         Remarks:
-            This is the Richard Durstenfeld's method popularized by Donald Knuth in The Art of Computer
-            Programming. This algorithm is unbiased (i.e., all possible permutations are equally likely to occur).
+            This is the Richard Durstenfeld's method popularized by Donald
+            Knuth in The Art of Computer Programming. This algorithm is
+            unbiased (i.e., all possible permutations are equally likely to
+            occur).
+
+        Returns:
+            A new order of the original items.
         """
 
         if not hasattr(items,'__len__') or not hasattr(items,'__setitem__'):
@@ -121,6 +116,9 @@ class CobaRandom:
         Args:
             a: The inclusive lower bound for the random integer.
             b: The inclusive upper bound for the random integer.
+
+        Returns:
+            A random integer in [a,b].
         """
 
         return a+int((b-a+1)*next(self._randu))
@@ -132,6 +130,9 @@ class CobaRandom:
             n: The number of random integers to generate.
             a: The inclusive lower bound for the random integer.
             b: The inclusive upper bound for the random integer.
+
+        Returns:
+            A sequence of `n` random integers in [a,b].
         """
         b=b+1
         if a == 0:
@@ -145,7 +146,10 @@ class CobaRandom:
 
         Args:
             seq: The sequence to pick randomly from.
-            weights: The proportion by which seq is selected from.
+            weights: The frequency which seq is selected.
+
+        Returns:
+            An item in seq.
         """
 
         if weights is None:
@@ -220,7 +224,7 @@ class CobaRandom:
 _random = CobaRandom()
 
 def seed(seed: Optional[float]) -> None:
-    """Set the seed for generating random numbers in this module.
+    """Set the seed for module functions.
 
     Args:
         seed: The seed for generating random numbers.
@@ -259,6 +263,59 @@ def randoms(n: int, min:float=0, max:float=1) -> Sequence[float]:
 
     return _random.randoms(n,min,max)
 
+def shuffle(items: Iterable[Any], inplace:bool=False) -> Sequence[Any]:
+    """Shuffle the order of items in a sequence.
+
+    Args:
+        items: The items that are to be shuffled.
+        inplace: Shuffle the items in their given container.
+
+    Returns:
+        A new order of the original items.
+    """
+
+    return _random.shuffle(items, inplace)
+
+def randint(a:int, b:int) -> int:
+    """Generate a uniform random integer in [a, b].
+
+    Args:
+        a: The inclusive lower bound for the random integer.
+        b: The inclusive upper bound for the random integer.
+
+    Returns:
+        A random integer in [a,b].
+    """
+
+    return _random.randint(a,b)
+
+def randints(n:int, a:int, b:int) -> Sequence[int]:
+    """Generate `n` uniform random integers in [a, b].
+
+    Args:
+        n: The number of random integers to generate.
+        a: The inclusive lower bound for the random integer.
+        b: The inclusive upper bound for the random integer.
+
+    Returns:
+        A sequence of `n` random integers in [a,b].
+    """
+
+    return _random.randints(n,a,b)
+
+def choice(seq: Sequence[Any], weights:Sequence[float]=None) -> Any:
+    """Choose a random item from the given sequence.
+
+    Args:
+        seq: The sequence to pick randomly from.
+        weights: The frequency which seq is selected.
+
+    Returns:
+        An item in seq.
+    """
+
+    return _random.choice(seq, weights)
+
 def gauss(mu:float=0, sigma:float=1) -> float:
     """Generate a random number from N(mu,sigma).
 
@@ -281,47 +338,3 @@ def gausses(n:int, mu:float=0, sigma:float=1) -> Sequence[float]:
     """
 
     return _random.gausses(n,mu,sigma)
-
-def randint(a:int, b:int) -> int:
-    """Generate a uniform random integer in [a, b].
-
-    Args:
-        a: The inclusive lower bound for the random integer.
-        b: The inclusive upper bound for the random integer.
-    """
-
-    return _random.randint(a,b)
-
-def randints(n:int, a:int, b:int) -> Sequence[int]:
-    """Generate `n` uniform random integers in [a, b].
-
-    Args:
-        n: The number of random integers to generate.
-        a: The inclusive lower bound for the random integer.
-        b: The inclusive upper bound for the random integer.
-    """
-
-    return _random.randints(n,a,b)
-
-def choice(seq: Sequence[Any], weights:Sequence[float]=None) -> Any:
-    """Choose a random item from the given sequence.
-
-    Args:
-        seq: The sequence to pick randomly from.
-        weights: The proportion by which seq is selected from.
-    """
-
-    return _random.choice(seq, weights)
-
-def shuffle(items: Iterable[Any], inplace:bool=False) -> Sequence[Any]:
-    """Shuffle the order of items in a sequence.
-
-    Args:
-        items: The items that are to be shuffled.
-        inplace: Shuffle the items in their given container.
-
-    Returns:
-        A sequence with the given items in a new order.
-    """
-
-    return _random.shuffle(items, inplace)
