@@ -1,6 +1,5 @@
-import math
-
-from operator import mul,add,sub
+from math import exp,dist
+from operator import mul,add
 from statistics import mean
 from itertools import count, islice, repeat
 from typing import Sequence, Tuple, Callable, Optional, Iterable, Literal, Mapping, Any, overload
@@ -340,9 +339,6 @@ class NeighborsSyntheticSimulation(Environment):
         else:
             worlds = [list(zip(map(add,(c or [] for c in context_iter),action_iter),rng.randoms(n_neighborhoods))) for _ in range(n_actions)]
 
-        def dist(X,Y):
-            return sum([z*z for z in map(sub,X,Y)])
-
         def f(x):
             return [ min(world, key=lambda w: dist(w[0],x))[1] for world in worlds ]
 
@@ -521,10 +517,10 @@ class KernelSyntheticSimulation(Environment):
         return (self._linear_kernel(F1,F2)+1)**degree
 
     def _exponential_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
-        return math.exp(-math.sqrt(sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)]))/gamma)
+        return exp(-dist(F1,F2)/gamma)
 
     def _gaussian_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
-        return math.exp(-sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)])/gamma)
+        return exp(-dist(F1,F2)**2/gamma)
 
 class MLPSyntheticSimulation(Environment):
     """A synthetic simulation whose reward function belongs to the MLP family.
@@ -588,7 +584,7 @@ class MLPSyntheticSimulation(Environment):
             output_size = n_actions
 
         hidden_weights    = [ rng.gausses(input_size,0,1.5) for _ in range(hidden_size) ]
-        hidden_activation = lambda x: 1/(1+math.exp(-x)) #sigmoid activation
+        hidden_activation = lambda x: 1/(1+exp(-x)) #sigmoid activation
         output_weights    = [ [ w**power for w in rng.randoms(hidden_size,0,1)] for _ in range(output_size) ]
         output_weights    = [ [ w/sum(weights) for w in weights ] for weights in output_weights ]
 
