@@ -6,7 +6,8 @@ from typing import Sequence, Tuple, Callable, Optional, Iterable, Literal, Mappi
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
-from coba.primitives import Context, Action, Environment, SimulatedInteraction
+from coba.primitives import Context, Action, Environment
+from coba.interactions import SimulatedInteraction
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
 class LambdaSimulation(Environment):

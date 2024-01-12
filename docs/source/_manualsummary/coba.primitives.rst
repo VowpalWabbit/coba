@@ -7,7 +7,6 @@ coba.primitives
 
 Interfaces
 ~~~~~~~~~~
-
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
@@ -15,16 +14,6 @@ Interfaces
       Environment
       Learner
       Evaluator
+      Rewards
       Interaction
       EnvironmentFilter
-
-Interaction Types
-~~~~~~~~~~~~~~~~~
-
-   .. autosummary::
-      :toctree: ../_autosummary
-      :template: class_with_ctor.rst
-
-      SimulatedInteraction
-      LoggedInteraction
-      GroundedInteraction

@@ -1,4 +1,4 @@
-{# This template creates a class stub with all attributes and methods in a single file #}
+{# This template creates a class stub with all attributes and methods in separate sub-stubs #}
 
 {{ objname | escape | underline}}
 
@@ -9,19 +9,29 @@
 
    {% block constructor %}
    {% if "__init__" not in inherited_members %}
+
    .. rubric:: {{ _('Constructors') }}
 
-   .. automethod:: __init__
+   .. autosummary::
+      :toctree:
+      :template: base.rst
+
+      ~{{ name }}.__init__
+
    {% endif %}
    {% endblock %}
 
    {% block methods %}
+
    {% set clean_methods = methods | reject("in",["__init__","mro"]) | list %}
    {% if clean_methods %}
    .. rubric:: {{ _('Methods') }}
 
+   .. autosummary::
+      :toctree:
+      :template: base.rst
    {% for item in clean_methods %}
-   .. automethod:: {{item}}
+      ~{{ name }}.{{ item }}
    {%- endfor %}
    {% endif %}
    {% endblock %}
@@ -30,8 +40,11 @@
    {% if attributes %}
    .. rubric:: {{ _('Attributes') }}
 
+   .. autosummary::
+      :toctree:
+      :template: base.rst
    {% for item in attributes %}
-   .. autoattribute:: {{item}}
+      ~{{ name }}.{{ item }}
    {%- endfor %}
    {% endif %}
    {% endblock %}

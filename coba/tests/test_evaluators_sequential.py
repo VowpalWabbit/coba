@@ -8,7 +8,8 @@ from coba.exceptions   import CobaException
 from coba.context      import CobaContext
 from coba.environments import Batch, OpeRewards
 from coba.learners     import VowpalSoftmaxLearner, EpsilonBanditLearner
-from coba.primitives   import is_batch, Learner, SimulatedInteraction, LoggedInteraction, GroundedInteraction
+from coba.primitives   import is_batch, Learner
+from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.rewards      import L1Reward, DiscreteReward
 from coba.safety       import SafeLearner
 

@@ -4,9 +4,10 @@ from typing import Any, Iterable, Union, Sequence, overload, Dict, Literal, Tupl
 from coba.pipes import Pipes, IterableSource, LabelRows, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
-from coba.utilities import peek_first
-from coba.primitives import Categorical, Source, Environment, SimulatedInteraction, Dense, Sparse
-from coba.rewards import L1Reward, BinaryReward, HammingReward
+from coba.utilities    import peek_first
+from coba.primitives   import Categorical, Source, Environment, Dense, Sparse
+from coba.interactions import SimulatedInteraction
+from coba.rewards      import L1Reward, BinaryReward, HammingReward
 
 class CsvSource(Source[Iterable[Dense]]):
     """Load a csv dataset.

@@ -4,7 +4,7 @@ from typing import Sequence, Mapping, overload
 
 from coba.json import minimize
 from coba.exceptions import CobaException
-from coba.primitives import Action
+from coba.primitives import Action, Rewards
 from coba.utilities import try_else
 
 def extract_shape(given:Action, comparison:Action, is_comparison_list:bool=False):
@@ -50,7 +50,7 @@ def create_shape(value:float, shape):
         #`t` could also be numpy
         return t.full(shape,value)
 
-class L1Reward:
+class L1Reward(Rewards):
     __slots__ = ('_argmax',)
 
     def __init__(self, argmax: float) -> None:
@@ -74,7 +74,7 @@ class L1Reward:
         am = self._argmax
         return f"L1Reward({try_else(lambda:minimize(am),f'{am:.5f}')})"
 
-class BinaryReward:
+class BinaryReward(Rewards):
     __slots__ = ('_argmax','_value')
     def __init__(self, argmax: Action, value:float=1.) -> None:
         self._argmax = argmax if not hasattr(argmax,'ndim') else argmax.tolist()
@@ -103,7 +103,7 @@ class BinaryReward:
         am = self._argmax
         return f"BinaryReward({try_else(lambda:minimize(am),str(am))})"
 
-class HammingReward:
+class HammingReward(Rewards):
     __slots__ = ('_argmax',)
 
     def __init__(self, argmax: Sequence[Action]) -> None:
@@ -132,7 +132,7 @@ class HammingReward:
         am = self._argmax
         return f"HammingReward({try_else(lambda:minimize(am),str(am))})"
 
-class DiscreteReward:
+class DiscreteReward(Rewards):
     __slots__ = ('_state','_default')
 
     @overload

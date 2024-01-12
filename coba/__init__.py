@@ -17,9 +17,9 @@ from coba.encodings import InteractionsEncoder
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
 
-from coba.primitives import is_batch, Context, Action, Actions, Rewards, Categorical, Dense, Sparse
-from coba.primitives import Learner, Environment
-from coba.primitives import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction
+from coba.primitives import is_batch, Context, Action, Actions, Categorical, Dense, Sparse
+from coba.primitives import Learner, Environment, Interaction, Evaluator, Rewards
+from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 
 from coba.safety import SafeLearner
 from coba.rewards import L1Reward, HammingReward, DiscreteReward

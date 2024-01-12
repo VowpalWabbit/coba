@@ -1,6 +1,4 @@
-﻿.. _coba-random:
-
-coba.random
+﻿coba.random
 ===========
 
 .. automodule:: coba.random

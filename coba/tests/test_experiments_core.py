@@ -10,7 +10,8 @@ from coba.pipes import ListSink
 from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
-from coba.primitives import Categorical, Source, Learner, Environment, SimulatedInteraction
+from coba.primitives import Categorical, Source, Learner, Environment
+from coba.interactions import SimulatedInteraction
 from coba.rewards import BinaryReward
 
 class NoParamsLearner:

@@ -13,16 +13,17 @@ from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
 from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping, Literal
 
-from coba            import pipes, primitives
-from coba.json       import minimize
-from coba.random     import CobaRandom
-from coba.exceptions import CobaException
-from coba.statistics import iqr
-from coba.utilities  import peek_first, PackageChecker, try_else
-from coba.primitives import is_batch, Filter, Learner, Interaction, EnvironmentFilter
-from coba.pipes      import Pipes, SparseDense
-from coba.rewards    import BinaryReward, DiscreteReward
-from coba.safety     import SafeLearner
+from coba              import pipes, primitives
+from coba.json         import minimize
+from coba.random       import CobaRandom
+from coba.exceptions   import CobaException
+from coba.statistics   import iqr
+from coba.utilities    import peek_first, PackageChecker, try_else
+from coba.primitives   import is_batch, Filter, Learner, Interaction, EnvironmentFilter
+from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
+from coba.pipes        import Pipes, SparseDense
+from coba.rewards      import BinaryReward, DiscreteReward
+from coba.safety       import SafeLearner
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return interactions unchanged."""
@@ -1510,11 +1511,6 @@ class Mutable(EnvironmentFilter):
         elif first_is_value:
             for interaction in interactions:
                 yield interaction.copy()
-
-class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
-    """Map dicts to Interactions."""
-    def filter(self, items: Iterable[Mapping]) -> Iterable[Interaction]:
-        yield from map(Interaction.from_dict,items)
 
 class OpeRewards(EnvironmentFilter):
     """Transform logged interactions to simulated interactions."""

@@ -5,11 +5,14 @@ API Reference
 .. autosummary::
    :toctree: _manualsummary
 
-   coba.learners
+   coba.context
    coba.environments
    coba.evaluators
    coba.experiments
-   coba.context
-   coba.random
+   coba.interactions
+   coba.learners
    coba.primitives
+   coba.rewards
+   coba.random
    coba.results
+

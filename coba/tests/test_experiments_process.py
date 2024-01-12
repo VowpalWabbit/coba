@@ -8,7 +8,8 @@ from coba.environments import LambdaSimulation, Environments, LinearSyntheticSim
 from coba.pipes        import Pipes, ListSink, Cache
 from coba.evaluators   import SequentialCB
 from coba.results      import Result
-from coba.primitives   import Learner, SimulatedInteraction
+from coba.primitives   import Learner
+from coba.interactions import SimulatedInteraction
 
 from coba.experiments.process import Task, MakeTasks, ChunkTasks, ProcessTasks
 

@@ -2,14 +2,13 @@
 from abc import ABC, abstractmethod
 from operator import eq
 from collections import abc
-from typing import Union, Tuple, Sequence, Mapping, Iterable, Callable
+from typing import Union, Tuple, Sequence, Mapping, Iterable
 from typing import TypeVar, Generic, Optional, Iterator, Any
 
 Context = Union[None, str, int, float, Sequence, Mapping]
 Action  = Union[str, int, float, Sequence, Mapping]
 Actions = Union[Sequence[Action],None]
 Reward  = float
-Rewards = Callable[[Action],Reward]
 
 Prob   = float
 PMF    = Sequence[Prob]
@@ -69,107 +68,38 @@ class Line(ABC, Pipe):
         """Run the pipe."""
         ...
 
+class Rewards(ABC):
+    """Reward an action."""
+
+    @abstractmethod
+    def __call__(self, action: Action) -> Reward:
+        """Get reward for action.
+
+        Args:
+            action: An action taken.
+
+        Returns:
+            Reward received for the action.
+
+        :meta public:
+        """
+        ...
+
 class Interaction(dict):
-    """An interaction requiring a decision."""
+    """Interact with an Environment."""
     __slots__=()
-
-    @staticmethod
-    def from_dict(kwargs_dict: Mapping[str, Any]) -> 'Interaction':
-        if 'feedbacks' in kwargs_dict: return GroundedInteraction (**kwargs_dict)
-        if 'reward'    in kwargs_dict: return LoggedInteraction   (**kwargs_dict)
-        if 'rewards'   in kwargs_dict: return SimulatedInteraction(**kwargs_dict)
-        return kwargs_dict
-
-class SimulatedInteraction(Interaction):
-    """An interaction with reward information for every possible action."""
-    __slots__=()
-
-    def __init__(self,
-        context: Context,
-        actions: Actions,
-        rewards: Union[Rewards, Sequence[float]],
-        **kwargs) -> None:
-        """Instantiate SimulatedInteraction.
-
-        Args:
-            context : Features describing the interaction's context.
-            actions : Features describing available actions during the interaction.
-            rewards : The reward for each action in the interaction.
-            kwargs : Any additional information.
-        """
-
-        self['context'] = context
-        self['actions'] = actions
-        self['rewards'] = rewards
-
-        if kwargs: self.update(kwargs)
-
-class GroundedInteraction(Interaction):
-    """An interaction with feedbacks for Interaction Grounded Learning."""
-    __slots__=()
-
-    def __init__(self,
-        context  : Context,
-        actions  : Actions,
-        rewards  : Union[Rewards, Sequence[float]],
-        feedbacks: Union[Rewards, Sequence[float]],
-        **kwargs) -> None:
-        """Instantiate GroundedInteraction.
-
-        Args:
-            context: Features describing the interaction's context.
-            actions: Features describing available actions during the interaction.
-            rewards: The reward for each action in the interaction.
-            feedbacks: The feedback for each action in the interaction.
-            **kwargs: Additional information that should be recorded in the interactions table of an experiment result.
-        """
-
-        self['context']   = context
-        self['actions']   = actions
-        self['rewards']   = rewards
-        self['feedbacks'] = feedbacks
-
-        if kwargs: self.update(kwargs)
-
-class LoggedInteraction(Interaction):
-    """An interaction with the reward and propensity score for a single action."""
-    __slots__ = ()
-
-    def __init__(self,
-        context: Context,
-        action: Action,
-        reward: float,
-        probability:float = None,
-        **kwargs) -> None:
-        """Instantiate LoggedInteraction.
-
-        Args:
-            context: Features describing the logged context.
-            action: Features describing the action taken by the logging policy.
-            reward: The reward that was revealed when the logged action was taken.
-            probability: The probability that the logged action was taken. That is P(action|context,actions,logging policy).
-            actions: All actions that were availble to be taken when the logged action was taken. Necessary for OPE.
-            rewards: The rewards to use for off policy evaluation. These rewards will not be shown to any learners. They will
-                only be recorded in experimental results. If probability and actions is provided and rewards is None then
-                rewards will be initialized using the IPS estimator.
-            **kwargs: Any additional information.
-        """
-
-        self['context'] = context
-        self['action']  = action
-        self['reward']  = reward
-
-        if probability is not None:
-            self['probability'] = probability
-
-        if kwargs: self.update(kwargs)
 
 class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
-    """An Environment Modifier."""
+    """Modify an Environment."""
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        """Parameters describing the modification."""
+        return { }
 
     @abstractmethod
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        """Apply a filter to an Environment's interactions."""
+        """Apply filter to an Environment's interactions."""
         ...
 
 class Environment(Source[Iterable[Interaction]], ABC):
@@ -177,7 +107,7 @@ class Environment(Source[Iterable[Interaction]], ABC):
 
     @property
     def params(self) -> Mapping[str,Any]: #pragma: no cover
-        """Paramaters describing the simulation.
+        """Paramaters describing the Environment.
 
         Remarks:
             These will become columns in the environments table of experiment results.
@@ -186,7 +116,7 @@ class Environment(Source[Iterable[Interaction]], ABC):
 
     @abstractmethod
     def read(self) -> Iterable[Interaction]:
-        """The sequence of interactions in the simulation.
+        """A sequence of interactions.
 
         Remarks:
             This function should always be "re-iterable".
@@ -256,7 +186,7 @@ class Learner(ABC):
         ))
 
 class Evaluator(ABC):
-    """Interface to Evaluate a Learner on an Environment."""
+    """Evaluate a Learner in an Environment."""
 
     @property
     def params(self) -> Mapping[str,Any]:

@@ -25,7 +25,7 @@ from coba.environments.results    import ResultEnvironment
 from coba.environments.filters   import Repr, Batch, Chunk, Logged, Materialize
 from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Densify, Reservoir, Cycle, Scale, Unbatch
 from coba.environments.filters   import Slice, Impute, Where, Riffle, Sort, Flatten, Cache, Params, Grounded
-from coba.environments.filters   import MappingToInteraction, OpeRewards, Noise
+from coba.environments.filters   import OpeRewards, Noise
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
@@ -411,7 +411,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         Returns:
             An Environments object.
         """
-        return Environments(Pipes.join(DataFrameSource(dataframe), MappingToInteraction()))
+        return Environments(DataFrameSource(dataframe))
 
     @staticmethod
     def from_result(path:str) -> 'Environments':
@@ -637,6 +637,8 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def cycle(self, after: int) -> 'Environments':
         """Cycle reward values.
 
+        Useful for testing a learner's response to a non-stationary noise.
+
         Args:
             after: The number of interactions to wait before cycling reward values.
 
@@ -785,7 +787,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def flatten(self) -> 'Environments':
         """Flatten contexts and actions.
 
-        Example:
+        Examples:
             An interaction {'context': [[1,2],3]} would become {'context':[1,2,3]}.
 
         Returns:

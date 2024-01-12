@@ -41,7 +41,7 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = [ ]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -68,17 +68,18 @@ html_theme_options = {
     # Toc options
     'collapse_navigation': True,
     'sticky_navigation': True,
-    'navigation_depth': 4,
+    'navigation_depth': 2,
     'includehidden': True,
     'titles_only': False
 }
 
 # -- Options for autodoc ----------------------------------------------------
 
-autodoc_docstring_signature = True
-autoclass_content = "class"
 autodoc_class_signature = "separated"
-#autodoc_member_order = "bysource"
+
+# -- Options for summary ----------------------------------------------------
+
+autosummary_generate_overwrite = False
 
 # This gives coba a consistent public interface in the documentation.
 # An alternative way to do this might be :canonical: on ..py:class::
@@ -110,4 +111,4 @@ coba.context.core.CobaContext_meta.__module__ = "coba.context"
 coba.context.core.CobaContext_meta.__name__ = "CobaContext"
 coba.context.__dict__['CobaContext'] = coba.context.core.CobaContext_meta
 
-autosummary_generate_overwrite = False
+

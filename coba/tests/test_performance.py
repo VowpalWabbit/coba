@@ -18,7 +18,7 @@ from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.rewards import BinaryReward, HammingReward, DiscreteReward
 from coba.safety import SafeLearner
 
-from coba.primitives import SimulatedInteraction
+from coba.interactions import SimulatedInteraction
 
 from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes, DelimSource, IdentitySource, HttpSource
 from coba.pipes import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows

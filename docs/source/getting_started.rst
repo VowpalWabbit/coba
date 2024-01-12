@@ -73,7 +73,7 @@ The experiment above introduced us to ``Coba``'s four key concepts.
 
 Knowing the core concepts helps in finding more information about ``Coba``. For example, all the built-in learners provided by coba can be
 found at :ref:`coba-learners`. Help with creating environments can be found at :ref:`coba-environments`. The various ways an experiment can
-be configured is described at :ref:`coba-experiments`. And details of analysis functionality can be found at :ref:`coba-experiment-results`.
+be configured is described at :ref:`coba-experiments`. And details of analysis functionality can be found at :ref:`coba-results`.
 
 Conclusion
 ~~~~~~~~~~
