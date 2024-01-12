@@ -66,10 +66,10 @@ class LinUCBLearner(Learner):
         self._A_inv = np.identity(d)
         self._np    = np
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self.predict(context,actions)[actions.index(action)]
 
-    def predict(self, context: Context, actions: Actions) -> PMF:
+    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
         if self._A_inv is None: self._initialize(context,actions[0])
         np = self._np
 
@@ -84,7 +84,7 @@ class LinUCBLearner(Learner):
 
         return [int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         if self._A_inv is None: self._initialize(context,action)
 
         np = self._np

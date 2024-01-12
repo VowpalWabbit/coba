@@ -76,6 +76,13 @@ html_theme_options = {
 # -- Options for autodoc ----------------------------------------------------
 
 autodoc_class_signature = "separated"
+autodoc_type_aliases = {
+    'Context': 'Context',
+    'Action' : 'Action',
+    'Actions': 'Actions',
+    'Reward' : 'Reward',
+    'Prob'   : 'Prob'
+}
 
 # -- Options for summary ----------------------------------------------------
 

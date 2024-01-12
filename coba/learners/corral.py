@@ -64,10 +64,10 @@ class CorralLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self.predict(context,actions)[0][actions.index(action)]
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[PMF,kwargs]:
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['PMF','kwargs']:
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
         base_actions, base_probs, base_infos = zip(*base_predicts)
 
@@ -76,7 +76,7 @@ class CorralLearner(Learner):
 
         return pmf, {'info':info}
 
-    def learn(self, context: Context, action: Action, reward: float, probability:float, info) -> None:
+    def learn(self, context: 'Context', action: 'Action', reward: float, probability:float, info) -> None:
         assert  0 <= reward and reward <= 1, "This Corral implementation assumes a loss between 0 and 1"
 
         actions      = info[0]

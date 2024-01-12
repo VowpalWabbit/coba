@@ -3,9 +3,9 @@ import math
 from collections import defaultdict
 from typing import Any, Mapping, Optional, Hashable, Type
 
-from coba.primitives import Context, Action, Actions
+from coba.primitives import Context, Action, Actions, Prob
 from coba.statistics import OnlineVariance
-from coba.primitives import Dense, Sparse, HashableDense, HashableSparse, Learner, PMF, Prob
+from coba.primitives import Dense, Sparse, HashableDense, HashableSparse, Learner, PMF
 
 def requires_hashables(cls:Type[Learner]):
 
@@ -17,10 +17,10 @@ def requires_hashables(cls:Type[Learner]):
     old_predict = cls.predict
     old_learn   = cls.learn
 
-    def new_predict(self, context: Context, actions: Actions):
+    def new_predict(self, context: 'Context', actions: 'Actions'):
         return old_predict(self, make_hashable(context), list(map(make_hashable,actions)))
 
-    def new_learn(self,context: Context, action: Action, reward:float, probability: float):
+    def new_learn(self,context: 'Context', action: 'Action', reward:float, probability: float):
         old_learn(self, make_hashable(context), make_hashable(action), reward, probability)
 
     cls.predict = new_predict
@@ -48,10 +48,10 @@ class EpsilonBanditLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family": "epsilon_bandit", "epsilon": self._epsilon }
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self.predict(context,actions)[actions.index(action)]
 
-    def predict(self, context: Context, actions: Actions) -> PMF:
+    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
         values      = [ self._Q[action] for action in actions ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
@@ -61,7 +61,7 @@ class EpsilonBanditLearner(Learner):
 
         return [p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         alpha = 1/(self._N[action]+1)
         old_Q = self._Q[action] or 0.0
 
@@ -84,18 +84,18 @@ class UcbBanditLearner(Learner):
         """Instantiate a UcbBanditLearner."""
         #these variable names were selected for easier comparison with the original paper
         self._t     : int = 0
-        self._m     : Mapping[Action, float         ] = {}
-        self._s     : Mapping[Action, int           ] = {}
-        self._v     : Mapping[Action, OnlineVariance] = {}
+        self._m     : Mapping['Action', float         ] = {}
+        self._s     : Mapping['Action', int           ] = {}
+        self._v     : Mapping['Action', OnlineVariance] = {}
 
     @property
     def params(self) -> Mapping[str, Any]:
         return { "family": "UCB_bandit" }
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self.predict(context,actions)[actions.index(action)]
 
-    def predict(self, context: Context, actions: Actions) -> PMF:
+    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
         never_observed_actions = set(actions) - self._m.keys()
 
         if never_observed_actions:
@@ -107,7 +107,7 @@ class UcbBanditLearner(Learner):
 
         return [int(action in max_actions)/len(max_actions) for action in actions]
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         self._t += 1
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
@@ -122,7 +122,7 @@ class UcbBanditLearner(Learner):
             self._s[action] += 1
             self._v[action].update(reward)
 
-    def _Avg_R_UCB(self, action: Action) -> float:
+    def _Avg_R_UCB(self, action: 'Action') -> float:
         """Produce the estimated upper confidence bound (UCB) for E[R|A].
 
         Args:
@@ -138,7 +138,7 @@ class UcbBanditLearner(Learner):
 
         return math.sqrt(ln(n)/n_j * min(1/4,V_j))
 
-    def _Var_R_UCB(self, action: Action) -> float:
+    def _Var_R_UCB(self, action: 'Action') -> float:
         """Produce the upper confidence bound (UCB) for Var[R|A].
 
         Args:
@@ -157,7 +157,7 @@ class UcbBanditLearner(Learner):
 class FixedLearner(Learner):
     """Select actions from a fixed distribution and learn nothing."""
 
-    def __init__(self, pmf: PMF) -> None:
+    def __init__(self, pmf: 'PMF') -> None:
         """Instantiate a FixedLearner.
 
         Args:
@@ -172,13 +172,13 @@ class FixedLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family":"fixed"}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self._pmf[actions.index(action)]
 
-    def predict(self, context: Context, actions: Actions) -> PMF:
+    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
         return self._pmf
 
-    def learn(self, context: Context, action: Action, reward: float, prob: float) -> None:
+    def learn(self, context: 'Context', action: 'Action', reward: float, prob: float) -> None:
         pass
 
 class RandomLearner(Learner):
@@ -192,11 +192,11 @@ class RandomLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family":"random"}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> Prob:
         return 1/len(actions)
 
-    def predict(self, context: Context, actions: Actions) -> PMF:
+    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
         return [1/len(actions)]*len(actions)
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         pass

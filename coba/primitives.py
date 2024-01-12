@@ -1,13 +1,13 @@
-
 from abc import ABC, abstractmethod
 from operator import eq
 from collections import abc
+from numbers import Number
 from typing import Union, Tuple, Sequence, Mapping, Iterable
 from typing import TypeVar, Generic, Optional, Iterator, Any
 
-Context = Union[None, str, int, float, Sequence, Mapping]
-Action  = Union[str, int, float, Sequence, Mapping]
-Actions = Union[Sequence[Action],None]
+Context = Union[None, str, Number, Sequence, Mapping]
+Action  = Union[str, Number, Sequence, Mapping]
+Actions = Union[None, Sequence[Action]]
 Reward  = float
 
 Prob   = float
@@ -72,7 +72,7 @@ class Rewards(ABC):
     """Reward an action."""
 
     @abstractmethod
-    def __call__(self, action: Action) -> Reward:
+    def __call__(self, action: 'Action') -> 'Reward':
         """Get reward for action.
 
         Args:
@@ -138,7 +138,7 @@ class Learner(ABC):
         """
         return {}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         """Propensity score an action.
 
         Args:
@@ -153,7 +153,7 @@ class Learner(ABC):
             "The `score` interface has not been implemented for this learner."
         ))
 
-    def predict(self, context: Context, actions: Actions) -> Prediction:
+    def predict(self, context: 'Context', actions: 'Actions') -> 'Prediction':
         """Predict which action to take in the context.
 
         Args:
@@ -171,7 +171,7 @@ class Learner(ABC):
             "The `predict` interface has not been implemented for this learner."
         ))
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float, **kwargs) -> None:
+    def learn(self, context: 'Context', action: 'Action', reward: float, probability: float, **kwargs) -> None:
         """Learn about the action taken in the context.
 
         Args:

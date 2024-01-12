@@ -25,11 +25,11 @@ class MisguidedLearner(Learner):
     def params(self):
         return {**self._learner.params, 'misguided': [self._shifter,self._scaler]}
 
-    def score(self, context: Context, actions: Actions, action: Action) -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self._learner.score(context, actions, action)
 
-    def predict(self, context: Context, actions: Actions):
+    def predict(self, context: 'Context', actions: 'Actions'):
         return self._learner.predict(context, actions)
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float,**kwargs):
+    def learn(self, context: 'Context', action: 'Action', reward: float, probability: float, **kwargs):
         self._learner.learn(context, action, self._shifter + self._scaler*reward, probability,**kwargs)

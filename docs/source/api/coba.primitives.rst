@@ -5,6 +5,14 @@ coba.primitives
 
 .. automodule:: coba.primitives
 
+Type Aliases
+~~~~~~~~~~~~
+   .. autosummary::
+
+      Context
+      Action
+      Reward
+
 Interfaces
 ~~~~~~~~~~
    .. autosummary::
