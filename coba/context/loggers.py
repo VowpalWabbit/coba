@@ -100,7 +100,7 @@ class BasicLogger(Logger):
             outcome = "(exception)"
             raise
         finally:
-            self.log(message + f" {outcome}")
+            self.log(f"{message} {outcome}")
 
     @contextmanager
     def _time_context(self, message:str) -> 'Iterator[Logger]':
@@ -109,13 +109,13 @@ class BasicLogger(Logger):
         try:
             yield self
         except KeyboardInterrupt:
-            self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds) (interrupt)")
+            self.log(f"{message} ({round(time.time()-self._starts.pop(),2)} seconds) (interrupt)")
             raise
         except Exception:
-            self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds) (exception)")
+            self.log(f"{message} ({round(time.time()-self._starts.pop(),2)} seconds) (exception)")
             raise
         else:
-            self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds) (completed)")
+            self.log(f"{message} ({round(time.time()-self._starts.pop(),2)} seconds) (completed)")
 
     @property
     def sink(self) -> Sink[str]:

@@ -5,13 +5,14 @@ import warnings
 
 from coba.utilities    import PackageChecker
 from coba.exceptions   import CobaException
-from coba.context      import CobaContext
+from coba.context      import CobaContext, BasicLogger
 from coba.environments import Batch, OpeRewards
 from coba.learners     import VowpalSoftmaxLearner, EpsilonBanditLearner
 from coba.primitives   import is_batch, Learner
 from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.rewards      import L1Reward, DiscreteReward
 from coba.safety       import SafeLearner
+from coba.pipes        import ListSink
 
 from coba.evaluators.sequential import RejectionCB, SequentialCB, SequentialIGL, get_ope_loss
 
@@ -103,7 +104,6 @@ class DummyIglLearner(Learner):
 #for testing purposes
 
 class SequentialCB_Tests(unittest.TestCase):
-
     def test_params(self):
         self.assertEqual(SequentialCB().params,{'learn':'on','eval':'on','seed':None})
 
@@ -725,7 +725,6 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
 
     def test_on_batched(self):
-
         class SimpleLearner:
             def __init__(self) -> None:
                 self.predict_call = []
@@ -844,6 +843,59 @@ class SequentialCB_Tests(unittest.TestCase):
 
         self.assertEqual(1.5,task_results[0]['reward'])
         self.assertEqual(2.0,task_results[1]['reward'])
+
+    def test_ips_None_high_corr(self):
+        CobaContext.logger = BasicLogger(ListSink())
+        task    = SequentialCB(learn='ips',eval=None)
+        learner = FixedPredLearner(preds=[2,3,4]*8)
+        interactions = [
+            LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
+            LoggedInteraction(2, 3, 4, probability=.3, actions=[3,6,9]),
+            LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0])
+        ]*8
+        list(task.evaluate(SimpleEnvironment(interactions),learner))
+        self.assertEqual(1, len(CobaContext.logger.sink.items))
+        self.assertIsInstance(CobaContext.logger.sink.items[0],CobaException)
+        self.assertEqual('WARNING', str(CobaContext.logger.sink.items[0])[:7])
+
+    def test_ips_None_low_corr(self):
+        CobaContext.logger = BasicLogger(ListSink())
+        task    = SequentialCB(learn='ips',eval=None)
+        learner = FixedPredLearner(preds=[5,6,0]*8)
+        interactions = [
+            LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
+            LoggedInteraction(2, 3, 4, probability=.3, actions=[3,6,9]),
+            LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0])
+        ]*8
+        list(task.evaluate(SimpleEnvironment(interactions),learner))
+        self.assertEqual(0, len(CobaContext.logger.sink.items))
+
+    def test_None_ips_high_corr(self):
+        CobaContext.logger = BasicLogger(ListSink())
+        task    = SequentialCB(learn=None,eval='ips')
+        learner = FixedPredLearner(preds=[2,3,4]*8)
+        interactions = [
+            LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
+            LoggedInteraction(2, 3, 4, probability=.3, actions=[3,6,9]),
+            LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0])
+        ]*8
+        list(task.evaluate(SimpleEnvironment(interactions),learner))
+        self.assertEqual(1, len(CobaContext.logger.sink.items))
+        self.assertIsInstance(CobaContext.logger.sink.items[0],CobaException)
+        self.assertEqual('WARNING', str(CobaContext.logger.sink.items[0])[:7])
+
+    def test_None_ips_low_corr(self):
+        CobaContext.logger = BasicLogger(ListSink())
+        task    = SequentialCB(learn=None,eval='ips')
+        learner = FixedPredLearner(preds=[5,6,0]*8)
+        interactions = [
+            LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
+            LoggedInteraction(2, 3, 4, probability=.3, actions=[3,6,9]),
+            LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0])
+        ]*8
+
+        list(task.evaluate(SimpleEnvironment(interactions),learner))
+        self.assertEqual(0, len(CobaContext.logger.sink.items))
 
 class SequentialIGL_Tests(unittest.TestCase):
     def test_params(self):
@@ -976,7 +1028,6 @@ class SequentialIGL_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner._learn_calls)
 
 class RejectionCB_Tests(unittest.TestCase):
-
     def test_params(self):
         self.assertEqual(RejectionCB().params,{'ope':None,'cpct':.005,'cmax':1,'cinit':None,'seed':None})
 

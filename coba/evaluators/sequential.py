@@ -104,15 +104,21 @@ class SequentialCB(Evaluator):
         return discrete
 
     def _results(self,learner:SafeLearner,first:Mapping, interactions:Iterable[Mapping]) -> Iterable[Mapping[Any,Any]]:
-
         #import here to avoid circular dependencies...
         from coba.environments.filters import OpeRewards, Batch, BatchSafe
 
-        batched   = first and (is_batch(first.get('context')) or is_batch(first.get('actions')))
+        batched   = first and (is_batch(first.get('context')) or is_batch(first.get('action')) or is_batch(first.get('actions')))
         discrete  = self._discrete(first)
         has_score = learner.has_score
 
         learn,eval = self._learn,self._eval
+
+        N          = 0
+        n_zero_lrn = 0
+        n_zero_val = 0
+        n_zeroes   = lambda R: int(R==0) if not batched else sum([r==0 for r in R])
+        lrn_warned   = False
+        val_warned   = False
 
         lrn_on  = learn == 'on'
         lrn_off = learn == 'off'
@@ -163,6 +169,7 @@ class SequentialCB(Evaluator):
         eval_target  = 'eval_rewards' if eval_type and eval_type != learn_type else 'learn_rewards'
 
         for interaction in interactions:
+
             context = interaction['context'     ] if has_context else None
             actions = interaction['actions'     ] if has_actions else None
             rewards = interaction['rewards'     ] if has_rewards else None
@@ -172,6 +179,8 @@ class SequentialCB(Evaluator):
 
             lrn_rwds = interaction[learn_target] if learn_type else rewards if lrn_on else None
             val_rwds = interaction[eval_target ] if eval_type  else rewards if val_on else None
+
+            N += 1 if not batched else len(lrn_rwds) if lrn_rwds else len(val_rwds)
 
             start = time.time()
             if should_pred: on_act,on_pr,on_kw=learner.predict(context,actions)
@@ -183,12 +192,41 @@ class SequentialCB(Evaluator):
                 else:
                     SR = learner.score(context,actions,off_act),val_rwds(off_act)
                     eval_reward = mul(*SR) if not batched else Batch.List(map(mul,*SR))
+                n_zero_val += n_zeroes(eval_reward)
 
             if learn:
+                learn_reward = off_rwd if lrn_off else lrn_rwds(on_act)
+                n_zero_lrn += n_zeroes(learn_reward)
                 start = time.time()
-                if lrn_off: learner.learn(context, off_act, off_rwd         , off_pr         )
-                else      : learner.learn(context, on_act , lrn_rwds(on_act), on_pr , **on_kw)
+                if lrn_off: learner.learn(context, off_act, learn_reward, off_pr         )
+                else      : learner.learn(context, on_act , learn_reward, on_pr , **on_kw)
                 learn_time = time.time()-start
+
+            if 200 > N and N > 20 and not lrn_warned and learn_type == 'IPS' and n_zero_lrn <= (N*.01):
+                lrn_warned = True
+                #The warning will display even in quiet mode due to CobaException
+                CobaContext.logger.log(CobaException(
+                    "WARNING: the learner's predicted actions are highly correlated"
+                    " with the logging policy and we are learning from an IPS reward"
+                    " estimate. This can cause biased learning due to IPS assuming"
+                    " independence between logging and learning policies. To solve"
+                    " this consider using DM or DR instead of IPS, make sure the"
+                    " rng seed is not the same in the logging and learning policy,"
+                    " or shuffle the order of interactions in the Environment."
+                ))
+
+            if 200 > N and N > 20 and not val_warned and eval_type == 'IPS' and not has_score and n_zero_val <= (N*.01):
+                val_warned = True
+                #The warning will display even in quiet mode due to CobaException
+                CobaContext.logger.log(CobaException(
+                    "WARNING: the learner's predicted actions are highly correlated"
+                    " with the logging policy and we are evaluating from an IPS reward"
+                    " estimate. This can cause biased evaluation due to IPS assuming"
+                    " independence between logging and learning policies. To solve"
+                    " this consider using DM or DR instead of IPS or make sure the"
+                    " rng seed is not the same in the logging and learning policy,"
+                    " or shuffle the order of interactions in the Environment."
+                ))
 
             out = {}
 
