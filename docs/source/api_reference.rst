@@ -3,7 +3,7 @@ API Reference
 =================
 
 .. autosummary::
-   :toctree: _manualsummary
+   :toctree: api
 
    coba.context
    coba.environments
