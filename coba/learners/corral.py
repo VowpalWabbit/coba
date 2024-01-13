@@ -36,7 +36,7 @@ class CorralLearner(Learner):
                 will remain constant.
             mode: Determines the method with which feedback is provided to the base learners. The
                 original paper used importance sampling. We also support `off-policy`.
-            seed: A seed for a random number generation in ordre to get repeatable results.
+            seed: A seed for a random number generation.
         """
         if mode not in ["importance", "off-policy"]:
             raise CobaException("The provided `mode` for CorralLearner was unrecognized.")
@@ -56,33 +56,37 @@ class CorralLearner(Learner):
         self._p_bars   = [ 1/M ] * M
 
         self._mode = mode
-
-        self._random_pick   = CobaRandom(seed)
-        self._random_reject = CobaRandom(CobaRandom(seed).randint(0,1000))
+        self._rng  = CobaRandom(seed*1.234 if seed is not None else seed)
+        self._seed = seed
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
+        return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._seed }
 
-    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self.predict(context,actions)[0][actions.index(action)]
-
-    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['PMF','kwargs']:
+    def _pmf(self, context: 'Context', actions: 'Actions') -> 'PMF':
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
         base_actions, base_probs, base_infos = zip(*base_predicts)
 
         pmf  = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
-        info = (actions, base_actions, base_probs, base_infos)
+        info = (base_actions, base_probs, base_infos)
 
         return pmf, {'info':info}
+
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
+        return self._pmf(context,actions)[0][actions.index(action)]
+
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','kwargs']:
+        pmf,info  = self._pmf(context,actions)
+        act,score = self._rng.choicew(actions,pmf)
+
+        return act,score,info
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability:float, info) -> None:
         assert  0 <= reward and reward <= 1, "This Corral implementation assumes a loss between 0 and 1"
 
-        actions      = info[0]
-        base_actions = info[1]
-        base_probs   = info[2]
-        base_infos   = info[3]
+        base_actions = info[0]
+        base_probs   = info[1]
+        base_infos   = info[2]
 
         if self._mode == "importance":
             # This is what is in the original paper. It has the following characteristics:
@@ -153,8 +157,6 @@ class CorralLearner(Learner):
                     # we use binary search because newtons
                     # method can overshoot our objective
                     return binary_search(l_brack, r_brack)
-
-        lmbda: Optional[float] = None
 
         if min_loss == max_loss:
             lmbda = min_loss
