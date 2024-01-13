@@ -10,7 +10,7 @@ import time
 from math import floor
 from itertools import compress, accumulate, islice
 from operator import mul,add
-from typing import Optional, Iterable, Sequence, Any
+from typing import Optional, Iterable, Sequence, Union, Tuple, Any
 
 class CobaRandom:
     """A random number generator."""
@@ -143,7 +143,7 @@ class CobaRandom:
             r_range = b-a
             return [floor(r_range*r) + a for r in islice(self._randu,n)]
 
-    def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Any:
+    def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Union[Any, Tuple[Any,float]]:
         """Choose a random item from the given sequence.
 
         Args:
@@ -155,11 +155,27 @@ class CobaRandom:
         """
         if weights is None:
             return seq[int(len(seq)*next(self._randu))]
-
         else:
             tot = sum(weights)
             if tot == 0: raise ValueError("The sum of weights cannot be zero.")
             return next(compress(seq, map((next(self._randu)*tot).__le__, accumulate(weights))))
+
+    def choicew(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Union[Any, Tuple[Any,float]]:
+        """Choose a random item from the given sequence.
+
+        Args:
+            seq: The sequence to pick randomly from.
+            weights: The frequency which seq is selected.
+
+        Returns:
+            An random item with its weight.
+        """
+
+        if weights is None:
+            return seq[int(len(seq)*next(self._randu))],1/len(seq)
+        else:
+            i = self.choice(range(len(seq)),weights)
+            return seq[i], weights[i]
 
     def gauss(self, mu:float=0, sigma:float=1) -> float:
         """Generate a random number from N(mu,sigma).
@@ -298,7 +314,6 @@ def randints(n:int, a:int, b:int) -> Sequence[int]:
     Returns:
         A sequence of `n` random integers in [a,b].
     """
-
     return _random.randints(n,a,b)
 
 def choice(seq: Sequence[Any], weights:Sequence[float]=None) -> Any:
@@ -311,8 +326,19 @@ def choice(seq: Sequence[Any], weights:Sequence[float]=None) -> Any:
     Returns:
         An item in seq.
     """
-
     return _random.choice(seq, weights)
+
+def choicew(seq: Sequence[Any], weights:Sequence[float]=None) -> Tuple[Any,float]:
+    """Choose a random item from the given sequence.
+
+    Args:
+        seq: The sequence to pick randomly from.
+        weights: The frequency which seq is selected.
+
+    Returns:
+        An random item with its weight.
+    """
+    return _random.choicew(seq, weights)
 
 def gauss(mu:float=0, sigma:float=1) -> float:
     """Generate a random number from N(mu,sigma).
@@ -320,7 +346,6 @@ def gauss(mu:float=0, sigma:float=1) -> float:
     Returns:
         A random number drawn from N(mu,sigma).
     """
-
     return _random.gauss(mu,sigma)
 
 def gausses(n:int, mu:float=0, sigma:float=1) -> Sequence[float]:
@@ -334,5 +359,4 @@ def gausses(n:int, mu:float=0, sigma:float=1) -> Sequence[float]:
     Returns:
         The `n` random numbers drawn from N(mu,sigma).
     """
-
     return _random.gausses(n,mu,sigma)

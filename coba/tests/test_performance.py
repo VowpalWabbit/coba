@@ -121,6 +121,11 @@ class Performance_Tests(unittest.TestCase):
         B = [1/50]*50
         self._assert_call_time(lambda:coba.random.choice(A,B), .0018, print_time, number=1000)
 
+    def test_choicew_performance_not_uniform(self):
+        A = [1]*50
+        B = [1/50]*50
+        self._assert_call_time(lambda:coba.random.choicew(A,B), .002, print_time, number=1000)
+
     def test_choice_performance_weights(self):
         items = [1]+[0]*49
         weights = [1]+[0]*49

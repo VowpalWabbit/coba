@@ -39,7 +39,7 @@ class CobaRandom_Tests(unittest.TestCase):
         for n in numbers:
             self.assertLessEqual(n, 1)
             self.assertGreaterEqual(n, 0)
-        
+
         numbers = coba.random.randoms(500000,0,10)
         self.assertEqual(len(numbers), 500000)
         for n in numbers:
@@ -155,12 +155,22 @@ class CobaRandom_Tests(unittest.TestCase):
         self.assertEqual([6, 7, 2, 6, 4, 4, 7, 0, 5, 1],coba.random.randints(10,0,10))
 
     def test_choice1(self):
-        choice = coba.random.choice([(0,1), (1,0)])
+        choice = coba.random.choice([(0,1),(1,0)])
         self.assertIsInstance(choice, tuple)
 
     def test_choice2(self):
-        choice = coba.random.choice([(0,1), (1,0)],[0.5,0.5])
+        choice = coba.random.choice([(0,1),(1,0)],[0.5,0.5])
         self.assertIsInstance(choice, tuple)
+
+    def test_choicew(self):
+        counts = Counter([coba.random.choicew([0,1],[0.25,0.75]) for _ in range(100000)])
+        self.assertEqual(len(counts),2)
+        self.assertAlmostEqual(counts[(0,.25)]/counts.total(), .25, places=2)
+        self.assertAlmostEqual(counts[(1,.75)]/counts.total(), .75, places=2)
+        counts = Counter([coba.random.choicew([0,1]) for _ in range(100000)])
+        self.assertEqual(len(counts),2)
+        self.assertAlmostEqual(counts[(0,.5)]/counts.total(), .5, places=2)
+        self.assertAlmostEqual(counts[(1,.5)]/counts.total(), .5, places=2)
 
     def test_choice_exception(self):
         with self.assertRaises(ValueError) as e:

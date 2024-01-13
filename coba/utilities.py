@@ -3,7 +3,7 @@ import importlib.util
 
 from itertools import chain, islice
 from collections import defaultdict, Counter
-from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Optional, Callable
+from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Callable
 
 from coba.exceptions import CobaExit
 from coba.random import CobaRandom, choice
@@ -142,20 +142,6 @@ def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], It
     first = [] if n==0 else None if not first else first[0] if n==1 else first
 
     return first, items
-
-def sample_actions(
-    actions: Sequence[Any],
-    probabilities: Sequence[float],
-    rng: Optional[CobaRandom] = None,
-) -> Tuple[Any, float]:
-    """
-    Sample the actions weighted by their probabilities.
-    """
-    choice_function = rng.choice if rng else choice
-
-    index = choice_function(range(len(probabilities)), probabilities)
-
-    return actions[index], probabilities[index]
 
 def try_else(f:Callable[[],Any], default: Any) -> Any:
     try:

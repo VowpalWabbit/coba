@@ -3,7 +3,7 @@ from collections import abc
 from typing import Union, Tuple, Mapping, Iterable, Literal, Callable, Optional, Any
 
 from coba.random import CobaRandom
-from coba.utilities import try_else, sample_actions
+from coba.utilities import try_else
 from coba.exceptions import CobaException
 from coba.primitives import Prediction, Actions, Action, Context, Prob, kwargs
 from coba.primitives import Environment, Evaluator, Learner, Interaction, is_batch
@@ -17,7 +17,6 @@ class SafeEnvironment(Environment):
         Args:
             environment: The environment we wish to make sure has the expected interface
         """
-
         self.env = environment if not isinstance(environment, SafeEnvironment) else environment.env
 
     @property
@@ -318,7 +317,7 @@ class SafeLearner(Learner):
                 pred = list(pred.values())[0]
 
             if self._pred_format[:2] == 'PM':
-                a,p = sample_actions(actions, pred, self._rng)
+                a,p = self._rng.choicew(actions,pred)
 
             if self._pred_format[:2] == 'AP':
                 a,p = pred[:2]
@@ -338,7 +337,7 @@ class SafeLearner(Learner):
 
             A,P = [],[]
             if self._pred_format[:2] == 'PM':
-                A, P = list(map(list, zip(*[sample_actions(a, p, self._rng) for a, p in zip(actions, pred)])))
+                A, P = list(map(list, zip(*map(self._rng.choicew,actions, pred))))
 
             if self._pred_format[:2] == 'AX':
                 A = pred
@@ -357,7 +356,7 @@ class SafeLearner(Learner):
                 pred = list(pred.values())[0]
 
             if self._pred_format[:2] == 'PM':
-                A, P = list(map(list, zip(*[sample_actions(a, p, self._rng) for a, p in zip(actions, pred)])))
+                A, P = list(map(list, zip(*map(self._rng.choicew,actions, pred))))
 
             if self._pred_format[:2] == 'AX':
                 A = pred
