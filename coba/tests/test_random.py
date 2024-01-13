@@ -165,12 +165,12 @@ class CobaRandom_Tests(unittest.TestCase):
     def test_choicew(self):
         counts = Counter([coba.random.choicew([0,1],[0.25,0.75]) for _ in range(100000)])
         self.assertEqual(len(counts),2)
-        self.assertAlmostEqual(counts[(0,.25)]/counts.total(), .25, places=2)
-        self.assertAlmostEqual(counts[(1,.75)]/counts.total(), .75, places=2)
+        self.assertAlmostEqual(counts[(0,.25)]/sum(counts.values()), .25, places=2)
+        self.assertAlmostEqual(counts[(1,.75)]/sum(counts.values()), .75, places=2)
         counts = Counter([coba.random.choicew([0,1]) for _ in range(100000)])
         self.assertEqual(len(counts),2)
-        self.assertAlmostEqual(counts[(0,.5)]/counts.total(), .5, places=2)
-        self.assertAlmostEqual(counts[(1,.5)]/counts.total(), .5, places=2)
+        self.assertAlmostEqual(counts[(0,.5)]/sum(counts.values()), .5, places=2)
+        self.assertAlmostEqual(counts[(1,.5)]/sum(counts.values()), .5, places=2)
 
     def test_choice_exception(self):
         with self.assertRaises(ValueError) as e:
