@@ -1,11 +1,12 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Mapping, Optional, Hashable, Type
+from typing import Any, Mapping, Optional, Hashable, Type, Tuple
 
-from coba.primitives import Context, Action, Actions, Prob
+from coba.random import CobaRandom
+from coba.primitives import Context, Action, Actions, Prob, PMF
 from coba.statistics import OnlineVariance
-from coba.primitives import Dense, Sparse, HashableDense, HashableSparse, Learner, PMF
+from coba.primitives import Dense, Sparse, HashableDense, HashableSparse, Learner
 
 def requires_hashables(cls:Type[Learner]):
 
@@ -32,26 +33,25 @@ def requires_hashables(cls:Type[Learner]):
 class EpsilonBanditLearner(Learner):
     """Select the greedy action with probability (1-epsilon)."""
 
-    def __init__(self, epsilon: float=.05) -> None:
+    def __init__(self, epsilon: float=.05, seed:int = 1) -> None:
         """Instantiate an EpsilonBanditLearner.
 
         Args:
             epsilon: We explore with probability epsilon and exploit otherwise.
+            seed: The seed used to select actions in predict.
         """
 
         self._epsilon = epsilon
+        self._rng     = CobaRandom(seed)
 
         self._N: Mapping[Hashable, int            ] = defaultdict(int)
         self._Q: Mapping[Hashable, Optional[float]] = defaultdict(int)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"family": "epsilon_bandit", "epsilon": self._epsilon }
+        return {'family': 'epsilon_bandit', 'epsilon': self._epsilon, 'seed': self._rng.seed}
 
-    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self.predict(context,actions)[actions.index(action)]
-
-    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
+    def _pmf(self,actions: 'Actions') -> 'PMF':
         values      = [ self._Q[action] for action in actions ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
@@ -60,6 +60,12 @@ class EpsilonBanditLearner(Learner):
         prob_selected_greedily = [ int(i in max_indexes)/len(max_indexes) * (1-self._epsilon) for i in range(len(actions))]
 
         return [p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
+
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> Tuple[Action,Prob]:
+        return self._pmf(actions)[actions.index(action)]
+
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob']:
+        return self._rng.choicew(actions,self._pmf(actions))
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         alpha = 1/(self._N[action]+1)
@@ -80,22 +86,24 @@ class UcbBanditLearner(Learner):
         the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
     """
 
-    def __init__(self):
-        """Instantiate a UcbBanditLearner."""
+    def __init__(self, seed: int = 1):
+        """Instantiate a UcbBanditLearner.
+
+        Args:
+            seed: The seed used to select actions in predict.
+        """
         #these variable names were selected for easier comparison with the original paper
         self._t     : int = 0
         self._m     : Mapping['Action', float         ] = {}
         self._s     : Mapping['Action', int           ] = {}
         self._v     : Mapping['Action', OnlineVariance] = {}
+        self._rng = CobaRandom(seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "family": "UCB_bandit" }
+        return { 'family': 'UCB_bandit', 'seed': self._rng.seed }
 
-    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self.predict(context,actions)[actions.index(action)]
-
-    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
+    def _pmf(self, actions: 'Actions') -> 'PMF':
         never_observed_actions = set(actions) - self._m.keys()
 
         if never_observed_actions:
@@ -106,6 +114,12 @@ class UcbBanditLearner(Learner):
             max_actions = [ a for a,v in zip(actions,values) if v==max_value ]
 
         return [int(action in max_actions)/len(max_actions) for action in actions]
+
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
+        return self._pmf(actions)[actions.index(action)]
+
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob']:
+        return self._rng.choicew(actions,self._pmf(actions))
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         self._t += 1
@@ -157,26 +171,28 @@ class UcbBanditLearner(Learner):
 class FixedLearner(Learner):
     """Select actions from a fixed distribution and learn nothing."""
 
-    def __init__(self, pmf: 'PMF') -> None:
+    def __init__(self, pmf: 'PMF', seed: int = 1) -> None:
         """Instantiate a FixedLearner.
 
         Args:
             pmf: A PMF whose values are the probability of taking each action.
+            seed: The seed used to select actions in predict.
         """
 
         assert round(sum(pmf),3) == 1, "The given pmf must sum to one to be a valid pmf."
         assert all([p >= 0 for p in pmf]), "All given probabilities of the pmf must be greater than or equal to 0."
         self._pmf = pmf
+        self._rng = CobaRandom(seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"family":"fixed"}
+        return {'family':'fixed', 'seed': self._rng.seed}
 
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self._pmf[actions.index(action)]
 
-    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
-        return self._pmf
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob']:
+        return self._rng.choicew(actions,self._pmf)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, prob: float) -> None:
         pass
@@ -184,19 +200,23 @@ class FixedLearner(Learner):
 class RandomLearner(Learner):
     """Select actions from a uniform distribution and learn nothing."""
 
-    def __init__(self):
-        """Instantiate a RandomLearner."""
-        pass
+    def __init__(self, seed:int = 1):
+        """Instantiate a RandomLearner.
+
+        Args:
+            seed: The seed used to select actions in predict.
+        """
+        self._rng = CobaRandom(seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"family":"random"}
+        return {'family':'random', 'seed': self._rng.seed}
 
-    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> Prob:
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return 1/len(actions)
 
-    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
-        return [1/len(actions)]*len(actions)
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob']:
+        return self._rng.choicew(actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         pass
