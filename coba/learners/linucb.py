@@ -1,5 +1,6 @@
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Tuple
 
+from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.primitives import Learner, Context, Action, Actions, Prob, PMF
@@ -26,7 +27,7 @@ class LinUCBLearner(Learner):
     __ https://research.navigating-the-edge.net/assets/publications/linucb_alternate_formulation.pdf
     """
 
-    def __init__(self, alpha: float = 1, features: Sequence[str] = [1, 'a', 'ax']) -> None:
+    def __init__(self, alpha: float = 1, features: Sequence[str] = [1, 'a', 'ax'], seed:int = 1) -> None:
         """Instantiate a LinUCBLearner.
 
         Args:
@@ -37,6 +38,7 @@ class LinUCBLearner(Learner):
             features: Feature set interactions to use when calculating action value estimates. Context features
                 are indicated by x's while action features are indicated by a's. For example, xaa means to cross the
                 features between context and actions and actions.
+            seed: A seed for a random number generation.
         """
         PackageChecker.numpy("LinUCBLearner")
 
@@ -47,10 +49,11 @@ class LinUCBLearner(Learner):
 
         self._theta = None
         self._A_inv = None
+        self._rng   = CobaRandom(seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
+        return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X, 'seed': self._rng.seed}
 
     def _initialize(self,context,action) -> None:
         if isinstance(action, dict) or isinstance(context, dict):
@@ -66,10 +69,7 @@ class LinUCBLearner(Learner):
         self._A_inv = np.identity(d)
         self._np    = np
 
-    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self.predict(context,actions)[actions.index(action)]
-
-    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
+    def _pmf(self,context,actions) -> 'PMF':
         if self._A_inv is None: self._initialize(context,actions[0])
         np = self._np
 
@@ -83,6 +83,12 @@ class LinUCBLearner(Learner):
         max_indexes   = np.where(action_values == np.amax(action_values))[0]
 
         return [int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
+
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
+        return self._pmf(context,actions)[actions.index(action)]
+
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob']:
+        return self._rng.choicew(actions,self._pmf(context,actions))
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         if self._A_inv is None: self._initialize(context,action)

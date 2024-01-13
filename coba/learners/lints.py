@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, Tuple
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
@@ -87,7 +87,7 @@ class LinTSLearner(Learner):
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self._pmf(context,actions)[actions.index(action)]
 
-    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob']:
         return self._crng.choicew(actions,self._pmf(context,actions))
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
