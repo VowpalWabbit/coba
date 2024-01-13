@@ -1,5 +1,6 @@
 from typing import Any, Mapping, Sequence
 
+from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.primitives import Learner, Context, Action, Actions, Prob, PMF
@@ -24,7 +25,7 @@ class LinTSLearner(Learner):
     __ https://scicomp.stackexchange.com/q/20386/46891
     """
 
-    def __init__(self, v: float = 1, features: Sequence[str] = [1, 'a', 'ax']) -> None:
+    def __init__(self, v: float = 1, features: Sequence[str] = [1, 'a', 'ax'], seed: int = 1) -> None:
         """Instantiate a LinUCBLearner.
 
         Args:
@@ -34,6 +35,7 @@ class LinTSLearner(Learner):
             features: Feature set interactions to use when calculating action value estimates.
                 Context features are indicated by x's while action features are indicated by
                 a's. For example, xaa means to cross context and action and action features.
+            seed: A seed for a random number generation.
         """
         PackageChecker.numpy("LinTSLearner")
 
@@ -43,10 +45,11 @@ class LinTSLearner(Learner):
         self._B_inv  = None
         self._mu_hat = None
         self._v      = v
+        self._crng   = CobaRandom(seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'family': 'LinTS', 'v': self._v, 'features': self._X}
+        return {'family': 'LinTS', 'v': self._v, 'features': self._X, 'seed': self._crng.seed}
 
     def _initialize(self,context,action) -> None:
         if isinstance(action, dict) or isinstance(context, dict):
@@ -59,14 +62,11 @@ class LinTSLearner(Learner):
         np = __import__('numpy')
 
         self._np     = np
-        self._rng    = np.random.default_rng(1)
+        self._nrng   = np.random.default_rng(1)
         self._mu_hat = np.zeros(d)
         self._B_inv  = np.identity(d)
 
-    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self.predict(context,actions)[actions.index(action)]
-
-    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
+    def _pmf(self, context: 'Context', actions: 'Actions') -> 'PMF':
         if self._B_inv is None: self._initialize(context,actions[0])
 
         np = self._np
@@ -77,12 +77,18 @@ class LinTSLearner(Learner):
         if self._v == 0:
             mu_tilde = self._mu_hat
         else:
-            mu_tilde = self._rng.multivariate_normal(self._mu_hat, self._v*self._B_inv, method = 'cholesky')
+            mu_tilde = self._nrng.multivariate_normal(self._mu_hat, self._v*self._B_inv, method='cholesky')
 
         point_estimates = mu_tilde @ features.T
-        max_indexes     = np.where(point_estimates == np.amax(point_estimates))[0]
+        max_indexes     = np.where(point_estimates.round(5) == np.amax(point_estimates).round(5))[0]
 
         return [int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
+
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
+        return self._pmf(context,actions)[actions.index(action)]
+
+    def predict(self, context: 'Context', actions: 'Actions') -> 'PMF':
+        return self._crng.choicew(actions,self._pmf(context,actions))
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         if self._B_inv is None: self._initialize(context,action)

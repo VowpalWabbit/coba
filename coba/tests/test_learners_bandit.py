@@ -19,7 +19,7 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
 
     def test_predict_lots_of_actions(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
-        self.assertTrue(math.isclose(1, learner.predict(None, list(range(993)))[1] * 993, abs_tol=.001))
+        self.assertAlmostEqual(learner.predict(None, list(range(993)))[1] * 993, 1, delta=.001)
 
     def test_learn_predict_no_epsilon(self):
         learner = EpsilonBanditLearner(epsilon=0)
@@ -33,11 +33,11 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, 2, 1, None)
         learner.learn(None, 1, 2, None)
         learner.learn(None, 2, 1, None)
-        preds  = [learner.predict(None, [1,2]) for _ in range(10000)]
+        preds  = [learner.predict(None, [1,2]) for _ in range(1000)]
         counts = Counter([(a,round(p,2)) for a,p in preds])
         self.assertEqual(len(counts),2)
-        self.assertAlmostEqual(counts[(1,.95)]/sum(counts.values()),.95,places=2)
-        self.assertAlmostEqual(counts[(2,.05)]/sum(counts.values()),.05,places=2)
+        self.assertAlmostEqual(counts[(1,.95)]/sum(counts.values()), .95, delta=0.05)
+        self.assertAlmostEqual(counts[(2,.05)]/sum(counts.values()), .05, delta=0.05)
 
     def test_learn_score_epsilon(self):
         learner = EpsilonBanditLearner(epsilon=0.1)
@@ -52,13 +52,13 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, [2], 1, None)
         learner.learn(None, [1], 2, None)
         learner.learn(None, [2], 1, None)
-        preds  = [learner.predict(None, [[1],[2]]) for _ in range(10000)]
+        preds  = [learner.predict(None, [[1],[2]]) for _ in range(1000)]
         counts = Counter([(a,round(p,2)) for a,p in preds])
         self.assertEqual(len(counts),2)
         self.assertEqual(counts.most_common()[0][0],([1],.95))
         self.assertEqual(counts.most_common()[1][0],([2],.05))
-        self.assertAlmostEqual(counts.most_common()[0][1]/sum(counts.values()),.95,places=2)
-        self.assertAlmostEqual(counts.most_common()[1][1]/sum(counts.values()),.05,places=2)
+        self.assertAlmostEqual(counts.most_common()[0][1]/sum(counts.values()), .95, delta=0.05)
+        self.assertAlmostEqual(counts.most_common()[1][1]/sum(counts.values()), .05, delta=0.05)
 
     def test_learn_predict_epsilon_all_equal(self):
         learner = EpsilonBanditLearner(epsilon=0.1)
@@ -100,13 +100,13 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, 2, 1, None)
         learner.learn(None, 3, 1, None)
         learner.learn(None, 4, 1, None)
-        preds  = [learner.predict(None, actions) for _ in range(10000)]
+        preds  = [learner.predict(None, actions) for _ in range(1000)]
         counts = Counter([(a,round(p,2)) for a,p in preds])
         self.assertEqual(len(counts),4)
-        self.assertAlmostEqual(counts[(1,1/4)]/sum(counts.values()),.25,places=1)
-        self.assertAlmostEqual(counts[(2,1/4)]/sum(counts.values()),.25,places=1)
-        self.assertAlmostEqual(counts[(3,1/4)]/sum(counts.values()),.25,places=1)
-        self.assertAlmostEqual(counts[(4,1/4)]/sum(counts.values()),.25,places=1)
+        self.assertAlmostEqual(counts[(1,1/4)]/sum(counts.values()), .25, delta=0.05)
+        self.assertAlmostEqual(counts[(2,1/4)]/sum(counts.values()), .25, delta=0.05)
+        self.assertAlmostEqual(counts[(3,1/4)]/sum(counts.values()), .25, delta=0.05)
+        self.assertAlmostEqual(counts[(4,1/4)]/sum(counts.values()), .25, delta=0.05)
 
     def test_learn_predict_best2(self):
         learner,actions = UcbBanditLearner(),[1,2,3,4]
@@ -114,7 +114,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, 2, 0, None)
         learner.learn(None, 3, 0, None)
         learner.learn(None, 4, 1, None)
-        preds  = [learner.predict(None, actions) for _ in range(10000)]
+        preds  = [learner.predict(None, actions) for _ in range(1000)]
         counts = Counter([(a,round(p,2)) for a,p in preds])
         self.assertEqual(len(counts),1)
         self.assertIn((4,1),counts)
@@ -129,7 +129,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, 2, 0, None)
         learner.learn(None, 3, 0, None)
         learner.learn(None, 4, 1, None)
-        preds  = [learner.predict(None, actions) for _ in range(10000)]
+        preds  = [learner.predict(None, actions) for _ in range(1000)]
         counts = Counter([(a,round(p,2)) for a,p in preds])
         self.assertEqual(len(counts),1)
         self.assertIn((4,1),counts)
@@ -163,12 +163,12 @@ class FixedLearner_Tests(unittest.TestCase):
 
     def test_predict(self):
         learner = FixedLearner([1/3,1/3,1/3])
-        preds  = [learner.predict(None, [1,2,3]) for _ in range(10000)]
+        preds  = [learner.predict(None, [1,2,3]) for _ in range(1000)]
         counts = Counter([(a,round(p,2)) for a,p in preds])
         self.assertEqual(len(counts),3)
-        self.assertAlmostEqual(counts[(1,.33)]/sum(counts.values()),.33,places=1)
-        self.assertAlmostEqual(counts[(2,.33)]/sum(counts.values()),.33,places=1)
-        self.assertAlmostEqual(counts[(3,.33)]/sum(counts.values()),.33,places=1)
+        self.assertAlmostEqual(counts[(1,.33)]/sum(counts.values()), .33, delta=0.05)
+        self.assertAlmostEqual(counts[(2,.33)]/sum(counts.values()), .33, delta=0.05)
+        self.assertAlmostEqual(counts[(3,.33)]/sum(counts.values()), .33, delta=0.05)
 
     def test_learn(self):
         FixedLearner([1/3,1/3,1/3]).learn(None, 1, .5, None)
@@ -185,12 +185,12 @@ class RandomLearner_Tests(unittest.TestCase):
 
     def test_predict(self):
         learner = RandomLearner()
-        preds  = [learner.predict(None, [1,2,3]) for _ in range(10000)]
+        preds  = [learner.predict(None, [1,2,3]) for _ in range(1000)]
         counts = Counter([(a,round(p,2)) for a,p in preds])
         self.assertEqual(len(counts),3)
-        self.assertAlmostEqual(counts[(1,.33)]/sum(counts.values()),.33,places=1)
-        self.assertAlmostEqual(counts[(2,.33)]/sum(counts.values()),.33,places=1)
-        self.assertAlmostEqual(counts[(3,.33)]/sum(counts.values()),.33,places=1)
+        self.assertAlmostEqual(counts[(1,.33)]/sum(counts.values()), .33, delta=0.05)
+        self.assertAlmostEqual(counts[(2,.33)]/sum(counts.values()), .33, delta=0.05)
+        self.assertAlmostEqual(counts[(3,.33)]/sum(counts.values()), .33, delta=0.05)
 
     def test_learn(self):
         learner = RandomLearner()

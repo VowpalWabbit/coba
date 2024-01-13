@@ -1,5 +1,7 @@
 import unittest
 
+from collections import Counter
+
 from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.learners import LinTSLearner
@@ -9,17 +11,25 @@ class LinTSLearner_Tests(unittest.TestCase):
 
     def test_none_context_value_actions(self):
         learner = LinTSLearner()
-        probs = learner.predict(None, [1,1,1])
-        learner.learn(None, 1, 1, .5)
-        self.assertEqual(probs, [1/3,1/3,1/3])
+        actions = [float(1),float(1),float(1)]
+        preds   = [learner.predict(None, actions) for _ in range(1000)]
+        counts  = Counter([(id(a),round(p,2)) for a,p in preds])
+        self.assertEqual(len(counts),3)
+        self.assertAlmostEqual(counts[(id(actions[0]),.33)]/sum(counts.values()),.33, delta=.05)
+        self.assertAlmostEqual(counts[(id(actions[1]),.33)]/sum(counts.values()),.33, delta=.05)
+        self.assertAlmostEqual(counts[(id(actions[2]),.33)]/sum(counts.values()),.33, delta=.05)
         self.assertEqual(learner._mu_hat.shape, (2,))
         self.assertEqual(learner._B_inv.shape, (2,2))
 
     def test_value_context_value_actions(self):
         learner = LinTSLearner()
-        probs = learner.predict(1, [1,1,1])
-        learner.learn(1, 1, 1, 1)
-        self.assertEqual(probs, [1/3,1/3,1/3])
+        actions = [float(1),float(1),float(1)]
+        preds   = [learner.predict(1, actions) for _ in range(1000)]
+        counts  = Counter([(id(a),round(p,2)) for a,p in preds])
+        self.assertEqual(len(counts),3)
+        self.assertAlmostEqual(counts[(id(actions[0]),.33)]/sum(counts.values()),.33, delta=.05)
+        self.assertAlmostEqual(counts[(id(actions[1]),.33)]/sum(counts.values()),.33, delta=.05)
+        self.assertAlmostEqual(counts[(id(actions[2]),.33)]/sum(counts.values()),.33, delta=.05)
         self.assertEqual(learner._mu_hat.shape, (3,))
         self.assertEqual(learner._B_inv.shape, (3,3))
 
@@ -32,10 +42,13 @@ class LinTSLearner_Tests(unittest.TestCase):
 
     def test_dense_context_value_actions(self):
         learner = LinTSLearner()
-        probs = learner.predict([1,2,3], [1,1,1])
-        self.assertEqual(probs, [1/3,1/3,1/3])
-        self.assertEqual(learner._mu_hat.shape, (5,))
-        self.assertEqual(learner._B_inv.shape, (5,5))
+        actions = [float(1),float(1),float(1)]
+        preds   = [learner.predict([1,2,3], actions) for _ in range(1000)]
+        counts  = Counter([(id(a),round(p,2)) for a,p in preds])
+        self.assertEqual(len(counts),3)
+        self.assertAlmostEqual(counts[(id(actions[0]),.33)]/sum(counts.values()),.33, delta=.05)
+        self.assertAlmostEqual(counts[(id(actions[1]),.33)]/sum(counts.values()),.33, delta=.05)
+        self.assertAlmostEqual(counts[(id(actions[2]),.33)]/sum(counts.values()),.33, delta=.05)
 
     def test_score(self):
         learner = LinTSLearner()
@@ -46,11 +59,20 @@ class LinTSLearner_Tests(unittest.TestCase):
 
     def test_exploration_bound(self):
         learner = LinTSLearner(v=0.2)
-        probs   = learner.predict([1,2,3], [1,2,3])
-        self.assertEqual(probs, [0,0,1])
+        actions = [1,2,3]
+        preds   = [learner.predict(None, actions) for _ in range(1000)]
+        counts  = Counter([(a,round(p,2)) for a,p in preds])
+        self.assertEqual(len(counts),2)
+        self.assertAlmostEqual(counts[(1,1.0)]/sum(counts.values()),.5, delta=.05)
+        self.assertAlmostEqual(counts[(3,1.0)]/sum(counts.values()),.5, delta=.05)
+
         learner = LinTSLearner(v=0)
-        probs   = learner.predict([1,2,3], [1,2,3])
-        self.assertEqual(probs, [1/3,1/3,1/3])
+        preds   = [learner.predict(None, actions) for _ in range(1000)]
+        counts  = Counter([(a,round(p,2)) for a,p in preds])
+        self.assertEqual(len(counts),3)
+        self.assertAlmostEqual(counts[(1,.33)]/sum(counts.values()),.33, delta=.05)
+        self.assertAlmostEqual(counts[(2,.33)]/sum(counts.values()),.33, delta=.05)
+        self.assertAlmostEqual(counts[(3,.33)]/sum(counts.values()),.33, delta=.05)
 
     def test_learn_something(self):
         learner = LinTSLearner(features='a')
@@ -81,7 +103,7 @@ class LinTSLearner_Tests(unittest.TestCase):
 
     def test_params(self):
         actual = LinTSLearner(v=0.2,features=['a','xa']).params
-        expected = {'family':'LinTS', 'v':0.2, 'features':['a','xa']}
+        expected = {'family':'LinTS', 'v':0.2, 'features':['a','xa'], 'seed':1}
         self.assertEqual(actual,expected)
 
 if __name__ == '__main__':

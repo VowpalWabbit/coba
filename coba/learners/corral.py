@@ -78,7 +78,6 @@ class CorralLearner(Learner):
     def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','kwargs']:
         pmf,info  = self._pmf(context,actions)
         act,score = self._rng.choicew(actions,pmf)
-
         return act,score,info
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability:float, info) -> None:

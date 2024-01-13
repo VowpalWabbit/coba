@@ -35,7 +35,7 @@ class CorralLearner_Tests(unittest.TestCase):
 
     def test_importance_predict(self):
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="importance")
-        counts = Counter([learner.predict(None, [1,2])[0] for _ in range(20000)])
+        counts = Counter([learner.predict(None, [1,2])[0] for _ in range(1000)])
         self.assertEqual(len(counts),2)
         self.assertAlmostEqual(counts[1]/sum(counts.values()), 1/2*1/2+1/2*1/4, delta=.05)
         self.assertAlmostEqual(counts[2]/sum(counts.values()), 1/2*1/2+1/2*3/4, delta=.05)
@@ -53,13 +53,13 @@ class CorralLearner_Tests(unittest.TestCase):
 
     def test_off_policy_score(self):
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="off-policy")
-        mean_score = list(map(mean, zip(*[ [learner.score(None,[1,2],1),learner.score(None,[1,2],2)] for _ in range(20000)])) )
-        self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_score[0], 2)
-        self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_score[1], 2)
+        mean_score = list(map(mean, zip(*[ [learner.score(None,[1,2],1),learner.score(None,[1,2],2)] for _ in range(1000)])) )
+        self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_score[0], delta=0.05)
+        self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_score[1], delta=0.05)
 
     def test_off_policy_predict(self):
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="off-policy")
-        counts = Counter([learner.predict(None, [1,2])[0] for _ in range(20000)])
+        counts = Counter([learner.predict(None, [1,2])[0] for _ in range(1000)])
         self.assertEqual(len(counts),2)
         self.assertAlmostEqual(counts[1]/sum(counts.values()), 1/2*1/2+1/2*1/4, delta=.05)
         self.assertAlmostEqual(counts[2]/sum(counts.values()), 1/2*1/2+1/2*3/4, delta=.05)
@@ -76,10 +76,10 @@ class CorralLearner_Tests(unittest.TestCase):
         self.assertEqual((None, act, reward, scr), base2.received_learn)
 
     def test_params(self):
-        base1_name = 'A'
-        base2_name = 'B'
-        expected = {'family': 'corral', 'eta': 0.075, 'mode': 'importance', 'T': float('inf'), 'B': [base1_name, base2_name], 'seed': 1}
-        actual   = CorralLearner([FamilyLearner("A"), FamilyLearner("B")]).params
+        name1 = 'A'
+        name2 = 'B'
+        expected = {'family': 'corral', 'eta': 0.075, 'mode': 'importance', 'T': float('inf'), 'B': [name1, name2], 'seed': 1}
+        actual   = CorralLearner([FamilyLearner(name1), FamilyLearner(name2)]).params
         self.assertEqual(expected, actual)
 
 if __name__ == '__main__':

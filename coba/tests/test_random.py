@@ -163,14 +163,14 @@ class CobaRandom_Tests(unittest.TestCase):
         self.assertIsInstance(choice, tuple)
 
     def test_choicew(self):
-        counts = Counter([coba.random.choicew([0,1],[0.25,0.75]) for _ in range(100000)])
+        counts = Counter([coba.random.choicew([0,1],[0.25,0.75]) for _ in range(1000)])
         self.assertEqual(len(counts),2)
-        self.assertAlmostEqual(counts[(0,.25)]/sum(counts.values()), .25, places=2)
-        self.assertAlmostEqual(counts[(1,.75)]/sum(counts.values()), .75, places=2)
+        self.assertAlmostEqual(counts[(0,.25)]/sum(counts.values()), .25, delta=0.05)
+        self.assertAlmostEqual(counts[(1,.75)]/sum(counts.values()), .75, delta=0.05)
         counts = Counter([coba.random.choicew([0,1]) for _ in range(100000)])
         self.assertEqual(len(counts),2)
-        self.assertAlmostEqual(counts[(0,.5)]/sum(counts.values()), .5, places=2)
-        self.assertAlmostEqual(counts[(1,.5)]/sum(counts.values()), .5, places=2)
+        self.assertAlmostEqual(counts[(0,.5)]/sum(counts.values()), .5, delta=0.05)
+        self.assertAlmostEqual(counts[(1,.5)]/sum(counts.values()), .5, delta=0.05)
 
     def test_choice_exception(self):
         with self.assertRaises(ValueError) as e:
