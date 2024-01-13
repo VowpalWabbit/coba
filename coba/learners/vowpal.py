@@ -3,6 +3,7 @@ from itertools import repeat, compress
 from sys import platform
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple, Literal
 
+from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.primitives import is_batch, Learner, Context, Action, Actions, Prob, PMF, kwargs, Sparse
 from coba.utilities import PackageChecker
@@ -248,7 +249,7 @@ class VowpalLearner(Learner):
     __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
 
-    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet", vw: VowpalMediator = None) -> None:
+    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet", vw: VowpalMediator = None, seed: int = 1) -> None:
         """Instantiate a VowpalLearner.
 
         Args:
@@ -258,6 +259,7 @@ class VowpalLearner(Learner):
                 When we format examples for VW context features are placed in the 'x' namespace and action
                 features, when relevant, are placed in the 'a' namespace.
             vw: A mediator able to communicate with VW. This should not need to ever be changed.
+            seed: A seed for a random number generation.
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
         """
 
@@ -278,41 +280,34 @@ class VowpalLearner(Learner):
             #re.sub("(--cb)\s*(\d+)", '\g<1>', "--cb 123", count=1)
 
         self._vw = vw or VowpalMediator()
+        self._rng = CobaRandom(seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"family": "vw", 'args': self._args.replace("--quiet","").strip(), **self._vw.params}
+        return {"family": "vw", 'args': self._args.replace("--quiet","").strip(), **self._vw.params, 'seed': self._rng.seed}
 
-    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self.predict(context,actions)[0][actions.index(action)]
-
-    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['PMF','kwargs']:
+    def _pmf(self, context: 'Context', actions: 'Actions') -> Tuple['PMF','kwargs']:
         if not self._vw.is_initialized and is_batch(context):#pragma: no cover
             raise CobaException("VW learner does not support batched calls.")
-
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
-
         if not self._vw.is_initialized and not self._adf and self._n_actions:
             self._vw.init_learner(self._args, 4)
-
         if not self._vw.is_initialized and not self._adf and not self._n_actions:
             self._n_actions = len(actions)
             args            = self._args.replace('--cb_explore','').replace('--cb','')
             args            = f"--cb_explore {len(actions)} " if self._explore else f"--cb {len(actions)} " + args
             args            = args.strip()
             self._vw.init_learner(args,4)
-
         if not self._adf and not self._actions:
             self._actions = actions
-
         if not self._adf and actions != self._actions:
             raise CobaException("Actions are only allowed to change between predictions when using `adf`.")
-
         if not self._adf and len(actions) != self._n_actions:
             raise CobaException("The number of actions doesn't match the `--cb` action count given in args.")
 
         context = {'x':context}
+
         adfs    = None if not self._adf else [{'a':action} for action in actions]
 
         if self._adf and self._explore:
@@ -336,13 +331,19 @@ class VowpalLearner(Learner):
 
         return probs, {'actions':actions}
 
+    def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
+        return self._pmf(context,actions)[0][actions.index(action)]
+
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['PMF','kwargs']:
+        pmf,info  = self._pmf(context,actions)
+        act,score = self._rng.choicew(actions,pmf)
+        return act,score,info
+
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float, actions: 'Actions' = None) -> None:
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
-
         if not self._vw.is_initialized and not self._adf and self._n_actions:
             self._vw.init_learner(self._args, 4)
-
         if not self._vw.is_initialized and not self._adf and not self._n_actions:
             raise CobaException("When using `cb` without `adf` predict must be called before learn to initialize the vw learner")
 

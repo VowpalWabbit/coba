@@ -2,6 +2,7 @@ import unittest
 import unittest.mock
 import pickle
 
+from collections import Counter
 from typing import Sequence, cast
 
 from coba.utilities import PackageChecker
@@ -304,13 +305,14 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(("--cb_explore 2", 4), vw._init_learner_calls[0])
 
     def test_init_learner_cb_action_infer(self):
-        vw = VowpalMediatorMocked()
+        vw = VowpalMediatorMocked(predict_returns=1)
         VowpalLearner("--cb", vw).predict(None, ['yes','no'])
         self.assertEqual(("--cb 2", 4), vw._init_learner_calls[0])
 
     def test_predict_cb_explore_adf(self):
         vw = VowpalMediatorMocked([.25, .75])
-        p  = VowpalLearner("--cb_explore_adf",vw).predict(None, ['yes','no'])
+        vl = VowpalLearner("--cb_explore_adf",vw)
+        kw = vl.predict(None, ['yes','no'])[2]
         self.assertEqual(2, len(vw._predict_calls[0]))
         self.assertEqual({'x':None }, vw._predict_calls[0][0].ns[0])
         self.assertEqual({'a':'yes'}, vw._predict_calls[0][0].ns[1])
@@ -318,11 +320,17 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual({'x':None }, vw._predict_calls[0][1].ns[0])
         self.assertEqual({'a':'no'} , vw._predict_calls[0][1].ns[1])
         self.assertEqual(None       , vw._predict_calls[0][1].label)
-        self.assertEqual(([.25, .75],{'actions':['yes','no']}), p)
+        self.assertEqual({'actions':['yes','no']}, kw)
+        preds  = [vl.predict(None, ['yes','no'])[:2] for _ in range(1000)]
+        counts = Counter([(a,round(p,2)) for a,p in preds])
+        self.assertEqual(len(counts),2)
+        self.assertAlmostEqual(counts[('yes',.25)]/sum(counts.values()),.25, delta=.05)
+        self.assertAlmostEqual(counts[('no' ,.75)]/sum(counts.values()),.75, delta=.05)
 
     def test_predict_cb_adf(self):
         vw = VowpalMediatorMocked([.25, .75])
-        p  = VowpalLearner("--cb_adf",vw).predict(None, ['yes','no'])
+        vl = VowpalLearner("--cb_adf",vw)
+        kw = vl.predict(None, ['yes','no'])[2]
         self.assertEqual(2, len(vw._predict_calls[0]))
         self.assertEqual({'x':None }, vw._predict_calls[0][0].ns[0])
         self.assertEqual({'a':'yes'}, vw._predict_calls[0][0].ns[1])
@@ -330,7 +338,11 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual({'x':None }, vw._predict_calls[0][1].ns[0])
         self.assertEqual({'a':'no'} , vw._predict_calls[0][1].ns[1])
         self.assertEqual(None       , vw._predict_calls[0][1].label)
-        self.assertEqual(([1,0],{'actions':['yes','no']}), p)
+        self.assertEqual({'actions':['yes','no']}, kw)
+        preds  = [vl.predict(None, ['yes','no'])[:2] for _ in range(1000)]
+        counts = Counter([(a,round(p,2)) for a,p in preds])
+        self.assertEqual(len(counts),1)
+        self.assertAlmostEqual(counts[('yes',1)]/sum(counts.values()),1, delta=.05)
 
     def test_score_cb_explore(self):
         vw = VowpalMediatorMocked([0.25, 0.75])
@@ -342,16 +354,27 @@ class VowpalLearner_Tests(unittest.TestCase):
 
     def test_predict_cb_explore(self):
         vw = VowpalMediatorMocked([0.25, 0.75])
-        p = VowpalLearner("--cb_explore 2", vw).predict(None, ['yes','no'])
+        vl = VowpalLearner("--cb_explore 2", vw) 
+        kw = vl.predict(None, ['yes','no'])[2]
         self.assertIsInstance(vw._predict_calls[0], VowpalEaxmpleMock)
         self.assertEqual({'x':None }, vw._predict_calls[0].ns)
         self.assertEqual(None       , vw._predict_calls[0].label)
-        self.assertEqual(([.25, .75],{'actions':['yes','no']}), p)
+        self.assertEqual({'actions':['yes','no']}, kw)
+        preds  = [vl.predict(None, ['yes','no'])[:2] for _ in range(1000)]
+        counts = Counter([(a,round(p,2)) for a,p in preds])
+        self.assertEqual(len(counts),2)
+        self.assertAlmostEqual(counts[('yes',.25)]/sum(counts.values()),.25, delta=.05)
+        self.assertAlmostEqual(counts[('no' ,.75)]/sum(counts.values()),.75, delta=.05)
 
     def test_predict_cb(self):
         vw = VowpalMediatorMocked(2)
-        p = VowpalLearner("--cb 2", vw).predict(None, ['yes','no'])
-        self.assertEqual(([0,1],{'actions':['yes','no']}), p)
+        vl = VowpalLearner("--cb 2", vw)
+        kw = vl.predict(None, ['yes','no'])[2]
+        preds  = [vl.predict(None, ['yes','no'])[:2] for _ in range(1000)]
+        counts = Counter([(a,round(p,2)) for a,p in preds])
+        self.assertEqual({'actions':['yes','no']}, kw)
+        self.assertEqual(len(counts),1)
+        self.assertAlmostEqual(counts[('no',1)]/sum(counts.values()),1, delta=.05)
 
     def test_learn_cb_adf(self):
         vw = VowpalMediatorMocked()
@@ -380,7 +403,7 @@ class VowpalLearner_Tests(unittest.TestCase):
             VowpalLearner("--cb", VowpalMediatorMocked()).learn(None,None,1,.2,.2)
 
     def test_cb_predict_action_change(self):
-        learner = VowpalLearner("--cb", VowpalMediatorMocked())
+        learner = VowpalLearner("--cb", VowpalMediatorMocked(predict_returns=1))
         learner.predict(None, [1,2,3])
 
         with self.assertRaises(CobaException) as e:
@@ -416,38 +439,33 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         pre_learn_rewards = []
         for context in contexts[:int(.9*n_examples)]:
-
             actions = [ rng.randoms(n_features) for _ in range(n_actions) ]
             rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
             rewards = [ int(r == max(rewards)) for r in rewards ]
-
-            pre_learn_rewards.append(rng.choice(rewards,learner.predict(context, actions)[0]))
+            reward  = rewards[actions.index(learner.predict(context, actions)[0])]
+            pre_learn_rewards.append(reward)
 
         for context in contexts[:int(.9*n_examples)]:
-
             actions = [ rng.randoms(n_features) for _ in range(n_actions) ]
             rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
             rewards = [ int(r == max(rewards)) for r in rewards ]
-
-            probs  = learner.predict(context, actions)[0]
-            choice = rng.choice(list(range(3)), probs)
-
-            learner.learn(context, actions[choice], rewards[choice], probs[choice], actions)
+            act,prob,kw = learner.predict(context, actions)
+            reward      = rewards[actions.index(act)]
+            learner.learn(context, act, reward, prob, **kw)
 
         post_learn_rewards = []
-
         for context in contexts[int(.9*n_examples):]:
             actions = [ rng.randoms(n_features) for _ in range(n_actions) ]
             rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
             rewards = [ int(r == max(rewards)) for r in rewards ]
-
-            post_learn_rewards.append(rng.choice(rewards,learner.predict(context, actions)[0]))
+            reward  = rewards[actions.index(learner.predict(context, actions)[0])]
+            post_learn_rewards.append(reward)
 
         average_pre_learn_reward  = sum(pre_learn_rewards)/len(pre_learn_rewards)
         average_post_learn_reward = sum(post_learn_rewards)/len(post_learn_rewards)
 
-        self.assertAlmostEqual(.33, average_pre_learn_reward, places=2)
-        self.assertAlmostEqual(.775, average_post_learn_reward, places=2)
+        self.assertAlmostEqual(.33 , average_pre_learn_reward, delta=.05)
+        self.assertAlmostEqual(.775, average_post_learn_reward, delta=.05)
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalLearner(vw=VowpalMediatorMocked()))), VowpalLearner)

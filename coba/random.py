@@ -153,6 +153,9 @@ class CobaRandom:
         Returns:
             An item in seq.
         """
+        if weights and len(weights) != len(seq):
+            raise ValueError("The length of weights and sequence must be equal.")
+
         if weights is None:
             return seq[int(len(seq)*next(self._randu))]
         else:
@@ -172,7 +175,7 @@ class CobaRandom:
         """
 
         if weights is None:
-            return seq[int(len(seq)*next(self._randu))],1/len(seq)
+            return self.choice(seq),1/len(seq)
         else:
             i = self.choice(range(len(seq)),weights)
             return seq[i], weights[i]

@@ -154,6 +154,16 @@ class CobaRandom_Tests(unittest.TestCase):
         self.assertEqual([1, 2, 2, 10, 2, 7, 10, 8, 3, 2],coba.random.randints(10,1,10))
         self.assertEqual([6, 7, 2, 6, 4, 4, 7, 0, 5, 1],coba.random.randints(10,0,10))
 
+    def test_choice_diff_len(self):
+        with self.assertRaises(ValueError) as r:
+            coba.random.choice([1,2,3],[1])
+        self.assertEqual("The length of weights and sequence must be equal.", str(r.exception))
+
+    def test_choice_zero_weight(self):
+        with self.assertRaises(ValueError) as r:
+            coba.random.choice([1,2,3],[0,0,0])
+        self.assertEqual("The sum of weights cannot be zero.", str(r.exception))
+
     def test_choice1(self):
         choice = coba.random.choice([(0,1),(1,0)])
         self.assertIsInstance(choice, tuple)
@@ -161,6 +171,16 @@ class CobaRandom_Tests(unittest.TestCase):
     def test_choice2(self):
         choice = coba.random.choice([(0,1),(1,0)],[0.5,0.5])
         self.assertIsInstance(choice, tuple)
+
+    def test_choicew_zero_weight(self):
+        with self.assertRaises(ValueError) as r:
+            coba.random.choicew([1,2,3],[0,0,0])
+        self.assertEqual("The sum of weights cannot be zero.", str(r.exception))
+
+    def test_choicew_diff_len(self):
+        with self.assertRaises(ValueError) as r:
+            coba.random.choicew([1,2,3],[1])
+        self.assertEqual("The length of weights and sequence must be equal.", str(r.exception))
 
     def test_choicew(self):
         counts = Counter([coba.random.choicew([0,1],[0.25,0.75]) for _ in range(1000)])
