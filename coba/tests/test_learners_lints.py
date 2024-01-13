@@ -82,9 +82,9 @@ class LinTSLearner_Tests(unittest.TestCase):
             learner.learn([1,2,3], (0,1,0), 4/4, 1/3)
             learner.learn([1,2,3], (0,0,1), 3/4, 1/3)
 
-        self.assertAlmostEqual(learner._mu_hat[0], 1/4, places=1)
-        self.assertAlmostEqual(learner._mu_hat[1], 4/4, places=1)
-        self.assertAlmostEqual(learner._mu_hat[2], 3/4, places=1)
+        self.assertAlmostEqual(learner._mu_hat[0], 1/4, delta=.05)
+        self.assertAlmostEqual(learner._mu_hat[1], 4/4, delta=.05)
+        self.assertAlmostEqual(learner._mu_hat[2], 3/4, delta=.05)
 
     def test_sparse_exception(self):
         learner = LinTSLearner()

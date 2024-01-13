@@ -175,7 +175,7 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertRegex(logs[3], '^a \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
         self.assertEqual(logs[4], 'e')
 
-        self.assertAlmostEqual(float(logs[3][3:7 ]), 0.15, 1)
+        self.assertAlmostEqual(float(logs[3][3:7 ]), 0.15, delta=.05)
 
     def test_time_with_3(self):
 
@@ -214,9 +214,9 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertRegex(logs[10], '^a \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
         self.assertEqual(logs[11], 'g')
 
-        self.assertAlmostEqual(float(logs[4 ][3:7]), 0.05, 1)
-        self.assertAlmostEqual(float(logs[7 ][3:7]), 0.05, 1)
-        self.assertAlmostEqual(float(logs[10][3:7]), 0.15, 1)
+        self.assertAlmostEqual(float(logs[4 ][3:7]), 0.05, delta=.05)
+        self.assertAlmostEqual(float(logs[7 ][3:7]), 0.05, delta=.05)
+        self.assertAlmostEqual(float(logs[10][3:7]), 0.15, delta=.05)
 
     def test_time_two_separate(self):
 
@@ -256,10 +256,10 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertRegex(logs[9 ], 'd \\(\\d+\\.\\d+ seconds\\)')
         self.assertRegex(logs[10], 'a \\(\\d+\\.\\d+ seconds\\)')
 
-        self.assertAlmostEqual(float(logs[3 ][3:7]), 0.05, 1)
-        self.assertAlmostEqual(float(logs[4 ][3:7]), 0.10, 1)
-        self.assertAlmostEqual(float(logs[9 ][3:7]), 0.05, 1)
-        self.assertAlmostEqual(float(logs[10][3:7]), 0.10, 1)
+        self.assertAlmostEqual(float(logs[3 ][3:7]), 0.05, delta=.05)
+        self.assertAlmostEqual(float(logs[4 ][3:7]), 0.10, delta=.05)
+        self.assertAlmostEqual(float(logs[9 ][3:7]), 0.05, delta=.05)
+        self.assertAlmostEqual(float(logs[10][3:7]), 0.10, delta=.05)
 
     def test_sink_is_set(self):
         logger = BasicLogger(ListSink())
@@ -322,7 +322,7 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[2], '  * d')
         self.assertEqual(logs[3], 'e'    )
 
-        self.assertAlmostEqual(float(logs[0][3:7 ]), 0.15, 1)
+        self.assertAlmostEqual(float(logs[0][3:7 ]), 0.15, delta=.05)
 
     def test_time_with_3(self):
 
@@ -356,9 +356,9 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[6], '  * f')
         self.assertEqual(logs[7], 'g'    )
 
-        self.assertAlmostEqual(float(logs[0][3:7 ]), 0.15, 1)
-        self.assertAlmostEqual(float(logs[2][9:13]), 0.05, 1)
-        self.assertAlmostEqual(float(logs[4][9:13]), 0.05, 1)
+        self.assertAlmostEqual(float(logs[0][3:7 ]), 0.15, delta=.05)
+        self.assertAlmostEqual(float(logs[2][9:13]), 0.05, delta=.05)
+        self.assertAlmostEqual(float(logs[4][9:13]), 0.05, delta=.05)
 
     def test_time_two_separate(self):
 
@@ -393,10 +393,10 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertRegex(logs[5 ], '  \\* d \\(\\d+\\.\\d+ seconds\\)')
         self.assertEqual(logs[6 ], '    > e')
 
-        self.assertAlmostEqual(float(logs[0][3:7 ]), 0.10, 1)
-        self.assertAlmostEqual(float(logs[1][7:11]), 0.05, 1)
-        self.assertAlmostEqual(float(logs[4][3:7 ]), 0.10, 1)
-        self.assertAlmostEqual(float(logs[5][7:11]), 0.05, 1)
+        self.assertAlmostEqual(float(logs[0][3:7 ]), 0.10, delta=.05)
+        self.assertAlmostEqual(float(logs[1][7:11]), 0.05, delta=.05)
+        self.assertAlmostEqual(float(logs[4][3:7 ]), 0.10, delta=.05)
+        self.assertAlmostEqual(float(logs[5][7:11]), 0.05, delta=.05)
 
     def test_time_with_exception(self):
 

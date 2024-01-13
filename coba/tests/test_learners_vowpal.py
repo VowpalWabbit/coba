@@ -685,8 +685,8 @@ class VowpalMediator_Tests(unittest.TestCase):
 
         post_learn_mse = sum([e**2 for e in pred_errs])/len(pred_errs)
 
-        self.assertNotAlmostEqual(0,pre_learn_mse, places=2)
-        self.assertAlmostEqual(0,post_learn_mse, places=2)
+        self.assertNotAlmostEqual(0,pre_learn_mse , places=2)
+        self.assertAlmostEqual   (0,post_learn_mse, places=2)
 
     def test_finish_pre_init_no_exceptoin(self):
         VowpalMediator().finish()

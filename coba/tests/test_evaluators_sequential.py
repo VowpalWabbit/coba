@@ -693,8 +693,8 @@ class SequentialCB_Tests(unittest.TestCase):
 
         task_results = list(task.evaluate(SimpleEnvironment(interactions), learner))
 
-        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
-        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
+        self.assertAlmostEqual(0, task_results[0]["predict_time"], delta=.05)
+        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , delta=.05)
 
     def test_off_ips_record_time(self):
         task         = SequentialCB(learn='off',eval='ips',record=['time'])
@@ -703,8 +703,8 @@ class SequentialCB_Tests(unittest.TestCase):
 
         task_results = list(task.evaluate(SimpleEnvironment(interactions),learner))
 
-        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
-        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
+        self.assertAlmostEqual(0, task_results[0]["predict_time"], delta=.05)
+        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , delta=.05)
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_off_ips_record_ope_loss(self):
