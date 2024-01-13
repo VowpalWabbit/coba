@@ -7,8 +7,9 @@ Remarks:
 import math
 import time
 
-from itertools import compress, accumulate, repeat, islice
-from operator import le
+from math import floor
+from itertools import compress, accumulate, islice
+from operator import mul,add
 from typing import Optional, Iterable, Sequence, Any
 
 class CobaRandom:
@@ -36,19 +37,24 @@ class CobaRandom:
         else:
             seed = int.from_bytes(str(seed or time.time()).encode('utf-8'),"big") % 2**20
 
-        self._seed = seed
+        self._seed  = seed
         self._randu = self._next_uniform(116646453,seed,9,2**30)
         self._randg = self._next_gaussian()
 
+    @property
+    def seed(self) -> int:
+        """Initial seed for random number generation."""
+        return self._seed
+
     def random(self, min:float=0, max:float=1) -> float:
-        """Generate a uniform random number in [`min`,`max`].
+        """Generate a uniform random number in [`min`,`max`).
 
         Args:
             min: The minimum value for the random numbers.
             max: The maximum value for the random numbers.
 
         Returns:
-            The generated random number in [`min`,`max`].
+            The generated random number in [`min`,`max`).
         """
         return min+(max-min)*next(self._randu)
 
@@ -61,20 +67,21 @@ class CobaRandom:
             max: The maximum value for the random numbers.
 
         Returns:
-            The `n` generated random numbers in [`min`,`max`].
+            The `n` generated random numbers in [`min`,`max`).
         """
-        if (n is not None) and (n < 0 or not isinstance(n, int)):
+        if n and not isinstance(n, int) or n < 0:
             raise ValueError("n must be an integer greater than or equal to 0")
 
-        if min == 0 and max == 1:
-            iterable = islice(self._randu,n)
-        elif min == 0:
-            iterable = ( max*r for r in islice(self._randu,n) )
-        else:
-            r_range = max-min
-            iterable = (min+r_range*r for r in islice(self._randu,n))
+        min  = float(min)
+        diff = max-min
+        out  = self._randu
 
-        return list(iterable) if n is not None else iterable
+        if diff != 1:
+            out = map(diff.__mul__,out)
+        if min != 0:
+            out = map(min.__add__,out)
+
+        return list(islice(out,n)) if n is not None else out
 
     def shuffle(self, items: Iterable[Any], inplace: bool = False) -> Sequence[Any]:
         """Shuffle the order of items in a sequence.
@@ -93,19 +100,14 @@ class CobaRandom:
             A new order of the original items.
         """
 
-        if not hasattr(items,'__len__') or not hasattr(items,'__setitem__'):
-            items = list(items)
-            inplace = True
-
-        n = len(items)
-        if n < 2: return items
-
         l = items if inplace else list(items)
+
+        n = len(l)
+        if n < 2: return l
 
         #i goes from 0 to n-2
         #j is always i <= j < n
-        for i,r in islice(enumerate(self._randu),n-1):
-            j = i+int(r*(n-i))
+        for i,j in enumerate(map(add,range(n),map(floor,map(mul,range(n,1,-1),self._randu)))):
             l[i], l[j] = l[j], l[i]
 
         return l
@@ -121,7 +123,7 @@ class CobaRandom:
             A random integer in [a,b].
         """
 
-        return a+int((b-a+1)*next(self._randu))
+        return a+floor((b-a+1)*next(self._randu))
 
     def randints(self, n:int, a:int, b:int) -> Sequence[int]:
         """Generate `n` uniform random integers in [a, b].
@@ -136,10 +138,10 @@ class CobaRandom:
         """
         b=b+1
         if a == 0:
-            return [int(b*r) for r in islice(self._randu,n)]
+            return [floor(b*r) for r in islice(self._randu,n)]
         else:
             r_range = b-a
-            return [int(r_range*r) + a for r in islice(self._randu,n)]
+            return [floor(r_range*r) + a for r in islice(self._randu,n)]
 
     def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Any:
         """Choose a random item from the given sequence.
@@ -151,17 +153,13 @@ class CobaRandom:
         Returns:
             An item in seq.
         """
-
         if weights is None:
             return seq[int(len(seq)*next(self._randu))]
 
         else:
             tot = sum(weights)
             if tot == 0: raise ValueError("The sum of weights cannot be zero.")
-            cdf = accumulate(weights)
-            rng = next(self._randu) * tot
-
-            return next(compress(seq, map(le, repeat(rng), cdf)))
+            return next(compress(seq, map((next(self._randu)*tot).__le__, accumulate(weights))))
 
     def gauss(self, mu:float=0, sigma:float=1) -> float:
         """Generate a random number from N(mu,sigma).
@@ -238,19 +236,19 @@ def seed(seed: Optional[float]) -> None:
     _random = CobaRandom(seed)
 
 def random(min:float=0, max:float=1) -> float:
-    """Generate a uniform random number in [`min`,`max`].
+    """Generate a uniform random number in [`min`,`max`).
 
     Args:
         min: The minimum value for the random numbers.
         max: The maximum value for the random numbers.
 
     Returns:
-        A uniform random number in [`min`,`max`].
+        A uniform random number in [`min`,`max`).
     """
     return _random.random(min,max)
 
 def randoms(n: int, min:float=0, max:float=1) -> Sequence[float]:
-    """Generate `n` uniform random numbers in [`min`,`max`].
+    """Generate `n` uniform random numbers in [`min`,`max`).
 
     Args:
         n: How many uniform random numbers should be generated.
@@ -258,7 +256,7 @@ def randoms(n: int, min:float=0, max:float=1) -> Sequence[float]:
         max: The maximum value for the random numbers.
 
     Returns:
-        The `n` uniform random numbers in [`min`,`max`].
+        The `n` uniform random numbers in [`min`,`max`).
     """
 
     return _random.randoms(n,min,max)

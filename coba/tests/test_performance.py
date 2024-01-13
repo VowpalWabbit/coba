@@ -108,10 +108,10 @@ class Performance_Tests(unittest.TestCase):
 
     def test_shuffle_performance(self):
         items = list(range(50))
-        self._assert_scale_time(items, coba.random.shuffle, .023, print_time, number=1000)
+        self._assert_scale_time(items, coba.random.shuffle, .015, print_time, number=1000)
 
     def test_randoms_performance(self):
-        self._assert_scale_time(50, coba.random.randoms, .008, print_time, number=1000)
+        self._assert_scale_time(50, coba.random.randoms, .0055, print_time, number=1000)
 
     def test_choice_performance_uniform(self):
         self._assert_scale_time([1]*50, coba.random.choice, .0009, print_time, number=1000)
@@ -119,7 +119,7 @@ class Performance_Tests(unittest.TestCase):
     def test_choice_performance_not_uniform(self):
         A = [1]*50
         B = [1/50]*50
-        self._assert_call_time(lambda:coba.random.choice(A,B), .0029, print_time, number=1000)
+        self._assert_call_time(lambda:coba.random.choice(A,B), .0018, print_time, number=1000)
 
     def test_choice_performance_weights(self):
         items = [1]+[0]*49

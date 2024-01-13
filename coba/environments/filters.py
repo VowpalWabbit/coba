@@ -508,7 +508,7 @@ class Densify(EnvironmentFilter):
         def factory(g=generator()):
             return next(g)
 
-        self._lookup  = defaultdict(factory)
+        self._lookup = defaultdict(factory)
 
     @property
     def params(self) -> Mapping[str, Any]:

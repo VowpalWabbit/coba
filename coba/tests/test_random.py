@@ -7,9 +7,13 @@ from coba.utilities import PackageChecker
 import coba.random
 
 class CobaRandom_Tests(unittest.TestCase):
+    def test_seed(self):
+        rng = coba.random.CobaRandom(2)
+        self.assertEqual(2, rng.seed)
+        rng.random()
+        self.assertEqual(2, rng.seed)
 
     def test_random(self):
-
         for _ in range(10000):
             n = coba.random.random()
             self.assertLessEqual(n,1)
@@ -21,31 +25,23 @@ class CobaRandom_Tests(unittest.TestCase):
     def test_randoms_n_neg_1(self):
         with self.assertRaises(ValueError) as e:
             coba.random.CobaRandom().randoms(-1)
-
         self.assertIn("n must be an integer greater than or equal to 0", str(e.exception))
 
     def test_randoms_n_2(self):
         cr1 = coba.random.CobaRandom(seed=1)
         cr2 = coba.random.CobaRandom(seed=1)
-
         cr2._m_is_power_of_2 = False
-
         self.assertEqual( cr1.randoms(3), cr2.randoms(3) )
 
     def test_randoms_n(self):
-
         numbers = coba.random.randoms(500000)
-
         self.assertEqual(len(numbers), 500000)
-
         for n in numbers:
             self.assertLessEqual(n, 1)
             self.assertGreaterEqual(n, 0)
-
+        
         numbers = coba.random.randoms(500000,0,10)
-
         self.assertEqual(len(numbers), 500000)
-
         for n in numbers:
             self.assertLessEqual(n, 10)
             self.assertGreaterEqual(n, 0)
@@ -66,32 +62,25 @@ class CobaRandom_Tests(unittest.TestCase):
     def test_randoms_uniform(self):
         import numpy as np
         from scipy.stats import chisquare
-
         frequencies = Counter(np.digitize(coba.random.randoms(50000), bins=[i/50 for i in range(50)]))
         self.assertLess(0.00001, chisquare(list(frequencies.values())).pvalue)
 
     def test_shuffle_not_in_place(self):
-
         input  = list(range(500000))
         output = coba.random.shuffle(input)
-
         self.assertIsNot(input,output)
         self.assertEqual(set(input), set(output))
         self.assertNotEqual(input, output)
 
     def test_shuffle_in_place(self):
-
         input  = list(range(500000))
         output = coba.random.shuffle(input,inplace=True)
-
         self.assertIs(input,output)
         self.assertEqual(set(range(500000)), set(output))
         self.assertNotEqual(list(range(500000)), output)
 
     def test_shuffle_iterable(self):
-
-        output = coba.random.shuffle(range(500000),inplace=True)
-
+        output = coba.random.shuffle(range(500000),inplace=False)
         self.assertEqual(set(range(500000)), set(output))
         self.assertNotEqual(list(range(500000)), output)
 
@@ -112,47 +101,34 @@ class CobaRandom_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.scipy(strict=False), "scipy is not installed so we must skip statistical tests")
     def test_shuffle_is_unbiased(self):
-
         from scipy.stats import chisquare
         base = list(range(5))
         frequencies = Counter([tuple(coba.random.shuffle(base)) for _ in range(100000)])
         self.assertLess(0.00001, chisquare(list(frequencies.values())).pvalue)
 
     def test_randint_is_bound_correctly_1(self):
-        observed_ints = set()
-
-        for i in range(100):
-            observed_ints.add(coba.random.randint(0,2))
-
+        observed_ints = set([coba.random.randint(0,2) for _ in range(100)])
         self.assertEqual(3, len(set(observed_ints)))
         self.assertIn(0, observed_ints)
         self.assertIn(1, observed_ints)
         self.assertIn(2, observed_ints)
 
     def test_randint_is_bound_correctly_2(self):
-        observed_ints = set()
-
-        for i in range(100):
-            observed_ints.add(coba.random.randint(-3,-1))
-
+        observed_ints = set([coba.random.randint(-3,-1) for _ in range(100)])
         self.assertEqual(3, len(set(observed_ints)))
         self.assertIn(-3, observed_ints)
         self.assertIn(-2, observed_ints)
         self.assertIn(-1, observed_ints)
 
     def test_randint_unchaged(self):
-
         coba.random.seed(10)
-
         self.assertEqual(1,coba.random.randint(1,10))
         self.assertEqual(2,coba.random.randint(1,10))
         self.assertEqual(2,coba.random.randint(1,10))
         self.assertEqual(10,coba.random.randint(1,10))
         self.assertEqual(2,coba.random.randint(1,10))
         self.assertEqual(7,coba.random.randint(1,10))
-
         coba.random.seed(10)
-
         self.assertEqual(1,coba.random.randint(1,10))
         self.assertEqual(2,coba.random.randint(1,10))
         self.assertEqual(2,coba.random.randint(1,10))
@@ -163,46 +139,32 @@ class CobaRandom_Tests(unittest.TestCase):
     @unittest.skipUnless(PackageChecker.scipy(strict=False), "scipy is not installed so we must skip statistical tests")
     def test_randint_uniform(self):
         from scipy.stats import chisquare
-
         frequencies = Counter([coba.random.randint(1,6) for _ in range(50000)])
         self.assertLess(0.00001, chisquare(list(frequencies.values())).pvalue)
 
     def test_randints(self):
-        observed_ints = []
-
-        for i in range(100):
-            observed_ints.extend(coba.random.randints(10,0,2))
-
+        observed_ints = sum((coba.random.randints(10,0,2) for _ in range(100)),[])
         self.assertEqual(3, len(set(observed_ints)))
         self.assertIn(0, observed_ints)
         self.assertIn(1, observed_ints)
         self.assertIn(2, observed_ints)
 
     def test_randints_unchaged(self):
-
         coba.random.seed(10)
         self.assertEqual([1, 2, 2, 10, 2, 7, 10, 8, 3, 2],coba.random.randints(10,1,10))
         self.assertEqual([6, 7, 2, 6, 4, 4, 7, 0, 5, 1],coba.random.randints(10,0,10))
 
     def test_choice1(self):
-        choices = [(0,1), (1,0)]
-
-        choice = coba.random.choice(choices)
-
+        choice = coba.random.choice([(0,1), (1,0)])
         self.assertIsInstance(choice, tuple)
 
     def test_choice2(self):
-        weights = [0.5,0.5]
-        choices = [(0,1), (1,0)]
-
-        choice = coba.random.choice(choices,weights)
-
+        choice = coba.random.choice([(0,1), (1,0)],[0.5,0.5])
         self.assertIsInstance(choice, tuple)
 
     def test_choice_exception(self):
         with self.assertRaises(ValueError) as e:
             coba.random.CobaRandom().choice([1,2,3],[0,0,0])
-
         self.assertIn("The sum of weights cannot be zero", str(e.exception))
 
     def test_choice_unchanged(self):
@@ -218,23 +180,15 @@ class CobaRandom_Tests(unittest.TestCase):
         self.assertEqual(choice_1, choice_2)
 
     def test_gauss(self):
-
         expected = 0.626
-
-        cr = coba.random.CobaRandom(seed=1)
         coba.random.seed(1)
-
-        self.assertEqual(expected, round(cr.gauss(0,1),3))
+        self.assertEqual(expected, round(coba.random.CobaRandom(seed=1).gauss(0,1),3))
         self.assertEqual(expected, round(coba.random.gauss(0,1),3))
 
     def test_gausses(self):
-
         expected = [0.626, -2.012]
-
-        cr = coba.random.CobaRandom(seed=1)
         coba.random.seed(1)
-
-        self.assertEqual(expected, [round(r,3) for r in cr.gausses(2,0,1)])
+        self.assertEqual(expected, [round(r,3) for r in coba.random.CobaRandom(seed=1).gausses(2,0,1)])
         self.assertEqual(expected, [round(r,3) for r in coba.random.gausses(2,0,1)])
 
     @unittest.skipUnless(PackageChecker.scipy(strict=False), "scipy is not installed so we must skip statistical tests")
