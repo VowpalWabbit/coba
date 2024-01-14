@@ -559,7 +559,7 @@ class Performance_Tests(unittest.TestCase):
         repr         = Repr(categorical_actions='onehot_tuple')
         filterer     = lambda x: list(repr.filter(x))
 
-        self._assert_scale_time(interactions, filterer, .06, print_time, number=1000)
+        self._assert_scale_time(interactions, filterer, .053, print_time, number=1000)
 
     def test_repr_repeat(self):
         levels = list(map(str,range(10)))
@@ -593,7 +593,7 @@ class Performance_Tests(unittest.TestCase):
     def test_encode_cat_rows(self):
         rows = [[Categorical('1',list(map(str,range(20))))]*5]*5
         enc  = EncodeCatRows("onehot")
-        self._assert_call_time(lambda: list(enc.filter(rows)), .04, print_time, number=1000)
+        self._assert_call_time(lambda: list(enc.filter(rows)), .025, print_time, number=1000)
 
     def test_chunk(self):
         self._assert_call_time(lambda: list(Chunk().filter(range(100))), .01, print_time, number=1000)

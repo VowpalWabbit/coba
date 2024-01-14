@@ -4,49 +4,45 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
 import math
-import collections
 import coba as cb
 
-# this mediator splits the 'x' namespace into multiple namespaces
-class CustomVWMediator(cb.VowpalMediator):
+class MakeCustomNamespaces:
 
     def __init__(self, target: str, partitions: list):
         self.target     = target
         self.partitions = partitions
-        super().__init__()
 
     @property
     def params(self):
         return {"target": self.target, "parts": self.partitions}
 
-    def custom_ns(self, ns: dict):
-        if self.target not in ns:
-            return ns
+    def filter(self, interactions):
+        n_parts = len(self.partitions)
 
-        feats  = ns.pop(self.target)
-        new_ns = collections.defaultdict(dict,ns)
+        for old in interactions:
+            new = old.copy()
 
-        n_parts   = len(self.partitions)
-        n_feats   = len(feats)
-        part_size = math.ceil(n_feats/min(n_parts, n_feats))
+            feats   = new[self.target]
+            n_feats = len(feats)
+            psize   = math.ceil(n_feats/min(n_parts, n_feats))
+            ns      = { p:feats[i*psize:(i+1)*psize] for i,p in enumerate(self.partitions) }
 
-        for i, k in enumerate(feats):
-            g = i//part_size
-            new_ns[self.partitions[g]][k] = feats[k]
+            new[self.target] = cb.Namespaces(ns)
 
-        return new_ns
+            yield new
 
 # First, we define the learners that we want to test
 learners = [
-    cb.VowpalLearner(args="-q :: --cb_explore_adf --epsilon 0.05", vw=CustomVWMediator('x',["b", "c"])),
-    cb.VowpalLearner(vw=CustomVWMediator('x',["b", "c"])),
+    cb.VowpalLearner(args="-q :: --cb_explore_adf --epsilon 0.05"),
+    cb.VowpalLearner(),
 ]
 
 # Next we create an environment we'd like to evaluate against
-environments = cb.Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([1])
+envs = cb.Environments.from_linear_synthetic(1000, n_action_features=0,seed=4)
+envs = envs.filter(MakeCustomNamespaces('context',['b','c']))
 
 # We then create and run our experiment from our environments and learners
-result = cb.Experiment(environments, learners).run()
+result = cb.Experiment(envs, learners).run()
 
 # this is None if we use shuffle with multiple values
 assert learners[0]._vw._vw != None

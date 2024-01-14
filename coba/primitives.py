@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
+from numbers import Number
 from operator import eq
 from collections import abc
-from numbers import Number
 from typing import Union, Tuple, Sequence, Mapping, Iterable
 from typing import TypeVar, Generic, Optional, Iterator, Any
 
@@ -11,20 +11,21 @@ Actions = Union[None, Sequence[Action]]
 Reward  = float
 
 Prob   = float
-PMF    = Sequence[Prob]
+Pmf    = Sequence[Prob]
 kwargs = Mapping[str,Any]
 
 Prediction = Union[
-    PMF,
     Action,
     Tuple[Action,Prob],
-    Tuple[PMF        , kwargs],
     Tuple[Action     , kwargs],
     Tuple[Action,Prob, kwargs],
 ]
 
 _T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
+
+class Namespaces(dict):
+    pass
 
 class Pipe:
 
@@ -214,7 +215,7 @@ def is_batch(item):
     return hasattr(item,'is_batch')
 
 class Categorical(str):
-    __slots__ = ('levels','as_int','as_onehot')
+    __slots__ = ('levels','as_int','as_onehot','as_onehot_l')
 
     def __new__(cls, value:str, levels: Sequence[str]) -> str:
         return str.__new__(Categorical,value)

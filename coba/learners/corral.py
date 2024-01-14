@@ -3,9 +3,9 @@ import math
 from typing import Any, Sequence, Optional, Mapping, Tuple, Literal
 
 from coba.exceptions import CobaException
-from coba.random import CobaRandom
-from coba.primitives import Learner, Context, Action, Actions, Prob, PMF, kwargs
+from coba.primitives import Learner, Context, Action, Actions, Prob, Pmf, kwargs
 from coba.safety import SafeLearner
+from coba.learners.utilities import PMFInfoPredictor
 
 class CorralLearner(Learner):
     """A contextual bandit learner that optimizes a collection of learners.
@@ -41,9 +41,9 @@ class CorralLearner(Learner):
         if mode not in ["importance", "off-policy"]:
             raise CobaException("The provided `mode` for CorralLearner was unrecognized.")
 
-        self._base_learners = [ SafeLearner(learner) for learner in learners]
+        self._base_lrns = [ SafeLearner(learner) for learner in learners]
 
-        M = len(self._base_learners)
+        M = len(self._base_lrns)
 
         self._T     = T
         self._gamma = 1/T
@@ -56,29 +56,25 @@ class CorralLearner(Learner):
         self._p_bars   = [ 1/M ] * M
 
         self._mode = mode
-        self._rng  = CobaRandom(seed*1.234 if seed is not None else seed)
         self._seed = seed
+        self._pred = PMFInfoPredictor(self._pmf,seed*1.234 if seed is not None else seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._seed }
+        return { 'family': 'corral', 'eta': self._eta_init, 'mode': self._mode, 'T': self._T, 'B': list(map(str,self._base_lrns)), 'seed': self._seed }
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> 'PMF':
-        base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
+    def _pmf(self, context: 'Context', actions: 'Actions') -> 'Pmf':
+        base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_lrns ]
         base_actions, base_probs, base_infos = zip(*base_predicts)
-
         pmf  = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
         info = (base_actions, base_probs, base_infos)
-
         return pmf, {'info':info}
 
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self._pmf(context,actions)[0][actions.index(action)]
+        return self._pred.score(context,actions,action)
 
     def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','kwargs']:
-        pmf,info  = self._pmf(context,actions)
-        act,score = self._rng.choicew(actions,pmf)
-        return act,score,info
+        return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability:float, info) -> None:
         assert  0 <= reward and reward <= 1, "This Corral implementation assumes a loss between 0 and 1"
@@ -93,7 +89,7 @@ class CorralLearner(Learner):
             #   > It uses a reward estimator with higher variance and no bias (aka, importance sampling)
             #   > It is "on-policy" with respect to base learner's prediction distributions
             # The reward, R, supplied to the base learners satisifies E[R|context,A] = E[reward|context,A]
-            for learner, A, P, base_info in zip(self._base_learners, base_actions, base_probs, base_infos):
+            for learner, A, P, base_info in zip(self._base_lrns, base_actions, base_probs, base_infos):
                 R = reward * int(A==action)/probability
                 learner.learn(context, A, R, P, **base_info)
 
@@ -102,16 +98,16 @@ class CorralLearner(Learner):
             #   > It is able to provide feedback to every base learner on every iteration
             #   > It uses a MVUB reward estimator (aka, the unmodified, observed reward)
             #   > It is "off-policy" (i.e., base learners receive action feedback distributed differently from their predicts).
-            for learner, base_info in zip(self._base_learners, base_infos):
+            for learner, base_info in zip(self._base_lrns, base_infos):
                 learner.learn(context, action, reward, probability, **base_info)
 
         loss = 1-reward
 
         instant_loss = [ loss/probability * (base_action==action) for base_action in base_actions ]
         self._ps     = CorralLearner._log_barrier_omd(self._ps, instant_loss, self._etas)
-        self._p_bars = [ (1-self._gamma)*p + self._gamma*1/len(self._base_learners) for p in self._ps ]
+        self._p_bars = [ (1-self._gamma)*p + self._gamma*1/len(self._base_lrns) for p in self._ps ]
 
-        for i in range(len(self._base_learners)):
+        for i in range(len(self._base_lrns)):
             if 1/self._p_bars[i] > self._rhos[i]:
                 self._rhos[i] = 2/self._p_bars[i]
                 self._etas[i] *= self._beta

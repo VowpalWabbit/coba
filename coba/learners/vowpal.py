@@ -1,16 +1,15 @@
-import re
-from itertools import repeat, compress
+from re import match
 from sys import platform
+from itertools import repeat, compress
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple, Literal
 
-from coba.random import CobaRandom
 from coba.exceptions import CobaException
-from coba.primitives import is_batch, Learner, Context, Action, Actions, Prob, PMF, kwargs, Sparse
+from coba.primitives import is_batch, Learner, Context, Action, Actions, Prob, Pmf, kwargs, Sparse, Namespaces
 from coba.utilities import PackageChecker
+from coba.learners.utilities import PMFInfoPredictor
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
-Namespaces    = Dict[str,Features]
 VW_Features   = Sequence[Union[str,int,Tuple[Union[str,int],Union[int,float]],Dict[str,Union[int,float]]]]
 VW_Namespaces = Dict[str,VW_Features]
 
@@ -119,10 +118,6 @@ class VowpalMediator:
         if self.is_initialized:
             self._vw.finish()
 
-    def custom_ns(self, namespace: VW_Namespaces) -> VW_Namespaces:
-        """Override to transform example namespaces before they get pushed down to VW"""
-        return namespace
-
     def make_example(self, namespaces: Namespaces, label:Optional[str] = None) -> Any:
         """Create a VW example.
 
@@ -131,7 +126,6 @@ class VowpalMediator:
             label: An optional label (required if this example will be used for learning).
         """
         ns = dict(self._prep_namespaces(namespaces))
-        ns = self.custom_ns(ns)
 
         ex = self._example_init(self._vw, None, self._label_type)
         ex.push_feature_dict(self._vw, ns)
@@ -152,9 +146,6 @@ class VowpalMediator:
         labels     = repeat(None) if labels is None else labels
         vw_shared  = dict(self._prep_namespaces(shared))
         vw_uniques = list(map(dict,map(self._prep_namespaces,uniques)))
-
-        vw_shared  = self.custom_ns(vw_shared)
-        vw_uniques = list(map(self.custom_ns,vw_uniques))
 
         examples = []
         for vw_unique, label in zip(vw_uniques,labels):
@@ -274,20 +265,29 @@ class VowpalLearner(Learner):
         self._actions   = None
 
         if not self._adf:
-            n_action_str = re.match("--cb.*?\s*(\d*)\\b.*", args).group(1)
+            n_action_str = match("--cb.*?\s*(\d*)\\b.*", args).group(1)
             self._n_actions = int(n_action_str) if n_action_str else None
             #useful for removing the n_actions from args
             #re.sub("(--cb)\s*(\d+)", '\g<1>', "--cb 123", count=1)
 
         self._vw = vw or VowpalMediator()
-        self._rng = CobaRandom(seed)
+        self._pred = PMFInfoPredictor(self._pmf,seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"family": "vw", 'args': self._args.replace("--quiet","").strip(), **self._vw.params, 'seed': self._rng.seed}
+        return {"family": "vw", 'args': self._args.replace("--quiet","").strip(), **self._vw.params, 'seed': self._pred.seed}
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> Tuple['PMF','kwargs']:
-        if not self._vw.is_initialized and is_batch(context):#pragma: no cover
+    def _dflt_context_ns(self,context) -> Namespaces:
+        return {'x':context} if not isinstance(context,Namespaces) else context
+
+    def _dflt_actions_ns(self,actions) -> Optional[Sequence[Namespaces]]:
+        if self._adf:
+            is_ns = actions and isinstance(actions[0],Namespaces)
+            return actions if is_ns else [{'a':a} for a in actions]
+        return None
+
+    def _pmf(self, context: 'Context', actions: 'Actions') -> Tuple['Pmf','kwargs']:
+        if not self._vw.is_initialized and is_batch(context): #pragma: no cover
             raise CobaException("VW learner does not support batched calls.")
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
@@ -306,9 +306,8 @@ class VowpalLearner(Learner):
         if not self._adf and len(actions) != self._n_actions:
             raise CobaException("The number of actions doesn't match the `--cb` action count given in args.")
 
-        context = {'x':context}
-
-        adfs    = None if not self._adf else [{'a':action} for action in actions]
+        context = self._dflt_context_ns(context)
+        adfs    = self._dflt_actions_ns(actions)
 
         if self._adf and self._explore:
             probs = self._vw.predict(self._vw.make_examples(context, adfs, None))
@@ -332,12 +331,10 @@ class VowpalLearner(Learner):
         return probs, {'actions':actions}
 
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self._pmf(context,actions)[0][actions.index(action)]
+        return self._pred.score(context,actions,action)
 
-    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['PMF','kwargs']:
-        pmf,info  = self._pmf(context,actions)
-        act,score = self._rng.choicew(actions,pmf)
-        return act,score,info
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','kwargs']:
+        return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float, actions: 'Actions' = None) -> None:
         if not self._vw.is_initialized and self._adf:
@@ -353,8 +350,8 @@ class VowpalLearner(Learner):
         labels  = self._labels(actions, index, reward, probability)
         label   = labels[index]
 
-        context = {'x':context}
-        adfs    = None if not self._adf else [{'a':action} for action in actions]
+        context = self._dflt_context_ns(context)
+        adfs    = self._dflt_actions_ns(actions)
 
         if self._adf:
             self._vw.learn(self._vw.make_examples(context, adfs, labels))
@@ -366,7 +363,14 @@ class VowpalLearner(Learner):
         labels[index] = f"{index+1}:{round(-reward,5)}:{round(prob,5)}"
         return labels
 
-    def _finish(self):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.finish()
+
+    def finish(self):
+        """Finish all pending work (e.g., write buffers to disk)."""
         try:
             self._vw.finish()
         except AttributeError:
@@ -374,18 +378,8 @@ class VowpalLearner(Learner):
             #it is possible that _vw actually isn't ever initialized
             pass
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._finish()
-
-    def finish(self):
-        """Finish all pending work (e.g., write buffers to disk)."""
-        self._finish()
-
     def __del__(self):
-        self._finish()
+        self.finish()
 
 class VowpalEpsilonLearner(VowpalLearner):
     """Epsilon-greedy exploration with a VW contextual bandit learner.

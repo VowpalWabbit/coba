@@ -2143,6 +2143,26 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual(out['rewards']((1,0)), 5)
         self.assertEqual(out['rewards']((0,1)), 6)
 
+    def test_namespaced_context_nothing(self):
+        out = next(Repr('onehot',None).filter([{'context':{'a':[1,2],'b':[3,4]}}]))
+        self.assertEqual(out, {'context':{'a':[1,2],'b':[3,4]}})
+
+    def test_namespaced_context_dense_onehot(self):
+        out = next(Repr('onehot',None).filter([{'context':{'a':[Categorical('b',['a','b']),Categorical('a',['a','b'])],'b':[3,4]}}]))
+        self.assertEqual(out, {'context':{'a':[0,1,1,0],'b':[3,4]}})
+
+    def test_namespaced_context_dense_onehot_tuple(self):
+        out = next(Repr('onehot_tuple',None).filter([{'context':{'a':[Categorical('b',['a','b']),Categorical('a',['a','b'])],'b':[3,4]}}]))
+        self.assertEqual(out, {'context':{'a':[(0,1),(1,0)],'b':[3,4]}})
+
+    def test_namespaced_context_sparse_onehot(self):
+        out = next(Repr('onehot_tuple',None).filter([{'context':{'a':{'c':Categorical('b',['a','b'])},'b':{'d':[3,4]}}}]))
+        self.assertEqual(out, {'context':{'a':{'c':(0,1)},'b':{'d':[3,4]}}})
+
+    def test_namespaced_context_sparse_onehot_tuple(self):
+        out = next(Repr('onehot',None).filter([{'context':{'a':{'c':Categorical('b',['a','b'])},'b':{'d':[3,4]}}}]))
+        self.assertEqual(out, {'context':{'a':{'c_1':1},'b':{'d':[3,4]}}})
+
 class Finalize_Tests(unittest.TestCase):
 
     def test_empty_list(self):

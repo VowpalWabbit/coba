@@ -1,10 +1,10 @@
 from typing import Any, Mapping, Sequence, Tuple
 
-from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.primitives import Learner, Context, Action, Actions, Prob, PMF
+from coba.primitives import Learner, Context, Action, Actions, Prob, Pmf
 from coba.encodings import InteractionsEncoder
+from coba.learners.utilities import PMFPredictor
 
 class LinTSLearner(Learner):
     """A contextual bandit learner using Thompson Sampling for exploration.
@@ -45,11 +45,11 @@ class LinTSLearner(Learner):
         self._B_inv  = None
         self._mu_hat = None
         self._v      = v
-        self._crng   = CobaRandom(seed)
+        self._pred   = PMFPredictor(self._pmf,seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'family': 'LinTS', 'v': self._v, 'features': self._X, 'seed': self._crng.seed}
+        return {'family': 'LinTS', 'v': self._v, 'features': self._X, 'seed': self._pred.seed}
 
     def _initialize(self,context,action) -> None:
         if isinstance(action, dict) or isinstance(context, dict):
@@ -66,7 +66,7 @@ class LinTSLearner(Learner):
         self._mu_hat = np.zeros(d)
         self._B_inv  = np.identity(d)
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> 'PMF':
+    def _pmf(self, context: 'Context', actions: 'Actions') -> 'Pmf':
         if self._B_inv is None: self._initialize(context,actions[0])
 
         np = self._np
@@ -85,10 +85,10 @@ class LinTSLearner(Learner):
         return [int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
 
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self._pmf(context,actions)[actions.index(action)]
+        return self._pred.score(context,actions,action)
 
     def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob']:
-        return self._crng.choicew(actions,self._pmf(context,actions))
+        return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         if self._B_inv is None: self._initialize(context,action)

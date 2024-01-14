@@ -242,7 +242,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
         elif first_type == "dict":
             for row in data:
                 #in-line dict comprehension was faster than a generator like we did with list
-                yield {k:v for k,v in row.items() for k,v in ( zip(flattable[k],v) if k in flattable else ((k,v),)) if v != 0 }
+                yield {k:v for k,v in row.items() for k,v in (zip(flattable[k],v) if k in flattable else ((k,v),)) if v != 0 }
 
 class Encode(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which encodes features in table shaped data."""

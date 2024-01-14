@@ -658,7 +658,7 @@ class Flatten(EnvironmentFilter):
 
         I1,I2,I3 = tee(interactions,3)
 
-        interactions      = I1
+        interactions = I1
 
         if has_context: flat_context_iter = self._flattener.filter(i['context'] for i in I2                      )
         if has_actions: flat_actions_iter = self._flattener.filter(a            for i in I3 for a in i['actions'])

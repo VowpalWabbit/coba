@@ -354,7 +354,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
     def test_predict_cb_explore(self):
         vw = VowpalMediatorMocked([0.25, 0.75])
-        vl = VowpalLearner("--cb_explore 2", vw) 
+        vl = VowpalLearner("--cb_explore 2", vw)
         kw = vl.predict(None, ['yes','no'])[2]
         self.assertIsInstance(vw._predict_calls[0], VowpalEaxmpleMock)
         self.assertEqual({'x':None }, vw._predict_calls[0].ns)
@@ -478,10 +478,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(vw._finish_calls,1)
 
     def test_del(self) -> None:
+        import gc
         vw = VowpalMediatorMocked()
         zz = VowpalLearner(vw=vw)
         self.assertEqual(vw._finish_calls,0)
-        del zz
+        zz = None
+        gc.collect()
         self.assertEqual(vw._finish_calls,1)
 
     def test_finish(self) -> None:

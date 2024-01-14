@@ -1,3 +1,4 @@
+from copy import deepcopy,copy
 from collections import abc
 from itertools import count, compress, chain, filterfalse, islice, repeat
 from typing import Dict, Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple, Literal
@@ -542,10 +543,6 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         else:
             rows = self._encode_values(rows, first)
 
-        if self._tipe == 'onehot':
-            from coba.pipes.filters import Flatten
-            rows = Flatten().filter(rows)
-
         return rows
 
     def _encode_values(self, rows, first):
@@ -557,25 +554,69 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
             yield from (r.as_onehot for r in rows)
 
     def _encode_collection(self, rows, first):
-        if isinstance(first,Sparse):
-            cat_cols = [k for k,v in first.items() if isinstance(v,Categorical) ]
-        else:
-            cat_cols = [i for i,v in enumerate(first) if isinstance(v,Categorical) ]
+        get_string = 'string' == self._tipe
+        flat_onehot = 'onehot' == self._tipe
 
-        if not cat_cols:
+        def catkey(o):
+            if isinstance(o,dict):
+                o,keys = o.copy(),o.keys()
+            elif isinstance(o,(list,tuple)):
+                o,keys = list(o),range(len(o)-1,-1,-1)
+            else:
+                return
+            for k in keys:
+                v = o[k]
+                if isinstance(v,Categorical):
+                    yield k
+                else:
+                    K = list(catkey(v))
+                    if K: yield [k,K]
+            return o
+
+        def catset(o,k):
+            #k is Tuple[key,list]
+            if len(k) == 2 and isinstance(k[1],list):
+                k,K = k
+                row = o[k]
+                row = list(row) if isinstance(row,tuple) else copy(row)
+                o[k] = row
+                catset(row,K)
+            #k is list of keys
+            else:
+                if get_string:
+                    for _k in k:
+                        o[_k] = str(o[_k])
+                elif flat_onehot:
+                    for _k in k:
+                        if isinstance(o,list):
+                            h = o.pop(_k).as_onehot
+                            n = len(o)
+                            j = len(h)
+                            z = _k-n
+                            o.extend(h)
+                            if z != 0:
+                                o[_k:_k+j],o[z:] = o[n:],o[_k:n]
+                        else:
+                            h = o.pop(_k).as_onehot
+                            for i,v in enumerate(h):
+                                if i != 0: o[f'{_k}_{v}'] = i
+                else:
+                    for _k in k:
+                        o[_k] =  o[_k].as_onehot
+
+        catkeys = list(catkey(first))
+
+        if not catkeys:
             yield from rows
         else:
-            get_string = 'string' == self._tipe
-            is_copyable = not isinstance(first,tuple)
-
+            #cat_cols is list of numbers or list of lists
+            is_nums = isinstance(catkeys[0],int)
             for row in rows:
-                row = row.copy() if is_copyable else list(row)
+                row = list(row) if isinstance(row,tuple) else copy(row)
 
-                if get_string:
-                    for k in cat_cols:
-                        row[k] = str(row[k])
+                if is_nums:
+                    catset(row,catkeys)
                 else:
-                    for k in cat_cols:
-                        row[k] = row[k].as_onehot
+                    for k in catkeys: catset(row,k)
 
                 yield row

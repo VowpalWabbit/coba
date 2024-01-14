@@ -18,7 +18,7 @@ from coba.utilities import peek_first
 from coba.exceptions import CobaException
 
 from coba.primitives import is_batch, Context, Action, Actions, Categorical, Dense, Sparse
-from coba.primitives import Learner, Environment, Interaction, Evaluator, Rewards
+from coba.primitives import Learner, Environment, Interaction, Evaluator, Rewards, Namespaces
 from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 
 from coba.safety import SafeLearner

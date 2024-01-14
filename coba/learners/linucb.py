@@ -1,10 +1,10 @@
 from typing import Any, Mapping, Sequence, Tuple
 
-from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.primitives import Learner, Context, Action, Actions, Prob, PMF
+from coba.primitives import Learner, Context, Action, Actions, Prob, Pmf
 from coba.encodings import InteractionsEncoder
+from coba.learners.utilities import PMFPredictor
 
 class LinUCBLearner(Learner):
     """A contextual bandit learner using upper confidence bounds to explore.
@@ -49,11 +49,11 @@ class LinUCBLearner(Learner):
 
         self._theta = None
         self._A_inv = None
-        self._rng   = CobaRandom(seed)
+        self._pred  = PMFPredictor(self._pmf,seed)
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X, 'seed': self._rng.seed}
+        return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X, 'seed': self._pred.seed}
 
     def _initialize(self,context,action) -> None:
         if isinstance(action, dict) or isinstance(context, dict):
@@ -69,7 +69,7 @@ class LinUCBLearner(Learner):
         self._A_inv = np.identity(d)
         self._np    = np
 
-    def _pmf(self,context,actions) -> 'PMF':
+    def _pmf(self,context,actions) -> 'Pmf':
         if self._A_inv is None: self._initialize(context,actions[0])
         np = self._np
 
@@ -85,10 +85,10 @@ class LinUCBLearner(Learner):
         return [int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
 
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
-        return self._pmf(context,actions)[actions.index(action)]
+        return self._pred.score(context,actions,action)
 
     def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob']:
-        return self._rng.choicew(actions,self._pmf(context,actions))
+        return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
         if self._A_inv is None: self._initialize(context,action)
