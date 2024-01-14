@@ -1,7 +1,7 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Mapping, Optional, Hashable, Type, Tuple, Sequence
+from typing import Any, Mapping, Optional, Hashable, Tuple, Sequence
 
 from coba.random import CobaRandom
 from coba.primitives import Context, Action, Actions, Prob
@@ -9,28 +9,11 @@ from coba.statistics import OnlineVariance
 from coba.primitives import Dense, Sparse, HashableDense, HashableSparse, Learner
 from coba.learners.utilities import PMFPredictor
 
-def requires_hashables(cls:Type[Learner]):
+def make_hashable(item):
+    if isinstance(item,Dense): return HashableDense(item)
+    if isinstance(item,Sparse): return HashableSparse(item)
+    return item
 
-    def make_hashable(item):
-        if isinstance(item,Dense): return HashableDense(item)
-        if isinstance(item,Sparse): return HashableSparse(item)
-        return item
-
-    old_predict = cls.predict
-    old_learn   = cls.learn
-
-    def new_predict(self, context: 'Context', actions: 'Actions'):
-        return old_predict(self, make_hashable(context), list(map(make_hashable,actions)))
-
-    def new_learn(self,context: 'Context', action: 'Action', reward:float, probability: float):
-        old_learn(self, make_hashable(context), make_hashable(action), reward, probability)
-
-    cls.predict = new_predict
-    cls.learn   = new_learn
-
-    return cls
-
-@requires_hashables
 class EpsilonBanditLearner(Learner):
     """Select the greedy action with probability (1-epsilon)."""
 
@@ -51,6 +34,8 @@ class EpsilonBanditLearner(Learner):
         return {'family': 'epsilon_bandit', 'epsilon': self._epsilon, 'seed': self._pred.seed}
 
     def _pmf(self, context, actions):
+
+        actions     = list(map(make_hashable,actions))
         values      = [ self._Q[action] for action in actions ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
@@ -67,13 +52,12 @@ class EpsilonBanditLearner(Learner):
         return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
+        action = make_hashable(action)
         alpha = 1/(self._N[action]+1)
         old_Q = self._Q[action] or 0.0
-
         self._Q[action] = (1-alpha) * old_Q + alpha * reward
         self._N[action] = self._N[action] + 1
 
-@requires_hashables
 class UcbBanditLearner(Learner):
     """Select the action with the highest upper confidence bound estimate.
 
@@ -103,6 +87,8 @@ class UcbBanditLearner(Learner):
         return {'family': 'UCB_bandit', 'seed': self._pred.seed }
 
     def _pmf(self, context, actions):
+
+        actions = list(map(make_hashable,actions))
         never_observed_actions = set(actions) - self._m.keys()
 
         if never_observed_actions:
@@ -121,9 +107,11 @@ class UcbBanditLearner(Learner):
         return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
+        assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
+
         self._t += 1
 
-        assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
+        action = make_hashable(action)
 
         if action not in self._m:
             self._m[action] = reward

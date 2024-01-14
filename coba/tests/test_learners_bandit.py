@@ -53,10 +53,10 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, [1], 2, None)
         learner.learn(None, [2], 1, None)
         preds  = [learner.predict(None, [[1],[2]]) for _ in range(1000)]
-        counts = Counter([(a,round(p,2)) for a,p in preds])
+        counts = Counter([( tuple(a),round(p,2)) for a,p in preds])
         self.assertEqual(len(counts),2)
-        self.assertEqual(counts.most_common()[0][0],([1],.95))
-        self.assertEqual(counts.most_common()[1][0],([2],.05))
+        self.assertEqual(counts.most_common()[0][0],((1,),.95))
+        self.assertEqual(counts.most_common()[1][0],((2,),.05))
         self.assertAlmostEqual(counts.most_common()[0][1]/sum(counts.values()), .95, delta=0.05)
         self.assertAlmostEqual(counts.most_common()[1][1]/sum(counts.values()), .05, delta=0.05)
 
