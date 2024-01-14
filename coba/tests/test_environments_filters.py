@@ -4,14 +4,14 @@ import unittest
 from collections import Counter
 from math import isnan
 
-from coba.pipes        import LazyDense, LazySparse, HeadDense
-from coba.context      import CobaContext, NullLogger
-from coba.exceptions   import CobaException
-from coba.primitives   import Categorical
-from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-from coba.learners     import FixedLearner
-from coba.utilities    import peek_first, PackageChecker
-from coba.rewards      import DiscreteReward, L1Reward, BinaryReward
+from coba.pipes      import LazyDense, LazySparse, HeadDense
+from coba.context    import CobaContext, NullLogger
+from coba.exceptions import CobaException
+from coba.primitives import Categorical
+from coba.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
+from coba.primitives import DiscreteReward, L1Reward, BinaryReward
+from coba.learners   import FixedLearner
+from coba.utilities  import peek_first, PackageChecker
 
 from coba.environments.filters import Sparsify, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments.filters import Densify, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice

@@ -2,7 +2,7 @@ from typing import Any, Mapping, Sequence, Tuple
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.primitives import Learner, Context, Action, Actions, Prob, Pmf
+from coba.primitives import Learner, Context, Action, Actions, Prob
 from coba.encodings import InteractionsEncoder
 from coba.learners.utilities import PMFPredictor
 
@@ -69,7 +69,7 @@ class LinUCBLearner(Learner):
         self._A_inv = np.identity(d)
         self._np    = np
 
-    def _pmf(self,context,actions) -> 'Pmf':
+    def _pmf(self,context,actions):
         if self._A_inv is None: self._initialize(context,actions[0])
         np = self._np
 

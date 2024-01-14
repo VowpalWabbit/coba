@@ -1,13 +1,12 @@
 import warnings
 import importlib.util
 
+from math import isfinite
 from itertools import chain, islice
-from collections import defaultdict, Counter
+from collections import defaultdict
 from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Callable
 
 from coba.exceptions import CobaExit
-from coba.random import CobaRandom, choice
-from coba.primitives import Pipe
 
 def coba_exit(message:str):
     #we ignore warnings before exiting in order to make jupyter's output a little cleaner
@@ -149,18 +148,38 @@ def try_else(f:Callable[[],Any], default: Any) -> Any:
     except:
         return default
 
-def resolve_params(pipes: Sequence[Pipe]):
+def minimize(obj,precision=5):
+    """Transform objects to minimize string representations.
 
-    params = [p.params for p in pipes if hasattr(p,'params')]
-    keys   = [ k for p in params for k in p.keys() ]
-    counts = Counter(keys)
-    index  = {}
+    This converts python data types into formats that have minimum
+    string representations. For example, integer floats are printed
+    as '1.0' so we convert these to an int which is '1'. Floats are
+    rounded to the given precision otherwise default. Without this
+    floats will be printed with 16 digits.
+    """
 
-    def resolve_key_conflicts(key):
-        if counts[key] == 1:
-            return key
-        else:
-            index[key] = index.get(key,0)+1
-            return f"{key}{index[key]}"
+    P = 10**precision
 
-    return { resolve_key_conflicts(k):v for p in params for k,v in p.items() }
+    if hasattr(obj,'ndim'): #numpy/pytorch
+        obj = obj.tolist()
+    if isinstance(obj,float):
+        obj = int(obj) if obj.is_integer() else round(obj*P)/P if isfinite(obj) else obj
+    if isinstance(obj,tuple):
+        obj = list(obj)
+    if isinstance(obj,(list,dict)):
+        def minobj(o):
+            if isinstance(o,dict):
+                o,kv = o.copy(),o.items()
+            elif isinstance(o,(list,tuple)):
+                o,kv = list(o),enumerate(o)
+            else:
+                return o
+            for k,v in kv:
+                if isinstance(v,float) and isfinite(v):
+                    o[k] = int(v) if v.is_integer() else round(v*P)/P
+                else:
+                    o[k] = minobj(v)
+            return o
+        obj = minobj(obj)
+
+    return obj

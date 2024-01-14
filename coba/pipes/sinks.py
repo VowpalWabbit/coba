@@ -6,7 +6,8 @@ from collections import abc
 from typing import Callable, Any, List, Union, Sequence, Iterable, Mapping, Iterator
 
 from coba.primitives import Sink, Filter
-from coba.utilities import try_else, resolve_params
+from coba.utilities import try_else
+from coba.pipes.utilities import resolve_params
 
 class FiltersSink(Sink):
     def __init__(self, *pipes: Union[Filter,Sink]) -> None:

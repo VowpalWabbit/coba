@@ -1,7 +1,6 @@
 """Random number generation with deterministic generation according to a seed.
 
-Remarks:
-    This implementation guarantees coba reproducibility independent of other generators.
+This implementation guarantees coba reproducibility independent of other generators.
 """
 
 import math

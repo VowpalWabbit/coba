@@ -4,9 +4,10 @@ import multiprocessing as mp
 from traceback import format_tb
 from typing import Union, Callable, Sequence, Optional, Mapping, Iterator, Any
 
-from coba.utilities  import try_else, resolve_params
+from coba.utilities  import try_else
 from coba.exceptions import CobaException
 from coba.primitives import Pipe, Source, Filter, Sink, Line
+from coba.pipes.utilities import resolve_params
 
 # There are three potential contexts -- spawn, fork, and forkserver. On Windows and Mac spawn is the only option.
 # On Linux the default option is fork. Fork creates processes faster and can share memory but also doesn't play

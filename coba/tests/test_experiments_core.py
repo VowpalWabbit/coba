@@ -11,8 +11,8 @@ from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
 from coba.primitives import Categorical, Source, Learner, Environment
-from coba.interactions import SimulatedInteraction
-from coba.rewards import BinaryReward
+from coba.primitives import SimulatedInteraction
+from coba.primitives import BinaryReward
 
 class NoParamsLearner:
     def predict(self, context, actions):

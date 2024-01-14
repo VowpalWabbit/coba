@@ -1,4 +1,3 @@
-import codecs
 import gzip
 import zlib
 
@@ -9,7 +8,8 @@ from typing import Any, Callable, Iterable, Union, Mapping, Sequence, Tuple, Ite
 
 from coba.exceptions import CobaException
 from coba.primitives import Source, Filter
-from coba.utilities  import try_else, resolve_params
+from coba.utilities  import try_else
+from coba.pipes.utilities import resolve_params
 
 class SourceFilters(Source):
     def __init__(self, *pipes: Union[Source,Filter]) -> None:

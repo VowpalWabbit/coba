@@ -17,7 +17,7 @@ from coba.primitives import is_batch, Source, Environment
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.context import CobaContext
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker, peek_first, KeyDefaultDict
+from coba.utilities import PackageChecker, peek_first, KeyDefaultDict, minimize
 from coba.pipes import Pipes, DiskSource
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
@@ -475,7 +475,7 @@ class TransactionEncode:
 
     def filter(self, transactions: Iterable[Any]) -> Iterable[str]:
 
-        encoder = lambda x: coba.json.dumps(coba.json.minimize(x),separators=(',', ':'))
+        encoder = lambda x: coba.json.dumps(minimize(x),separators=(',', ':'))
 
         if not self._restored:
             yield encoder(["version",4])
@@ -505,7 +505,6 @@ class TransactionEncode:
                 yield encoder(["I", item[1], { "_packed": rows_T }])
 
 class TransactionResult:
-
     def filter(self, transactions:Iterable[Any]) -> 'Result':
         env_rows = collections.defaultdict(dict)
         lrn_rows = collections.defaultdict(dict)

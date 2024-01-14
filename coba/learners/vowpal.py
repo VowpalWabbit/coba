@@ -4,7 +4,7 @@ from itertools import repeat, compress
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple, Literal
 
 from coba.exceptions import CobaException
-from coba.primitives import is_batch, Learner, Context, Action, Actions, Prob, Pmf, kwargs, Sparse, Namespaces
+from coba.primitives import is_batch, Learner, Context, Action, Actions, Prob, Kwargs, Sparse, Namespaces
 from coba.utilities import PackageChecker
 from coba.learners.utilities import PMFInfoPredictor
 
@@ -286,7 +286,7 @@ class VowpalLearner(Learner):
             return actions if is_ns else [{'a':a} for a in actions]
         return None
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> Tuple['Pmf','kwargs']:
+    def _pmf(self, context, actions):
         if not self._vw.is_initialized and is_batch(context): #pragma: no cover
             raise CobaException("VW learner does not support batched calls.")
         if not self._vw.is_initialized and self._adf:
@@ -333,7 +333,7 @@ class VowpalLearner(Learner):
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self._pred.score(context,actions,action)
 
-    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','kwargs']:
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','Kwargs']:
         return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float, actions: 'Actions' = None) -> None:

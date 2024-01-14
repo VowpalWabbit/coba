@@ -9,8 +9,8 @@ from coba.context      import CobaContext, BasicLogger
 from coba.environments import Batch, OpeRewards
 from coba.learners     import VowpalSoftmaxLearner, EpsilonBanditLearner
 from coba.primitives   import is_batch, Learner
-from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-from coba.rewards      import L1Reward, DiscreteReward
+from coba.primitives   import LoggedInteraction, SimulatedInteraction, GroundedInteraction
+from coba.primitives   import L1Reward, DiscreteReward
 from coba.safety       import SafeLearner
 from coba.pipes        import ListSink
 

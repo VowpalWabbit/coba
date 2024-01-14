@@ -1,7 +1,7 @@
 ﻿GroundedInteraction
 ===================
 
-.. currentmodule:: coba.interactions
+.. currentmodule:: coba.primitives
 
 .. autoclass:: GroundedInteraction
    :show-inheritance:

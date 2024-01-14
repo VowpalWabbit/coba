@@ -3,7 +3,7 @@ from coba.pipes        import NullSink, ConsoleSink, DiskSink, HttpSource
 from coba.environments import OpenmlSimulation, SupervisedSimulation
 from coba.environments import Sort, Scale, Cycle, Shuffle, Take, Identity, Where, Repr, Reservoir
 from coba.context      import DiskCacher, NullCacher, IndentLogger, NullLogger, BasicLogger
-from coba.rewards      import L1Reward, HammingReward, BinaryReward, DiscreteReward
+from coba.primitives   import L1Reward, HammingReward, BinaryReward, DiscreteReward
 
 CobaRegistry.register("range" , range)
 CobaRegistry.register("zip"   , zip  )

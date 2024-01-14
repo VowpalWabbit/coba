@@ -1,10 +1,10 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable,Sequence
 
 from coba.random import CobaRandom
-from coba.primitives import Context, Action, Actions, Prob, Pmf, kwargs
+from coba.primitives import Context, Action, Actions, Prob, Kwargs
 
 class PMFPredictor:
-    def __init__(self, pmf: Callable[['Context','Actions'],'Pmf'], seed:int = 1) -> None:
+    def __init__(self, pmf: Callable[['Context','Actions'],Sequence[Prob]], seed:int = 1) -> None:
         """Instantiate a PMFPredictor.
 
         Args:
@@ -25,7 +25,7 @@ class PMFPredictor:
         return self._pmfrng.choicew(actions,self._pmfcall(context,actions))
 
 class PMFInfoPredictor:
-    def __init__(self, pmf: Callable[['Context','Actions'],Tuple['Pmf','kwargs']], seed:int = 1) -> None:
+    def __init__(self, pmf: Callable[['Context','Actions'],Tuple[Sequence[Prob],'Kwargs']], seed:int = 1) -> None:
         """Instantiate a PMFInfoPredictor.
 
         Args:
@@ -42,6 +42,6 @@ class PMFInfoPredictor:
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self._pmfcall(context,actions)[0][actions.index(action)]
 
-    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','kwargs']:
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','Kwargs']:
         pmf,info = self._pmfcall(context,actions)
         return *self._pmfrng.choicew(actions,pmf),info

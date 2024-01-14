@@ -5,7 +5,7 @@ from typing import Union, Tuple, Mapping, Iterable, Literal, Callable, Optional,
 from coba.random import CobaRandom
 from coba.utilities import try_else
 from coba.exceptions import CobaException
-from coba.primitives import Prediction, Actions, Action, Context, Prob, kwargs
+from coba.primitives import Pred, Actions, Action, Context, Prob, Kwargs
 from coba.primitives import Environment, Evaluator, Learner, Interaction, is_batch
 
 class SafeEnvironment(Environment):
@@ -50,7 +50,7 @@ class SafeLearner(Learner):
     """A wrapper for learner-likes that guarantees interface consistency."""
 
     @staticmethod
-    def first_row(pred: Prediction, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Prediction]:
+    def first_row(pred: Pred, batch_order:Literal['not','row','col'], has_kwargs:bool) -> Tuple[bool,Pred]:
         if batch_order == 'col':
             if has_kwargs and isinstance(pred[0],dict):
                 pred = pred[0]
@@ -64,14 +64,14 @@ class SafeLearner(Learner):
             return (pred[0] if len(pred)==2 else pred[:-1]) if has_kwargs else pred
 
     @staticmethod
-    def has_kwargs(pred: Prediction, batch_order:Literal['not','row','col']) -> bool:
+    def has_kwargs(pred: Pred, batch_order:Literal['not','row','col']) -> bool:
         try:
             return isinstance(pred[-1] if batch_order != 'row' else pred[0][-1], abc.Mapping)
         except:
             return False
 
     @staticmethod
-    def batch_order(predictor, pred: Prediction, context, actions, method=None) -> Literal['not','col','row']:
+    def batch_order(predictor, pred: Pred, context, actions, method=None) -> Literal['not','col','row']:
         if method == 2: return 'row'
         if not is_batch(actions) and not is_batch(context): return 'not'
 
@@ -100,7 +100,7 @@ class SafeLearner(Learner):
         return 'row' if len(pred) == n_rows else 'col'
 
     @staticmethod
-    def pred_format(std_pred:Prediction, actions:Actions, og_pred:Prediction = None):
+    def pred_format(std_pred:Pred, actions:Actions, og_pred:Pred = None):
         unclear_format = CobaException("We were unable to determine the prediction format from the "
         f"given value: {og_pred}. To work around this you can provide explicit format information by "
         "returnning a dict wrapper: {'pmf':<pred>}, {'action':<pred>}, or {'action_prob':<pred>}.")
@@ -378,7 +378,7 @@ class SafeLearner(Learner):
                 raise CobaException(("The `score` method is not implemented for this learner."))
             raise
 
-    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:
+    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,Kwargs]:
         #this logic should guarantee that we can differentiate prediction formats
         #it allows us to "is" checks to see if a returned value "is" one of the actions
         if self._prev_actions != actions:

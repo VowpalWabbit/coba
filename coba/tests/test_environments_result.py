@@ -4,7 +4,7 @@ import unittest
 from coba.exceptions   import CobaException
 from coba.pipes        import IdentitySource
 from coba.environments import ResultEnvironment
-from coba.rewards      import DiscreteReward, L1Reward
+from coba.primitives   import L1Reward
 
 class ResultEnvironment_Tests(unittest.TestCase):
 

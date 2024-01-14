@@ -7,11 +7,18 @@ coba.primitives
 
 Type Aliases
 ~~~~~~~~~~~~
+
+These exist to show how data and variables flow through coba objects.
+
    .. autosummary::
 
       Context
       Action
+      Actions
       Reward
+      Prob
+      Kwargs
+      Pred
 
 Interfaces
 ~~~~~~~~~~
@@ -22,5 +29,24 @@ Interfaces
       Learner
       Evaluator
       Rewards
-      Interaction
       EnvironmentFilter
+
+Rewards
+~~~~~~~
+   .. autosummary::
+      :toctree:
+
+      L1Reward
+      BinaryReward
+      HammingReward
+      DiscreteReward
+
+Interactions
+~~~~~~~~~~~~
+   .. autosummary::
+      :toctree:
+
+      Interaction
+      SimulatedInteraction
+      LoggedInteraction
+      GroundedInteraction

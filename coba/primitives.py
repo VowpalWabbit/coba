@@ -1,24 +1,26 @@
+from ast import literal_eval
 from abc import ABC, abstractmethod
 from numbers import Number
 from operator import eq
 from collections import abc
-from typing import Union, Tuple, Sequence, Mapping, Iterable
+from typing import Union, Tuple, Sequence, Mapping, Iterable, overload
 from typing import TypeVar, Generic, Optional, Iterator, Any
+
+from coba.exceptions import CobaException
+from coba.utilities import try_else, minimize
 
 Context = Union[None, str, Number, Sequence, Mapping]
 Action  = Union[str, Number, Sequence, Mapping]
-Actions = Union[None, Sequence[Action]]
+Actions = Union[None, Sequence['Action']]
 Reward  = float
+Prob    = float
+Kwargs  = Mapping[str,Any]
 
-Prob   = float
-Pmf    = Sequence[Prob]
-kwargs = Mapping[str,Any]
-
-Prediction = Union[
-    Action,
-    Tuple[Action,Prob],
-    Tuple[Action     , kwargs],
-    Tuple[Action,Prob, kwargs],
+Pred = Union[
+    'Action',
+    Tuple['Action','Prob'],
+    Tuple['Action'       , 'Kwargs'],
+    Tuple['Action','Prob', 'Kwargs'],
 ]
 
 _T_out = TypeVar("_T_out", bound=Any, covariant    =True)
@@ -70,7 +72,7 @@ class Line(ABC, Pipe):
         ...
 
 class Rewards(ABC):
-    """Reward an action."""
+    """A function rewarding actions."""
 
     @abstractmethod
     def __call__(self, action: 'Action') -> 'Reward':
@@ -87,8 +89,93 @@ class Rewards(ABC):
         ...
 
 class Interaction(dict):
-    """Interact with an Environment."""
+    """An interaction in an Environment.
+
+    The only assumption made by Coba is that interactions are a `dict`.
+    To distinguish between Interaction types we look at the interaction's
+    key values rather than type.
+    """
     __slots__=()
+
+class SimulatedInteraction(Interaction):
+    """An interaction with reward information for all actions."""
+    __slots__=()
+
+    def __init__(self,
+        context: 'Context',
+        actions: 'Actions',
+        rewards: Union[Rewards, Sequence['Reward']],
+        **kwargs) -> None:
+        """Instantiate SimulatedInteraction.
+
+        Args:
+            context : Features describing the interaction's context.
+            actions : Features describing available actions during the interaction.
+            rewards : The reward for each action in the interaction.
+            kwargs : Any additional information.
+        """
+
+        self['context'] = context
+        self['actions'] = actions
+        self['rewards'] = rewards
+
+        if kwargs: self.update(kwargs)
+
+class GroundedInteraction(Interaction):
+    """An interaction with feedbacks for Interaction Grounded Learning."""
+    __slots__=()
+
+    def __init__(self,
+        context  : 'Context',
+        actions  : 'Actions',
+        rewards  : Union[Rewards, Sequence['Reward']],
+        feedbacks: Union[Rewards, Sequence['Reward']],
+        **kwargs) -> None:
+        """Instantiate GroundedInteraction.
+
+        Args:
+            context: Features describing the interaction's context.
+            actions: Features describing available actions during the interaction.
+            rewards: The reward for each action in the interaction.
+            feedbacks: The feedback for each action in the interaction.
+            **kwargs: Additional information that should be recorded in the interactions table of an experiment result.
+        """
+
+        self['context']   = context
+        self['actions']   = actions
+        self['rewards']   = rewards
+        self['feedbacks'] = feedbacks
+
+        if kwargs: self.update(kwargs)
+
+class LoggedInteraction(Interaction):
+    """An interaction with a reward and propensity score for an action."""
+    __slots__ = ()
+
+    def __init__(self,
+        context    : 'Context',
+        action     : 'Action',
+        reward     : 'Reward',
+        probability: 'Prob' = None,
+        **kwargs) -> None:
+        """Instantiate LoggedInteraction.
+
+        Args:
+            context: Features describing the logged context.
+            action: Features describing the action taken by the logging policy.
+            reward: The reward that was revealed when the logged action was taken.
+            probability: The probability that the logged action was taken. That is P(action|context,actions,logging policy).
+            **kwargs: Any additional information.
+        """
+
+        self['context'] = context
+        self['action']  = action
+        self['reward']  = reward
+
+        if probability is not None:
+            self['probability'] = probability
+
+        if kwargs: self.update(kwargs)
 
 class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """Modify an Environment."""
@@ -154,7 +241,7 @@ class Learner(ABC):
             "The `score` interface has not been implemented for this learner."
         ))
 
-    def predict(self, context: 'Context', actions: 'Actions') -> 'Prediction':
+    def predict(self, context: 'Context', actions: 'Actions') -> 'Pred':
         """Predict which action to take in the context.
 
         Args:
@@ -172,7 +259,7 @@ class Learner(ABC):
             "The `predict` interface has not been implemented for this learner."
         ))
 
-    def learn(self, context: 'Context', action: 'Action', reward: float, probability: float, **kwargs) -> None:
+    def learn(self, context: 'Context', action: 'Action', reward: 'Reward', probability: 'Prob', **kwargs) -> None:
         """Learn about the action taken in the context.
 
         Args:
@@ -187,7 +274,7 @@ class Learner(ABC):
         ))
 
 class Evaluator(ABC):
-    """Evaluate a Learner in an Environment."""
+    """An evaluator for learners in environments."""
 
     @property
     def params(self) -> Mapping[str,Any]:
@@ -406,3 +493,216 @@ class HashableSparse(abc.Mapping):
 Sparse.register(HashableSparse)
 Sparse.register(abc.Mapping)
 Sparse.register(Sparse_)
+
+def extract_shape(given:Action, comparison:Action, is_comparison_list:bool=False):
+
+    given_ndim = getattr(given,'ndim',-1)
+
+    if given_ndim == -1:
+        compare_action = given
+        output_shape = None
+
+    elif given_ndim == 0:
+        compare_action = given.item()
+        output_shape = ()
+
+    else:
+        expected_ndims = isinstance(comparison,(list,tuple)) + is_comparison_list
+
+        if expected_ndims == 0:
+            compare_action = given.item()
+            output_shape = given.shape
+        else:
+            output_ndims   = given_ndim-expected_ndims
+
+            if not is_comparison_list:
+                compare_action = type(comparison)(given[(0,)*output_ndims].tolist())
+            else:
+                compare_action = given[(0,)*output_ndims].tolist()
+
+            output_shape = (1,)*output_ndims
+
+    return compare_action, output_shape
+
+def create_shape(value:float, shape):
+
+    if shape is None:
+        return value
+    else:
+        try:
+            t = torch # type: ignore
+        except:
+            t = globals()['torch'] = __import__('torch')
+
+        #`t` could also be numpy
+        return t.full(shape,value)
+
+class L1Reward(Rewards):
+    """A reward function using L1 distance."""
+    __slots__ = ('_argmax',)
+
+    def __init__(self, argmax: float) -> None:
+        """Instantiate an L1Reward.
+
+        Args:
+            argmax: The location where reward is greatest.
+        """
+        self._argmax = argmax if not hasattr(argmax,'ndim') else argmax.item()
+
+    def __call__(self, action: float) -> float:
+        #due to broadcasting this automatically
+        #handles shaping when action is Tensor
+        return -abs(action-self._argmax)
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,L1Reward) and o._argmax == self._argmax
+
+    def __getstate__(self):
+        return self._argmax
+
+    def __setstate__(self,args):
+        self._argmax = args
+
+    def __repr__(self) -> str:
+        am = self._argmax
+        return f"L1Reward({try_else(lambda:minimize(am),f'{am:.5f}')})"
+
+class BinaryReward(Rewards):
+    """A reward function with two values."""
+    __slots__ = ('_argmax','_value')
+
+    def __init__(self, argmax: Action, value:float=1.) -> None:
+        """Instantiate BinaryReward.
+
+        Args:
+            argmax: The location where reward value 1 is returned.
+                At all other actions a reward value of 0 is returned.
+            value: The value returned at the argmax.
+        """
+        self._argmax = argmax if not hasattr(argmax,'ndim') else argmax.tolist()
+        self._value  = value
+
+    def __call__(self, action: Action) -> float:
+        argmax = self._argmax
+        comparable,shape = extract_shape(action,argmax)
+        value = self._value if argmax==comparable else 0
+        return create_shape(value,shape)
+
+    def __eq__(self, o: object) -> bool:
+        return o == self._argmax or \
+            (isinstance(o,BinaryReward) and\
+            o._argmax == self._argmax and\
+            o._value == self._value)
+
+    def __getstate__(self):
+        return repr((self._argmax,) if self._value == 1 else (self._argmax,self._value))
+
+    def __setstate__(self,args):
+        args = literal_eval(args)
+        self._argmax,self._value = (args[0],1) if len(args) == 1 else args
+
+    def __repr__(self) -> str:
+        am = self._argmax
+        return f"BinaryReward({try_else(lambda:minimize(am),str(am))})"
+
+class HammingReward(Rewards):
+    """A reward function using Hamming distance."""
+    __slots__ = ('_argmax',)
+
+    def __init__(self, argmax: Sequence[Action]) -> None:
+        """Instantiate a HammingReward.
+
+        Args:
+            argmax: The set of labels to calculate the Hamming distance from.
+        """
+        self._argmax = argmax if not hasattr(argmax,'ndim') else argmax.tolist()
+
+    def __call__(self, action: Sequence[Action]) -> float:
+        argmax = self._argmax
+        comparable,shape = extract_shape(action,argmax[0],True)
+
+        n_intersect = 0
+
+        for a in comparable: n_intersect += a in self._argmax
+        n_union = len(argmax) + len(comparable) - n_intersect
+
+        value = n_intersect/n_union
+
+        return create_shape(value,shape)
+
+    def __getstate__(self):
+        return repr(self._argmax)
+
+    def __setstate__(self,args):
+        self._argmax = literal_eval(args)
+
+    def __repr__(self) -> str:
+        am = self._argmax
+        return f"HammingReward({try_else(lambda:minimize(am),str(am))})"
+
+class DiscreteReward(Rewards):
+    """A reward function mapping actions to rewards."""
+    __slots__ = ('_state','_default')
+
+    @overload
+    def __init__(self, actions: Sequence[Action], rewards: Sequence[float], *, default: float = 0) -> None:
+        ...
+
+    @overload
+    def __init__(self, mapping: Mapping[Action,float], *, default: float = 0) -> None:
+        ...
+
+    def __init__(self, *args, default=0) -> None:
+        """Instantiate a DiscreteReward.
+
+        Args:
+            actions: The actions to define rewards for.
+            rewards: The rewards for the given actions.
+            mapping: A mapping of actions to rewards.
+            default: The value to return for actions without mappings.
+        """
+        if len(args) == 2:
+            actions,rewards = args
+            self._state = args
+            if len(actions) != len(rewards):
+                raise CobaException("The given actions and rewards did not line up.")
+        else:
+            self._state = args[0]
+        self._default = default
+
+    @property
+    def actions(self):
+        return list(self._state.keys()) if isinstance(self._state,dict) else self._state[0]
+
+    @property
+    def rewards(self):
+        return list(self._state.values()) if isinstance(self._state,dict) else self._state[1]
+
+    def __call__(self, action: Action) -> float:
+        if isinstance(self._state,dict):
+            comp,shape = extract_shape(action,next(iter(self._state.keys())))
+            value = self._state.get(comp,self._default)
+            return create_shape(value,shape)
+        else:
+            actions,rewards = self._state
+            comp,shape = extract_shape(action,actions[0])
+            value = rewards[actions.index(comp)] if comp in actions else self._default
+            return create_shape(value,shape)
+
+    def __repr__(self) -> str:
+        st = self._state
+        return f"DiscreteReward({try_else(lambda:minimize(st),str(st))})"
+
+    def __eq__(self, o: object) -> bool:
+
+        return o == self.rewards or \
+            (isinstance(o,DiscreteReward) and\
+            o.actions == self.actions and\
+            o.rewards == self.rewards and\
+            o._default == self._default)
+
+    def __getstate__(self):
+        return repr((self._state,self._default))
+
+    def __setstate__(self,args):
+        self._state,self._default = literal_eval(args)

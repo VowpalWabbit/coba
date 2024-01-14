@@ -1,9 +1,9 @@
-﻿SimulatedInteraction
-====================
+﻿LoggedInteraction
+=================
 
-.. currentmodule:: coba.interactions
+.. currentmodule:: coba.primitives
 
-.. autoclass:: SimulatedInteraction
+.. autoclass:: LoggedInteraction
    :show-inheritance:
    :exclude-members: __init__, __new__, mro
 

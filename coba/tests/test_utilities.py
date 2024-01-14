@@ -3,7 +3,7 @@ import unittest
 import unittest.mock
 
 from coba.exceptions import CobaExit, sans_tb_sys_except_hook
-from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit, peek_first
+from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit, peek_first, minimize
 
 class coba_exit_Tests(unittest.TestCase):
     def test_coba_exit(self):
@@ -141,6 +141,49 @@ class peek_first_Tests(unittest.TestCase):
 
         self.assertEqual(first,[1,2,3])
         self.assertEqual(list(items),[1,2,3])
+
+class minimize_Tests(unittest.TestCase):
+    def test_list(self):
+        self.assertEqual(minimize([1,2.0,2.3333384905]),[1,2,2.33334])
+
+    def test_bool(self):
+        self.assertEqual(minimize(True),True)
+
+    def test_list_list(self):
+        data = [1,[2.,[1,2.123]]]
+        self.assertEqual(minimize(data), [1,[2,[1,2.123]]])
+        self.assertEqual(data, [1,[2.,[1,2.123]]])
+
+    def test_list_tuple(self):
+        data = [(1,0.123456),(0,1)]
+        self.assertEqual(minimize(data),[[1,0.12346],[0,1]])
+        self.assertEqual(data,[(1,0.123456),(0,1)])
+
+    def test_minize_tuple(self):
+        data = (1,2.123456)
+        self.assertEqual(minimize(data),[1,2.12346])
+
+    def test_dict(self):
+        data = {'a':[1.123456,2],'b':{'c':1.}}
+        self.assertEqual(minimize(data), {'a':[1.12346,2],'b':{'c':1}})
+        self.assertEqual(data,{'a':[1.123456,2],'b':{'c':1.}})
+
+    def test_inf(self):
+        self.assertEqual(minimize(float('inf')),float('inf'))
+
+    def test_nan(self):
+        out = minimize(float('nan'))
+        self.assertNotEqual(out,out)
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch.")
+    def test_torch_tensor(self):
+        import torch
+        self.assertEqual(minimize(torch.tensor([[1],[2]])), [[1],[2]])
+
+    @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch.")
+    def test_torch_number(self):
+        import torch
+        self.assertEqual(minimize(torch.tensor(1.123456)), 1.12346)
 
 if __name__ == '__main__':
     unittest.main()

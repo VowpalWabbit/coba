@@ -12,11 +12,9 @@ from coba.backports import entry_points
 from coba.exceptions import CobaException
 
 def coba_registration(name:str) -> Callable[[type],type]:
-
     def registration_decorator(cls: type) -> type:
         CobaRegistry.register(name, cls)
         return cls
-
     return registration_decorator
 
 class CobaRegistry_meta(type):

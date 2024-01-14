@@ -14,16 +14,14 @@ from coba.experiments import Experiment
 from coba.results import Result
 
 from coba.encodings import InteractionsEncoder
-from coba.utilities import peek_first
+from coba.utilities import peek_first, minimize
 from coba.exceptions import CobaException
+from coba.safety import SafeLearner
+from coba.statistics import BootstrapCI, mean
 
 from coba.primitives import is_batch, Context, Action, Actions, Categorical, Dense, Sparse
 from coba.primitives import Learner, Environment, Interaction, Evaluator, Rewards, Namespaces
-from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-
-from coba.safety import SafeLearner
-from coba.rewards import L1Reward, HammingReward, DiscreteReward
-
-from coba.statistics import BootstrapCI, mean
+from coba.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
+from coba.primitives import L1Reward, HammingReward, DiscreteReward
 
 __version__ = "7.2.0"

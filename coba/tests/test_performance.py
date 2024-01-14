@@ -4,21 +4,17 @@ import timeit
 from itertools import count
 from typing import Callable, Any
 
-import coba.json
 import coba.pipes
 import coba.random
 
 from coba.registry import JsonMakerV2
-from coba.utilities import PackageChecker
+from coba.utilities import PackageChecker, minimize
 from coba.statistics import mean,var,percentile
 from coba.learners import VowpalMediator
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute, Repr, OpeRewards
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
-from coba.rewards import BinaryReward, HammingReward, DiscreteReward
 from coba.safety import SafeLearner
-
-from coba.interactions import SimulatedInteraction
 
 from coba.pipes import Reservoir, Encode, ArffReader, Structure, Pipes, DelimSource, IdentitySource, HttpSource
 from coba.pipes import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
@@ -27,6 +23,9 @@ from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 from coba.results import Result, Table, TransactionResult, moving_average
 from coba.evaluators import SequentialCB
 from coba.primitives import Categorical, HashableSparse
+from coba.primitives import BinaryReward, HammingReward, DiscreteReward
+from coba.primitives import SimulatedInteraction
+
 
 Timeable = Callable[[],Any]
 Scalable = Callable[[list],Timeable]
@@ -184,9 +183,8 @@ class Performance_Tests(unittest.TestCase):
         self._assert_scale_time(x, lambda x:list(res.filter(x)), .03, print_time, number=1000)
 
     def test_jsonminimize_performance(self):
-        m = coba.json.minimize
         x = [[1.2,1.2],[1.2,1.2],{'a':1.,'b':1.}]*20
-        self._assert_scale_time(x, lambda x: m(x) , .06, print_time, number=1000)
+        self._assert_scale_time(x, lambda x: minimize(x) , .06, print_time, number=1000)
 
     def test_arffreader_lazy_performance(self):
         attrs = [f"@attribute {i} {{1,2}}" for i in range(3)]

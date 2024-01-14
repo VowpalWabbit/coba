@@ -6,8 +6,9 @@ from typing import Iterable, Any, Sequence, Mapping, Optional, Union, Iterator
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder
-from coba.utilities import peek_first, try_else, resolve_params
+from coba.utilities import peek_first, try_else
 from coba.primitives import Sparse, Dense, Filter
+from coba.pipes.utilities import resolve_params
 
 class FiltersFilter(Filter):
     def __init__(self, *pipes: Filter):

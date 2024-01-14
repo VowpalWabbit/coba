@@ -14,15 +14,12 @@ from itertools import islice, chain, tee, compress, repeat
 from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping, Literal
 
 from coba              import pipes, primitives
-from coba.json         import minimize
 from coba.random       import CobaRandom
 from coba.exceptions   import CobaException
 from coba.statistics   import iqr
-from coba.utilities    import peek_first, PackageChecker, try_else
-from coba.primitives   import is_batch, Filter, Learner, Interaction, EnvironmentFilter
-from coba.interactions import LoggedInteraction, SimulatedInteraction, GroundedInteraction
+from coba.utilities    import peek_first, PackageChecker, try_else, minimize
+from coba.primitives   import is_batch, Learner, Interaction, EnvironmentFilter, BinaryReward, DiscreteReward
 from coba.pipes        import Pipes, SparseDense
-from coba.rewards      import BinaryReward, DiscreteReward
 from coba.safety       import SafeLearner
 
 class Identity(pipes.Identity, EnvironmentFilter):

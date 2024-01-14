@@ -3,7 +3,7 @@ import math
 from typing import Any, Sequence, Optional, Mapping, Tuple, Literal
 
 from coba.exceptions import CobaException
-from coba.primitives import Learner, Context, Action, Actions, Prob, Pmf, kwargs
+from coba.primitives import Learner, Context, Action, Actions, Prob, Kwargs
 from coba.safety import SafeLearner
 from coba.learners.utilities import PMFInfoPredictor
 
@@ -63,7 +63,7 @@ class CorralLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return { 'family': 'corral', 'eta': self._eta_init, 'mode': self._mode, 'T': self._T, 'B': list(map(str,self._base_lrns)), 'seed': self._seed }
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> 'Pmf':
+    def _pmf(self, context, actions):
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_lrns ]
         base_actions, base_probs, base_infos = zip(*base_predicts)
         pmf  = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
@@ -73,7 +73,7 @@ class CorralLearner(Learner):
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return self._pred.score(context,actions,action)
 
-    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','kwargs']:
+    def predict(self, context: 'Context', actions: 'Actions') -> Tuple['Action','Prob','Kwargs']:
         return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability:float, info) -> None:

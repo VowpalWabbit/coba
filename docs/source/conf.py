@@ -81,7 +81,9 @@ autodoc_type_aliases = {
     'Action' : 'Action',
     'Actions': 'Actions',
     'Reward' : 'Reward',
-    'Prob'   : 'Prob'
+    'Prob'   : 'Prob',
+    'Pred'   : 'Pred',
+    'Kwargs' : 'Kwargs'
 }
 
 # -- Options for summary ----------------------------------------------------
@@ -117,5 +119,3 @@ set_module(coba.context)
 coba.context.core.CobaContext_meta.__module__ = "coba.context"
 coba.context.core.CobaContext_meta.__name__ = "CobaContext"
 coba.context.__dict__['CobaContext'] = coba.context.core.CobaContext_meta
-
-

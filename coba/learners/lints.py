@@ -2,7 +2,7 @@ from typing import Any, Mapping, Sequence, Tuple
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.primitives import Learner, Context, Action, Actions, Prob, Pmf
+from coba.primitives import Learner, Context, Action, Actions, Prob
 from coba.encodings import InteractionsEncoder
 from coba.learners.utilities import PMFPredictor
 
@@ -51,7 +51,7 @@ class LinTSLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {'family': 'LinTS', 'v': self._v, 'features': self._X, 'seed': self._pred.seed}
 
-    def _initialize(self,context,action) -> None:
+    def _initialize(self, context, action) -> None:
         if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this implementation at this time.")
 
@@ -66,7 +66,7 @@ class LinTSLearner(Learner):
         self._mu_hat = np.zeros(d)
         self._B_inv  = np.identity(d)
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> 'Pmf':
+    def _pmf(self, context, actions):
         if self._B_inv is None: self._initialize(context,actions[0])
 
         np = self._np

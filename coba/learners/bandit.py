@@ -1,10 +1,10 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Mapping, Optional, Hashable, Type, Tuple
+from typing import Any, Mapping, Optional, Hashable, Type, Tuple, Sequence
 
 from coba.random import CobaRandom
-from coba.primitives import Context, Action, Actions, Prob, Pmf
+from coba.primitives import Context, Action, Actions, Prob
 from coba.statistics import OnlineVariance
 from coba.primitives import Dense, Sparse, HashableDense, HashableSparse, Learner
 from coba.learners.utilities import PMFPredictor
@@ -50,7 +50,7 @@ class EpsilonBanditLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {'family': 'epsilon_bandit', 'epsilon': self._epsilon, 'seed': self._pred.seed}
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> 'Pmf':
+    def _pmf(self, context, actions):
         values      = [ self._Q[action] for action in actions ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
@@ -102,7 +102,7 @@ class UcbBanditLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {'family': 'UCB_bandit', 'seed': self._pred.seed }
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> 'Pmf':
+    def _pmf(self, context, actions):
         never_observed_actions = set(actions) - self._m.keys()
 
         if never_observed_actions:
@@ -169,7 +169,7 @@ class UcbBanditLearner(Learner):
 class FixedLearner(Learner):
     """Select actions from a fixed distribution and learn nothing."""
 
-    def __init__(self, pmf: 'Pmf', seed: int = 1) -> None:
+    def __init__(self, pmf: Sequence['Prob'], seed: int = 1) -> None:
         """Instantiate a FixedLearner.
 
         Args:
@@ -185,7 +185,7 @@ class FixedLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {'family': 'fixed', 'seed': self._pred.seed}
 
-    def _pmf(self, context: 'Context', actions: 'Actions') -> 'Pmf':
+    def _pmf(self, context, actions):
         return self._fpmf
 
     def score(self, context: Context, actions: Actions, action: Action) -> Prob:

@@ -9,7 +9,7 @@ from coba.pipes        import Pipes, ListSink, Cache
 from coba.evaluators   import SequentialCB
 from coba.results      import Result
 from coba.primitives   import Learner
-from coba.interactions import SimulatedInteraction
+from coba.primitives   import SimulatedInteraction
 
 from coba.experiments.process import Task, MakeTasks, ChunkTasks, ProcessTasks
 
@@ -79,11 +79,9 @@ class ExceptionSimulation:
 class ParamObj:
     def __init__(self,**params):
         self.params = params
-
 #for testing purposes
 
 class MakeTasks_Tests(unittest.TestCase):
-
     def test_eq(self):
         env1 = ParamObj(a=1)
         env2 = ParamObj(a=2)
@@ -236,7 +234,6 @@ class MakeTasks_Tests(unittest.TestCase):
         self.assertEqual(expected, actual)
 
 class ChunkTasks_Tests(unittest.TestCase):
-
     def test_no_chunks(self):
         src1 = Environments.from_linear_synthetic(10)
         src2 = Environments.from_linear_synthetic(10)
@@ -341,7 +338,6 @@ class ChunkTasks_Tests(unittest.TestCase):
         self.assertCountEqual(groups[4], [tasks[2],tasks[4]])
 
 class ProcessTasks_Tests(unittest.TestCase):
-
     def setUp(self) -> None:
         CobaContext.logger = BasicLogger(ListSink())
         ModuloLearner.n_finish = 0
