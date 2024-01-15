@@ -1,3 +1,3 @@
-"""Experiments for environments, learners and evaluators."""
+"""Experiments from environments, learners and evaluators."""
 
 from coba.experiments.core import Experiment

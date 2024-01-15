@@ -1,3 +1,4 @@
+"""Basic building blocks shared across modules."""
 from ast import literal_eval
 from abc import ABC, abstractmethod
 from numbers import Number
