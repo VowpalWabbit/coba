@@ -195,6 +195,7 @@ class Table:
 
     @property
     def columns(self) -> Sequence[str]:
+        """The column names."""
         return self._columns
 
     @property
@@ -268,11 +269,11 @@ class Table:
 
         return self
 
-    def where(self, row_pred:Callable[[Sequence],bool] = None, comparison:Literal['=','!=','<=','<','>','>=','match','in'] = None, **kwargs) -> 'Table':
+    def where(self, row_pred:Callable[[Sequence],bool] = None, comparison:Literal['=','!=','<=','<','>','>=','match','in','!in'] = None, **kwargs) -> 'Table':
         """Filter to specific rows.
 
         Args:
-            pred: A predicate that accepts rows and returns true for rows that should be kept.
+            row_pred: A predicate that accepts rows and returns true for rows that should be kept.
             kwargs: key value pairs where the key is the column and the value indicates what
                 value a row should have in that column to be kept. Keeping logic depends on
                 the row value type and the kwargs value type. If kwarg value == row value keep
@@ -341,29 +342,41 @@ class Table:
         return pd.DataFrame(data, columns=self.columns)
 
     def to_dicts(self) -> Iterable[Mapping[str,Any]]:
-        """Turn the Table into a sequence of tuples."""
-
+        """Turn the Table into a sequence of dicts."""
         keys = repeat(self._columns)
         vals = zip(*map(self._data.__getitem__,self._columns))
         yield from map(dict,map(zip,keys,vals))
 
-    def __getitem__(self,idx1):
-        if isinstance(idx1,str):
-            return self._data[idx1]
-        if isinstance(idx1,slice):
-            return [self._data[col] for col in self._columns[idx1]]
+    def __getitem__(self,idx):
+        """Return table values.
+
+        Args:
+            idx: If idx is a column name return a single column of values.
+                If idx is a list of column names return a list of column
+                values. If idx is a slice return the list of columns values
+                for the slice of column names.
+
+        Returns:
+            Columns of table data.
+        """
+        if isinstance(idx,str):
+            return self._data[idx]
+        if isinstance(idx,slice):
+            return [self._data[col] for col in self._columns[idx]]
         try:
-            return [self._data[col] for col in idx1]
+            return [self._data[col] for col in idx]
         except:
-            raise KeyError(idx1)
+            raise KeyError(idx)
 
     def __iter__(self) -> Iterator[Sequence[Any]]:
+        """An iter over rows."""
         return iter(zip(*self[:]))
 
     def __str__(self) -> str:
         return str({"Columns": self.columns, "Rows": len(self)})
 
     def __len__(self) -> int:
+        """The number of rows."""
         return len(next(iter(self._data.values()))) if self._data else 0
 
     def __eq__(self, o: object) -> bool:
@@ -760,7 +773,16 @@ class MatplotPlotter(Plotter):
                 plt.close()
 
 class Result:
-    """Data produced by an Experiment."""
+    """Data produced by an Experiment.
+
+    There are two key variables used across Result methods: `l` and `p`. The `l` variable
+    can be thought of as what to compare. Alternatively, `l` can be thought of as the
+    "label" in plots. By default `l` is 'learner_id'. The `p` variable can be though
+    of as what to "pair". The `p` value will only be included in Result so long as there
+    is an `l` for every `p`. By default `p` is 'environment_id'. That means, by default
+    Result plots only include `p` (environment_ids) where every `l` (learner_id) has
+    been evaluated.
+    """
 
     @staticmethod
     def from_source(source: Source[Iterable[str]]) -> 'Result':
@@ -769,7 +791,14 @@ class Result:
 
     @staticmethod
     def from_save(filename: Union[str,Source[str]]) -> 'Result':
-        """Create a Result from a transaction file."""
+        """Load Result from an Experiment log.
+
+        Args:
+            filename: The path to an experiment log.
+
+        Returns:
+            A Result object.
+        """
         if not Path(filename).exists():
             raise CobaException("We were unable to find the given Result file.")
         return Result.from_source(DiskSource(filename))
@@ -921,7 +950,7 @@ class Result:
 
     @property
     def learners(self) -> Table:
-        """The collection of learners used in the Experiment.
+        """The learners in the Experiment.
 
         The primary key of this table is learner_id.
         """
@@ -929,7 +958,7 @@ class Result:
 
     @property
     def environments(self) -> Table:
-        """The collection of environments used in the Experiment.
+        """The environments in the Experiment.
 
         The primary key of this table is environment_id.
         """
@@ -937,7 +966,7 @@ class Result:
 
     @property
     def evaluators(self) -> Table:
-        """The collection of evaluators used in the Experiment.
+        """The evaluators in the Experiment.
 
         The primary key of this table is evaluator_id.
         """
@@ -945,7 +974,7 @@ class Result:
 
     @property
     def interactions(self) -> Table:
-        """The collection of interactions evaluated by evaluators in the Experiment.
+        """The evaluated interactions in the Experiment.
 
         The primary key of this Table is (environment_id, learner_id, evaluator_id, index).
         """
@@ -1142,8 +1171,73 @@ class Result:
 
         return Result(environments,learners,evaluators,interactions)
 
-    def where(self, **kwargs) -> 'Result':
+    def where_best(self,
+        l:Union[str, Sequence[str]],
+        p:Union[str, Sequence[str]],
+        y:str = 'reward',
+        n:int = None,
+        full_l:Union[str, Sequence[str]]='learner_id',
+        full_p:Union[str, Sequence[str]]='environment_id') -> 'Result':
+        """Select the best performing `l` over `p`.
 
+        Args:
+            l: The hyperparameter values we wish to optimize.
+            p: The grouping variable we wish to optimize over.
+            y: The variable we wish to optimize.
+            n: The number of interactions we wish to consider.
+            full_l: The true lowest level label (e.g., learner_id)
+            full_p: The true lowest level pair (e.g., environment_id)
+
+        Returns:
+            A Result with full `l` and `p` that is the optimal over
+                `full_l` and `full_p`. For exmaple we could say `l`
+                is 'family' while `full_l` is 'learner_id'. This would
+                pick the best performing learner grouped by family for
+                each `p`.
+
+        """
+
+        return self.filter_best(l,p,y,n,full_l,full_p)
+
+    def where_fin(self,
+        n: Union[int,Literal['min']] = None,
+        l: Union[str, Sequence[str]] = None,
+        p: Union[str, Sequence[str]] = None) -> 'Result':
+        """Filter the results down to even outcomes so that plotted results will be meaningful.
+
+        Args:
+            n: The number of interactions a specific evaluation must have (None indicates no constraint).
+            l: The level at which we wish to compare evalation outcomes (e.g., 'learner_id').
+            p: The pairs that must exist across all `l` in order to be included (e.g., 'environment_id').
+
+        Returns:
+            A `Result` where an `l` exists for every `p` and all `p` have 'n' interactions.
+        """
+
+        return self.filter_fin(n,l,p)
+
+
+    def where(self, **kwargs) -> 'Result':
+        """Select learners/environments/evaluators.
+
+        Args:
+            kwargs: Any column in environments, learners, and evaluators to filter on. By
+                default comparison operators are either 'equal' or 'in'. For example,
+                where(environment_id=1) would return a Result where environments only contains
+                environment_id 1. On the other hand where(environment_id=[1,2]) would return a
+                Result where environments contains environment_id 1 and 2. The keywords must
+                indicate a column name in either environments, learners, evaluators, or
+                interactions. Supported comparison operators are '=','!=','<=','<','>','>=',
+                'match','in','!in'. To indicate an explicit operator use a dictionary. For
+                example, where(environment_id={'<=':100}) would return a Result with all
+                environments whose environment_id <= 100. Including multiple kwargs in a
+                single where applies an or conjuction. Chaining where statements is equivalent
+                to an and conjuctor.
+
+        Reutrns:
+            A `Result` whose environments, learners, evaluators, and interactions satisfy the
+                where selectors.
+        """
         env_kwargs = {}
         lrn_kwargs = {}
         val_kwargs = {}
@@ -1176,7 +1270,18 @@ class Result:
         l   : Union[str, Sequence[str]] = 'full_name',
         p   : Union[str, Sequence[str]] = 'environment_id',
         span: int = None) -> Table:
+        """A Table with the raw data used for plot_learners.
 
+        Args:
+            x: The variables to plot on the x-axis.
+            y: The variable to plot on the y-axis.
+            l: The labels to use in the plot legend.
+            p: The pairings to require across all l.
+            span: The size of the rolling average (None means progressive mean.)
+
+        Reutrns:
+            A Table with the raw data used to construct plot_learners.
+        """
         data = {}
 
         plottable = self._plottable(x,y)._finished(x,y,l,p)
@@ -1202,6 +1307,24 @@ class Result:
         l   : Union[str, Sequence[str]] = 'learner_id',
         p   : Union[str, Sequence[str]] = 'environment_id',
         span: int = None) -> Table:
+        """A Table with the raw data plot_contrast.
+
+        Args:
+            l1: The first `l` value to contrast.
+            l2: the second `l` value to contrast.
+            x: The variables to plot on the x-axis.
+            y: The variable to plot on the y-axis.
+            l: The column names that l1 and l2 represent.
+            p: The pairings to require across all l1 and l2.
+            span: The size of the rolling average (None means progressive mean).
+
+        Examples:
+            raw_contrast(1,2,x='environment_id',y='reward',l='learner_id',p='environment_id')
+            would contrast learner_id=1 and learner_id=2 in terms of reward on all environment_ids.
+
+        Reutrns:
+            A Table with the raw data used to construct plot_contrast.
+        """
 
         og_l = (l1,l2)
 
@@ -1309,7 +1432,9 @@ class Result:
             yticks: Whether the y-axis labels should be drawn.
             xorder: Indicates whether the x-axis should be in ascending (+) or descendeing (-) order.
             top_n: Only plot the top_n learners. If `None` all learners will be plotted. If negative the bottom will be plotted.
-            out: Indicate where the plot should be sent to after plotting is finished.
+            out: Indicate where the plot should be sent to after plotting is finished. Valid values are
+                'screen' to show it on screen, a path to save to disk, or None if the plot should
+                not be output anywhere (i.e., kept in memory) in order to keep editing the plot after this call.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
         try:
@@ -1415,7 +1540,9 @@ class Result:
             yticks: Whether the y-axis labels should be drawn.
             xorder: Indicates whether the x-axis should be in ascending (+) or descendeing (-) order.
             boundary: Whether we want to plot the boundary line between which set is the best performing.
-            out: Indicate where the plot should be sent to after plotting is finished.
+            out: Indicate where the plot should be sent to after plotting is finished. Valid values are
+                'screen' to show it on screen, a path to save to disk, or None if the plot should not be
+                output anywhere (i.e., kept in memory) in order to keep editing the plot after this call.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 

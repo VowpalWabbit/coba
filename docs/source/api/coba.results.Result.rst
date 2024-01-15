@@ -10,8 +10,8 @@
    .. automethod:: from_save
 
    .. rubric:: Methods
-   .. automethod:: filter_best
-   .. automethod:: filter_fin
+   .. automethod:: where_best
+   .. automethod:: where_fin
    .. automethod:: where
    .. automethod:: plot_contrast
    .. automethod:: plot_learners
@@ -20,6 +20,10 @@
 
    .. rubric:: Attributes
    .. autoattribute:: environments
+      :annotation: : Table
    .. autoattribute:: evaluators
+      :annotation: : Table
    .. autoattribute:: interactions
+      :annotation: : Table
    .. autoattribute:: learners
+      :annotation: : Table

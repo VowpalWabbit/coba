@@ -1155,14 +1155,14 @@ class Result_Tests(unittest.TestCase):
         self.assertCountEqual(res.evaluators.to_dicts()  , expected_vals)
         self.assertCountEqual(res.interactions.to_dicts(), expected_ints)
 
-    def test_filter_fin_sans_n_interactions(self):
+    def test_where_fin_sans_n_interactions(self):
         envs = [['environment_id'],[1],[2]]
         lrns = [['learner_id'],[1],[2]]
         vals = [['evaluator_id'],[1],[2]]
         ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[1,2,1,0],[2,1,1,0]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(l='learner_id',p='environment_id')
+        filtered_result = original_result.where_fin(l='learner_id',p='environment_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1174,14 +1174,14 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_result.evaluators))
         self.assertEqual(2, len(filtered_result.interactions))
 
-    def test_filter_fin_removes_when_no_interactions(self):
+    def test_where_fin_removes_when_no_interactions(self):
         envs = [['environment_id'],[1],[2]]
         lrns = [['learner_id'],[1],[2]]
         vals = [['evaluator_id'],[1],[2]]
         ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[1,2,1,0]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(l='learner_id',p='environment_id')
+        filtered_result = original_result.where_fin(l='learner_id',p='environment_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1193,14 +1193,14 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_result.evaluators))
         self.assertEqual(2, len(filtered_result.interactions))
 
-    def test_filter_fin_removes_all(self):
+    def test_where_fin_removes_all(self):
         envs = [['environment_id'],[1],[2]]
         lrns = [['learner_id'],[1],[2]]
         vals = [['evaluator_id'],[1],[2]]
         ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[2,2,1,0]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(l='learner_id',p='environment_id')
+        filtered_result = original_result.where_fin(l='learner_id',p='environment_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1212,7 +1212,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.evaluators))
         self.assertEqual(0, len(filtered_result.interactions))
 
-    def test_filter_fin_with_n_and_default(self):
+    def test_where_fin_with_n_and_default(self):
         envs = [['environment_id'],[1],[2]]
         lrns = [['learner_id'    ],[1],[2]]
         vals = [['evaluator_id'  ],[1]]
@@ -1224,7 +1224,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(2)
+        filtered_result = original_result.where_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1234,7 +1234,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(4, len(filtered_result.interactions))
 
-    def test_filter_fin_with_n_1(self):
+    def test_where_fin_with_n_1(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1250,7 +1250,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(2)
+        filtered_result = original_result.where_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1262,7 +1262,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual("We removed 1 learner evaluation because it was shorter than 2 interactions.", CobaContext.logger.sink.items[0])
 
-    def test_filter_fin_with_n_2(self):
+    def test_where_fin_with_n_2(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1279,7 +1279,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(2)
+        filtered_result = original_result.where_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(3, len(original_result.learners))
@@ -1293,7 +1293,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual("We removed 3 learner evaluations because they were shorter than 2 interactions.", CobaContext.logger.sink.items[0])
 
-    def test_filter_fin_with_n_3(self):
+    def test_where_fin_with_n_3(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1310,7 +1310,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(2)
+        filtered_result = original_result.where_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(3, len(original_result.learners))
@@ -1324,7 +1324,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual("We removed 3 learner evaluations because they were shorter than 2 interactions.", CobaContext.logger.sink.items[0])
 
-    def test_filter_fin_no_finished(self):
+    def test_where_fin_no_finished(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1335,7 +1335,7 @@ class Result_Tests(unittest.TestCase):
         ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[2,2,1,0]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(l='learner_id',p='environment_id')
+        filtered_result = original_result.where_fin(l='learner_id',p='environment_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1347,7 +1347,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual("We removed 2 environment_id because they did not exist for every learner_id.", CobaContext.logger.sink.items[0])
         self.assertEqual("There was no environment_id which was finished for every learner_id.", CobaContext.logger.sink.items[1])
 
-    def test_filter_fin_multi_p(self):
+    def test_where_fin_multi_p(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1358,7 +1358,7 @@ class Result_Tests(unittest.TestCase):
         ints = [['environment_id','learner_id','evaluator_id','index'],[1,1,1,0],[1,2,1,0],[2,1,1,0],[2,2,1,0]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_fin(l='learner_id',p='data_id')
+        filtered_result = original_result.where_fin(l='learner_id',p='data_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1372,7 +1372,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual("We removed 1 data_id because more than one existed for each learner_id.", CobaContext.logger.sink.items[0])
         self.assertEqual("There was no data_id which was finished for every learner_id.", CobaContext.logger.sink.items[1])
 
-    def test_filter_best_family(self):
+    def test_where_best_family(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1383,7 +1383,7 @@ class Result_Tests(unittest.TestCase):
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[1,1,1,0,1],[1,2,1,0,0],[2,1,1,0,0],[2,2,1,0,1]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_best(l='family',p='environment_id')
+        filtered_result = original_result.where_best(l='family',p='environment_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1396,7 +1396,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.interactions))
         self.assertEqual(list(filtered_result.interactions),[(1, 1, 1, 0, 1), (2, 2, 1, 0, 1)])
 
-    def test_filter_best_family_over_seeds(self):
+    def test_where_best_family_over_seeds(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1407,7 +1407,7 @@ class Result_Tests(unittest.TestCase):
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[1,1,1,0,2],[1,2,1,0,0],[2,1,1,0,0],[2,2,1,0,1]]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_best(l='family',p='data_id')
+        filtered_result = original_result.where_best(l='family',p='data_id')
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1420,7 +1420,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.interactions))
         self.assertEqual(list(filtered_result.interactions),[(1, 1, 1, 0, 2), (2, 1, 1, 0, 0)])
 
-    def test_filter_best_family_over_n(self):
+    def test_where_best_family_over_n(self):
 
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
@@ -1436,7 +1436,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         original_result = Result(envs, lrns, vals, ints)
-        filtered_result = original_result.filter_best(l='family',p='data_id',n=1)
+        filtered_result = original_result.where_best(l='family',p='data_id',n=1)
 
         self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
@@ -1449,7 +1449,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(4, len(filtered_result.interactions))
         self.assertEqual(list(filtered_result.interactions),[(1, 1, 1, 0, 2),(1, 1, 1, 1, 2),(2, 1, 1, 0, 0),(2, 1, 1, 1, 0)])
 
-        filtered_result = original_result.filter_best(l='family',p='data_id',n=2)
+        filtered_result = original_result.where_best(l='family',p='data_id',n=2)
 
         self.assertEqual(2, len(filtered_result.environments))
         self.assertEqual(1, len(filtered_result.learners))
@@ -1457,7 +1457,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(4, len(filtered_result.interactions))
         self.assertEqual(list(filtered_result.interactions),[(1, 2, 1, 0, 0),(1, 2, 1, 1, 9),(2, 2, 1, 0, 1),(2, 2, 1, 1, 1)])
 
-        filtered_result = original_result.filter_best(l='family',p='data_id',n=None)
+        filtered_result = original_result.where_best(l='family',p='data_id',n=None)
 
         self.assertEqual(2, len(filtered_result.environments))
         self.assertEqual(1, len(filtered_result.learners))
