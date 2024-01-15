@@ -1,7 +1,10 @@
+import warnings
+
 from math import isclose
 from collections import abc
 from typing import Union, Tuple, Mapping, Iterable, Literal, Callable, Optional, Any
 
+from coba.context import CobaContext
 from coba.random import CobaRandom
 from coba.utilities import try_else
 from coba.exceptions import CobaException
@@ -308,6 +311,10 @@ class SafeLearner(Learner):
             first_pred_row    = SafeLearner.first_row(pred,self._pred_batch,self._pred_kwargs)
             first_actions     = actions[0] if self._pred_batch != 'not' else actions
             self._pred_format = SafeLearner.pred_format(first_pred_row, first_actions, pred)
+
+            if self._pred_format[:2] == "PM":
+                CobaContext.logger.log(f"<<< WARNING >>> Support for PMF predictions from learners will be removed in the future.")
+                CobaContext.logger.log(f"<<< WARNING >>> Please use coba.random.choicew(actions,pmf) to return an action instead.")
 
         if self._pred_batch == 'not':
             kwargs = pred[-1] if self._pred_kwargs else {}
