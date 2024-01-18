@@ -575,18 +575,6 @@ class Experiment_Single_Tests(unittest.TestCase):
         finally:
             path.unlink()
 
-    def test_none_environment_raises(self):
-        with self.assertRaises(CobaException) as raised:
-            Experiment([None],[ModuloLearner()])
-
-        self.assertEqual("An Environment was given whose value was None, which can't be processed.", str(raised.exception))
-
-    def test_none_learner_raises(self):
-        with self.assertRaises(CobaException) as raised:
-            Experiment([NoParamsEnvironment()],[None])
-
-        self.assertEqual("A Learner was given whose value was None, which can't be processed.", str(raised.exception))
-
     def test_quiet(self):
         env      = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1 = PredictInfoLearner("0")

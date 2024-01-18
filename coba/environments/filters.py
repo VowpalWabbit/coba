@@ -14,6 +14,7 @@ from itertools import islice, chain, tee, compress, repeat
 from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping, Literal
 
 from coba              import pipes, primitives
+from coba.context      import CobaContext
 from coba.random       import CobaRandom
 from coba.exceptions   import CobaException
 from coba.statistics   import iqr
@@ -1316,12 +1317,11 @@ class BatchSafe(EnvironmentFilter):
 
         yield from pipe.filter(interactions)
 
-class Materialize(EnvironmentFilter):
-    """Materialize an environment.
+class Harden(EnvironmentFilter):
+    """Make all lazy data concrete.
 
     Remarks:
-        This only materializes lazily evaluated interaction data.
-        This filter does not cache the materialized interactions.
+        Convert lazily evaluated data to concrete types.
     """
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
@@ -1343,9 +1343,9 @@ class Materialize(EnvironmentFilter):
             is_dense_action  = isinstance(first['action'],primitives.Dense)
             is_sparse_action = isinstance(first['action'],primitives.Sparse)
 
-        context_materialized = not first_has_context or (not is_dense_context and not is_sparse_context or isinstance(first['context']   ,(list,tuple,dict)))
-        actions_materialized = not first_has_actions or (not is_dense_actions and not is_sparse_actions or isinstance(first['actions'][0],(list,tuple,dict)))
-        action_materialized  = not first_has_action  or (not is_dense_action  and not is_sparse_action  or isinstance(first['action']    ,(list,tuple,dict)))
+        context_materialized = not first_has_context or primitives.is_materialized(first['context'])
+        actions_materialized = not first_has_actions or primitives.is_materialized(first['actions'][0])
+        action_materialized  = not first_has_action  or primitives.is_materialized(first['action'])
 
         for interaction in interactions:
 
@@ -1358,7 +1358,7 @@ class Materialize(EnvironmentFilter):
 
             if not actions_materialized and is_dense_actions:
                 new['actions'] = list(map(list,new['actions']))
-            elif not actions_materialized and is_sparse_action:
+            elif not actions_materialized and is_sparse_actions:
                 new['actions'] = list(map(methodcaller('copy'),new['actions']))
 
             if not action_materialized and is_dense_action:
@@ -1367,39 +1367,6 @@ class Materialize(EnvironmentFilter):
                 new['action'] = new['action'].copy()
 
             yield new
-
-class Finalize(EnvironmentFilter):
-    """Final preparation for built-in Evaluators.
-
-    Remarks:
-        This filter does two things:
-            1. Materializes all lazy data
-            2. Turns categorical types into one-hot encodings
-    """
-
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        first,interactions = peek_first(interactions)
-
-        if not interactions:
-            return
-
-        missing_ctx   = 'context' not in first
-        rwds_is_list  = isinstance(first.get('rewards')  ,list)
-        fbks_is_list  = isinstance(first.get('feedbacks'),list)
-
-        if not interactions: return []
-
-        interactions = Pipes.join(Materialize(),Repr("onehot","onehot")).filter(interactions)
-
-        if not (rwds_is_list or fbks_is_list):
-            yield from interactions
-        else:
-            for interaction in interactions:
-                new = interaction.copy()
-                if missing_ctx : new['context'  ] = None
-                if rwds_is_list: new['rewards'  ] = DiscreteReward(new['actions'],new['rewards'  ])
-                if fbks_is_list: new['feedbacks'] = DiscreteReward(new['actions'],new['feedbacks'])
-                yield new
 
 class Chunk(EnvironmentFilter):
     """Indicate where to chunk.
@@ -1620,3 +1587,48 @@ class OpeRewards(EnvironmentFilter):
                         new[self._target] = DMReward(vw,new.get('context'))
 
                     yield new
+
+class EmptyCheck(EnvironmentFilter):
+
+    def __init__(self) -> None:
+        self._isempty = None
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        if self._isempty is None:
+            interactions = peek_first(interactions)[1]
+            self._isempty = interactions == []
+            if not interactions:
+                CobaContext.logger.log("An environment had nothing to evaluate (this is often due to having too few interactions).")
+
+        if not self._isempty:
+            yield from interactions
+
+class Finalize(EnvironmentFilter):
+    """Final preparation for built-in Evaluators.
+
+    Remarks:
+        This filter does two things:
+            1. Materializes all lazy data
+            2. Turns categorical types into one-hot encodings
+    """
+
+    def __init__(self):
+        self._emptycheker = EmptyCheck()
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        first,interactions = peek_first(self._emptycheker.filter(interactions))
+
+        rwds_is_list  = first and isinstance(first.get('rewards')  ,list)
+        fbks_is_list  = first and isinstance(first.get('feedbacks'),list)
+
+        interactions = Pipes.join(Harden(),Repr("onehot","onehot")).filter(interactions)
+
+        if not (rwds_is_list or fbks_is_list):
+            yield from interactions
+        else:
+            for interaction in interactions:
+                new = interaction.copy()
+                if rwds_is_list: new['rewards'  ] = DiscreteReward(new['actions'],new['rewards'  ])
+                if fbks_is_list: new['feedbacks'] = DiscreteReward(new['actions'],new['feedbacks'])
+                yield new

@@ -10,13 +10,12 @@ from pathlib import Path
 from coba.utilities import PackageChecker
 from coba.exceptions import CobaException
 from coba.context import NullLogger, CobaContext
-from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource, SourceFilters
+from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource, SourceFilters, ListSource
 from coba.pipes.sources import HttpSource, LambdaSource, IterableSource, DataFrameSource, NextSource, DelimSource
 
 CobaContext.logger = NullLogger()
 
 class BrokenQueue:
-
     def __init__(self, exception):
         self._exception = exception
 
@@ -115,13 +114,10 @@ class SourceFilters_Tests(unittest.TestCase):
         source  = ReprSource([1,2])
         filter1 = ReprFilter()
         filter2 = ReprFilter()
-
         pipe = SourceFilters(source, filter1, filter2)
-
         self.assertIs(pipe[0],source)
         self.assertIs(pipe[1],filter1)
         self.assertIs(pipe[2],filter2)
-
         self.assertIs(pipe[-1],filter2)
         self.assertIs(pipe[-2],filter1)
         self.assertIs(pipe[-3],source)
@@ -178,32 +174,25 @@ class DiskSource_Tests(unittest.TestCase):
 
 class QueueSource_Tests(unittest.TestCase):
     def test_read_sans_blocking(self):
-
         queue = Queue()
         queue.put('a')
         queue.put('b')
         queue.put('c')
-
         source = QueueSource(queue, block=False)
         self.assertEqual(["a","b","c"], list(source.read()))
 
     def test_read_with_blocking(self):
-
         queue = Queue()
-
         queue.put('a')
         queue.put('b')
         queue.put('c')
         queue.put(None)
-
         source = QueueSource(queue, block=True)
         self.assertEqual(["a","b","c"], list(source.read()))
 
     def test_read_exception(self):
-
         with self.assertRaises(Exception):
             list(QueueSource(BrokenQueue(Exception())).read())
-
         list(QueueSource(BrokenQueue(EOFError())).read())
         list(QueueSource(BrokenQueue(BrokenPipeError())).read())
 
@@ -221,7 +210,6 @@ class DelimSource_Tests(unittest.TestCase):
         self.assertEqual(list(DelimSource(source,',').read()),['a','b','a','b'])
 
 class HttpSource_Tests(unittest.TestCase):
-
     def test_chunk_size_none(self):
         try:
             self.assertIn("google", HttpSource("http://www.google.com",chunk_size=None).read().lower())
@@ -274,14 +262,31 @@ class HttpSource_Tests(unittest.TestCase):
             if 'getaddrinfo failed' in str(e): pass #no internet connection
             else: raise
 
-class ListSource_Tests(unittest.TestCase):
-    def test_read_1(self):
-        io = IterableSource(['a','b'])
-        self.assertEqual(["a",'b'], list(io.read()))
+class IterableSource_Tests(unittest.TestCase):
+    def test_read1(self):
+        source  = IterableSource(['a','b'])
+        reading = source.read()
+        self.assertNotEqual(reading,['a','b'])
+        self.assertEqual(list(reading),['a','b'])
 
-    def test_read_2(self):
-        io = IterableSource()
-        self.assertEqual([], list(io.read()))
+    def test_read2(self):
+        source  = IterableSource()
+        reading = source.read()
+        self.assertNotEqual(reading,[])
+        self.assertEqual(list(reading),[])
+
+class ListSource_Tests(unittest.TestCase):
+    def test_read1(self):
+        source  = ListSource(['a','b'])
+        reading = source.read()
+        self.assertEqual(source.items,['a','b'])
+        self.assertEqual(reading,['a','b'])
+
+    def test_read2(self):
+        source  = ListSource()
+        reading = source.read()
+        self.assertEqual(source.items,[])
+        self.assertEqual(reading,[])
 
 class LambdaSource_Tests(unittest.TestCase):
     def test_read(self):
@@ -315,7 +320,6 @@ class UrlSource_Tests(unittest.TestCase):
             UrlSource("irc://fail")
 
 class NextSource_Tests(unittest.TestCase):
-
     def test_generator(self):
         class TestSource:
             def read(self):

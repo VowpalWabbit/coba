@@ -6,7 +6,7 @@ from pathlib import Path
 
 from coba.utilities    import PackageChecker
 from coba.context      import CobaContext, DiskCacher, NullLogger
-from coba.pipes        import DiskSource, LazyDense
+from coba.pipes        import DiskSource, LazyDense, Cache
 from coba.exceptions   import CobaException
 from coba.primitives   import Categorical, L1Reward, DiscreteReward
 from coba.environments import Environments, Shuffle, Take
@@ -294,7 +294,7 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments.from_linear_synthetic(100,2,3,4,5,["xa"],5)
         env  = envs[0]
 
-        self.assertIsInstance(env, LinearSyntheticSimulation)
+        self.assertIsInstance(env[0], LinearSyntheticSimulation)
         interactions = list(env.read())
 
         self.assertEqual(1     , len(envs))
@@ -309,7 +309,7 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments.from_neighbors_synthetic(100,2,3,4,10,5)
         env  = envs[0]
 
-        self.assertIsInstance(env, NeighborsSyntheticSimulation)
+        self.assertIsInstance(env[0], NeighborsSyntheticSimulation)
         interactions = list(env.read())
 
         self.assertEqual(1  , len(envs))
@@ -324,7 +324,7 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments.from_kernel_synthetic(100,2,3,4,5,kernel='polynomial',degree=3,seed=5)
         env  = envs[0]
 
-        self.assertIsInstance(env, KernelSyntheticSimulation)
+        self.assertIsInstance(env[0], KernelSyntheticSimulation)
         interactions = list(env.read())
 
         self.assertEqual(1           , len(envs))
@@ -341,7 +341,7 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments.from_mlp_synthetic(100,2,3,4,5)
         env  = envs[0]
 
-        self.assertIsInstance(env, MLPSyntheticSimulation)
+        self.assertIsInstance(env[0], MLPSyntheticSimulation)
         interactions = list(env.read())
 
         self.assertEqual(1           , len(envs))
@@ -792,54 +792,41 @@ class Environments_Tests(unittest.TestCase):
     def test_materialize_lazy(self):
         class TestEnv:
             def read(self):
-                yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
-
+                yield {"context":LazyDense(lambda: [1,2,3]), "actions":["A"]}
         envs = Environments(TestEnv()).materialize()
         ints = envs[0][-1]._cache
-
         self.assertTrue(envs[0][-1]._protected)
         self.assertEqual(1,len(ints))
-
         self.assertIsInstance(ints[0]['context'],list)
-        self.assertIsInstance(ints[0]['actions'][0],Categorical)
+        self.assertEqual(ints[0]['actions'][0],"A")
 
     def test_materialize_cached(self):
         class TestEnv:
             def read(self):
-                yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
-
+                yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A","B"])]}
         envs = Environments(TestEnv()).cache().materialize()
-
         last_cache  = envs[0][-1]._cache
-        first_cache = envs[0][-3]._cache
-
+        self.assertEqual(len([e for e in envs[0] if isinstance(e,Cache)]),1)
         self.assertEqual(1,len(last_cache))
-        self.assertIsNone(first_cache)
-
         self.assertIsInstance(last_cache[0]['context'],list)
-        self.assertIsInstance(last_cache[0]['actions'][0],Categorical)
+        self.assertEqual(last_cache[0]['context'],[1,2,3])
+        self.assertEqual(last_cache[0]['actions'][0],(1,0))
 
     def test_materialize_after_protected_cached(self):
         class TestEnv:
             def read(self):
                 yield {"context":LazyDense(lambda: [1,2,3]), "actions":[Categorical("A",["A"])]}
-
         envs = Environments(TestEnv()).materialize().materialize()
-
         last_cache  = envs[0][-1]._cache
-        first_cache = envs[0][-3]._cache
-
+        self.assertEqual(len([e for e in envs[0] if isinstance(e,Cache)]),1)
         self.assertEqual(1,len(last_cache))
-        self.assertEqual(1,len(first_cache))
-
         self.assertIsInstance(last_cache[0]['context'],list)
-        self.assertIsInstance(last_cache[0]['actions'][0],Categorical)
+        self.assertEqual(last_cache[0]['actions'][0],(1,))
 
     def test_grounded(self):
         envs = Environments.from_linear_synthetic(100,2,3,4,5,["xa"],5)
         envs = envs.grounded(10,5,4,2,3)
         env  = envs[0]
-
         self.assertEqual(10,env.params['n_users'])
         self.assertEqual(5,env.params['n_normal'])
         self.assertEqual(4,env.params['n_words'])
@@ -848,7 +835,6 @@ class Environments_Tests(unittest.TestCase):
 
     def test_singular_filter(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter(Shuffle(1))
-
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(1   , envs[0].params['shuffle'])
@@ -857,7 +843,6 @@ class Environments_Tests(unittest.TestCase):
 
     def test_sequence_filter(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter([Shuffle(1),Shuffle(2)])
-
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(1   , envs[0].params['shuffle'])
@@ -870,7 +855,6 @@ class Environments_Tests(unittest.TestCase):
 
     def test_two_step_filter(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter(Shuffle(1)).filter(Take(1))
-
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(1   , envs[0].params['shuffle'])
@@ -881,7 +865,6 @@ class Environments_Tests(unittest.TestCase):
 
     def test_params(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).params({'a':123})
-
         self.assertEqual(2  , len(envs))
         self.assertEqual('A', envs[0].params['id'])
         self.assertEqual(123, envs[0].params['a'])
@@ -890,7 +873,6 @@ class Environments_Tests(unittest.TestCase):
 
     def test_batch(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).batch(3)
-
         self.assertEqual(2     , len(envs))
         self.assertEqual('A'   , envs[0].params['id'])
         self.assertEqual(3     , envs[0].params['batch_size'])
@@ -921,20 +903,18 @@ class Environments_Tests(unittest.TestCase):
     def test_unbatch(self):
         class TestEnvironment:
             def read(self):
-                yield {'context':BatchList([1,2]), 'actions':BatchList([[1,2],[3,4]]), "rewards":BatchList([L1Reward(1),L1Reward(2)]) }
+                yield {'context':BatchList([1,2]), 'actions':BatchList([[1,2],[3,4]]), 'rewards':BatchList([L1Reward(1),L1Reward(2)]) }
 
         actual = list(Environments(TestEnvironment()).unbatch()[0].read())
         expected = [
-            {'context':1, 'actions':[1,2], "rewards":L1Reward(1) },
-            {'context':2, 'actions':[3,4], "rewards":L1Reward(2) }
+            {'context':1, 'actions':[1,2], "rewards":L1Reward(1)},
+            {'context':2, 'actions':[3,4], "rewards":L1Reward(2)}
         ]
-
         self.assertEqual(actual,expected)
 
     def test_filter_new(self):
         envs1 = Environments(TestEnvironment1('A'))
         envs2 = envs1.params({'a':123})
-
         self.assertEqual(1  , len(envs1))
         self.assertEqual(1  , len(envs2))
         self.assertEqual({'id':'A'}, envs1[0].params)
@@ -946,12 +926,11 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('IPS', envs[0].params['ope_reward'])
 
     def test_getitem(self):
-        env = TestEnvironment1('A')
+        env  = TestEnvironment1('A')
         envs = Environments(env)
-
-        self.assertIs(envs[0],env)
+        self.assertIs(envs[0][0],env)
         self.assertIsInstance(envs[:1],Environments)
-        self.assertIs(envs[:1][0],env)
+        self.assertIs(envs[:1][0][0],env)
 
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:

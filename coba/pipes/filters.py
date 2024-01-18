@@ -386,24 +386,31 @@ class Cache(Filter[Iterable[Any], Iterable[Any]]):
 
     def __init__(self,n_slice:int=25,protected:bool=False) -> None:
         self._cache     = None
+        self._iter      = None
         self._n_slice   = n_slice
         self._protected = protected
+
+    @property
+    def protected(self) -> bool:
+        return self._protected
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         n_slice = self._n_slice
 
-        if self._cache:
-            yield from self._cache
+        if self._iter is None and self._cache is None:
+            self._iter  = iter(items)
+            self._cache = []
 
-        else:
-            temp_cache = []
-            items = iter(items)
-            current = list(islice(items,n_slice))
-            while current:
-                temp_cache.extend(current)
-                yield from current
-                current = list(islice(items,n_slice))
-            self._cache = temp_cache
+        if self._cache is not None and self._iter is None:
+            yield from self._cache
+            return
+
+        yield from self._cache
+        items = self._iter
+        while current := list(islice(self._iter,n_slice)):
+            self._cache.extend(current)
+            yield from current
+        self._iter = None
 
 class Insert(Filter[Iterable[Any], Iterable[Any]]):
     def __init__(self, insert_items: Sequence[Any]) -> None:

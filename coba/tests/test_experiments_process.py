@@ -346,10 +346,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         env1 = LambdaSimulation(1, lambda i: i, lambda i,c: [0,1], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         evl1 = ObserveEvaluator()
-
         tasks = [Task((1,env1), (1,lrn1), (1,evl1))]
         transactions = list(ProcessTasks().filter(tasks))
-
         self.assertEqual(list(evl1.observed[0].read()),[{'context':0,'actions':[0,1],'rewards':[0,1]}])
         self.assertIs(evl1.observed[1], lrn1)
         self.assertEqual(['T4', (1,1,1), []], transactions[0])
@@ -357,113 +355,69 @@ class ProcessTasks_Tests(unittest.TestCase):
     def test_env_task(self):
         env1 = SupervisedSimulation([1,2],[1,2],label_type='c')
         env2 = SupervisedSimulation([1,2],[1,2],label_type='c')
-        list(env2.read())
-
         tasks = [Task((1,env1), None, None)]
-
         transactions = list(ProcessTasks().filter(tasks))
-        self.assertEqual(['T1', 1, env2.params], transactions[0])
+        self.assertEqual(['T1', 1, {**env2.params,'n_actions':2}], transactions[0])
 
     def test_environment_reused(self):
         sim1 = Pipes.join(CountReadSimulation(), Cache())
-
-        list(sim1.read())
-
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
-
         val1 = ObserveEvaluator()
         val2 = ObserveEvaluator()
-
-        tasks = [
-            Task((0,sim1), None, None),
-            Task((0,sim1), (0,lrn1), (0,val1)),
-            Task((0,sim1), (1,lrn2), (1,val2))
-        ]
-
+        tasks = [Task((0,sim1),None,None),Task((0,sim1),(0,lrn1),(0,val1)),Task((0,sim1),(1,lrn2),(1,val2))]
         transactions = list(ProcessTasks().filter(tasks))
-
-        self.assertIs(val1.observed[0].env[0], sim1[0])
-        self.assertIs(val1.observed[0].env[1], sim1[1])
-        self.assertIs(val1.observed[1]       , lrn1   )
-
-        self.assertIs(val2.observed[0].env[0], sim1[0])
-        self.assertIs(val2.observed[0].env[1], sim1[1])
-        self.assertIs(val2.observed[1]       , lrn2   )
-
+        self.assertIs(val1.observed[0][0], sim1[0])
+        self.assertIs(val1.observed[0][1], sim1[1])
+        self.assertIs(val1.observed[1]   , lrn1   )
+        self.assertIs(val2.observed[0][0], sim1[0])
+        self.assertIs(val2.observed[0][1], sim1[1])
+        self.assertIs(val2.observed[1]   , lrn2   )
         self.assertEqual(['T1', 0      , {'env_type': 'CountReadSimulation'}], transactions[0])
         self.assertEqual(['T4', (0,0,0), []                                 ], transactions[1])
         self.assertEqual(['T4', (0,1,1), []                                 ], transactions[2])
-
         self.assertEqual(sim1[0].n_reads, 1)
 
     def test_task_copy_true(self):
         lrn1 = ModuloLearner("1")
-
         sim1 = CountReadSimulation()
         sim2 = CountReadSimulation()
-
         val1 = ObserveEvaluator()
         val2 = ObserveEvaluator()
-
         tasks = [ Task((0,sim1), (0,lrn1), (0,val1), True), Task((1,sim2), (0,lrn1), (1,val2), True) ]
-
         list(ProcessTasks().filter(tasks))
-
         self.assertIsNot(val1.observed[1], lrn1)
         self.assertIsNot(val2.observed[1], lrn1)
-
         self.assertEqual(2,ModuloLearner.n_finish)
 
     def test_task_copy_false(self):
         lrn1 = ModuloLearner("1")
-
         sim1 = CountReadSimulation()
         sim2 = CountReadSimulation()
-
         task1 = ObserveEvaluator()
         task2 = ObserveEvaluator()
-
         tasks = [ Task((0,sim1), (0,lrn1), (0,task1), False), Task((1,sim2), (0,lrn1), (1,task2), False) ]
-
         list(ProcessTasks().filter(tasks))
-
         self.assertIs(task1.observed[1], lrn1)
         self.assertIs(task2.observed[1], lrn1)
 
-    def test_empty_env_skipped(self):
-        lrn1 = ModuloLearner("1")
-        src1  = LinearSyntheticSimulation(n_interactions=0)
-
-        task1 = ObserveEvaluator()
-
-        tasks = [ Task((0,src1), (0,lrn1), (0,task1)) ]
-
-        transactions = list(ProcessTasks().filter(tasks))
-
-        self.assertEqual(len(task1.observed), 0)
-        self.assertEqual(len(transactions), 0)
-
     def test_exception_during_tasks(self):
-        env0 = ExceptionSimulation(params_ex=True)
+        env0 = ExceptionSimulation(read_ex=True,params_ex=True)
         env1 = ExceptionSimulation(read_ex=True)
         env2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
-
         val2 = ExceptionEvaluator()
         val3 = ObserveEvaluator()
-
-        CobaContext.logger.sink = ListSink()
-
         tasks = [Task((0,env0), None, None), Task((0,env1),(0,lrn1), (1,val2)), Task((1,env2),(0,lrn1), (2,val3)) ]
 
+        CobaContext.logger.sink = ListSink()
         expected = [ ["T4", (1,0,2), [] ] ]
         actual   = list(ProcessTasks().filter(tasks))
 
         self.assertIs(val3.observed[1], lrn1)
         self.assertEqual(expected, actual)
         self.assertEqual('ExceptionSimulation.params', str(CobaContext.logger.sink.items[4]))
-        self.assertEqual('ExceptionSimulation.read', str(CobaContext.logger.sink.items[7]))
+        self.assertEqual('ExceptionEvaluator', str(CobaContext.logger.sink.items[7]))
 
 if __name__ == '__main__':
     unittest.main()

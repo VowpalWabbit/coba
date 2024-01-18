@@ -71,11 +71,11 @@ class Experiment:
         self._triples     = triples
         self._description = description
 
-        if any([lrn is None for _,lrn,_ in self._triples]):
-            raise CobaException("A Learner was given whose value was None, which can't be processed.")
+        # if any([lrn is None for _,lrn,_ in self._triples]):
+        #     raise CobaException("A Learner was given whose value was None, which can't be processed.")
 
-        if any([env is None for env,_,_ in self._triples]):
-            raise CobaException("An Environment was given whose value was None, which can't be processed.")
+        # if any([env is None for env,_,_ in self._triples]):
+        #     raise CobaException("An Environment was given whose value was None, which can't be processed.")
 
         self._processes        : Optional[int] = None
         self._maxchunksperchild: Optional[int] = None

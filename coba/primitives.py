@@ -495,6 +495,9 @@ Sparse.register(HashableSparse)
 Sparse.register(abc.Mapping)
 Sparse.register(Sparse_)
 
+def is_materialized(item: Any) -> bool:
+    return not isinstance(item,(Sparse,Dense)) or isinstance(item,(list,tuple,dict))
+
 def extract_shape(given:Action, comparison:Action, is_comparison_list:bool=False):
 
     given_ndim = getattr(given,'ndim',-1)

@@ -259,7 +259,7 @@ class IterableSource(Source[Iterable[Any]]):
         self.iterable = [] if iterable is None else iterable
 
     def read(self) -> Iterable[Any]:
-        return self.iterable
+        yield from self.iterable
 
 class ListSource(Source[Sequence[Any]]):
     """A source that reads from a list."""
@@ -268,12 +268,16 @@ class ListSource(Source[Sequence[Any]]):
         """Instantiate a ListSource.
 
         Args:
-            list: The sequence we should read from.
+            list: The sequence to read.
         """
-        self.items = [] if sequence is None else sequence
+        self._items = [] if sequence is None else sequence
 
-    def read(self) -> Iterable[Any]:
-        return self.items
+    @property
+    def items(self) -> Sequence[Any]:
+        return self._items
+
+    def read(self) -> Sequence[Any]:
+        return self._items
 
 class LambdaSource(Source[Any]):
     """A source that reads from a callable method."""

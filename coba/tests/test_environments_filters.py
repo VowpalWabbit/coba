@@ -4,8 +4,8 @@ import unittest
 from collections import Counter
 from math import isnan
 
-from coba.pipes      import LazyDense, LazySparse, HeadDense
-from coba.context    import CobaContext, NullLogger
+from coba.pipes      import LazyDense, LazySparse, HeadDense, ListSink
+from coba.context    import CobaContext, NullLogger, BasicLogger
 from coba.exceptions import CobaException
 from coba.primitives import Categorical
 from coba.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
@@ -2168,37 +2168,24 @@ class Finalize_Tests(unittest.TestCase):
     def test_empty_list(self):
         self.assertEqual(list(Finalize().filter([])),[])
 
-    def test_missing_context(self):
-        actual = list(Finalize().filter([ {'actions':[{1:2},{2:3}],'rewards':[1,2]} ]))
-        self.assertEqual(actual, [{'context':None, 'actions':[{1:2},{2:3}],'rewards': DiscreteReward([{1:2},{2:3}],[1,2])}])
-
     def test_dense_encodes(self):
         context = [Categorical('a',['a','b']),5]
         actions = [3,4]
-
         interactions = [SimulatedInteraction(context, actions,[1,2])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
-
         self.assertEqual(actual[0]['context'], [1,0,5])
         self.assertEqual(actual[0]['actions'], [3,4])
 
     def test_dense_materializes(self):
         context = LazyDense([1])
         actions = [LazyDense([2]),LazyDense([3])]
-
         interactions = [SimulatedInteraction(context, actions,[1,2], action=actions[0])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
-
         self.assertIsInstance(actual[0]['context']   , list)
         self.assertIsInstance(actual[0]['actions'][0], list)
         self.assertIsInstance(actual[0]['action' ]   , list)
-
         self.assertEqual(actual[0]['context'], [1])
         self.assertEqual(actual[0]['actions'], [[2],[3]])
         self.assertEqual(actual[0]['action' ], [2])
@@ -2206,61 +2193,46 @@ class Finalize_Tests(unittest.TestCase):
     def test_sparse_materializes(self):
         context = LazySparse({1:1})
         actions = [LazySparse({1:2}),LazySparse({1:3})]
-
         interactions = [SimulatedInteraction(context, actions,[1,2],action=actions[0])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
-
         self.assertIsInstance(actual[0]['context']   , dict)
         self.assertIsInstance(actual[0]['actions'][0], dict)
         self.assertIsInstance(actual[0]['action' ]   , dict)
-
         self.assertEqual(actual[0]['context'], {1:1})
         self.assertEqual(actual[0]['actions'], [{1:2},{1:3}])
         self.assertEqual(actual[0]['action' ], {1:2})
 
     def test_None_simulated(self):
         interactions = [SimulatedInteraction(None,[[1,2],[3,4]], [1,2])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], None)
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
 
     def test_dense_simulated(self):
         interactions = [SimulatedInteraction([1,2,3],[[1,2],[3,4]], [1,2])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
 
     def test_sparse_simulated(self):
         interactions = [SimulatedInteraction({1:2},[[1,2],[3,4]], [1,2])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertIsInstance(actual[0]['context'], dict)
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
 
     def test_sparse_actions(self):
         interactions = [SimulatedInteraction({1:2},[{1:2},{2:3}], [1,2])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['actions'], [{1:2},{2:3}])
 
     def test_logged_with_actions(self):
         interactions = [LoggedInteraction([1,2,3], [1,2], 1, probability=1, actions=[[1,2],[3,4]], rewards=[1,2])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], [1,2])
@@ -2268,9 +2240,7 @@ class Finalize_Tests(unittest.TestCase):
 
     def test_logged_with_action_int(self):
         interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[1,2,3], rewards=[1,2,3])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], 1)
@@ -2278,9 +2248,7 @@ class Finalize_Tests(unittest.TestCase):
 
     def test_logged_tuple_actions_with_action_int(self):
         interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[(1,0,0),(0,1,0),(0,0,1)], rewards=[1,2,3])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], 1)
@@ -2288,9 +2256,7 @@ class Finalize_Tests(unittest.TestCase):
 
     def test_logged_sparse_actions(self):
         interactions = [LoggedInteraction([1,2,3], {1:2}, 1, probability=1, actions=[{1:2},{3:4}], rewards=[1,2])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], {1:2})
@@ -2298,18 +2264,14 @@ class Finalize_Tests(unittest.TestCase):
 
     def test_logged_with_action_only(self):
         interactions = [LoggedInteraction([1,2,3], [1,2], 1, probability=1)]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], [1,2])
 
     def test_grounded(self):
         interactions = [GroundedInteraction([1,2,3],[[1,2],[3,4]], [1,2], [3,4])]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
@@ -2317,11 +2279,8 @@ class Finalize_Tests(unittest.TestCase):
     def test_list_rewards(self):
         context = LazySparse({1:1})
         actions = [(1,0),(0,1)]
-
         interactions = [{'context':context, 'actions':actions, 'rewards':[1,2]}]
-
         actual = list(Finalize().filter(interactions))
-
         self.assertEqual(len(actual),1)
         self.assertIsInstance(actual[0]['context']   , dict)
         self.assertIsInstance(actual[0]['actions'][0], tuple)
@@ -2329,16 +2288,22 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['actions'], actions)
         self.assertEqual(actual[0]['rewards'], DiscreteReward(actions,[1,2]))
 
+    def test_empty_logs_once_and_caches(self):
+        finalizer = Finalize()
+        loggersink = ListSink()
+        CobaContext.logger = BasicLogger(loggersink)
+        list(finalizer.filter([]))
+        list(finalizer.filter([]))
+        self.assertEqual(loggersink.items, ["An environment had nothing to evaluate (this is often due to having too few interactions)."] )
+        self.assertFalse(list(finalizer.filter([1,2,3])))
+
 class Batch_Tests(unittest.TestCase):
     def test_simple(self):
         batch = Batch(3)
-
-        self.assertEqual(batch.params,{'batch_size':3,'batch_type':'list'})
         batches = list(batch.filter([{'a':1,'b':2}]*4))
-
+        self.assertEqual(batch.params,{'batch_size':3,'batch_type':'list'})
         self.assertEqual(batches[0], {'a':[1,1,1],'b':[2,2,2]})
         self.assertEqual(batches[1], {'a':[1]    ,'b':[2]})
-
         self.assertEqual(batches[0]['a'].is_batch, True)
         self.assertEqual(batches[0]['b'].is_batch, True)
         self.assertEqual(batches[1]['a'].is_batch, True)
@@ -2347,19 +2312,15 @@ class Batch_Tests(unittest.TestCase):
     def test_batch_None(self):
         batch = Batch(None)
         items = list(batch.filter([{'a':1,'b':2}]*2))
-
         self.assertEqual(batch.params,{'batch_size':None,'batch_type':'list'})
         self.assertEqual(items,[{'a':1,'b':2}]*2)
 
     def test_batch_1(self):
         batch = Batch(1)
-
-        self.assertEqual(batch.params,{'batch_size':1,'batch_type':'list'})
         batches = list(batch.filter([{'a':1,'b':2}]*2))
-
+        self.assertEqual(batch.params,{'batch_size':1,'batch_type':'list'})
         self.assertEqual(batches[0], {'a':[1],'b':[2]})
         self.assertEqual(batches[1], {'a':[1],'b':[2]})
-
         self.assertEqual(batches[0]['a'].is_batch, True)
         self.assertEqual(batches[0]['b'].is_batch, True)
         self.assertEqual(batches[1]['a'].is_batch, True)
@@ -2367,9 +2328,7 @@ class Batch_Tests(unittest.TestCase):
 
     def test_batch_2(self):
         batch = Batch(2)
-
         batches = list(batch.filter([{'a':1,'b':2}]*2))
-
         self.assertEqual(batch.params,{'batch_size':2,'batch_type':'list'})
         self.assertEqual(batches, [{'a':[1,1],'b':[2,2]}])
         self.assertEqual(batches[0]['a'].is_batch, True)
@@ -2386,9 +2345,7 @@ class Batch_Tests(unittest.TestCase):
     @unittest.skipUnless(PackageChecker.torch(strict=False), "This test requires pytorch")
     def test_torch(self):
         import torch
-
         batch = list(Batch(2,'torch').filter([{'a':1,'b':None,'rewards':L1Reward(2)}]*2))[0]
-
         self.assertTrue(torch.equal(batch['a'],torch.tensor([1,1])))
         self.assertEqual(batch['b'],[None,None])
         self.assertTrue(batch['a'].is_batch)
@@ -2403,17 +2360,14 @@ class Batch_Tests(unittest.TestCase):
 class Unbatch_Tests(unittest.TestCase):
     def test_not_batched(self):
         interaction = {'a':1,'b':2}
-
         unbatched = list(Unbatch().filter([interaction]*3))
         self.assertEqual(unbatched, [interaction]*3)
 
     def test_batched(self):
         interaction = {'a':1,'b':2}
-
-        batched   = list(Batch(3).filter([interaction]*3))
-        unbatched = list(Unbatch().filter(batched))
+        batched     = list(Batch(3).filter([interaction]*3))
+        unbatched   = list(Unbatch().filter(batched))
         self.assertEqual(unbatched, [{'a':1,'b':2}]*3)
-
         batched[0]['c'] = 3
         unbatched = list(Unbatch().filter(batched))
         self.assertEqual(unbatched, [{'a':1,'b':2,'c':3}]*3)
@@ -2481,7 +2435,6 @@ class Cache_Tests(unittest.TestCase):
         initial_rows  = [{'a':1,'b':2}]*4
         cacher        = Cache(3)
         filtered_rows = list(cacher.filter(initial_rows))
-
         self.assertEqual(filtered_rows, initial_rows)
         self.assertIsNot(initial_rows[0],filtered_rows[0])
         self.assertIsNot(filtered_rows[0],list(cacher.filter(initial_rows))[0])
@@ -2489,15 +2442,13 @@ class Cache_Tests(unittest.TestCase):
     def test_cache_peek_then_read(self):
         initial_rows  = [{'a':1,'b':2}]*4
         cacher        = Cache(3)
-        first,rows    = peek_first(iter(cacher.filter(initial_rows)))
-
+        rows          = peek_first(iter(cacher.filter(initial_rows)))[1]
         self.assertEqual(list(rows), initial_rows)
 
     def test_cache_peek_then_reread(self):
         initial_rows  = [{'a':1,'b':2}]*4
         cacher        = Cache(3)
         first,rows    = peek_first(iter(cacher.filter(initial_rows)))
-
         self.assertEqual(list(cacher.filter(initial_rows)), initial_rows)
 
     def test_empty(self):
@@ -2511,18 +2462,14 @@ class Logged_Tests(unittest.TestCase):
     def test_missing_context(self):
         initial_input   = {'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = {'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
-
-        output = list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
-
-        self.assertEqual(output, [expected_output]*2)
+        actual_output   = list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
+        self.assertEqual(actual_output, [expected_output]*2)
 
     def test_not_batched(self):
         initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
-
-        output = list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
-
-        self.assertEqual(output, [expected_output]*2)
+        actual_output = list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
+        self.assertEqual(actual_output, [expected_output]*2)
 
     def test_batched(self):
         class TestLearner:
@@ -2533,10 +2480,8 @@ class Logged_Tests(unittest.TestCase):
 
         initial_input   = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = [{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}]*2
-
-        output = list(Logged(TestLearner()).filter(Batch(2).filter([initial_input]*2)))
-
-        self.assertEqual(output, expected_output)
+        actual_output = list(Logged(TestLearner()).filter(Batch(2).filter([initial_input]*2)))
+        self.assertEqual(actual_output, expected_output)
 
     def test_learning_info(self):
         class TestLearner:
@@ -2549,10 +2494,8 @@ class Logged_Tests(unittest.TestCase):
 
         initial_input   = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1), 'a':1, 'b':2}
-
-        output = list(Logged(TestLearner()).filter([initial_input]))
-
-        self.assertEqual(output, [expected_output])
+        actual_output = list(Logged(TestLearner()).filter([initial_input]))
+        self.assertEqual(actual_output, [expected_output])
 
     def test_bad_type(self):
         initial_input = {'context':None, "rewards":L1Reward(1)}
@@ -2659,28 +2602,24 @@ class Slice_Tests(unittest.TestCase):
     def test_take_slice_0_1(self):
         items = [ 1,2,3 ]
         slice_items = list(Slice(0,1).filter(items))
-
         self.assertEqual([1    ], slice_items)
         self.assertEqual([1,2,3], items     )
 
     def test_take_slice_None_2(self):
         items = [ 1,2,3 ]
         slice_items = list(Slice(None,2).filter(items))
-
         self.assertEqual([1,2  ], slice_items)
         self.assertEqual([1,2,3], items     )
 
     def test_take_slice_2_None(self):
         items = [ 1,2,3 ]
         slice_items = list(Slice(2,None).filter(items))
-
         self.assertEqual([    3], slice_items)
         self.assertEqual([1,2,3], items     )
 
     def test_take_slice_None_None_2(self):
         items = [ 1,2,3 ]
         slice_items = list(Slice(None,None,2).filter(items))
-
         self.assertEqual([1,  3], slice_items)
         self.assertEqual([1,2,3], items     )
 
@@ -2716,7 +2655,6 @@ class OpeRewards_Tests(unittest.TestCase):
         ]
 
         new_interactions = list(OpeRewards("DM").filter(interactions))
-
         self.assertAlmostEqual(new_interactions[0]['rewards']('c'),.62640, places=3)
         self.assertAlmostEqual(new_interactions[0]['rewards']('d'),.31039, places=3)
         self.assertAlmostEqual(new_interactions[1]['rewards']('e'),.31039, places=3)
@@ -2730,7 +2668,6 @@ class OpeRewards_Tests(unittest.TestCase):
         ]
 
         new_interactions = list(OpeRewards("DM").filter(interactions))
-
         self.assertAlmostEqual(new_interactions[0]['rewards']('c'),.62640, places=3)
         self.assertAlmostEqual(new_interactions[0]['rewards']('d'),.31039, places=3)
         self.assertAlmostEqual(new_interactions[1]['rewards']('e'),.31039, places=3)

@@ -4,7 +4,7 @@ import collections.abc
 from urllib import request
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
-from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type, Literal
+from typing import Sequence, overload, Union, Iterable, Iterator, Optional, Tuple, Callable, Mapping, Type, Literal, Any
 
 from coba                 import pipes
 from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
@@ -22,10 +22,10 @@ from coba.environments.synthetics import KernelSyntheticSimulation, MLPSynthetic
 from coba.environments.supervised import SupervisedSimulation
 from coba.environments.results    import ResultEnvironment
 
-from coba.environments.filters   import Repr, Batch, Chunk, Logged, Materialize
+from coba.environments.filters   import Repr, Batch, Chunk, Logged, Finalize
 from coba.environments.filters   import Binary, Shuffle, Take, Sparsify, Densify, Reservoir, Cycle, Scale, Unbatch
 from coba.environments.filters   import Slice, Impute, Where, Riffle, Sort, Flatten, Cache, Params, Grounded
-from coba.environments.filters   import OpeRewards, Noise
+from coba.environments.filters   import OpeRewards, Noise, BatchSafe
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
@@ -510,15 +510,16 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """Instantiate an Environments class.
 
         Args:
-            *environments: The base environments to initialize the class.
+            *environments: Base environments.
         """
-        self._environments = []
-
+        is_collection = lambda env: isinstance(env, (collections.abc.Sequence,collections.abc.Generator))
+        self._envs = []
         for env in environments:
-            if isinstance(env, (collections.abc.Sequence,collections.abc.Generator)):
-                self._environments.extend(env)
+            if is_collection(env):
+                self._envs.extend(env)
             else:
-                self._environments.append(env)
+                self._envs.append(env)
+        self._envs = list(map(Pipes.join,self._envs))
 
     def binary(self) -> 'Environments':
         """Transform reward values to 1 or 0.
@@ -560,7 +561,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
 
         make_dense = lambda: Densify(n_feats=n_feats, method=method, context=context, action=action)
-        return Environments([Pipes.join(env, make_dense()) for env in self])
+        return Environments([Pipes.join(env,make_dense()) for env in self._envs])
 
     @overload
     def shuffle(self, seed: int = 1) -> 'Environments':
@@ -721,7 +722,8 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             An Environments object.
         """
         if isinstance(targets,str): targets = [targets]
-        return self.filter(Pipes.join(*[Scale(shift, scale, t, using) for t in targets]))
+        for t in targets: self = self.filter(Scale(shift, scale, t, using))
+        return self
 
     def impute(self,
         stats: Union[Literal["mean","median","mode"],Sequence[Literal["mean","median","mode"]]] = "mean",
@@ -807,17 +809,16 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """
         #we use pipes.cache directly because the environment cache will copy
         #which we don't need when we materialize an environment in memory
-        envs = Environments([Pipes.join(env, Materialize(), pipes.Cache(25,True)) for env in self])
 
-        for env in envs: list(env.read()) #force read to pre-load cache
+        nocache = lambda p: not isinstance(p,pipes.Cache) or p.protected
+        materialized = []
+        for env in map(self._finalize,self._envs):
+            if not isinstance(env[-1],pipes.Cache):
+                env = Pipes.join(*filter(nocache,env), pipes.Cache(None,True))
+                list(env.read()) #force read to pre-load cache
+            materialized.append(env)
 
-        for env in envs:
-            for i in range(len(env)-1):
-                pipe = env[i]
-                if isinstance(pipe, pipes.Cache) and not pipe._protected:
-                    pipe._cache = None
-
-        return envs
+        return Environments(materialized)
 
     def grounded(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int=1) -> 'Environments':
         """Transform simulated interactions to IGL interactions.
@@ -880,7 +881,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         Returns:
             An Environments object.
         """
-        envs = Environments([Pipes.join(env, Chunk()) for env in self])
+        envs = Environments([Pipes.join(env,Chunk()) for env in self._envs])
         return envs.cache() if cache else envs
 
     def logged(self, learners: Union[Learner,Sequence[Learner]], seed:Optional[float] = 1.23) -> 'Environments':
@@ -973,8 +974,12 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
                 else:
                     raise CobaException("The given save file appears to be corrupted. Please check it and delete if it is unusable.")
 
-        CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()] if processes ==1 else [NameLog(), StampLog()])
-        Pipes.join(IterableSource(self_envs),CobaMultiprocessor(EnvironmentsToObjects(),processes),ObjectsToZipMember(path)).run()
+        objs  = CobaMultiprocessor(EnvironmentsToObjects(),processes)
+        disk  = ObjectsToZipMember(path)
+        decor = [StampLog()] if processes ==1 else [NameLog(), StampLog()]
+
+        CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, decor)
+        disk.write(objs.filter(self_envs))
         CobaContext.logger = CobaContext.logger.undecorate()
 
         return Environments.from_save(path)
@@ -989,7 +994,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         Returns:
             An Environments object.
         """
-        return Environments([Pipes.join(env, Cache(25)) for env in self])
+        return Environments([Pipes.join(env,Cache(25)) for env in self._envs])
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply custom filter to Environments.
@@ -1002,25 +1007,29 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             An Environments object.
         """
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
-        return Environments([Pipes.join(e,f) for e in self._environments for f in filters])
+        return Environments([Pipes.join(env,f) for env in self._envs for f in filters])
+
+    def _finalize(self, env: Environment) -> Environment:
+        is_finalize = lambda e: isinstance(e,BatchSafe) and isinstance(e._filter,Finalize)
+        return env if any(map(is_finalize,env)) else Pipes.join(env,BatchSafe(Finalize()))
 
     def __getitem__(self, index:Any) -> Union[Environment,'Environments']:
         if isinstance(index,slice):
-            return Environments(self._environments[index])
+            return Environments(self._envs[index])
         else:
-            return self._environments[index]
+            return self._finalize(self._envs[index])
 
     def __iter__(self) -> Iterator[Environment]:
-        return iter(self._environments)
+        return iter(map(self._finalize,self._envs))
 
     def __len__(self) -> int:
-        return len(self._environments)
+        return len(self._envs)
 
     def __add__(self, other: 'Environments') -> 'Environments':
-        return Environments(self._environments+other._environments)
+        return Environments(self._envs+other._envs)
 
     def __str__(self) -> str:
-        return "\n".join([f"{i+1}. {e}" for i,e in enumerate(self._environments)])
+        return "\n".join([f"{i+1}. {e}" for i,e in enumerate(self)])
 
     def _ipython_display_(self):
         #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)

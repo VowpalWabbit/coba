@@ -505,13 +505,20 @@ class Cache_Tests(unittest.TestCase):
 
     def test_cache_with_peek_first(self):
         cache = Cache(2)
-
         iterable = iter(cache.filter([1,2,3,4]))
         iterable = peek_first(iterable)[1]
-
+        self.assertEqual([1,2],    cache._cache)
         self.assertEqual([1,2,3,4],list(cache.filter([1,2,3,4])))
         self.assertEqual([1,2,3,4],cache._cache)
         self.assertEqual([1,2,3,4],list(cache.filter([4,5,6])))
+
+    def test_cache_empty_list(self):
+        cache = Cache(2)
+        iterable = iter(cache.filter([]))
+        self.assertEqual(None,cache._cache)
+        iterable = peek_first(iterable)
+        self.assertEqual([],cache._cache)
+        self.assertEqual([],list(cache.filter([1,2,3,4])))
 
 if __name__ == '__main__':
     unittest.main()

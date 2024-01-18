@@ -55,8 +55,14 @@ class Pipes:
         if len(pipes) == 0:
             raise CobaException("No pipes were passed to join.")
 
-        if len(pipes) == 1 and any(hasattr(pipes[0],attr) for attr in ['read','filter','write']):
-            return pipes[0]
+        if len(pipes) == 1 and hasattr(pipes[0],'read'):
+            return SourceFilters(*pipes)
+
+        if len(pipes) == 1 and hasattr(pipes[0],'filter'):
+            return FiltersFilter(*pipes)
+
+        if len(pipes) == 1 and hasattr(pipes[0],'write'):
+            return FiltersSink(*pipes)
 
         first = pipes[0 ] if not isinstance(pipes[0 ], Foreach) else pipes[0 ]._pipe
         last  = pipes[-1] if not isinstance(pipes[-1], Foreach) else pipes[-1]._pipe
