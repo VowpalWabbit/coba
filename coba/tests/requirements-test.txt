@@ -3,4 +3,4 @@
 
 coverage~=6.2.0
 ipython~=7.34
-jupyterlab~=3.2.0
+jupyterlab~=4.0.11
