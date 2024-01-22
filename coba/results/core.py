@@ -8,6 +8,7 @@ from pathlib import Path
 from numbers import Number
 from operator import truediv, sub, mul, itemgetter, methodcaller
 from abc import abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass, astuple, field, replace
 from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee, islice
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
@@ -305,26 +306,28 @@ class Table:
 
             return Table(View(self._data,selection), self._columns, self._indexes)
 
-    def groupby(self, level:int, select:Union[None,Literal['table','count'],str]='table') -> Iterable[Tuple[Tuple,Any]]:
+    def groupby(self, level:int, select:Union[Literal['count'],str,Sequence[str]]=None) -> Iterable[Tuple[Tuple,Any]]:
         self._lohis = self._lohis or self._calc_lohis()
         grp_cols = [self._data[hdr] for hdr in self._indexes[:level]]
 
-        if not select:
+        if select is None:
             for l,h in self._lohis[self._indexes[level]]:
-                yield tuple(map(itemgetter(l),grp_cols))
-        elif select=='table':
-            for l,h in self._lohis[self._indexes[level]]:
-                grp_idx = tuple(map(itemgetter(l),grp_cols))
-                grp_tbl = Table(View(self._data, slice(l,h)), self._columns, self._indexes)
-                yield (grp_idx,grp_tbl)
+                index = tuple(map(itemgetter(l),grp_cols))
+                yield index
         elif select=='count':
             for l,h in self._lohis[self._indexes[level]]:
-                grp_idx = tuple(map(itemgetter(l),grp_cols))
-                yield (grp_idx,h-l)
-        else:
+                index = tuple(map(itemgetter(l),grp_cols))
+                yield index,h-l
+        elif isinstance(select,str):
             for l,h in self._lohis[self._indexes[level]]:
-                grp_idx = tuple(map(itemgetter(l),grp_cols))
-                yield (grp_idx,self._data[select][l:h])
+                index = tuple(map(itemgetter(l),grp_cols))
+                yield index,self._data[select][l:h]
+        else:
+            cols = [self._data[s] for s in select]
+            for l,h in self._lohis[self._indexes[level]]:
+                index  = tuple(map(itemgetter(l),grp_cols))
+                slicer = itemgetter(slice(l,h))
+                yield index,list(map(slicer,cols))
 
     def copy(self) -> 'Table':
         t = Table(self._data, tuple(self._columns), tuple(self._indexes))
@@ -1015,14 +1018,15 @@ class Result:
         interactions = only_finished.interactions
 
         full_id = ['environment_id','learner_id','evaluator_id']
-        indexes = list(self._indexed_gs(p,l,full_l,full_id,select=y))
+
+        indexes = self._grouped_ys(p,l,full_l,full_id,y=y,func='list')
 
         to_keep, to_drop = [], []
         for _, group in groupby(indexes,key=itemgetter(0)):
-            max_val = -float('inf')
-            k, d = [], []
-            for _, group in groupby(group,key=itemgetter(1)):
-                ids,vals = zip(*((g[3], mean(islice(g[4],n))) for g in group))
+            max_val, k, d = -float('inf'), [], []
+            for _, group in groupby(group, key=itemgetter(1)):
+
+                ids,vals = zip(*((g[3], mean(islice(g[-1][0],n))) for g in group))
                 mean_val = mean(vals)
                 if mean_val < max_val:
                     d.extend(ids)
@@ -1285,17 +1289,20 @@ class Result:
         data = {}
 
         plottable = self._plottable(x,y)._finished(x,y,l,p)
+        Ys = plottable._grouped_ys(l,x,p,y=y,span=span)
 
-        YS = list(plottable._indexed_ys(l,x,p,y=y,span=span))
+        for _l, group in groupby(Ys,key=itemgetter(0)):
 
-        for _l, group in groupby(YS,key=itemgetter(0)):
-
-            group = list(group)
+            P,X,Y = [],[],[]
+            for row in group:
+                X.extend(repeat(row[1],len(row[-1])))
+                P.extend(repeat(row[2],len(row[-1])))
+                Y.extend(row[-1])
 
             if 'x' not in data:
-                data['p'] = list(map(itemgetter(2),group))
-                data['x'] = list(map(itemgetter(1),group))
-            data[_l] = list(map(itemgetter(3),group))
+                data['p'] = P
+                data['x'] = X
+            data[_l] = Y
 
         return Table(data)
 
@@ -1351,7 +1358,7 @@ class Result:
             l2_label = self._lrn_cache[l2[0]]['full_name'] if l=='learner_id' else 'l2'
 
             L1,L2 = [],[]
-            for _l, group in groupby(plottable._indexed_ys(l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+            for _l, group in groupby(plottable._grouped_ys(l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
 
                 if _l in l1:
                     L1.extend(map(itemgetter(slice(1,None)),group))
@@ -1368,7 +1375,7 @@ class Result:
                     data[l2_label].append(_y2)
         else:
             #this implementation is considerably faster but only gives correct results under certain conditions
-            for _x, _group in groupby(plottable._indexed_ys(x,l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+            for _x, _group in groupby(plottable._grouped_ys(x,l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
 
                 _group = list(map(itemgetter(slice(1,None)),_group))
                 _L1    = [g[1:] for g in _group if g[0] in l1 ]
@@ -1705,7 +1712,7 @@ class Result:
                 p2 = env_eq_vals[e2]+lrn_eq_vals[l2]
                 if p1==p2:
                     p = p1[0] if unpack_p else p1
-                    yield ((x1,x2),(y1,y2), p)
+                    yield ((x1,x2),(y1[0],y2[0]), p)
 
     def _plottable(self, x:Sequence[str], y:str) -> 'Result':
 
@@ -1722,10 +1729,8 @@ class Result:
 
     def _finished(self, x:Sequence[str], y:str, l:Sequence[str], p:Sequence[str]) -> 'Result':
         only_finished = self._filter_fin('min' if x == 'index' else None, l, p)
-
         if len(only_finished.learners) == 0:
             raise CobaException(f"This result does not contain a {p} that has been finished for every {l}.")
-
         return only_finished
 
     def _confidence(self, err: Union[str,PointAndInterval], errevery:int = 1):
@@ -1752,57 +1757,67 @@ class Result:
 
         return calc_ci
 
-    def _indexed_gs(self,*indexes, select:Union[None,Literal['table','count'],str]=None) -> Iterable[Tuple[Any]]:
-        #WARNING: This has been highly highly optimized. Don't make changes without performance testing.
-
-        def make_getter(K):
-            if not isinstance(K,str):
-                return lambda e,l,v,G=list(map(make_getter,K)): tuple(g(e,l,v) for g in G)
-            elif K in self.environments.columns:
-                return lambda e,l,v,k=K: e[k]
-            elif K in self.learners.columns or K == 'full_name':
-                return lambda e,l,v,k=K: l[k]
-            elif K in self.evaluators.columns:
-                return lambda e,l,v,k=K: v[k]
-            else:
-                return lambda e,l,v: None
+    def _grouped_ys(self, *keys: str, y:Optional[str], func: Literal['last','list'] = None, span:Optional[int]=1) -> Sequence[Tuple]:
 
         env_cache = self._env_cache
         lrn_cache = self._lrn_cache
         val_cache = self._val_cache
 
-        def index_getter(env_id, lrn_id, val_id, getters=list(map(make_getter,indexes))):
-            return map(methodcaller('__call__',env_cache[env_id],lrn_cache[lrn_id],val_cache[val_id]),getters)
+        D = defaultdict(lambda:None) if y is None else defaultdict(list)
 
-        G = list(self.interactions.groupby(3,select))
+        def is_icol(key):
+            return key not in ['environment_id','learner_id','evaluator_id'] and key in self.interactions.columns
 
-        indexed_groups = []
-        if select:
-            for (env_id,lrn_id,val_id), selected in G:
-                indexed_groups.append([*index_getter(env_id,lrn_id,val_id), selected])
-        else:
-            for env_id,lrn_id,val_id in G:
-                indexed_groups.append(list(index_getter(env_id,lrn_id,val_id)))
+        def get_icols(keys):
+            for key in keys:
+                if not isinstance(key,str):
+                    yield from get_icols(key)
+                elif is_icol(key):
+                    yield key
 
-        return sorted(indexed_groups,key=MyComparable)
+        def make_gets(cols):
+            for col in cols:
+                if not isinstance(col,str):
+                    yield lambda e,l,v,s,N,G=list(make_gets(col)): zip(*(g(e,l,v,s,N) for g in G)) if N != 1 else tuple(g(e,l,v,s,N) for g in G)
+                elif col in self.environments.columns:
+                    yield lambda e,l,v,s,N,col=col: repeat(e[col],N) if N != 1 else e[col]
+                elif col in self.learners.columns or col == 'full_name':
+                    yield lambda e,l,v,s,N,col=col: repeat(l[col],N) if N != 1 else l[col]
+                elif col in self.evaluators.columns:
+                    yield lambda e,l,v,s,N,col=col: repeat(v[col],N) if N != 1 else v[col]
+                elif col in self.interactions.columns:
+                    yield lambda e,l,v,s,N,col=col: iter(s.pop())
 
-    def _indexed_ys(self,*indexes,y,span) -> Iterable[Tuple[Any]]:
-        #WARNING: This has been highly highly optimized. Don't make changes without performance testing.
+        gets  = list(make_gets(keys))
+        icols = list(get_icols(keys))
+        icols.reverse()
+        
+        if y: icols += [y]
+        for (eid,lid,vid), sel in self.interactions.groupby(3,icols):
 
-        index_locs = [ i for i, I in enumerate(indexes) if I == 'index']
-        index_1st  = index_locs[0] if index_locs else len(indexes)
-        statistic  = moving_average if index_locs else (lambda v,_: [mean(v)])
+            env = env_cache[eid]
+            lrn = lrn_cache[lid]
+            val = val_cache[vid]
 
-        YS = list(self._indexed_gs(*indexes,select=y))
+            Y = sel.pop() if y else None
+            N = 1 if not sel else len(sel[0])            
+            if N ==1 and func is None and y is not None: func = 'last'
 
-        for _,t_group in groupby(YS,key=itemgetter(slice(None,index_1st))):
-            y_group = []
-            for group in t_group:
-                i_cols = list(map(repeat,group[:-1]))
-                for i in index_locs: i_cols[i] = count(1)
-                y_group.append(zip(*i_cols, statistic(group[-1],span)))
+            outs = tuple(map(methodcaller('__call__',env,lrn,val,sel,N),gets))
 
-            yield from chain.from_iterable(zip(*y_group))
+            if N == 1:
+                o = outs
+                if func is None:
+                    D[o]
+                elif func == 'last':
+                    D[o].append(Y[-1] if span == 1 else mean(Y[-span:]) if span else mean(Y))
+                elif func == 'list':
+                    D[o].append(Y)
+
+            else:
+                for o,y in zip(zip(*outs),moving_average(Y,span)):
+                    D[o].append(y)
+        return sorted([k + ((v,) if v else ()) for k,v in D.items()], key=MyComparable)
 
     def _global_n(self, n: Union[int,Literal['min']]):
 
@@ -1815,10 +1830,10 @@ class Result:
         to_drop     = []
         to_keep     = []
         if n == 'min':
-            for env_idx, env_len in self._indexed_gs(['environment_id','learner_id','evaluator_id'],select='count'):
+            for env_idx, env_len in self.interactions.groupby(3,'count'):
                 env_lengths.append(env_len)
         else:
-            for env_idx, env_len in self._indexed_gs(['environment_id','learner_id','evaluator_id'],select='count'):
+            for env_idx, env_len in self.interactions.groupby(3,'count'):
                 if env_len < n:
                     to_drop.append(env_idx)
                 else:
@@ -1859,7 +1874,7 @@ class Result:
         evaluators   = self.evaluators
         interactions = self.interactions
 
-        indexes = list(self._indexed_gs(p,l,'environment_id','learner_id','evaluator_id',select=None))
+        indexes  = list(self._grouped_ys(p,l,'environment_id','learner_id','evaluator_id',y=None))
         n_levels = len(set(map(itemgetter(1),indexes)))
 
         to_keep, to_remove, n_larger, n_smaller = [], [], 0, 0

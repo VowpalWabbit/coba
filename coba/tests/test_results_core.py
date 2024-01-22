@@ -5,7 +5,7 @@ from statistics import mean
 
 from coba.utilities import PackageChecker
 from coba.pipes import ListSink
-from coba.context import CobaContext, IndentLogger
+from coba.context import CobaContext, IndentLogger, BasicLogger
 from coba.exceptions import CobaException, CobaExit
 from coba.statistics import BootstrapCI
 
@@ -492,22 +492,10 @@ class Table_Tests(unittest.TestCase):
         table.index('a','b','c')
         self.assertEqual(list(table), [(0,1,1,1),(0,1,2,3),(1,1,1,1),(1,1,2,4)])
 
-    def test_groupby_with_index_with_table(self):
-        table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
-        table.index('a','b','c')
-        self.assertEqual([len(t) for _,t in table.groupby(2)],[1,1,2,2])
-        self.assertEqual([g for g,_ in table.groupby(2)],[(0,0),(0,1),(1,0),(1,1)])
-
     def test_groupby_with_index_select_none(self):
         table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
         table.index('a','b','c')
         self.assertEqual([i for i in table.groupby(2,select=None)],[(0,0),(0,1),(1,0),(1,1)])
-
-    def test_groupby_sans_index_select_table(self):
-        table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
-        table.index('a','b','c')
-        self.assertEqual([len(t) for _,t in table.groupby(2,select='table')],[1,1,2,2])
-        self.assertEqual([ i     for i,_ in table.groupby(2,select='table')],[(0,0),(0,1),(1,0),(1,1)])
 
     def test_groupby_sans_index_select_count(self):
         table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1],[1,0,2,1],[1,1,1,1],[1,1,2,1]])
@@ -2472,6 +2460,7 @@ class Result_Tests(unittest.TestCase):
             [1,2,0,1,0],[1,2,0,2,3],[1,2,0,3,9],
         ]
 
+        CobaContext.logger = BasicLogger()
         CobaContext.logger.sink = ListSink()
         Result(envs, lrns, vals, ints).plot_contrast(0, 1, x='index')
 
