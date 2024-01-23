@@ -1286,24 +1286,18 @@ class Result:
         Reutrns:
             A Table with the raw data used to construct plot_learners.
         """
-        data = {}
 
         plottable = self._plottable(x,y)._finished(x,y,l,p)
-        Ys = plottable._grouped_ys(l,x,p,y=y,span=span)
+        rows      = plottable._grouped_ys(l,x,y=y,span=span)        
+        Xs        = sorted(set(map(itemgetter(1),rows)))
 
-        for _l, group in groupby(Ys,key=itemgetter(0)):
-
-            P,X,Y = [],[],[]
+        data = {'x': Xs}
+        for _l, group in groupby(rows,key=itemgetter(0)):
+            i,Y = 0,[[float('nan')]]*len(Xs)
             for row in group:
-                X.extend(repeat(row[1],len(row[-1])))
-                P.extend(repeat(row[2],len(row[-1])))
-                Y.extend(row[-1])
-
-            if 'x' not in data:
-                data['p'] = P
-                data['x'] = X
+                i = Xs.index(row[1],i)
+                Y[i] = row[-1]
             data[_l] = Y
-
         return Table(data)
 
     def raw_contrast(self,
@@ -1457,13 +1451,12 @@ class Result:
             err      = self._confidence(err, errevery)
 
             lines: List[Points] = []
-            for _l in raw_data.columns[2:]:
+            for _l in raw_data.columns[1:]:
                 color = self._get_color(colors,   len(lines))
                 label = self._get_label(labels,_l,len(lines))
 
                 lines.append(Points(style=style,color=color,label=label))
-                for _xi, (_x, group) in enumerate(groupby(zip(*raw_data[['x',_l]]), key=itemgetter(0))):
-                    Y = [g[-1] for g in group]
+                for _xi, (_x, Y) in enumerate(zip(*raw_data[['x',_l]])):
                     lines[-1].add(_x, *err(Y, _xi))
 
             lines  = sorted(lines, key=lambda line: line.Y[-1], reverse=True)
@@ -1770,14 +1763,14 @@ class Result:
 
         def get_icols(keys):
             for key in keys:
-                if not isinstance(key,str):
+                if isinstance(key,(list,tuple)):
                     yield from get_icols(key)
                 elif is_icol(key):
                     yield key
 
         def make_gets(cols):
             for col in cols:
-                if not isinstance(col,str):
+                if isinstance(col,(tuple,list)):
                     yield lambda e,l,v,s,N,G=list(make_gets(col)): zip(*(g(e,l,v,s,N) for g in G)) if N != 1 else tuple(g(e,l,v,s,N) for g in G)
                 elif col in self.environments.columns:
                     yield lambda e,l,v,s,N,col=col: repeat(e[col],N) if N != 1 else e[col]
@@ -1807,7 +1800,7 @@ class Result:
 
             if N == 1:
                 o = outs
-                if func is None:
+                if y is None:
                     D[o]
                 elif func == 'last':
                     D[o].append(Y[-1] if span == 1 else mean(Y[-span:]) if span else mean(Y))
@@ -1815,8 +1808,12 @@ class Result:
                     D[o].append(Y)
 
             else:
-                for o,y in zip(zip(*outs),moving_average(Y,span)):
-                    D[o].append(y)
+                if y is None:
+                    for o in zip(*outs):
+                        D[o]
+                else:
+                    for o,y in zip(zip(*outs),moving_average(Y,span)):
+                        D[o].append(y)
         return sorted([k + ((v,) if v else ()) for k,v in D.items()], key=MyComparable)
 
     def _global_n(self, n: Union[int,Literal['min']]):

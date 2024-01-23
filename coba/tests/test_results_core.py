@@ -1758,14 +1758,16 @@ class Result_Tests(unittest.TestCase):
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],
                 [0,1,0,1,1],[0,1,0,2,2],
-                [0,2,0,1,1],[0,2,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,3],
                 [1,1,0,1,1],[1,1,0,2,2],
-                [1,2,0,1,1],[1,2,0,2,2],
+                [1,2,0,1,2],[1,2,0,2,4],
         ]
 
         table = Result(envs, lrns, vals, ints).raw_learners()
-        self.assertEqual(('p','x','1. learner_1','2. learner_2'), table.columns)
-        self.assertEqual([(0,1,1,1),(1,1,1,1),(0,2,1.5,1.5),(1,2,1.5,1.5)], list(table))
+        self.assertEqual(('x','1. learner_1','2. learner_2'), table.columns)
+        self.assertEqual(table['x'], [1,2])
+        self.assertEqual(table['1. learner_1'],[[1,1],[1.5,1.5]])
+        self.assertEqual(table['2. learner_2'],[[1,2],[2,3]])
 
     def test_raw_contrast_all_default(self):
         envs = [['environment_id'],[0]]
@@ -2158,6 +2160,35 @@ class Result_Tests(unittest.TestCase):
         expected_lines = [
             Points([1,2],[3/2,4/2],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[3/2,4/2],[],[0,0],1,1,'2. learner_2','-', 1)
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+        self.assertEqual(expected_logs, CobaContext.logger.sink.items)
+
+    def test_plot_learners_learner_id2(self):
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        envs = [['environment_id'],[0],[1]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','learner_id2','reward'],
+            [0,1,0,1,1,1],[0,1,0,2,1,2],
+            [1,1,0,1,1,2],[1,1,0,2,1,3],
+            [1,2,0,1,2,2],[1,2,0,2,2,3],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, vals, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(l='learner_id2')
+
+        expected_logs = ["We removed 1 environment_id because it did not exist for every learner_id2."]
+        expected_lines = [
+            Points([1,2],[2,5/2],[],[0,0],0,1,1,'-',1),
+            Points([1,2],[2,5/2],[],[0,0],1,1,2,'-',1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
