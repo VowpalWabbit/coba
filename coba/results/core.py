@@ -362,7 +362,7 @@ class Table:
         Returns:
             Columns of table data.
         """
-        if isinstance(idx,str):
+        if not isinstance(idx,(slice,list)) and idx in self._data:
             return self._data[idx]
         if isinstance(idx,slice):
             return [self._data[col] for col in self._columns[idx]]
@@ -636,6 +636,7 @@ class MatplotPlotter(Plotter):
         ylim: Tuple[Optional[Number],Optional[Number]],
         xticks: bool,
         yticks: bool,
+        legend: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
         xorder: Optional[Sequence[str]],
@@ -671,6 +672,8 @@ class MatplotPlotter(Plotter):
                     ax = f.add_subplot(111) if not isinstance(ax,int) else f.add_subplot(ax)
                 else:
                     ax = plt.subplot(111) if not isinstance(ax,int) else plt.subplot(ax)
+
+            is_existing_plot = ax.lines or ax.collections
 
             in_lim = lambda v,lim: lim is None or ((lim[0] or -float('inf')) <= v and v <= (lim[1] or float('inf')))
 
@@ -748,14 +751,16 @@ class MatplotPlotter(Plotter):
             ax.set_ylabel(ylabel)
             ax.set_xlabel(xlabel)
 
-            if ax.get_legend() is not None: #pragma: no cover
+            already_had_legend = ax.get_legend() is not None
+
+            if already_had_legend: #pragma: no cover
                 ax.get_legend().remove()
-            else: #pragma: no cover
+            elif not is_existing_plot: #pragma: no cover
                 scale = 0.65
                 box1 = ax.get_position()
                 ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
 
-            if any_label:
+            if legend and (any_label or already_had_legend):
                 L = zip(*sorted((zip(*ax.get_legend_handles_labels())), key=lambda al:artists.index(al[0])))
                 ax.legend(*L, loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium')
 
@@ -765,9 +770,9 @@ class MatplotPlotter(Plotter):
             if not yticks:
                 plt.yticks([])
 
-            if out not in ['screen',None]:
+            if out not in ['screen',None] and isinstance(out,str):
                 plt.tight_layout()
-                plt.savefig(str(out), dpi=300)
+                plt.savefig(out, dpi=300)
                 plt.show()
                 plt.close()
 
@@ -1287,7 +1292,9 @@ class Result:
             A Table with the raw data used to construct plot_learners.
         """
 
-        plottable = self._plottable(x,y)._finished(x,y,l,p)
+        if p: plottable = self._plottable(x,y)._finished(x,y,l,p)
+        else: plottable = self._plottable(x,y)
+
         rows      = plottable._grouped_ys(l,x,y=y,span=span)        
         Xs        = sorted(set(map(itemgetter(1),rows)))
 
@@ -1403,6 +1410,8 @@ class Result:
         ylim    : Tuple[Optional[Number],Optional[Number]] = None,
         xticks  : bool = True,
         yticks  : bool = True,
+        legend  : bool = True,
+        alpha   : float = 1,
         xorder  : Literal['+','-'] = None,
         top_n   : int = None,
         out     : Union[None,Literal['screen'],str] = 'screen',
@@ -1431,6 +1440,7 @@ class Result:
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             xticks: Whether the x-axis labels should be drawn.
             yticks: Whether the y-axis labels should be drawn.
+            legend: Whether the legend for the plot should be drawn.
             xorder: Indicates whether the x-axis should be in ascending (+) or descendeing (-) order.
             top_n: Only plot the top_n learners. If `None` all learners will be plotted. If negative the bottom will be plotted.
             out: Indicate where the plot should be sent to after plotting is finished. Valid values are
@@ -1442,21 +1452,21 @@ class Result:
             xlim = xlim or [None,None]
             ylim = ylim or [None,None]
 
-            if isinstance(labels,str): labels = [labels]
-
             raw_data = self.raw_learners(x,y,l,p,span)
 
             errevery = errevery or max(int(raw_data['x'][-1]*0.05),1) if x == 'index' else 1
             style    = "-" if x == 'index' else "."
             err      = self._confidence(err, errevery)
 
+            Y_count = []
             lines: List[Points] = []
             for _l in raw_data.columns[1:]:
                 color = self._get_color(colors,   len(lines))
                 label = self._get_label(labels,_l,len(lines))
-
-                lines.append(Points(style=style,color=color,label=label))
+                Y_count.append(0)
+                lines.append(Points(style=style,color=color,label=label,alpha=alpha))
                 for _xi, (_x, Y) in enumerate(zip(*raw_data[['x',_l]])):
+                    Y_count[-1] = max(Y_count[-1],len(Y))
                     lines[-1].add(_x, *err(Y, _xi))
 
             lines  = sorted(lines, key=lambda line: line.Y[-1], reverse=True)
@@ -1465,9 +1475,11 @@ class Result:
             xlabel = xlabel or ("Interaction" if x=='index' else x[0] if len(x) == 1 else x)
             ylabel = ylabel or (y.capitalize().replace("_pct"," Percent"))
 
+            if len(set(Y_count)) == 1: Y_count = Y_count[0]
+
             y_location = "Total" if x != 'index' else ""
             y_avg_type = ("Instant" if span == 1 else f"Span {span}" if span else "Progressive")
-            y_samples  = f"({len(Y)} Environments)"
+            y_samples  = f"({Y_count} Environments)"
             title      = title if title is not None else (' '.join(filter(None,[y_location, y_avg_type, ylabel, y_samples])))
 
             xrotation = 90 if (x != 'index' or xorder) and len(lines[0].X)>5 else 0
@@ -1483,7 +1495,7 @@ class Result:
 
             if x == 'index' and xorder in ['+',None]: xordered = None
 
-            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, xordered, out)
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, legend, xrotation, yrotation, xordered, out)
 
         except CobaException as e:
             CobaContext.logger.log(str(e))
@@ -1670,7 +1682,7 @@ class Result:
 
     def _get_color(self, colors:Union[None,Sequence[Union[str,int]]], i:int) -> Union[str,int]:
         try:
-            return colors[i] if colors else i
+            return colors if isinstance(colors,str) else colors[i] if colors else i
         except IndexError:
             return i+max(colors) if isinstance(colors[0],(int,float)) else i
         except TypeError:
@@ -1678,7 +1690,7 @@ class Result:
 
     def _get_label(self, labels:Sequence[str], label:str, i:int) -> str:
         try:
-            label = labels[i] if labels else label
+            label = labels if isinstance(labels,str) else labels[i] if labels else label
         except:
             pass
 
@@ -1848,8 +1860,8 @@ class Result:
         if len(env_lengths) > 1 or env_lengths.values() != {shorten_to}:
             n_shortened = sum(v for k,v in env_lengths.items() if k > shorten_to)
             interactions = interactions.where(index={'<=':shorten_to}) #.4
-            if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} environment because it was longer than the shortest environment.")
-            if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} environments because they were longer than the shortest environment.")
+            if n_shortened==1: CobaContext.logger.log(f"We shortened {n_shortened} learner evaluation because it was longer than the shortest environment.")
+            if n_shortened>=2: CobaContext.logger.log(f"We shortened {n_shortened} learner evaluations because they were longer than the shortest environment.")
 
         keep_envs,keep_lrns,keep_vals = map(set,zip(*to_keep)) if to_keep else ([],[],[])
 
@@ -1916,10 +1928,8 @@ class Result:
         """
 
         result = self.copy()
-
         if l or p: result = result._group_p(l,p)
         if n     : result = result._global_n(n)
-
         return result
 
     def _remove(self, ids: Sequence[Tuple[int,int,int]], n=0) -> Sequence[int]:

@@ -589,7 +589,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
     def test_no_matplotlib(self):
         with unittest.mock.patch('importlib.util.find_spec', return_value=None):
             with self.assertRaises(CobaExit):
-                MatplotPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None,None)
+                MatplotPlotter().plot(None,None,None,None,None,None,None,None,None,None,None,None,None,None)
 
     def test_plot_lines_title_xlabel_ylabel(self):
         with unittest.mock.patch('matplotlib.pyplot.show') as show:
@@ -602,7 +602,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     ]
 
                     mock_ax = plt_figure().add_subplot()
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,"screen")
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,None,None,None,"screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -637,7 +637,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     ]
 
                     mock_ax = plt_figure().add_subplot()
-                    MatplotPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, None, "screen")
+                    MatplotPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, True, None, None, None, "screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -670,7 +670,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",(2,3),None,True,True,None,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",(2,3),None,True,True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -683,7 +683,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",(3,4),None,True,True,None,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",(3,4),None,True,True,True,None,None,None,None)
             self.assertEqual(([3,4],[7,8],[2,1],None,'-'), mock_ax.errorbar.call_args_list[0][0])
 
     def test_plot_ylim(self):
@@ -695,7 +695,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             ]
 
             mock_ax = plt_figure().add_subplot()
-            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,None,None,None)
+            MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,True,None,None,None,None)
             self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
             self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
 
@@ -709,7 +709,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,90,None,None,None)
+                MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,True,90,None,None,None)
 
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
@@ -726,7 +726,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
 
                 mock_ax = plt_figure().add_subplot()
 
-                MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,None,90,None,None)
+                MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,(6,7),True,True,True,None,90,None,None)
 
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
@@ -742,7 +742,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3,4,2],None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,90,None,[1,3,4,2],None)
 
                 self.assertEqual(([0,3],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([1,2],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
@@ -758,7 +758,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,[1,2,3,4],None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,None,None,[1,2,3,4],None)
 
                 self.assertEqual(([1,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3,4],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
@@ -774,7 +774,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[4,3,2,1],None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,90,None,[4,3,2,1],None)
 
                 self.assertEqual(([-1,-2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([-3,-4],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
@@ -790,7 +790,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,['1','3'],None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,90,None,['1','3'],None)
 
                 self.assertEqual(([0,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([1,3],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
@@ -806,7 +806,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,90,None,[1,3,4,2,5],None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,90,None,[1,3,4,2,5],None)
 
                 self.assertEqual(([0,3],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([1,2],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
@@ -822,7 +822,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,None,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),False,True,True,None,None,None,None)
 
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
@@ -838,7 +838,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                 ]
 
                 mock_ax = plt_figure().add_subplot()
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,None,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,(6,7),True,False,True,None,None,None,None)
 
                 self.assertEqual(([2],[6],'-'), mock_ax.plot.call_args_list[0][0])
                 self.assertEqual(([3],[7],'-'), mock_ax.plot.call_args_list[1][0])
@@ -856,7 +856,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
 
                     mock_ax = plt_figure().add_subplot()
                     self.assertEqual(1, plt_figure().add_subplot.call_count)
-                    MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+                    MatplotPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,True,None,None,None,None)
 
                     self.assertEqual(1, plt_figure().add_subplot.call_count)
                     self.assertEqual(([1,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
@@ -885,7 +885,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         plotter = MatplotPlotter()
-        plotter.plot(None, [[]], 'abc', 'def', 'efg', (1,0), (0,1), True, True, None, None, None, None)
+        plotter.plot(None, [[]], 'abc', 'def', 'efg', (1,0), (0,1), True, True, True, None, None, None, None)
 
         expected_log = "The xlim end is less than the xlim start. Plotting is impossible."
 
@@ -897,7 +897,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         plotter = MatplotPlotter()
-        plotter.plot(None, [[]], 'abc', 'def', 'efg', (0,1), (1,0), True, True, None, None, None, None)
+        plotter.plot(None, [[]], 'abc', 'def', 'efg', (0,1), (1,0), True, True, True, None, None, None, None)
 
         expected_log = "The ylim end is less than the ylim start. Plotting is impossible."
 
@@ -918,7 +918,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,"abc")
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,None,None,None,"abc")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -957,7 +957,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                         Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                     ]
 
-                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+                    MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,None,None,None,None)
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -992,7 +992,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     Points([3,4], [7,8], None, None, "R", 0.25, 'L2', '-', 1)
                 ]
 
-                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+                MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,None,None,None,None)
 
                 plt_figure.assert_called_with(num='coba')
                 plt_figure().add_subplot.assert_called_with(111)
@@ -1004,7 +1004,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             CobaContext.logger.sink = ListSink()
 
             plotter = MatplotPlotter()
-            plotter.plot(None, [], 'abc', 'def', 'efg', None, None, True, True, None, None, None, None)
+            plotter.plot(None, [], 'abc', 'def', 'efg', None, None, True, True, True, None, None, None, None)
 
             self.assertEqual(0, plt_figure().add_subplot.call_count)
             self.assertEqual(["No data was found for plotting."], CobaContext.logger.sink.items)
@@ -1018,8 +1018,8 @@ class MatplotPlotter_Tests(unittest.TestCase):
             Points([3,4], [7,8], None, None, "red", 0.25, 'L2', '-', 2)
         ]
 
-        MatplotPlotter().plot(None,lines[:1],"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
-        MatplotPlotter().plot(None,lines[1:],"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+        MatplotPlotter().plot(None,lines[:1],"title","xlabel","ylabel",None,None,True,True,True,None,None,None,None)
+        MatplotPlotter().plot(None,lines[1:],"title","xlabel","ylabel",None,None,True,True,True,None,None,None,None)
 
         self.assertEqual('title' ,plt.gca().get_title(loc='left'))
         self.assertEqual('xlabel',plt.gca().get_xlabel())
@@ -1047,7 +1047,7 @@ class MatplotPlotter_Tests(unittest.TestCase):
             Points([], [], None, None, "blue", 1.00, 'L3', '-', 1),
         ]
 
-        MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None,None)
+        MatplotPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,True,None,None,None,None)
 
         l2i = plt.gca().get_legend_handles_labels()[1].index("L2")
 
@@ -1769,6 +1769,42 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(table['1. learner_1'],[[1,1],[1.5,1.5]])
         self.assertEqual(table['2. learner_2'],[[1,2],[2,3]])
 
+    def test_raw_learners_missing_env_with_p(self):
+        envs = [['environment_id'],[0],[1],[2]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,3],
+                [1,1,0,1,1],[1,1,0,2,2],
+                [1,2,0,1,2],[1,2,0,2,4],
+                [2,2,0,1,2],[2,2,0,2,4],
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_learners()
+        self.assertEqual(('x','1. learner_1','2. learner_2'), table.columns)
+        self.assertEqual(table['x'], [1,2])
+        self.assertEqual(table['1. learner_1'],[[1,1],[1.5,1.5]])
+        self.assertEqual(table['2. learner_2'],[[1,2],[2,3]])
+
+    def test_raw_learners_missing_env_sans_p(self):
+        envs = [['environment_id'],[0],[1],[2]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],[0,1,0,2,2],
+                [0,2,0,1,1],[0,2,0,2,3],
+                [1,1,0,1,1],[1,1,0,2,2],
+                [1,2,0,1,2],[1,2,0,2,4],
+                [2,2,0,1,2],[2,2,0,2,6],
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_learners(p=None)
+        self.assertEqual(('x','1. learner_1','2. learner_2'), table.columns)
+        self.assertEqual(table['x'], [1,2])
+        self.assertEqual(table['1. learner_1'],[[1,1],[1.5,1.5]])
+        self.assertEqual(table['2. learner_2'],[[1,2,2],[2,3,4]])
+
     def test_raw_contrast_all_default(self):
         envs = [['environment_id'],[0]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
@@ -2156,7 +2192,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_logs = ['We shortened 2 environments because they were longer than the shortest environment.']
+        expected_logs = ['We shortened 2 learner evaluations because they were longer than the shortest environment.']
         expected_lines = [
             Points([1,2],[3/2,4/2],[],[0,0],0,1,'1. learner_1','-', 1),
             Points([1,2],[3/2,4/2],[],[0,0],1,1,'2. learner_2','-', 1)
@@ -2213,7 +2249,7 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(out="abc")
 
         self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual("abc", plotter.plot_calls[0][12])
+        self.assertEqual("abc", plotter.plot_calls[0][13])
 
     def test_plot_learners_ax(self):
         envs = [['environment_id'],[0],[1]]
@@ -2840,7 +2876,7 @@ class Result_Tests(unittest.TestCase):
         ]
         result = Result(envs, lrns, vals, ints)
 
-        expected_logs = ['We shortened 2 environments because they were longer than the shortest environment.']
+        expected_logs = ['We shortened 2 learner evaluations because they were longer than the shortest environment.']
         expected_rows = [(0,0,0,1,1),(0,1,0,1,1),(1,0,0,1,1),(1,1,0,1,1)]
 
         plottable = result._plottable('index','reward')._finished('index','reward','learner_id','environment_id')

@@ -184,6 +184,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,reward_features=["a","xa"])
         interactions = list(simulation.read())
         rewards = [ r for i in interactions for r in i['rewards'] ]
+        self.assertAlmostEqual(rewards[0],0.5938552815539)
         self.assertEqual(500, len(interactions))
         self.assertEqual(2, len(interactions[0]['actions']))
         self.assertEqual(3, len(interactions[0]['context']))
@@ -241,6 +242,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
     def test_params(self):
         env = LinearSyntheticSimulation(100,reward_features=["xa"],seed=2)
         self.assertEqual(['xa'], env.params['reward_features'])
+        self.assertEqual(10    , env.params['n_actions'])
         self.assertEqual(2     , env.params['seed'])
 
     def test_str(self):
@@ -300,6 +302,7 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
     def test_params(self):
         env = NeighborsSyntheticSimulation(20,n_neighborhoods=10,seed=2)
         self.assertEqual(10, env.params['n_neighborhoods'])
+        self.assertEqual(10, env.params['n_actions'])
         self.assertEqual(2 , env.params['seed'])
 
     def test_str(self):
@@ -410,7 +413,8 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             'seed'       : 2,
             'n_exemplars': 10,
             'kernel'     : 'exponential',
-            'gamma'      : 1
+            'gamma'      : 1,
+            'n_actions'  : 10,
         }
         self.assertDictEqual(expected, env.params)
 
@@ -422,7 +426,8 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             'seed'       : 2,
             'n_exemplars': 10,
             'kernel'     : 'gaussian',
-            'gamma'      : 1
+            'gamma'      : 1,
+            'n_actions'  : 10,
         }
         self.assertDictEqual(expected, env.params)
 
@@ -433,7 +438,8 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             'seed'       : 2,
             'n_exemplars': 10,
             'kernel'     : 'polynomial',
-            'degree'     : 3
+            'degree'     : 3,
+            'n_actions'  : 10,
         }
         self.assertDictEqual(expected, env.params)
 
@@ -444,6 +450,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             'seed'       : 2,
             'n_exemplars': 10,
             'kernel'     : 'linear',
+            'n_actions'  : 10,
         }
         self.assertDictEqual(expected, env.params)
 
@@ -528,6 +535,7 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_params(self):
         env = MLPSyntheticSimulation(20,seed=2)
+        self.assertEqual(10, env.params['n_actions'])
         self.assertEqual(2 , env.params['seed'])
 
     def test_str(self):

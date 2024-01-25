@@ -204,7 +204,7 @@ class LinearSyntheticSimulation(Environment):
             return
 
         replace = 'x' if not n_context_features else 'a' if not n_action_features else ''
-        reward_features = list(set(filter(None,[f.replace(replace,'') for f in reward_features])))
+        reward_features = sorted(set(filter(None,[f.replace(replace,'') for f in reward_features]))) 
 
         rng           = CobaRandom(self._seed)
         feats_encoder = InteractionsEncoder(reward_features)
@@ -272,7 +272,7 @@ class LinearSyntheticSimulation(Environment):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"env_type":"LinearSynthetic", "reward_features": self._reward_features, 'n_coeff':self._n_coefficients, "seed": self._seed}
+        return {"env_type":"LinearSynthetic", "reward_features": self._reward_features, 'n_coeff':self._n_coefficients, 'n_actions': self._n_actions, "seed": self._seed}
 
     def __str__(self) -> str:
         return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
@@ -357,7 +357,7 @@ class NeighborsSyntheticSimulation(Environment):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"env_type": "NeighborsSynthetic", "n_neighborhoods": self._n_neighborhoods, 'seed': self._seed }
+        return {"env_type": "NeighborsSynthetic", "n_neighborhoods": self._n_neighborhoods, 'n_actions': self._n_actions, 'seed': self._seed }
 
     def __str__(self) -> str:
         return f"NeighborsSynth(A={self._n_actions},c={self._n_context_feats},a={self._n_action_feats},N={self._n_neighborhoods},seed={self._seed})"
@@ -504,6 +504,7 @@ class KernelSyntheticSimulation(Environment):
         if self._kernel in ["exponential","gaussian"]:
             params['gamma'] = self._gamma
 
+        params['n_actions'] = self._n_actions
         params['seed'] = self._seed
 
         return params
@@ -618,7 +619,7 @@ class MLPSyntheticSimulation(Environment):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"env_type": "MLPSynthetic", 'seed': self._seed}
+        return {"env_type": "MLPSynthetic", 'n_actions': self._n_actions, 'seed': self._seed}
 
     def __str__(self) -> str:
         return f"MLPSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},seed={self._seed})"

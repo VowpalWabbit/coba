@@ -32,15 +32,17 @@ class Experiment:
             description: A description of the experiment for documentaiton purposes.
         """
 
+
     @overload
     def __init__(self,
-        eval_tuples: Sequence[Tuple[Learner,Environment,Evaluator]],
+        eval_tuples: Sequence[Union[Tuple[Learner,Environment],Tuple[Learner,Environment,Evaluator]]],
         description: str = None) -> None:
         ...
         """Instantiate an Experiment.
 
         Args:
-            eval_tuples: The learner-environment-evaluator triples we wish to evaluate.
+            eval_tuples: The learner-environment-evaluator triples we wish to evaluate. If no evaluator
+                is provided the default SequentialCB() will be used for evaluation.
             description: A description of the experiment for documentaiton purposes.
         """
 
@@ -212,7 +214,8 @@ class Experiment:
             if definite_triples:
                 triples = args[0] if len(args) > 0 else kwargs['eval_tuples']
                 descr   = args[1] if len(args) > 1 else kwargs.get('description',None)
-                return list(triples), descr
+                triples = [t if len(t) ==3 else (*t,SequentialCB()) for t in triples]
+                return triples, descr
 
             else:
                 envs  = args[0] if len(args) > 0 else kwargs['environments']
@@ -222,7 +225,7 @@ class Experiment:
                 if not isinstance(envs,abc.Sequence): envs = [envs]
                 if not isinstance(lrns,abc.Sequence): lrns = [lrns]
                 if not isinstance(vals,abc.Sequence): vals = [vals]
-
                 return list(product(envs,lrns,vals)), descr
+
         except KeyError as e:
             raise TypeError(f'Experiment.__init__ missing required arguments')

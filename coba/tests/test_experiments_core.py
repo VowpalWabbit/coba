@@ -8,6 +8,7 @@ from typing import cast
 from coba.environments import LambdaSimulation
 from coba.pipes import ListSink
 from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
+from coba.evaluators import SequentialCB
 from coba.experiments import Experiment
 from coba.exceptions import CobaException
 from coba.primitives import Categorical, Source, Learner, Environment
@@ -150,7 +151,6 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_deprecation(self):
         with self.assertRaises(CobaException) as e:
             Experiment(1,2,evaluation_task=3)
-
         self.assertIn("The `evaluation_task` argument has been deprecated.", str(e.exception))
 
     def test_init_tuples(self):
@@ -160,6 +160,11 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         exp = Experiment(eval_tuples=[(1,2,'a')], description='d')
         self.assertEqual(exp._triples, [(1,2,'a')])
+        self.assertEqual(exp._description, 'd')
+
+        exp = Experiment(eval_tuples=[(1,2)], description='d')
+        self.assertEqual(exp._triples[0][:2], (1,2))
+        self.assertIsInstance(exp._triples[0][2], SequentialCB)
         self.assertEqual(exp._description, 'd')
 
         exp = Experiment(product([1],[2],['a']), description='d')
