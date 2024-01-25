@@ -61,6 +61,6 @@ jobs:
           python "examples/scripts/Custom Vowpal.py"
           python "examples/scripts/Logged Results.py"
           jupyter nbconvert --execute "examples/notebooks/Getting Started.ipynb" --inplace
-          jupyter nbconvert --execute "examples/notebooks/Results.ipynb" --inplace
+          jupyter nbconvert --execute "examples/notebooks/Results 101.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Experiments.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Environments.ipynb" --inplace
