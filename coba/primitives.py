@@ -1,4 +1,5 @@
 """Basic building blocks shared across modules."""
+
 from ast import literal_eval
 from abc import ABC, abstractmethod
 from numbers import Number
@@ -365,39 +366,18 @@ class Dense_:
     def copy(self) -> list:
         return list(iter(self))
 
-class HashableDense(abc.Sequence):
-    __slots__=('_item','_hash')
+class HashableDense(tuple):
 
-    def __init__(self, item: Sequence) -> None:
-        self._item = item
+    def __new__(cls, items: Iterable[Any], hash_:int = None) -> str:
+        return tuple.__new__(HashableDense,items)
 
-    def __getitem__(self,index):
-        return self._item[index]
-
-    def __iter__(self):
-        return iter(self._item)
-
-    def __len__(self):
-        return len(self._item)
-
-    def __eq__(self, o: object) -> bool:
-        try:
-            return len(self._item) == len(o) and all(map(eq, self._item, o))
-        except:
-            return False
+    def __init__(self, items:Iterable[Any], hash_:int = None) -> None:
+        self._hash = hash_
 
     def __hash__(self) -> int:
-        try:
-            return self._hash
-        except:
-            self._hash = hash(tuple(self._item))
-            return self._hash
-
-    def __repr__(self) -> str:
-        return repr(self._item)
-
-    def __str__(self) -> str:
-        return str(self._item)
+        if not self._hash:
+            self._hash = super().__hash__()
+        return self._hash
 
 Dense.register(HashableDense)
 Dense.register(list)

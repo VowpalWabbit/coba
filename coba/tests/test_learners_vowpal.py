@@ -83,6 +83,9 @@ class VowpalEpsilonLearner_Tests(unittest.TestCase):
         VowpalEpsilonLearner(epsilon=0.1, features = ['a','x','ax'], seed=None, b=20)
         mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 -b 20 --quiet --noconstant --interactions ax",None)
 
+    def test_params(self):
+        self.assertEqual(VowpalEpsilonLearner(vw=VowpalMediatorMocked()).params,{'epsilon': 0.05, 'features': (1, 'a', 'ax', 'axx'), 'family': 'vw', 'args': '--cb_explore_adf --epsilon 0.05 --random_seed 1  --interactions ax --interactions axx --ignore_linear x', 'seed': 1})
+
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalEpsilonLearner(vw=VowpalMediatorMocked()))), VowpalEpsilonLearner)
 
@@ -103,6 +106,9 @@ class VowpalSoftmaxLearner_Tests(unittest.TestCase):
         VowpalSoftmaxLearner(softmax=5, features=[1, "x", "a", "ax"], seed=None, nn=2)
         mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 5 --nn 2 --quiet --interactions ax",None)
 
+    def test_params(self):
+        self.assertEqual(VowpalSoftmaxLearner(vw=VowpalMediatorMocked()).params,{'softmax': 10, 'features': (1, 'a', 'ax', 'axx'), 'family': 'vw', 'args': '--cb_explore_adf --softmax --lambda 10 --random_seed 1  --interactions ax --interactions axx --ignore_linear x', 'seed': 1})
+
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalSoftmaxLearner(vw=VowpalMediatorMocked()))), VowpalSoftmaxLearner)
 
@@ -116,6 +122,9 @@ class VowpalBagLearner_Tests(unittest.TestCase):
     def test_specifics(self, mock) -> None:
         VowpalBagLearner(bag=10, features=['x', 'a', "ax"], seed=None)
         mock.assert_called_once_with("--cb_explore_adf --bag 10 --quiet --noconstant --interactions ax",None)
+
+    def test_params(self):
+        self.assertEqual(VowpalBagLearner(vw=VowpalMediatorMocked()).params,{'bag': 5, 'features': (1, 'a', 'ax', 'axx'), 'family': 'vw', 'args': '--cb_explore_adf --bag 5 --random_seed 1  --interactions ax --interactions axx --ignore_linear x', 'seed': 1})
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalBagLearner(vw=VowpalMediatorMocked()))), VowpalBagLearner)
@@ -131,6 +140,9 @@ class VowpalCoverLearner_Tests(unittest.TestCase):
     def test_specifics(self, mock) -> None:
         VowpalCoverLearner(cover=10, features = ['a','x','ax'], seed=None)
         mock.assert_called_once_with("--cb_explore_adf --cover 10 --quiet --noconstant --interactions ax",None)
+
+    def test_params(self):
+        self.assertEqual(VowpalCoverLearner(vw=VowpalMediatorMocked()).params,{'cover': 5, 'features': (1, 'a', 'ax', 'axx'), 'family': 'vw', 'args': '--cb_explore_adf --cover 5 --random_seed 1  --interactions ax --interactions axx --ignore_linear x', 'seed': 1})
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalCoverLearner(vw=VowpalMediatorMocked()))), VowpalCoverLearner)
@@ -156,6 +168,9 @@ class VowpalRndLearner_Tests(unittest.TestCase):
         mock.assert_called_once_with("--cb_explore_adf --rnd 1 --epsilon 0.1 --rnd_alpha 0.2 --rnd_invlambda 0.3 "
                                      "--quiet --noconstant --interactions ax",None)
 
+    def test_params(self):
+        self.assertEqual(VowpalRndLearner(vw=VowpalMediatorMocked()).params,{'rnd': 3, 'features': (1, 'a', 'ax', 'axx'), 'epsilon': 0.025, 'rnd_alpha': None, 'rnd_invlambda': None, 'family': 'vw', 'args': '--cb_explore_adf --rnd 3 --epsilon 0.025 --random_seed 1  --interactions ax --interactions axx --ignore_linear x', 'seed': 1})
+
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalRndLearner(vw=VowpalMediatorMocked()))), VowpalRndLearner)
 
@@ -169,6 +184,9 @@ class VowpalRegcbLearner_Tests(unittest.TestCase):
     def test_specifics(self, mock) -> None:
         VowpalRegcbLearner(mode="optimistic", features = ['a','x','ax'], seed=None)
         mock.assert_called_once_with("--cb_explore_adf --regcbopt --quiet --noconstant --interactions ax",None)
+
+    def test_params(self):
+        self.assertEqual(VowpalRegcbLearner(vw=VowpalMediatorMocked()).params,{'mode': 'elimination', 'features': (1, 'a', 'ax', 'axx'), 'family': 'vw', 'args': '--cb_explore_adf --regcb --random_seed 1  --interactions ax --interactions axx --ignore_linear x', 'seed': 1})
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_pickle(self) -> None:
@@ -185,6 +203,9 @@ class VowpalSquarecbLearner_Tests(unittest.TestCase):
         VowpalSquarecbLearner(mode="elimination", gamma_scale=5, features = ['a','x','ax'], seed=None)
         mock.assert_called_once_with("--cb_explore_adf --squarecb --gamma_scale 5 --elim --quiet --noconstant --interactions ax",None)
 
+    def test_params(self):
+        self.assertEqual(VowpalSquarecbLearner(vw=VowpalMediatorMocked()).params,{'mode': 'standard', 'gamma_scale': 10, 'features': (1, 'a', 'ax', 'axx'), 'family': 'vw', 'args': '--cb_explore_adf --squarecb --gamma_scale 10 --random_seed 1  --interactions ax --interactions axx --ignore_linear x', 'seed': 1})
+
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalSquarecbLearner(vw=VowpalMediatorMocked()))), VowpalSquarecbLearner)
 
@@ -198,6 +219,9 @@ class VowpalOffpolicyLearner_Tests(unittest.TestCase):
     def test_specifics(self, mock) -> None:
         VowpalOffPolicyLearner(features=['a','x',"ax"], seed=None)
         mock.assert_called_once_with("--cb_adf --quiet --noconstant --interactions ax",None)
+
+    def test_params(self):
+        self.assertEqual(VowpalOffPolicyLearner(vw=VowpalMediatorMocked()).params,{'features': (1, 'a', 'ax', 'axx'), 'family': 'vw', 'args': '--cb_adf --random_seed 1  --interactions ax --interactions axx --ignore_linear x', 'seed': 1})
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalOffPolicyLearner(vw=VowpalMediatorMocked()))), VowpalOffPolicyLearner)

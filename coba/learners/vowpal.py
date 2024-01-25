@@ -402,6 +402,8 @@ class VowpalEpsilonLearner(VowpalLearner):
             seed: The seed used by VW to generate any necessary random numbers.
             kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
+        self._params = {'epsilon': epsilon, 'features': features}
+
         vw_kwargs = {
             "cb_explore_adf": True,
             "epsilon": epsilon,
@@ -410,7 +412,12 @@ class VowpalEpsilonLearner(VowpalLearner):
         vw = kwargs.pop('vw', None)
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+
         super().__init__(vw_args_string, vw)
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {**self._params, **super().params}
 
 class VowpalSoftmaxLearner(VowpalLearner):
     """Softmax exploration with a VW contextual bandit learner.
@@ -419,7 +426,6 @@ class VowpalSoftmaxLearner(VowpalLearner):
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
-
 
     def __init__(self,
                  softmax: float=10,
@@ -437,6 +443,8 @@ class VowpalSoftmaxLearner(VowpalLearner):
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
         """
+        self._params = {'softmax': softmax, 'features': features}
+
         vw_kwargs = {
             "cb_explore_adf": True,
             "softmax": True,
@@ -447,6 +455,10 @@ class VowpalSoftmaxLearner(VowpalLearner):
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {**self._params, **super().params}
 
 class VowpalBagLearner(VowpalLearner):
     """Bootstrap aggregated policy exploration with a VW contextual bandit learner.
@@ -471,6 +483,8 @@ class VowpalBagLearner(VowpalLearner):
             seed: The seed used by VW to generate any necessary random numbers.
             kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
+        self._params = {'bag': bag, 'features': features}
+
         vw_kwargs = {
             "cb_explore_adf": True,
             "bag": bag,
@@ -480,6 +494,10 @@ class VowpalBagLearner(VowpalLearner):
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {**self._params, **super().params}
 
 class VowpalCoverLearner(VowpalLearner):
     """Online Cover exploration with a VW contextual bandit learner.
@@ -507,6 +525,7 @@ class VowpalCoverLearner(VowpalLearner):
             seed: The seed used by VW to generate any necessary random numbers.
             kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
+        self._params = {'cover': cover, 'features': features}
 
         vw_kwargs = {
             "cb_explore_adf": True,
@@ -517,6 +536,10 @@ class VowpalCoverLearner(VowpalLearner):
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {**self._params, **super().params}
 
 class VowpalRndLearner(VowpalLearner):
     """RND exploration with a VW contextual bandit learner.
@@ -550,6 +573,14 @@ class VowpalRndLearner(VowpalLearner):
             seed: The seed used by VW to generate any necessary random numbers
             kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
+        self._params = {
+            'rnd': rnd,
+            'features': features,
+            'epsilon': epsilon,
+            'rnd_alpha': rnd_alpha,
+            'rnd_invlambda': rnd_invlambda
+        }
+
         vw_kwargs = {
             "cb_explore_adf": True,
             "rnd": rnd,
@@ -562,6 +593,10 @@ class VowpalRndLearner(VowpalLearner):
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {**self._params, **super().params}
 
 class VowpalRegcbLearner(VowpalLearner):
     """RegCB exploration with a VW contextual bandit learner.
@@ -591,6 +626,7 @@ class VowpalRegcbLearner(VowpalLearner):
             seed: The seed used by VW to generate any necessary random numbers.
             kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
+        self._params = {'mode': mode, 'features': features}
 
         vw_kwargs = {
             "cb_explore_adf": True,
@@ -605,6 +641,10 @@ class VowpalRegcbLearner(VowpalLearner):
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {**self._params, **super().params}
 
 class VowpalSquarecbLearner(VowpalLearner):
     """SquareCB exploration with a VW contextual bandit learner.
@@ -637,6 +677,8 @@ class VowpalSquarecbLearner(VowpalLearner):
             seed: The seed used by VW to generate any necessary random numbers.
             kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
+        self._params = {'mode': mode, 'gamma_scale': gamma_scale, 'features': features}
+
         vw_kwargs = {
             "cb_explore_adf": True,
             "squarecb": True,
@@ -649,6 +691,10 @@ class VowpalSquarecbLearner(VowpalLearner):
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {**self._params, **super().params}
 
 class VowpalOffPolicyLearner(VowpalLearner):
     """No exploration with a VW contextual bandit learner.
@@ -674,6 +720,7 @@ class VowpalOffPolicyLearner(VowpalLearner):
             seed: The seed used by VW to generate any necessary random numbers.
             kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
+        self._params = {'features': features}
 
         vw_kwargs = {
             "cb_adf": True,
@@ -683,3 +730,7 @@ class VowpalOffPolicyLearner(VowpalLearner):
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {**self._params, **super().params}

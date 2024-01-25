@@ -204,7 +204,7 @@ class LinearSyntheticSimulation(Environment):
             return
 
         replace = 'x' if not n_context_features else 'a' if not n_action_features else ''
-        reward_features = sorted(set(filter(None,[f.replace(replace,'') for f in reward_features]))) 
+        reward_features = sorted(set(filter(None,[f.replace(replace,'') for f in reward_features])))
 
         rng           = CobaRandom(self._seed)
         feats_encoder = InteractionsEncoder(reward_features)

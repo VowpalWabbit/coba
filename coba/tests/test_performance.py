@@ -22,7 +22,7 @@ from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
 from coba.results import Result, Table, TransactionResult, moving_average
 from coba.evaluators import SequentialCB
-from coba.primitives import Categorical, HashableSparse
+from coba.primitives import Categorical, HashableSparse, HashableDense
 from coba.primitives import BinaryReward, HammingReward, DiscreteReward
 from coba.primitives import SimulatedInteraction
 
@@ -104,6 +104,14 @@ class Performance_Tests(unittest.TestCase):
     def test_hashable_dict_performance(self):
         items = list(enumerate(range(100)))
         self._assert_scale_time(items, HashableSparse, .0004, print_time, number=1000)
+
+    def test_hashable_dense_hash( self):
+        item = HashableDense(list(enumerate(range(100))))
+        self._assert_call_time(lambda: hash(item), .00023, print_time, number=1000)
+
+    def test_hashable_dense_eq(self):
+        item = HashableDense(list(enumerate(range(100))))
+        self._assert_call_time(lambda: item==item, .0002, print_time, number=1000)
 
     def test_shuffle_performance(self):
         items = list(range(50))

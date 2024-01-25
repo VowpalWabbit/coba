@@ -6,7 +6,7 @@ import collections.abc
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, mul, itemgetter, methodcaller
+from operator import truediv, sub, mul, itemgetter, methodcaller, not_
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, astuple, field, replace
@@ -14,11 +14,11 @@ from itertools import chain, repeat, accumulate, groupby, count, compress, group
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
 import coba.json
-from coba.primitives import is_batch, Source, Environment
+from coba.primitives import is_batch, Source, Environment, HashableDense
 from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 from coba.context import CobaContext
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker, peek_first, KeyDefaultDict, minimize
+from coba.utilities import PackageChecker, peek_first, KeyDefaultDict, minimize, try_else
 from coba.pipes import Pipes, DiskSource
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
@@ -952,7 +952,7 @@ class Result:
             family = value.get('family',lrn_id)
             params = [f'{k}={v}' for k,v in value.items() if k and k not in ['family','learner_id'] and v is not None ]
             params = f"({','.join(params)})" if params else ''
-            value['full_name'] = f"{lrn_id}. {family}{params}"
+            value['full_name'] = f"{lrn_id}. {family}{params}" if family != 'vw' else f"{lrn_id}. {family}({value['args']})"
 
         self._plotter = MatplotPlotter()
 
@@ -1028,19 +1028,20 @@ class Result:
 
         to_keep, to_drop = [], []
         for _, group in groupby(indexes,key=itemgetter(0)):
-            max_val, k, d = -float('inf'), [], []
             for _, group in groupby(group, key=itemgetter(1)):
-
-                ids,vals = zip(*((g[3], mean(islice(g[-1][0],n))) for g in group))
-                mean_val = mean(vals)
-                if mean_val < max_val:
-                    d.extend(ids)
-                else:
-                    max_val = mean_val
-                    d.extend(k)
-                    k = ids
-            to_keep.extend(k)
-            to_drop.extend(d)
+                max_val, k, d = -float('inf'), [], []
+                for _, group in groupby(group, key=itemgetter(2)):
+                    group = list(group)
+                    ids,vals = zip(*((g[3], mean(islice(g[-1][0],n))) for g in group))
+                    mean_val = mean(vals)
+                    if mean_val < max_val:
+                        d.extend(ids)
+                    else:
+                        max_val = mean_val
+                        d.extend(k)
+                        k = ids
+                to_keep.extend(k)
+                to_drop.extend(d)
 
         if to_drop:
             select = self._remove(to_drop)
@@ -1182,7 +1183,7 @@ class Result:
 
     def where_best(self,
         l:Union[str, Sequence[str]],
-        p:Union[str, Sequence[str]],
+        p:Union[str, Sequence[str]] = 'environment_id',
         y:str = 'reward',
         n:int = None,
         full_l:Union[str, Sequence[str]]='learner_id',
@@ -1199,7 +1200,7 @@ class Result:
 
         Returns:
             A Result with full `l` and `p` that is the optimal over
-                `full_l` and `full_p`. For exmaple we could say `l`
+                `full_l` and `full_p`. For example we could say `l`
                 is 'family' while `full_l` is 'learner_id'. This would
                 pick the best performing learner grouped by family for
                 each `p`.
@@ -1285,7 +1286,7 @@ class Result:
             x: The variables to plot on the x-axis.
             y: The variable to plot on the y-axis.
             l: The labels to use in the plot legend.
-            p: The pairings to require across all l.
+            p: The pairings to require across all l. If None no pairing checks are performed.
             span: The size of the rolling average (None means progressive mean.)
 
         Reutrns:
@@ -1295,15 +1296,19 @@ class Result:
         if p: plottable = self._plottable(x,y)._finished(x,y,l,p)
         else: plottable = self._plottable(x,y)
 
-        rows      = plottable._grouped_ys(l,x,y=y,span=span)        
-        Xs        = sorted(set(map(itemgetter(1),rows)))
+        rows = plottable._grouped_ys(l,x,y=y,span=span)
+
+        try:
+            Xs = sorted(set(map(itemgetter(1),rows)))
+        except:
+            Xs = list(map(itemgetter(0),groupby(sorted(map(itemgetter(1),rows)))))
 
         data = {'x': Xs}
         for _l, group in groupby(rows,key=itemgetter(0)):
             i,Y = 0,[[float('nan')]]*len(Xs)
-            for row in group:
-                i = Xs.index(row[1],i)
-                Y[i] = row[-1]
+            for _x, group in groupby(group,key=itemgetter(1)):
+                i = Xs.index(_x,max(i-1,0))
+                Y[i] = list(chain.from_iterable(map(itemgetter(-1),group)))
             data[_l] = Y
         return Table(data)
 
@@ -1416,22 +1421,26 @@ class Result:
         top_n   : int = None,
         out     : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
-        """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
-        performance for different learners across independent environments. This plot is valuable in gaining
-        insight into how various learners perform in comparison to one another.
+        """Plot the performance of multiple learners on multiple environments. It gives a sense of the
+        expected performance for different learners across independent environments. This plot is
+        valuable in gaining insight into how various learners perform in comparison to one another.
 
         Args:
             x: The values to plot on the x-axis.
             y: The value to plot on the y-axis.
             l: The values to plot in the legend.
             p: The pairs that must exist across all items in the legend in order to be included.
-            span: The number of y values to smooth together when reporting y. If this is None then the average of all y
-                values up to current is shown otherwise a moving average with window size of span (the window will be
-                smaller than span initially).
-            err: This determines what kind of error bars to plot (if any). If `None` then no bars are plotted, if 'se'
-                the standard error is shown, and if 'sd' the standard deviation is shown.
-            errevery: This determines the frequency of errorbars. If `None` they appear 5% of the time.
-            labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
+                If None no pairing  checks are performed.
+            span: The number of y values to smooth together when reporting y. If this is None
+                then the average of all y values up to current is shown otherwise a moving
+                average with window size of span (the window will be smaller than span initially).
+            err: This determines what kind of error bars to plot (if any). If `None` then no bars
+                are plotted, if 'se' the standard error is shown, and if 'sd' the standard deviation
+                is shown.
+            errevery: This determines the frequency of errorbars. If `None` they appear 5% of the
+                time.
+            labels: The legend labels to use in the plot. These should be in order of the actual
+                legend labels.
             colors: The colors used to plot the learners plot.
             title : The title give the plot.
             xlabel: The label on the x-axis.
@@ -1441,12 +1450,16 @@ class Result:
             xticks: Whether the x-axis labels should be drawn.
             yticks: Whether the y-axis labels should be drawn.
             legend: Whether the legend for the plot should be drawn.
+            alpha: The opacity of drawn data.
             xorder: Indicates whether the x-axis should be in ascending (+) or descendeing (-) order.
-            top_n: Only plot the top_n learners. If `None` all learners will be plotted. If negative the bottom will be plotted.
-            out: Indicate where the plot should be sent to after plotting is finished. Valid values are
-                'screen' to show it on screen, a path to save to disk, or None if the plot should
-                not be output anywhere (i.e., kept in memory) in order to keep editing the plot after this call.
-            ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
+            top_n: Only plot the top_n learners. If `None` all learners will be plotted. If negative
+                the bottom will be plotted.
+            out: Indicate where the plot should be sent to after plotting is finished. Valid values
+                are 'screen' to show it on screen, a path to save to disk, or None if the plot should
+                not be output anywhere (i.e., kept in memory) in order to keep editing the plot after
+                this call.
+            ax: Provide an optional axes that the plot will be drawn to. If not provided a new
+                figure/axes is created.
         """
         try:
             xlim = xlim or [None,None]
@@ -1520,9 +1533,10 @@ class Result:
         ylim    : Tuple[Optional[Number],Optional[Number]] = None,
         xticks  : bool = True,
         yticks  : bool = True,
+        legend  : bool = True,
+        alpha   : float = 1,
         xorder  : Literal['+','-'] = None,
         boundary: bool = True,
-        legend  : bool = True,
         out     : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
         """Plot a direct contrast of the performance for two learners.
@@ -1546,6 +1560,8 @@ class Result:
             colors: The colors used to plot the learners plot.
             xlabel: The label on the x-axis.
             ylabel: The label on the y-axis.
+            legend: Whether the legend for the plot should be drawn.
+            alpha: The opacity of drawn data.
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             xticks: Whether the x-axis labels should be drawn.
@@ -1591,7 +1607,7 @@ class Result:
                 color  = self._get_color(colors,                         0)
                 label  = self._get_label(labels,f'{l2_label}-{l1_label}',0)
                 label  = f"{label}" if legend else None
-                lines  = [Points(X, Y, None, YE, style=style, label=label, color=color)]
+                lines  = [Points(X, Y, None, YE, style=style, label=label, color=color, alpha=alpha)]
 
             elif x == l:
                 if len(l1) > 1 and len(l2) == 1:
@@ -1609,7 +1625,7 @@ class Result:
 
                 X,Y,YE = zip(*X_Y_YE)
                 color  = self._get_color(colors, 0)
-                lines  = [Points(X, Y, None, YE, style=style, label=None, color=color)]
+                lines  = [Points(X, Y, None, YE, style=style, label=None, color=color, alpha=alpha)]
 
             else:
                 upper = lambda y,ye: y+ye[1] if isinstance(ye,(list,tuple)) else y+ye
@@ -1632,19 +1648,19 @@ class Result:
                 color  = self._get_color(colors,         0)
                 label  = self._get_label(labels,l1_label,0)
                 label  = f"{label} ({len(X)})" if legend else None
-                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color, alpha=alpha))
 
                 X,Y,YE = zip(*no_win) if no_win else ((),(),None)
                 color  = self._get_color(colors, 1)
                 label  = 'Tie'
                 label  = f"{label} ({len(X)})" if legend else None
-                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color, alpha=alpha))
 
                 X,Y,YE = zip(*l2_win) if l2_win else ((),(),None)
                 color  = self._get_color(colors,         2)
                 label  = self._get_label(labels,l2_label,1)
                 label  = f"{label} ({len(X)})" if legend else None
-                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color))
+                lines.append(Points(X, Y, None, YE, style=style, label=label, color=color, alpha=alpha))
 
             xrotation = 90 if (x != 'index' or xorder) and len(X_Y_YE)>5 else 0
             yrotation = 0
@@ -1662,7 +1678,7 @@ class Result:
             if x == 'index' and xorder in ['+',None]:
                 xordered = None
 
-            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, xordered, out)
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, legend, xrotation, yrotation, xordered, out)
 
         except CobaException as e:
             CobaContext.logger.log(str(e))
@@ -1768,6 +1784,8 @@ class Result:
         lrn_cache = self._lrn_cache
         val_cache = self._val_cache
 
+        need_hasher = None
+
         D = defaultdict(lambda:None) if y is None else defaultdict(list)
 
         def is_icol(key):
@@ -1783,20 +1801,20 @@ class Result:
         def make_gets(cols):
             for col in cols:
                 if isinstance(col,(tuple,list)):
-                    yield lambda e,l,v,s,N,G=list(make_gets(col)): zip(*(g(e,l,v,s,N) for g in G)) if N != 1 else tuple(g(e,l,v,s,N) for g in G)
+                    yield lambda e,l,v,s,N,G=list(make_gets(col)): zip(*(g(e,l,v,s,N) for g in G)) if N != 0 else tuple(g(e,l,v,s,N) for g in G)
                 elif col in self.environments.columns:
-                    yield lambda e,l,v,s,N,col=col: repeat(e[col],N) if N != 1 else e[col]
+                    yield lambda e,l,v,s,N,col=col: repeat(e[col],N) if N != 0 else e[col]
                 elif col in self.learners.columns or col == 'full_name':
-                    yield lambda e,l,v,s,N,col=col: repeat(l[col],N) if N != 1 else l[col]
+                    yield lambda e,l,v,s,N,col=col: repeat(l[col],N) if N != 0 else l[col]
                 elif col in self.evaluators.columns:
-                    yield lambda e,l,v,s,N,col=col: repeat(v[col],N) if N != 1 else v[col]
+                    yield lambda e,l,v,s,N,col=col: repeat(v[col],N) if N != 0 else v[col]
                 elif col in self.interactions.columns:
                     yield lambda e,l,v,s,N,col=col: iter(s.pop())
 
         gets  = list(make_gets(keys))
         icols = list(get_icols(keys))
         icols.reverse()
-        
+
         if y: icols += [y]
         for (eid,lid,vid), sel in self.interactions.groupby(3,icols):
 
@@ -1805,12 +1823,36 @@ class Result:
             val = val_cache[vid]
 
             Y = sel.pop() if y else None
-            N = 1 if not sel else len(sel[0])            
-            if N ==1 and func is None and y is not None: func = 'last'
+            N = 0 if not sel else len(sel[0])
 
             outs = tuple(map(methodcaller('__call__',env,lrn,val,sel,N),gets))
 
-            if N == 1:
+            if N != 0: outs = zip(*outs)
+            if N == 0 and func is None and y is not None: func = 'last'
+
+            if need_hasher is None:
+
+                if N == 0:
+                    out = outs
+                else:
+                    out,outs = peek_first(outs)
+
+                need_hasher = try_else(lambda: not bool(hash(out)), True)
+
+                if need_hasher:
+                    can_hash  = [try_else(lambda: bool(hash(o)), False) for o in out]
+                    cant_hash = list(map(not_, can_hash))
+                    def hasher(O,can_hash=can_hash,cant_hash=cant_hash):
+                        return hash(tuple(chain(compress(O,can_hash),map(id,compress(O,cant_hash)))))
+
+            if need_hasher:
+                if N == 0:
+                    outs = HashableDense(outs,hasher(outs))
+                else:
+                    o1,o2 = tee(outs,2)
+                    outs = map(HashableDense, o1, map(hasher,o2))
+
+            if N == 0:
                 o = outs
                 if y is None:
                     D[o]
@@ -1821,10 +1863,10 @@ class Result:
 
             else:
                 if y is None:
-                    for o in zip(*outs):
+                    for o in outs:
                         D[o]
                 else:
-                    for o,y in zip(zip(*outs),moving_average(Y,span)):
+                    for o,y in zip(outs,moving_average(Y,span)):
                         D[o].append(y)
         return sorted([k + ((v,) if v else ()) for k,v in D.items()], key=MyComparable)
 

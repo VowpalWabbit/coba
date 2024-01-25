@@ -1366,7 +1366,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id','data_id','seed'                            ],[1,2,1],[2,2,2]]
-        lrns = [['learner_id','family'                                        ],[1,'a'],[2,'b']]
+        lrns = [['learner_id','family'                                        ],[1,'a'],[2,'a']]
         vals = [['evaluator_id'                                               ],[1]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[1,1,1,0,1],[1,2,1,0,0],[2,1,1,0,0],[2,2,1,0,1]]
 
@@ -1390,7 +1390,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id','data_id','seed'                            ],[1,2,1],[2,2,2]]
-        lrns = [['learner_id','family'                                        ],[1,'a'],[2,'b']]
+        lrns = [['learner_id','family'                                        ],[1,'a'],[2,'a']]
         vals = [['evaluator_id'                                               ],[1]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[1,1,1,0,2],[1,2,1,0,0],[2,1,1,0,0],[2,2,1,0,1]]
 
@@ -1414,7 +1414,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger.sink = ListSink()
 
         envs = [['environment_id','data_id','seed'                            ],[1,2,1],[2,2,2]]
-        lrns = [['learner_id','family'                                        ],[1,'a'],[2,'b']]
+        lrns = [['learner_id','family'                                        ],[1,'a'],[2,'a']]
         vals = [['evaluator_id'                                               ],[1]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],
                 [1,1,1,0,2],[1,1,1,1,2],
@@ -1768,6 +1768,57 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(table['x'], [1,2])
         self.assertEqual(table['1. learner_1'],[[1,1],[1.5,1.5]])
         self.assertEqual(table['2. learner_2'],[[1,2],[2,3]])
+
+    def test_raw_learners_not_hashable1(self):
+        envs = [['environment_id'],[0],[1]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward','bad'],
+                [0,1,0,1,1,[1]],[0,1,0,2,2,[2]],
+                [0,2,0,1,1,[1]],[0,2,0,2,3,[2]],
+                [1,1,0,1,1,[1]],[1,1,0,2,2,[2]],
+                [1,2,0,1,2,[1]],[1,2,0,2,4,[2]],
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_learners(x='bad')
+        self.assertEqual(('x','1. learner_1','2. learner_2'), table.columns)
+        self.assertEqual(table['x'], [[1],[2]])
+        self.assertEqual(table['1. learner_1'],[[1,1],[1.5,1.5]])
+        self.assertEqual(table['2. learner_2'],[[1,2],[2,3]])
+
+    def test_raw_learners_not_hashable2(self):
+        envs = [['environment_id'],[0],[1]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward','bad'],
+                [0,1,0,1,1,[1]],
+                [0,2,0,1,1,[1]],
+                [1,1,0,1,1,[1]],
+                [1,2,0,1,2,[1]],
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_learners(x='bad')
+        self.assertEqual(('x','1. learner_1','2. learner_2'), table.columns)
+        self.assertEqual(table['x'], [[1]])
+        self.assertEqual(table['1. learner_1'],[[1,1]])
+        self.assertEqual(table['2. learner_2'],[[1,2]])
+
+    def test_raw_learners_not_hashable3(self):
+        envs = [['environment_id','bad'],[0,[0]],[1,[1]]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],
+                [0,2,0,1,1],
+                [1,1,0,1,1],
+                [1,2,0,1,2],
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_learners(x='bad')
+        self.assertEqual(('x','1. learner_1','2. learner_2'), table.columns)
+        self.assertEqual(table['x'], [[0],[1]])
+        self.assertEqual(table['1. learner_1'],[[1],[1]])
+        self.assertEqual(table['2. learner_2'],[[1],[2]])
 
     def test_raw_learners_missing_env_with_p(self):
         envs = [['environment_id'],[0],[1],[2]]

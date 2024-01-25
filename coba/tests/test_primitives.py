@@ -260,9 +260,9 @@ class HashableDense_Tests(unittest.TestCase):
         self.assertEqual(hash_seq,hash_seq)
 
     def test_eq(self):
-        hash_seq = HashableDense([1,2,3])
-        self.assertEqual([1,2,3],hash_seq)
-        self.assertEqual((1,2,3),hash_seq)
+        hash_seq1 = HashableDense([1,2,3])
+        hash_seq2 = HashableDense([1,2,3])
+        self.assertEqual(hash_seq1,hash_seq2)
 
     def test_ne(self):
         hash_seq = HashableDense([1,2,3])
@@ -272,15 +272,20 @@ class HashableDense_Tests(unittest.TestCase):
 
     def test_repr(self):
         hash_seq = HashableDense([1,2,3])
-        self.assertEqual("[1, 2, 3]",repr(hash_seq))
+        self.assertEqual("(1, 2, 3)",repr(hash_seq))
 
     def test_str(self):
         hash_seq = HashableDense([1,2,3])
-        self.assertEqual("[1, 2, 3]",str(hash_seq))
+        self.assertEqual("(1, 2, 3)",str(hash_seq))
 
     def test_pickle(self):
         dump = HashableDense([1,2,3])
         load = pickle.loads(pickle.dumps(dump))
+
+    def test_explicit_hash(self):
+        hash_seq = HashableDense([1,2,3],1)
+        self.assertEqual(hash(hash_seq), 1)
+
 
 class Categorical_Tests(unittest.TestCase):
     def test_value(self):
