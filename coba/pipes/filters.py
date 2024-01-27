@@ -65,7 +65,7 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "shuffle": self._seed }
+        return { "shuffle_seed": self._seed }
 
 class Take(Filter[Iterable[Any], Sequence[Any]]):
     """Take a fixed number of items from an iterable."""

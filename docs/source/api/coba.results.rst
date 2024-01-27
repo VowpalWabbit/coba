@@ -10,3 +10,14 @@ coba.results
 
       Result
       Table
+
+Error Bars
+~~~~~~~~~~
+   .. autosummary::
+      :toctree:
+
+      PointAndInterval
+      StdDevCI
+      StdErrCI
+      BootstrapCI
+      BinomialCI

@@ -91,7 +91,7 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
         for recipe in recipes:
             environments.extend(self._make(recipe))
 
-        environments = sorted(environments, key= lambda env: env.params.get("shuffle",0))
+        environments = sorted(environments, key= lambda env: env.params.get("shuffle_seed",0))
 
         return environments
 

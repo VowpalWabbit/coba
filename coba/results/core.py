@@ -15,11 +15,13 @@ from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union
 
 import coba.json
 from coba.primitives import is_batch, Source, Environment, HashableDense
-from coba.statistics import mean, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
+from coba.statistics import mean
 from coba.context import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first, KeyDefaultDict, minimize, try_else
 from coba.pipes import Pipes, DiskSource
+
+from coba.results.errors import StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
 
@@ -1299,9 +1301,9 @@ class Result:
         rows = plottable._grouped_ys(l,x,y=y,span=span)
 
         try:
-            Xs = sorted(set(map(itemgetter(1),rows)))
+            Xs = sorted(set(map(itemgetter(1),rows)),key=MyComparable)
         except:
-            Xs = list(map(itemgetter(0),groupby(sorted(map(itemgetter(1),rows)))))
+            Xs = list(map(itemgetter(0),groupby(sorted(map(itemgetter(1),rows),key=MyComparable))))
 
         data = {'x': Xs}
         for _l, group in groupby(rows,key=itemgetter(0)):
@@ -1404,7 +1406,7 @@ class Result:
         l       : Union[str, Sequence[str]] = 'full_name',
         p       : Union[str, Sequence[str]] = 'environment_id',
         span    : int = None,
-        err     : Union[Literal['se','sd','bs','bi'], None, PointAndInterval] = None,
+        err     : Union[Literal['se','sd','bs','bi'], PointAndInterval] = None,
         errevery: int = None,
         labels  : Sequence[str] = None,
         colors  : Union[int,Sequence[Union[str,int]]] = None,
@@ -1480,7 +1482,7 @@ class Result:
                 lines.append(Points(style=style,color=color,label=label,alpha=alpha))
                 for _xi, (_x, Y) in enumerate(zip(*raw_data[['x',_l]])):
                     Y_count[-1] = max(Y_count[-1],len(Y))
-                    lines[-1].add(_x, *err(Y, _xi))
+                    lines[-1].add(_x if _x is not None else 'None', *err(Y, _xi))
 
             lines  = sorted(lines, key=lambda line: line.Y[-1], reverse=True)
             labels = [l.label or str(l.label) for l in lines]
@@ -1522,7 +1524,7 @@ class Result:
         p       : Union[str, Sequence[str]] = 'environment_id',
         mode    : Union[Literal["diff","prob"], Callable[[float,float],float]] = "diff",
         span    : int = None,
-        err     : Union[Literal['se','sd','bs','bi'], None, PointAndInterval] = None,
+        err     : Union[Literal['se','sd','bs','bi'], PointAndInterval] = None,
         errevery: int = None,
         labels  : Sequence[str] = None,
         colors  : Sequence[str] = None,
@@ -1587,7 +1589,7 @@ class Result:
             if not isinstance(l,list_like) and not isinstance(l1   ,list_like): l1 = [l1]
             if not isinstance(l,list_like) and not isinstance(l2   ,list_like): l2 = [l2]
 
-            contraster = (lambda x,y: y-x) if mode == 'diff' else (lambda x,y: int(y-x>0)) if mode=='prob' else mode
+            contraster = (lambda x,y: y-x) if mode == 'diff' else (lambda x,y: int((y-x)>0)) if mode=='prob' else mode
             _boundary  = 0 if mode == 'diff' else .5
 
             errevery = errevery or max(int(raw_data['x'][-1]*0.05),1) if x == 'index' else 1
@@ -1757,7 +1759,7 @@ class Result:
     def _confidence(self, err: Union[str,PointAndInterval], errevery:int = 1):
 
         if err == 'se':
-            ci = StdErrCI(1.96)
+            ci = StdErrCI(.95)
         elif err == 'bs':
             ci = BootstrapCI(.95, mean)
         elif err == 'bi':
@@ -1866,8 +1868,8 @@ class Result:
                     for o in outs:
                         D[o]
                 else:
-                    for o,y in zip(outs,moving_average(Y,span)):
-                        D[o].append(y)
+                    for o,y_ in zip(outs,moving_average(Y,span)):
+                        D[o].append(y_)
         return sorted([k + ((v,) if v else ()) for k,v in D.items()], key=MyComparable)
 
     def _global_n(self, n: Union[int,Literal['min']]):

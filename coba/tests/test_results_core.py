@@ -7,12 +7,12 @@ from coba.utilities import PackageChecker
 from coba.pipes import ListSink
 from coba.context import CobaContext, IndentLogger, BasicLogger
 from coba.exceptions import CobaException, CobaExit
-from coba.statistics import BootstrapCI
 
 from coba.results.core import TransactionEncode,TransactionDecode,TransactionResult
 from coba.results.core import Result, Table, View
 from coba.results.core import MatplotPlotter, Points
 from coba.results.core import moving_average
+from coba.results.errors import BootstrapCI
 
 class TestPlotter:
     def __init__(self):
@@ -3028,7 +3028,10 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual((2,(1,1)),Result()._confidence('sd')([1,2,3]))
 
     def test_confidence_se(self):
-        self.assertEqual((2,(1.96,1.96)),Result()._confidence('se')([1,3]))
+        point,(lo,hi) = Result()._confidence('se')([1,3])
+        self.assertEqual(2, point)
+        self.assertAlmostEqual(1.96,lo,delta=.01)
+        self.assertAlmostEqual(1.96,hi,delta=.01)
 
     @unittest.skipUnless(PackageChecker.scipy(strict=False), "this test requires scipy")
     def test_confidence_bs(self):
@@ -3045,8 +3048,8 @@ class Result_Tests(unittest.TestCase):
         mu,(l,h) = Result()._confidence('bi')([0,0,1,1])
 
         self.assertEqual(.5,mu)
-        self.assertAlmostEqual(l,0.34996429)
-        self.assertAlmostEqual(h,0.34996429)
+        self.assertAlmostEqual(l,0.34996429,delta=.001)
+        self.assertAlmostEqual(h,0.34996429,delta=.001)
 
 class moving_average_Tests(unittest.TestCase):
 

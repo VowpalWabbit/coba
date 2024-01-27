@@ -1,18 +1,9 @@
-"""
-This is an example script that creates and executes an Experiment.
-This script requires that the matplotlib and vowpalwabbit packages be installed.
-"""
-
 import coba as cb
 
-#First, we define the learners that we want to test
-learners = [ cb.VowpalEpsilonLearner(), cb.RandomLearner() ]
+env0 = cb.Environments.from_linear_synthetic(100,n_actions=5,seed=1).binary().shuffle(n=10)
+lrns = [cb.RandomLearner(seed=1),cb.RandomLearner(seed=2)]
 
-#Next we create an environment we'd like to evaluate against
-environments = cb.Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([1,2,3])
+result = cb.Experiment(env0,lrns).run(quiet=True)
 
-#We then create and run our experiment from our environments and learners
-result = cb.Experiment(environments,learners).run()
-
-#After evaluating can create a quick summary plot to get a sense of how the learners performed
-result.plot_learners(y='reward',err='se',xlim=(10,None))
+#result.plot_learners(err='bs')
+result.plot_learners(err=cb.BootstrapCI(.01,cb.mean))

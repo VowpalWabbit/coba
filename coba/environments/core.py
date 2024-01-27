@@ -605,7 +605,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         #Experience has shown that most of the time we want to sort.
         #This doesn't change the experiment results. It simply makes it
         #easier monitor an experiment while it runs in the background.
-        ordered = sorted(shuffled, key=lambda env: env.params.get('shuffle',0))
+        ordered = sorted(shuffled, key=lambda env: env.params.get('shuffle_seed',0))
 
         return Environments(ordered)
 

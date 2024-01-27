@@ -533,92 +533,92 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['shuffle'])
+        self.assertEqual(1   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual(1   , envs[1].params['shuffle_seed'])
 
     def test_shuffle_seed(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(seed=1)
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['shuffle'])
+        self.assertEqual(1   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual(1   , envs[1].params['shuffle_seed'])
 
     def test_shuffle_int(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(1)
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['shuffle'])
+        self.assertEqual(1   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual(1   , envs[1].params['shuffle_seed'])
 
     def test_shuffle_seeds(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(seeds=[1,2])
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['shuffle'])
+        self.assertEqual(1   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual(1   , envs[1].params['shuffle_seed'])
         self.assertEqual('A' , envs[2].params['id'])
-        self.assertEqual(2   , envs[2].params['shuffle'])
+        self.assertEqual(2   , envs[2].params['shuffle_seed'])
         self.assertEqual('B' , envs[3].params['id'])
-        self.assertEqual(2   , envs[3].params['shuffle'])
+        self.assertEqual(2   , envs[3].params['shuffle_seed'])
 
     def test_shuffle_sequence(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle([1,2])
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['shuffle'])
+        self.assertEqual(1   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual(1   , envs[1].params['shuffle_seed'])
         self.assertEqual('A' , envs[2].params['id'])
-        self.assertEqual(2   , envs[2].params['shuffle'])
+        self.assertEqual(2   , envs[2].params['shuffle_seed'])
         self.assertEqual('B' , envs[3].params['id'])
-        self.assertEqual(2   , envs[3].params['shuffle'])
+        self.assertEqual(2   , envs[3].params['shuffle_seed'])
 
     def test_shuffle_n(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(n=2)
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(0   , envs[0].params['shuffle'])
+        self.assertEqual(0   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(0   , envs[1].params['shuffle'])
+        self.assertEqual(0   , envs[1].params['shuffle_seed'])
         self.assertEqual('A' , envs[2].params['id'])
-        self.assertEqual(1   , envs[2].params['shuffle'])
+        self.assertEqual(1   , envs[2].params['shuffle_seed'])
         self.assertEqual('B' , envs[3].params['id'])
-        self.assertEqual(1   , envs[3].params['shuffle'])
+        self.assertEqual(1   , envs[3].params['shuffle_seed'])
 
     def test_shuffle_args(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(0,1)
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(0   , envs[0].params['shuffle'])
+        self.assertEqual(0   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(0   , envs[1].params['shuffle'])
+        self.assertEqual(0   , envs[1].params['shuffle_seed'])
         self.assertEqual('A' , envs[2].params['id'])
-        self.assertEqual(1   , envs[2].params['shuffle'])
+        self.assertEqual(1   , envs[2].params['shuffle_seed'])
         self.assertEqual('B' , envs[3].params['id'])
-        self.assertEqual(1   , envs[3].params['shuffle'])
+        self.assertEqual(1   , envs[3].params['shuffle_seed'])
 
     def test_shuffle_iterable(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(range(2))
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(0   , envs[0].params['shuffle'])
+        self.assertEqual(0   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(0   , envs[1].params['shuffle'])
+        self.assertEqual(0   , envs[1].params['shuffle_seed'])
         self.assertEqual('A' , envs[2].params['id'])
-        self.assertEqual(1   , envs[2].params['shuffle'])
+        self.assertEqual(1   , envs[2].params['shuffle_seed'])
         self.assertEqual('B' , envs[3].params['id'])
-        self.assertEqual(1   , envs[3].params['shuffle'])
+        self.assertEqual(1   , envs[3].params['shuffle_seed'])
 
     def test_sparse(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).sparse(False,True)
@@ -703,8 +703,8 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(1  , len(envs))
         self.assertEqual('A'  , envs[0].params['id'])
-        self.assertEqual('med', envs[0].params['scale_shift'])
-        self.assertEqual('std', envs[0].params['scale_scale'])
+        self.assertEqual('med', envs[0].params['shift'])
+        self.assertEqual('std', envs[0].params['scale'])
         self.assertEqual(2    , envs[0].params['scale_using'])
 
     def test_impute(self):
@@ -837,30 +837,30 @@ class Environments_Tests(unittest.TestCase):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter(Shuffle(1))
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['shuffle'])
+        self.assertEqual(1   , envs[0].params['shuffle_seed'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual(1   , envs[1].params['shuffle_seed'])
 
     def test_sequence_filter(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter([Shuffle(1),Shuffle(2)])
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['shuffle'])
+        self.assertEqual(1   , envs[0].params['shuffle_seed'])
         self.assertEqual('A' , envs[1].params['id'])
-        self.assertEqual(2   , envs[1].params['shuffle'])
+        self.assertEqual(2   , envs[1].params['shuffle_seed'])
         self.assertEqual('B' , envs[2].params['id'])
-        self.assertEqual(1   , envs[2].params['shuffle'])
+        self.assertEqual(1   , envs[2].params['shuffle_seed'])
         self.assertEqual('B' , envs[3].params['id'])
-        self.assertEqual(2   , envs[3].params['shuffle'])
+        self.assertEqual(2   , envs[3].params['shuffle_seed'])
 
     def test_two_step_filter(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter(Shuffle(1)).filter(Take(1))
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['shuffle'])
+        self.assertEqual(1   , envs[0].params['shuffle_seed'])
         self.assertEqual(1   , envs[0].params['take'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual(1   , envs[1].params['shuffle_seed'])
         self.assertEqual(1   , envs[1].params['take'])
 
     def test_params(self):

@@ -82,7 +82,7 @@ class Scale(EnvironmentFilter):
     """Scale and shift features."""
 
     def __init__(self,
-        shift: Union[Number,Literal["min","mean","med"]] = 0,
+        shift: Union[Number,Literal["min","mean","median"]] = 0,
         scale: Union[Number,Literal["minmax","std","iqr","maxabs"]] = "minmax",
         target: Literal["context"] = "context",
         using: Optional[int] = None):
@@ -95,7 +95,7 @@ class Scale(EnvironmentFilter):
             using: The number of interactions to use when calculating the necessary statistics.
         """
 
-        assert isinstance(shift,Number) or shift in ["min","mean","med"]
+        assert isinstance(shift,Number) or shift in ["min","mean","med","median"]
         assert isinstance(scale,Number) or scale in ["minmax","std","iqr","maxabs"]
 
         self._times = [0,0,0,0]
@@ -108,10 +108,9 @@ class Scale(EnvironmentFilter):
     @property
     def params(self) -> Mapping[str, Any]:
         return {
-            "scale_shift": self._shift,
-            "scale_scale": self._scale,
+            "shift": self._shift,
+            "scale": self._scale,
             "scale_using": self._using,
-            "scale_target": self._target
         }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
@@ -223,7 +222,7 @@ class Scale(EnvironmentFilter):
             return -min(values)
         elif shift == "mean":
             return -sum(values)/len(values) #mean() is very slow due to calculations for precision
-        elif shift == "med":
+        elif shift == "med" or shift == "median":
             return -median(values)
         return shift
 

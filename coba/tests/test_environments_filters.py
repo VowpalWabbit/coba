@@ -47,7 +47,7 @@ CobaContext.logger = NullLogger()
 class Shuffle_Tests(unittest.TestCase):
 
     def test_str(self):
-        self.assertEqual("{'shuffle': 1}", str(Shuffle(1)))
+        self.assertEqual("{'shuffle_seed': 1}", str(Shuffle(1)))
 
     def test_empty(self):
         self.assertEqual(list(Shuffle(1).filter([])),[])
@@ -740,9 +740,9 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[2]['context'])
 
     def test_params(self):
-        self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None,"scale_target":"context"}, Scale(shift="mean",scale="std").params)
-        self.assertEqual({"scale_shift":2     ,"scale_scale":1/2  ,"scale_using":None,"scale_target":"context"}, Scale(shift=2,scale=1/2).params)
-        self.assertEqual({"scale_shift":2     ,"scale_scale":1/2  ,"scale_using":10  ,"scale_target":"context"}, Scale(shift=2,scale=1/2,using=10).params)
+        self.assertEqual({"shift":"mean","scale":"std","scale_using":None}, Scale(shift="mean",scale="std").params)
+        self.assertEqual({"shift":2     ,"scale":1/2  ,"scale_using":None}, Scale(shift=2,scale=1/2).params)
+        self.assertEqual({"shift":2     ,"scale":1/2  ,"scale_using":10  }, Scale(shift=2,scale=1/2,using=10).params)
 
     def test_iter(self):
         interactions = [

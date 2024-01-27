@@ -1,14 +1,10 @@
-from math import hypot, isnan, erf, sqrt
+from math import hypot, erf, sqrt
 from statistics import fmean
 from sys import version_info
 from operator import mul, sub
 from bisect import bisect_left
 from itertools import repeat, accumulate, compress, chain
-from abc import abstractmethod, ABC
-from typing import Sequence, Tuple, Union, Callable, Optional, Literal
-
-from coba.exceptions import CobaException
-from coba.utilities import PackageChecker
+from typing import Sequence, Tuple, Union, Optional
 
 def iqr(values: Sequence[float]) -> float:
 
@@ -100,106 +96,6 @@ def var(sample: Sequence[float]) -> float:
 def stdev(sample: Sequence[float]) -> float:
     return var(sample)**(1/2)
 
-class PointAndInterval(ABC):
-
-    @abstractmethod
-    def point(self, sample: Sequence[float]) -> float:
-        ...
-
-    @abstractmethod
-    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
-        ...
-
-class StdDevCI(PointAndInterval):
-    def point(self,sample: Sequence[float]) -> float:
-        return mean(sample)
-    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
-        mu = mean(sample)
-        sd = round(0 if len(sample) == 1 else stdev(sample),5)
-        return (mu, (sd,sd))
-
-class StdErrCI(PointAndInterval):
-
-    def __init__(self, z_score:float=1.96) -> None:
-        self._z_score = z_score
-        self._inner   = StdDevCI()
-
-    def point(self,sample: Sequence[float]) -> float:
-        return self._inner.point(sample)
-
-    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
-        (mu,(sd,sd)) = self._inner.point_interval(sample)
-        sqrtn = len(sample)**.5
-        se    = round(sd/sqrtn,5)
-        ci    = self._z_score*se
-        return (mu, (ci,ci))
-
-class BootstrapCI(PointAndInterval):
-
-    def __init__(self, confidence:float, statistic:Callable[[Sequence[float]], float]) -> None:
-        PackageChecker.scipy('BootstrapConfidenceInterval')
-        self._conf = confidence
-        self._stat = statistic
-        self._args = dict(method='basic', vectorized=False, n_resamples=1000, random_state=1)
-
-    def point(self,sample: Sequence[float]) -> float:
-        return self._stat(sample)
-
-    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
-        from scipy.stats import bootstrap
-
-        p   = self._stat(sample)
-
-        if len(sample) < 3:
-            l,h = p,p
-        else:
-            l,h = bootstrap([sample], self._stat, **self._args).confidence_interval
-
-        return (p, (p-l,h-p))
-
-class BinomialCI(PointAndInterval):
-
-    def __init__(self, method:Literal['wilson', 'clopper-pearson']):
-        self._method = method
-
-    def point(self,sample: Sequence[float]) -> float:
-        return sum(sample)/len(sample)
-
-    def point_interval(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
-        if set(sample) - set([0,1]):
-            raise CobaException("A binomial confidence interval can only be calculated on values of 0 and 1.")
-
-        if self._method == "wilson":
-            z_975 = 1.96 #z-score for .975 area to the left
-            p_hat = sum(sample)/len(sample)
-            n     = len(sample)
-            Q     = z_975**2/(2*n)
-
-            #https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm
-            interval_num = z_975*((p_hat*(1-p_hat))/n + Q/(2*n))**(.5)
-            location_num = (p_hat+Q)
-
-            interval_den = (1+2*Q)
-            location_den = (1+2*Q)
-
-            interval = interval_num/interval_den
-            location = location_num/location_den
-
-            return (p_hat, (p_hat-(location-interval), (location+interval)-p_hat))
-
-        else:
-            PackageChecker.scipy("BinomialConfidenceInterval")
-            from scipy.stats import beta
-
-            lo = beta.ppf(.05/2, sum(sample), len(sample) - sum(sample) + 1)
-            hi = beta.ppf(1-.05/2, sum(sample) + 1, len(sample) - sum(sample))
-            p_hat = sum(sample)/len(sample)
-
-            lo = 0.0 if isnan(lo) else lo
-            hi = 1.0 if isnan(hi) else hi
-
-            return (p_hat, (p_hat-lo,hi-p_hat))
-
 class OnlineVariance:
     """Calculate sample variance in an online fashion.
 
@@ -227,7 +123,6 @@ class OnlineVariance:
 
     def update(self, value: float) -> None:
         """Update the current variance with the given value."""
-
         (count,mean,M2) = (self._count, self._mean, self._M2)
 
         count   += 1
@@ -251,14 +146,10 @@ class OnlineMean:
     @property
     def mean(self) -> float:
         """The mean of all given updates."""
-
         return self._mean
 
     def update(self, value:float) -> None:
         """Update the current mean with the given value."""
-
         self._n += 1
-
         alpha = 1/self._n
-
         self._mean = value if alpha == 1 else (1 - alpha) * self._mean + alpha * value

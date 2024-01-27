@@ -1,5 +1,5 @@
-﻿coba.context.CobaContext
-========================
+﻿CobaContext
+===========
 
 .. currentmodule:: coba.context
 
