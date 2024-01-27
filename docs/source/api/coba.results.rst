@@ -5,14 +5,16 @@ coba.results
 
 .. automodule:: coba.results
 
+Core
+~~~~
    .. autosummary::
       :toctree:
 
       Result
       Table
 
-Error Bars
-~~~~~~~~~~
+Confidence Intervals
+~~~~~~~~~~~~~~~~~~~~
    .. autosummary::
       :toctree:
 
