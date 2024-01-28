@@ -450,6 +450,14 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(4, len(table))
         self.assertEqual(2, len(filtered_table))
 
+    def test_where_match_str_number(self):
+        table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
+
+        filtered_table = table.where(a={'match':'1'})
+
+        self.assertEqual(4, len(table))
+        self.assertEqual(2, len(filtered_table))
+
     def test_where_match_number_str(self):
         table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
 

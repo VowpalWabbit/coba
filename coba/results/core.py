@@ -297,7 +297,8 @@ class Table:
         if kwargs:
             selection = []
             for kw,arg in kwargs.items():
-                if kw in self._indexes and comparison != "match" and not callable(kwargs[kw]):
+                if isinstance(arg,dict): comparison = next(iter(arg.keys()))
+                if kw in self._indexes and comparison != "match" and not callable(arg):
                     for lo,hi in self._lohis[kw]:
                         for l,h in self._compare(lo,hi,self._data[kw],arg,comparison,"bisect"):
                             selection.extend(range(l,h))
@@ -478,6 +479,9 @@ class Table:
             elif isinstance(arg,str) and isinstance(col[0],str):
                 _re = re.compile(arg)
                 return [ i for i,c in enumerate(col,lo) if _re.search(c) ]
+            else:
+                _re = re.compile(str(arg))
+                return [ i for i,c in enumerate(col,lo) if _re.search(str(c)) ]
 
 class TransactionDecode:
     def filter(self, transactions:Iterable[str]) -> Iterable[Any]:
