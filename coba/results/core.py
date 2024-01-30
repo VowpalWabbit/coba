@@ -1,3 +1,4 @@
+import time
 import re
 import json
 import collections
@@ -10,18 +11,41 @@ from operator import truediv, sub, mul, itemgetter, methodcaller, not_
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, astuple, field, replace
-from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee, islice
+from itertools import chain, repeat, accumulate, groupby, count, compress, groupby, tee, islice, product
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
 import coba.json
 from coba.primitives import is_batch, Source, Environment, HashableDense
 from coba.statistics import mean
-from coba.context import CobaContext
+from coba.context import CobaContext, NullLogger
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first, KeyDefaultDict, minimize, try_else
 from coba.pipes import Pipes, DiskSource
 
 from coba.results.errors import StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
+
+class MissingType:
+    __slots__ = ()
+    _instance = None
+
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __str__(self):
+        return "Missing"
+
+    def __repr__(self):
+        return "Missing"
+
+    def __gt__(self,other):
+       return True
+
+    def __lt__(self,other):
+       return False
+
+Missing = MissingType()
 
 def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None, weights:Union[Literal['exp'],Sequence[float]]=None) -> Iterable[float]:
 
@@ -53,25 +77,8 @@ def moving_average(values:Sequence[float], span:Union[int,Sequence[float]]=None,
 
 #this adds one more check on average but avoids the worst case
 #scenario, which can be common for certain types of experiments.
-def my_bisect_left(c,a,l,h): return l if c[l]==a else bisect_left(c,a,l,h)
+def my_bisect_left (c,a,l,h): return l if c[l]  ==a else bisect_left (c,a,l,h)
 def my_bisect_right(c,a,l,h): return h if c[h-1]==a else bisect_right(c,a,l,h)
-
-class MyComparable:
-        __slots__ = ('obj',)
-
-        #See this for more information: https://stackoverflow.com/q/68173281/1066291
-
-        def __init__(self, obj):
-            self.obj = obj
-
-        def __lt__(self, other):
-            try:
-                return self.obj < other.obj
-            except TypeError as e:
-                err_msg = str(e)
-                return err_msg.endswith("'NoneType'") if "'NoneType'" in err_msg else err_msg.endswith("'str'")
-
-        __hash__ = None
 
 class View:
     __slots__ = ('_data','_select')
@@ -228,13 +235,13 @@ class Table:
             if pad_cols: new_len = old_len+len(next(iter(data.values())))
 
             for hdr in new_cols:
-                self._data[hdr] = list(chain(repeat(None, old_len), data[hdr]))
+                self._data[hdr] = list(chain(repeat(Missing, old_len), data[hdr]))
 
             for hdr in old_cols:
                 self._data[hdr].extend(data[hdr])
 
             for hdr in pad_cols:
-                self._data[hdr].extend(repeat(None,new_len-old_len))
+                self._data[hdr].extend(repeat(Missing, new_len-old_len))
 
             if new_cols:
                 self._columns += tuple(sorted(new_cols))
@@ -450,38 +457,38 @@ class Table:
             if method == "bisect":
                 return [ (lo,my_bisect_left(col,arg,lo,hi)) ]
             else:
-                return [ i for i,c in enumerate(col,lo) if c < arg ]
+                return [ i for i,c in enumerate(col,lo) if c is not None and c < arg ]
 
         if comparison == "<=":
             if method == "bisect":
                 return [ (lo,my_bisect_right(col,arg,lo,hi)) ]
             else:
-                return [ i for i,c in enumerate(col,lo) if c <= arg ]
+                return [ i for i,c in enumerate(col,lo) if c is not None and c <= arg ]
 
         if comparison == ">=":
             if method == "bisect":
                 return [ (my_bisect_left(col,arg,lo,hi), hi) ]
             else:
-                return [ i for i,c in enumerate(col,lo) if c >= arg ]
+                return [ i for i,c in enumerate(col,lo) if c is not None and c >= arg ]
 
         if comparison == ">":
             if method == "bisect":
                 return [ (my_bisect_right(col,arg,lo,hi), hi) ]
             else:
-                return [ i for i,c in enumerate(col,lo) if c > arg ]
+                return [ i for i,c in enumerate(col,lo) if c is not None and c > arg ]
 
         if comparison == "match":
             if isinstance(arg,Number) and col and isinstance(col[0],Number):
                 return [ i for i,c in enumerate(col,lo) if c == arg ]
             elif isinstance(arg,Number) and isinstance(col[0],str):
                 _re = re.compile(f'(\D|^){arg}(\D|$)')
-                return [ i for i,c in enumerate(col,lo) if _re.search(c) ]
+                return [ i for i,c in enumerate(col,lo) if c is not None and _re.search(c) ]
             elif isinstance(arg,str) and isinstance(col[0],str):
                 _re = re.compile(arg)
-                return [ i for i,c in enumerate(col,lo) if _re.search(c) ]
+                return [ i for i,c in enumerate(col,lo) if c is not None and _re.search(c) ]
             else:
                 _re = re.compile(str(arg))
-                return [ i for i,c in enumerate(col,lo) if _re.search(str(c)) ]
+                return [ i for i,c in enumerate(col,lo) if c is not None and _re.search(str(c)) ]
 
 class TransactionDecode:
     def filter(self, transactions:Iterable[str]) -> Iterable[Any]:
@@ -679,7 +686,7 @@ class MatplotPlotter(Plotter):
                 else:
                     ax = plt.subplot(111) if not isinstance(ax,int) else plt.subplot(ax)
 
-            is_existing_plot = ax.lines or ax.collections
+            is_existing_plot = bool(ax.lines or ax.collections)
 
             in_lim = lambda v,lim: lim is None or ((lim[0] or -float('inf')) <= v and v <= (lim[1] or float('inf')))
 
@@ -957,8 +964,8 @@ class Result:
             lrn_id = value['learner_id']
             family = value.get('family',lrn_id)
             params = [f'{k}={v}' for k,v in value.items() if k and k not in ['family','learner_id'] and v is not None ]
-            params = f"({','.join(params)})" if params else ''
-            value['full_name'] = f"{lrn_id}. {family}{params}" if family != 'vw' else f"{lrn_id}. {family}({value['args']})"
+            params = f"({', '.join(params)})" if params else ''
+            value['full_name'] = f"{lrn_id}. {family}{params}" if family != 'vw' else f"{lrn_id}. {family}({value['args']}, seed={value['seed']})"
 
         self._plotter = MatplotPlotter()
 
@@ -1030,7 +1037,7 @@ class Result:
 
         full_id = ['environment_id','learner_id','evaluator_id']
 
-        indexes = self._grouped_ys(p,l,full_l,full_id,y=y,func='list')
+        indexes = self._grouped_ys(p,l,full_l,full_id,y=y,func='list',card='S')
 
         to_keep, to_drop = [], []
         for _, group in groupby(indexes,key=itemgetter(0)):
@@ -1038,7 +1045,7 @@ class Result:
                 max_val, k, d = -float('inf'), [], []
                 for _, group in groupby(group, key=itemgetter(2)):
                     group = list(group)
-                    ids,vals = zip(*((g[3], mean(islice(g[-1][0],n))) for g in group))
+                    ids,vals = zip(*((g[3], mean(islice(g[-1],n))) for g in group))
                     mean_val = mean(vals)
                     if mean_val < max_val:
                         d.extend(ids)
@@ -1232,7 +1239,6 @@ class Result:
 
         return self.filter_fin(n,l,p)
 
-
     def where(self, **kwargs) -> 'Result':
         """Select learners/environments/evaluators.
 
@@ -1305,9 +1311,9 @@ class Result:
         rows = plottable._grouped_ys(l,x,y=y,span=span)
 
         try:
-            Xs = sorted(set(map(itemgetter(1),rows)),key=MyComparable)
+            Xs = sorted(set(map(itemgetter(1),rows)))
         except:
-            Xs = list(map(itemgetter(0),groupby(sorted(map(itemgetter(1),rows),key=MyComparable))))
+            Xs = list(map(itemgetter(0),groupby(sorted(map(itemgetter(1),rows)))))
 
         data = {'x': Xs}
         for _l, group in groupby(rows,key=itemgetter(0)):
@@ -1358,51 +1364,63 @@ class Result:
             raise CobaException("A value cannot be in both `l1` and `l2`. Please make a change and run it again.")
 
         plottable = self._plottable(x,y)
-        eid       = 'environment_id'
-        lid       = 'learner_id'
 
-        data = collections.defaultdict(list)
+        L1,L2 = [],[]
+        for L in l1+l2:
+            subplot = plottable
+            wheres = [ (l,L) ] if isinstance(l,str) else zip(l,L)
 
-        if x != 'index':
-            #this implementation is considerably slower but always gives the correct results
+            old_logger = CobaContext.logger
+            CobaContext.logger = NullLogger()
+            for l_,v_ in wheres: subplot = subplot.where(**{l_:v_})
+            CobaContext.logger = old_logger
 
-            l1_label = self._lrn_cache[l1[0]]['full_name'] if l=='learner_id' else 'l1'
-            l2_label = self._lrn_cache[l2[0]]['full_name'] if l=='learner_id' else 'l2'
+            #we are assuming at this point that only valid
+            #`l` are left which isn't necessarily the case
+            values = subplot._grouped_ys(p,x,y=y,card='S',span=span)
 
-            L1,L2 = [],[]
-            for _l, group in groupby(plottable._grouped_ys(l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+            if L in l1: L1.extend(values)
+            else      : L2.extend(values)
 
-                if _l in l1:
-                    L1.extend(map(itemgetter(slice(1,None)),group))
-                if _l in l2:
-                    L2.extend(map(itemgetter(slice(1,None)),group))
+        L1.sort()
+        L2.sort()
 
-            for _x, group in groupby(sorted(plottable._pairings(p,L1,L2),key=MyComparable),key=itemgetter(0)):
-                _x = _x[0] if _x[0] == _x[1] else f"{_x[1]}-{_x[0]}"
+        P1 = iter(groupby(L1,key=itemgetter(0)))
+        P2 = iter(groupby(L2,key=itemgetter(0)))
 
-                for _,(_y1,_y2),_p in group:
-                    data['p'].append(_p)
-                    data['x'].append(_x)
-                    data[l1_label].append(_y1)
-                    data[l2_label].append(_y2)
-        else:
-            #this implementation is considerably faster but only gives correct results under certain conditions
-            for _x, _group in groupby(plottable._grouped_ys(x,l,eid,lid,x,y=y,span=span),key=itemgetter(0)):
+        start = time.time()
+        XY = defaultdict(list)
+        try:
+            p1,g1 = next(P1)
+            p2,g2 = next(P2)
 
-                _group = list(map(itemgetter(slice(1,None)),_group))
-                _L1    = [g[1:] for g in _group if g[0] in l1 ]
-                _L2    = [g[1:] for g in _group if g[0] in l2 ]
+            while True:
+                if p1 == p2:
+                    if x == 'index':
+                        for g1_, g2_ in zip(g1,g2):
+                            XY[g1_[1]].append((g1_[2],g2_[2]))
+                    else:
+                        makex = lambda x1,x2: x1 if x1 == x2 else f"{x2}-{x1}"
+                        for g1_,g2_ in product(g1,g2):
+                            XY[makex(g1_[1],g2_[1])].append((g1_[2],g2_[2]))
+                    p1,g1 = next(P1)
+                    p2,g2 = next(P2)
+                elif p1 < p2:
+                    p1,g1 = next(P1)
+                else:
+                    p2,g2 = next(P2)
+        except StopIteration:
+            pass
 
-                for _,(_y1,_y2),_p in plottable._pairings(p,_L1,_L2):
-                    data['p'].append(_p)
-                    data['x'].append(_x)
-                    data['l1'].append(_y1)
-                    data['l2'].append(_y2)
-
-        if not data:
+        if not XY:
             raise CobaException(f"We were unable to create any pairings to contrast. Make sure l1={og_l[0]} and l2={og_l[1]} is correct.")
 
-        return Table(data)
+        l1_label = self._lrn_cache[l1[0]]['full_name'] if l=='learner_id' and x != 'index' else 'l1'
+        l2_label = self._lrn_cache[l2[0]]['full_name'] if l=='learner_id' and x != 'index' else 'l2'
+
+        X,Y = zip(*sorted(XY.items()))
+
+        return Table({'x': X, (l1_label,l2_label): Y })
 
     def plot_learners(self,
         x       : Union[str, Sequence[str]] = 'index',
@@ -1593,7 +1611,7 @@ class Result:
             if not isinstance(l,list_like) and not isinstance(l1   ,list_like): l1 = [l1]
             if not isinstance(l,list_like) and not isinstance(l2   ,list_like): l2 = [l2]
 
-            contraster = (lambda x,y: y-x) if mode == 'diff' else (lambda x,y: int((y-x)>0)) if mode=='prob' else mode
+            contraster = (lambda t: t[1]-t[0]) if mode == 'diff' else (lambda t: int((t[1]-t[0])>0)) if mode=='prob' else mode
             _boundary  = 0 if mode == 'diff' else .5
 
             errevery = errevery or max(int(raw_data['x'][-1]*0.05),1) if x == 'index' else 1
@@ -1601,12 +1619,10 @@ class Result:
             err      = self._confidence(err, errevery)
 
             X_Y_YE = []
-            for _xi, (_x, group) in enumerate(groupby(zip(*raw_data[raw_data.columns[-3:]]), key=itemgetter(0))):
-                _Y = [ contraster(g[1],g[2]) for g in group ]
-                if _Y: X_Y_YE.append((_x,)+err(_Y,_xi))
+            for _xi, (_x, pairs) in enumerate(raw_data):
+                X_Y_YE.append((_x,)+err(list(map(contraster,pairs)),_xi))
 
-            l1_label = raw_data.columns[-2]
-            l2_label = raw_data.columns[-1]
+            l1_label,l2_label = raw_data.columns[1]
 
             if x == 'index':
                 X,Y,YE = zip(*X_Y_YE)
@@ -1671,6 +1687,8 @@ class Result:
             xrotation = 90 if (x != 'index' or xorder) and len(X_Y_YE)>5 else 0
             yrotation = 0
 
+            _Y = raw_data[raw_data.columns[1]][0]
+
             xlabel = xlabel or ("Interaction" if x=='index' else x[0] if len(x) == 1 else x)
             ylabel = ylabel or (f"$\Delta$ {y}" if mode=="diff" else f"P($\Delta$ {y} > 0)")
             title  = title if title is not None else (f"{ylabel} ({len(_Y)} Environments)")
@@ -1715,31 +1733,7 @@ class Result:
             label = labels if isinstance(labels,str) else labels[i] if labels else label
         except:
             pass
-
-        return 'None' if label is None else label
-
-    def _pairings(self,
-        p:Sequence[str],
-        L1:Sequence[Tuple[int,int,float]],
-        L2:Sequence[Tuple[int,int,float]]) -> Iterable[Tuple[float,float]]:
-
-        unpack_p = isinstance(p,str)
-        if isinstance(p,str): p = [p]
-
-        env_eq_cols = list(set(p) & set(self.environments.columns))
-        lrn_eq_cols = list(set(p) & set(self.learners.columns))
-
-        env_eq_vals = { row[0]:row[1:] for row in zip(*self.environments[['environment_id']+env_eq_cols]) }
-        lrn_eq_vals = { row[0]:row[1:] for row in zip(*self.learners    [['learner_id'    ]+lrn_eq_cols]) }
-
-        #could this be made faster? I could think of special cases but not a general solution to speed it up.
-        for e1,l1,x1,y1 in L1:
-            for e2,l2,x2,y2 in L2:
-                p1 = env_eq_vals[e1]+lrn_eq_vals[l1]
-                p2 = env_eq_vals[e2]+lrn_eq_vals[l2]
-                if p1==p2:
-                    p = p1[0] if unpack_p else p1
-                    yield ((x1,x2),(y1[0],y2[0]), p)
+        return str(label)
 
     def _plottable(self, x:Sequence[str], y:str) -> 'Result':
 
@@ -1775,7 +1769,7 @@ class Result:
         else:
             ci = err
 
-        def calc_ci(Z:Sequence[float],i:int = -1):
+        def calc_ci(Z:Sequence[float], i:int = -1):
             if ci is None:
                 return (mean(Z),0)
             else:
@@ -1784,7 +1778,7 @@ class Result:
 
         return calc_ci
 
-    def _grouped_ys(self, *keys: str, y:Optional[str], func: Literal['last','list'] = None, span:Optional[int]=1) -> Sequence[Tuple]:
+    def _grouped_ys(self, *keys: str, y:Optional[str], func: Literal['last','list'] = None, card: Literal['G','S'] = 'G', span:Optional[int]=1) -> Sequence[Tuple]:
 
         env_cache = self._env_cache
         lrn_cache = self._lrn_cache
@@ -1792,7 +1786,7 @@ class Result:
 
         need_hasher = None
 
-        D = defaultdict(lambda:None) if y is None else defaultdict(list)
+        D = dict() if card == 'S' else defaultdict(list)
 
         def is_icol(key):
             return key not in ['environment_id','learner_id','evaluator_id'] and key in self.interactions.columns
@@ -1807,7 +1801,7 @@ class Result:
         def make_gets(cols):
             for col in cols:
                 if isinstance(col,(tuple,list)):
-                    yield lambda e,l,v,s,N,G=list(make_gets(col)): zip(*(g(e,l,v,s,N) for g in G)) if N != 0 else tuple(g(e,l,v,s,N) for g in G)
+                    yield lambda e,l,v,s,N,G=list(make_gets(col)): zip(*map(methodcaller('__call__',e,l,v,s,N),G)) if N != 0 else tuple(map(methodcaller('__call__',e,l,v,s,N),G))
                 elif col in self.environments.columns:
                     yield lambda e,l,v,s,N,col=col: repeat(e[col],N) if N != 0 else e[col]
                 elif col in self.learners.columns or col == 'full_name':
@@ -1837,12 +1831,7 @@ class Result:
             if N == 0 and func is None and y is not None: func = 'last'
 
             if need_hasher is None:
-
-                if N == 0:
-                    out = outs
-                else:
-                    out,outs = peek_first(outs)
-
+                out, outs = (outs, outs) if N == 0 else peek_first(outs)
                 need_hasher = try_else(lambda: not bool(hash(out)), True)
 
                 if need_hasher:
@@ -1859,22 +1848,28 @@ class Result:
                     outs = map(HashableDense, o1, map(hasher,o2))
 
             if N == 0:
-                o = outs
                 if y is None:
-                    D[o]
+                    v = None
                 elif func == 'last':
-                    D[o].append(Y[-1] if span == 1 else mean(Y[-span:]) if span else mean(Y))
+                    v = Y[-1] if span == 1 else mean(Y[-span:]) if span else mean(Y)
                 elif func == 'list':
-                    D[o].append(Y)
-
+                    v = Y
+                if card == 'G':
+                    D[outs].append(v)
+                else:
+                    D[outs] = v
             else:
                 if y is None:
-                    for o in outs:
-                        D[o]
+                    v = repeat(None)
                 else:
-                    for o,y_ in zip(outs,moving_average(Y,span)):
+                    v = moving_average(Y,span)
+                if card == 'G':
+                    for o,y_ in zip(outs,v):
                         D[o].append(y_)
-        return sorted([k + ((v,) if v else ()) for k,v in D.items()], key=MyComparable)
+                else:
+                    D.update(zip(outs,v))
+
+        return sorted([k + (v,) for k,v in D.items()])
 
     def _global_n(self, n: Union[int,Literal['min']]):
 
@@ -1931,7 +1926,7 @@ class Result:
         evaluators   = self.evaluators
         interactions = self.interactions
 
-        indexes  = list(self._grouped_ys(p,l,'environment_id','learner_id','evaluator_id',y=None))
+        indexes  = list(self._grouped_ys(p,l,'environment_id','learner_id','evaluator_id',y=None,card='S'))
         n_levels = len(set(map(itemgetter(1),indexes)))
 
         to_keep, to_remove, n_larger, n_smaller = [], [], 0, 0
@@ -1939,12 +1934,12 @@ class Result:
             group = list(group)
             if len(group) > n_levels:
                 n_larger += 1
-                to_remove.extend(g[2:] for g in group)
+                to_remove.extend(g[2:5] for g in group)
             elif len(group) < n_levels:
                 n_smaller += 1
-                to_remove.extend(g[2:] for g in group)
+                to_remove.extend(g[2:5] for g in group)
             else:
-                to_keep.extend(g[2:] for g in group)
+                to_keep.extend(g[2:5] for g in group)
 
         if n_larger:
             CobaContext.logger.log(f"We removed {n_larger} {p} because more than one existed for each {l}.")

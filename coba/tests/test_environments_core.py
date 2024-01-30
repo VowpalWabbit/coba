@@ -546,6 +546,14 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B' , envs[1].params['id'])
         self.assertEqual(1   , envs[1].params['shuffle_seed'])
 
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(seed=0)
+
+        self.assertEqual(2   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(0   , envs[0].params['shuffle_seed'])
+        self.assertEqual('B' , envs[1].params['id'])
+        self.assertEqual(0   , envs[1].params['shuffle_seed'])
+
     def test_shuffle_int(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(1)
 

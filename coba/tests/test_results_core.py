@@ -9,7 +9,7 @@ from coba.context import CobaContext, IndentLogger, BasicLogger
 from coba.exceptions import CobaException, CobaExit
 
 from coba.results.core import TransactionEncode,TransactionDecode,TransactionResult
-from coba.results.core import Result, Table, View
+from coba.results.core import Result, Table, View, Missing
 from coba.results.core import MatplotPlotter, Points
 from coba.results.core import moving_average
 from coba.results.errors import BootstrapCI
@@ -20,6 +20,20 @@ class TestPlotter:
 
     def plot(self, *args) -> None:
         self.plot_calls.append(args)
+
+class Missing_Tests(unittest.TestCase):
+
+    def test_str(self):
+        self.assertEqual(str(Missing),"Missing")
+
+    def test_repr(self):
+        self.assertEqual(repr(Missing),"Missing")
+
+    def test_gt(self):
+        self.assertTrue(Missing > 'a')
+
+    def test_lt(self):
+        self.assertFalse(Missing < 'a')
 
 class TransactionResult_Tests(unittest.TestCase):
 
@@ -99,7 +113,7 @@ class TransactionResult_Tests(unittest.TestCase):
         self.assertEqual(res.environments,Table(columns=['environment_id']))
         self.assertEqual(res.learners,Table(columns=['learner_id']))
         self.assertEqual(res.evaluators  ,Table(columns=['evaluator_id']))
-        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index', 'reward', 'z']).insert([(0,1,0,1,1,None),(0,1,0,2,3,None),(0,2,0,1,None,1),(0,2,0,2,None,4)]))
+        self.assertEqual(res.interactions,Table(columns=['environment_id', 'learner_id', 'evaluator_id', 'index', 'reward', 'z']).insert([(0,1,0,1,1,Missing),(0,1,0,2,3,Missing),(0,2,0,1,Missing,1),(0,2,0,2,Missing,4)]))
 
     def test_old_version(self):
         with self.assertRaises(CobaException):
@@ -1121,7 +1135,7 @@ class Result_Tests(unittest.TestCase):
                 yield {"reward": 2}
 
         expected_envs = [
-            {"environment_id":0, "source": 1 , "logged":True, "scale":True, "batched": None},
+            {"environment_id":0, "source": 1 , "logged":True, "scale":True, "batched": Missing},
             {"environment_id":1, "source":[2], "logged":True, "scale":True, "batched": 2   },
         ]
 
@@ -1874,8 +1888,24 @@ class Result_Tests(unittest.TestCase):
         ]
 
         table = Result(envs, lrns, vals, ints).raw_contrast(1,2)
-        self.assertEqual(('p','x','1. learner_1','2. learner_2'), table.columns)
-        self.assertEqual([(0,0,1.5,1.5)], list(table))
+        self.assertEqual(('x',('1. learner_1','2. learner_2')), table.columns)
+        self.assertEqual([(0,[(1.5,1.5)])], list(table))
+
+    def test_raw_contrast_uneven_p(self):
+        envs = [['environment_id'],[0],[1],[2],[3]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+                [0,1,0,1,1],
+                [1,2,0,1,1],
+                [2,1,0,1,1],
+                [3,1,0,1,1],[3,1,0,2,2],
+                [3,2,0,1,1],[3,2,0,2,2]
+        ]
+
+        table = Result(envs, lrns, vals, ints).raw_contrast(1,2)
+        self.assertEqual(('x',('1. learner_1','2. learner_2')), table.columns)
+        self.assertEqual([(3,[(1.5,1.5)])], list(table))
 
     def test_raw_contrast_index(self):
         envs = [['environment_id'],[0],[1]]
@@ -1889,8 +1919,8 @@ class Result_Tests(unittest.TestCase):
         ]
 
         table = Result(envs, lrns, vals, ints).raw_contrast(1,2,x='index')
-        self.assertEqual(('p','x','l1','l2'), table.columns)
-        self.assertEqual([(0,1,1,1),(1,1,1,1),(0,2,1.5,1.5),(1,2,1.5,1.5)], list(table))
+        self.assertEqual(('x',('l1','l2')), table.columns)
+        self.assertEqual([(1,[(1,1),(1,1)]),(2,[(1.5,1.5),(1.5,1.5)])], list(table))
 
     def test_raw_contrast_bad_l(self):
         envs = [['environment_id'],[0]]
@@ -1988,7 +2018,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_all_str_to_none(self):
         envs = [['environment_id'],[0]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,None]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,Missing]]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
 
@@ -2000,7 +2030,7 @@ class Result_Tests(unittest.TestCase):
 
         expected_lines = [
             Points([1,2],[1,1.5],[],[0,0],0,1,'learner_1','-', 1),
-            Points([1,2],[1,1.5],[],[0,0],1,1,'None','-', 1)
+            Points([1,2],[1,1.5],[],[0,0],1,1,'Missing','-', 1)
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -2010,7 +2040,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_all_str_to_int(self):
         envs = [['environment_id'],[0]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,1337]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'1337']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
 
@@ -2021,7 +2051,7 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(l='family')
 
         expected_lines = [
-            Points([1,2],[1,1.5],[],[0,0],0,1,1337       ,'-', 1),
+            Points([1,2],[1,1.5],[],[0,0],0,1,'1337'     ,'-', 1),
             Points([1,2],[1,1.5],[],[0,0],1,1,'learner_1','-', 1),
         ]
 
@@ -2043,8 +2073,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(l=['a','b'])
 
         expected_lines = [
-            Points([1,2],[1,1.5],[],[0,0],0,1,(1,2),'-', 1),
-            Points([1,2],[1,1.5],[],[0,0],1,1,(3,4),'-', 1)
+            Points([1,2],[1,1.5],[],[0,0],0,1,'(1, 2)','-', 1),
+            Points([1,2],[1,1.5],[],[0,0],1,1,'(3, 4)','-', 1)
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -2087,7 +2117,7 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            Points([1,2],[1.,1.5],[],[0,0],0,1,'1. learner_1(i=1,j=2)','-', 1),
+            Points([1,2],[1.,1.5],[],[0,0],0,1,'1. learner_1(i=1, j=2)','-', 1),
             Points([1,2],[1.,1.5],[],[0,0],1,1,'2. learner_2(t=2)','-', 1)
         ]
 
@@ -2282,8 +2312,8 @@ class Result_Tests(unittest.TestCase):
 
         expected_logs = ["We removed 1 environment_id because it did not exist for every learner_id2."]
         expected_lines = [
-            Points([1,2],[2,5/2],[],[0,0],0,1,1,'-',1),
-            Points([1,2],[2,5/2],[],[0,0],1,1,2,'-',1)
+            Points([1,2],[2,5/2],[],[0,0],0,1,'1','-',1),
+            Points([1,2],[2,5/2],[],[0,0],1,1,'2','-',1)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -2744,7 +2774,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_contrast_one_environment_env_not_index_mode_prob_mixed_x(self):
-        envs = [['environment_id','a'],[0,1],[1,2],[2,None]]
+        envs = [['environment_id','a'],[0,1],[1,2],[2,Missing]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],
@@ -2763,10 +2793,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            Points(('2',)      , (0,   ), None, (0, ), 0     , 1, '2. learner_2 (1)' , '.', 1.),
-            Points(()           , ()   , None , None , 1     , 1, 'Tie (0)', '.', 1.),
-            Points(('1','None'), (1,1  ), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
-            Points(('2','None'), (.5,.5), None, None , "#888", 1, None     , '-', .5)
+            Points(('2',)         , (0,   ), None, (0, ), 0     , 1, '2. learner_2 (1)' , '.', 1.),
+            Points(()             , ()     , None , None , 1    , 1, 'Tie (0)'          , '.', 1.),
+            Points(('1','Missing'), (1,1  ), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
+            Points(('2','Missing'), (.5,.5), None, None , "#888", 1, None               , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))

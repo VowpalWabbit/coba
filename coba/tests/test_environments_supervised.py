@@ -1,5 +1,6 @@
 import unittest.mock
 import unittest
+import math
 
 from coba.primitives   import Categorical
 from coba.pipes        import IterableSource
@@ -12,7 +13,8 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_params_pre_read(self):
         expected_params = {'source': "[X,Y]", 'label_type':'C', "env_type": "SupervisedSimulation"}
-        self.assertEqual(expected_params, SupervisedSimulation([1,2],[1,2],label_type="C").params)
+        params = SupervisedSimulation([1,2],[1,2],label_type="C").params
+        self.assertEqual(expected_params, params)
 
     def test_params_post_read(self):
         expected_params = {'source': "[X,Y]", 'label_type':'C', "env_type": "SupervisedSimulation", 'n_actions':2}

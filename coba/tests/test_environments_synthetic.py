@@ -245,6 +245,10 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(10    , env.params['n_actions'])
         self.assertEqual(2     , env.params['seed'])
 
+    def test_bad_args(self):
+        with self.assertRaises(CobaException):
+            LinearSyntheticSimulation(200,0,3,4,seed=6)
+
     def test_str(self):
         self.assertEqual("LinearSynth(A=2,c=3,a=4,R=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,5,["xa"],2)))
 
@@ -307,10 +311,6 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_str(self):
         self.assertEqual("NeighborsSynth(A=2,c=3,a=4,N=5,seed=6)", str(NeighborsSyntheticSimulation(200,2,3,4,5,6)))
-
-    def test_bad_args(self):
-        with self.assertRaises(CobaException):
-            LinearSyntheticSimulation(200,0,3,4,seed=6)
 
     def test_pickle(self):
         simulation = NeighborsSyntheticSimulation(1000,n_actions=2,n_context_features=3,n_action_features=0,n_neighborhoods=10)

@@ -366,14 +366,23 @@ class Performance_Tests(unittest.TestCase):
         res  = Result(envs, lrns, vals, ints)
         self._assert_call_time(lambda:res.where(mod=3), .06, print_time, number=1000)
 
-    def test_result_indexed_gs(self):
+    def test_result_grouped_ys_index(self):
+        envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(10)])
+        lrns = Table(columns=['learner_id','name']).insert([[l,f'abcdefg{l}'] for l in range(3)])
+        vals = Table(columns=['evaluator_id']).insert([[0]])
+        ints = Table(columns=['environment_id','learner_id','evaluator_id','index','reward']).insert([[e,l,0,i,0] for e in range(10) for l in range(3) for i in range(10)])
+
+        res  = Result(envs, lrns, vals, ints)
+        self._assert_call_time(lambda: res._grouped_ys('name','index', y='reward', span=1), .11, print_time, number=1000)
+
+    def test_result_grouped_ys_no_index(self):
         envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])
         lrns = Table(columns=['learner_id']).insert([[0],[1],[2],[3],[4]])
         vals = Table(columns=['evaluator_id']).insert([[0]])
-        ints = Table(columns=['environment_id','learner_id','evaluator_id','index']).insert([[e,l,0,0] for e in range(3) for l in range(5)])
+        ints = Table(columns=['environment_id','learner_id','evaluator_id','index','reward']).insert([[e,l,0,0,0] for e in range(3) for l in range(5)])
 
         res  = Result(envs, lrns, vals, ints)
-        self._assert_call_time(lambda: res._grouped_ys('environment_id','learner_id', y=None, span=1), .03, print_time, number=1000)
+        self._assert_call_time(lambda: res._grouped_ys('learner_id', y='reward', span=1), .027, print_time, number=1000)
 
     def test_result_copy(self):
         envs = Table(columns=['environment_id','mod']).insert([[k,k%100] for k in range(5)])

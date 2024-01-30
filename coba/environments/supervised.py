@@ -191,7 +191,7 @@ class SupervisedSimulation(Environment):
         first, rows = peek_first(self._source.read())
         first_row_type = 0 if hasattr(first,'label') else 1
 
-        if not rows: return []
+        if not rows: return
 
         first_label      = first.label if first_row_type == 0 else first[1]
         first_label_type = first.tipe  if first_row_type == 0 else None
