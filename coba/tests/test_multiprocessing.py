@@ -109,10 +109,6 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
                 list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter([lambda a:1]))
             self.assertIn("pickle", str(e.exception))
 
-            #Code for the old way when we didn't log these exceptions
-            #self.assertEqual(1, len(logger_sink.items))
-            #self.assertIn("pickle", logger_sink.items[0])
-
     def test_class_definitions_not_found(self):
         #this makes Test picklable but not loadable by the process
         global Test
@@ -125,11 +121,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
 
         with self.assertRaises(CobaException) as e:
             list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter([Test()]*2))
-        self.assertIn("unable to find", str(e.exception))
-
-        #Code for the old way when we didn't log these exceptions
-        #self.assertEqual(1, len(logger_sink.items))
-        #self.assertIn("unable to find", logger_sink.items[0])
+        self.assertEqual("Move classes outside of `if __name__ == '__main__'` to use multiprocessing.", str(e.exception))
 
     def test_double_call(self):
 

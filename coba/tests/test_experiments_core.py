@@ -10,7 +10,7 @@ from coba.pipes import ListSink
 from coba.context import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.evaluators import SequentialCB
 from coba.experiments import Experiment
-from coba.exceptions import CobaException
+from coba.exceptions import CobaException, CobaExit
 from coba.primitives import Categorical, Source, Learner, Environment
 from coba.primitives import SimulatedInteraction
 from coba.primitives import BinaryReward
@@ -641,15 +641,38 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
         env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = NotPicklableLearnerWithReduce()
         experiment = Experiment([env1],[learner])
-
         experiment.run()
 
     def test_wrapped_not_picklable_learner_with_reduce(self):
         env1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = WrappedLearner(NotPicklableLearnerWithReduce())
         experiment = Experiment([env1],[learner])
-
         experiment.run()
+
+    def test_wrapped_not_picklable_learner_with_reduce2(self):
+
+        import sys
+        import types
+
+        #as best as I can tell this is the best way to
+        #make a class look like its defined interactively
+        sys.modules['__test__'] = types.ModuleType('__test__')
+        class TestEnv:
+            __module__ = '__test__'
+            def read(self):
+                return []
+
+        env1       = TestEnv()
+        learner    = WrappedLearner(NotPicklableLearnerWithReduce())
+        experiment = Experiment([env1],[learner])
+
+        experiment.run(processes=1)
+
+        with unittest.mock.patch('importlib.util.find_spec',return_value=None):
+            with self.assertRaises(CobaExit) as r:
+                experiment.run(processes=2)
+
+        self.assertIn('cloudpickle', str(r.exception))
 
 if __name__ == '__main__':
     unittest.main()

@@ -3,7 +3,6 @@ from itertools import islice
 from collections import defaultdict, Counter
 from typing import Any, Iterable, Sequence, Optional, Tuple
 
-from coba.pipes import SourceFilters
 from coba.context import CobaContext
 from coba.utilities import peek_first
 from coba.primitives import Source, Filter, Learner, Environment, Evaluator

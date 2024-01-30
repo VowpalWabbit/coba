@@ -49,16 +49,14 @@ class ProcessLine(spawn_context.Process):
         try:
             self._line.run()
         except Exception as e:
-            if str(e).startswith("Can't get attribute"):
+            emsg = str(e)
+            if emsg.startswith("Can't get attribute") and " from " not in emsg:
                 ex,tb = CobaException(
-                    "We attempted to evaluate your code in multiple processes but we were unable to find all the code "
-                    "definitions needed to pass the tasks to the processes. The two most common causes of this error are: "
-                    "1) a learner or simulation is defined in a Jupyter Notebook cell or 2) a necessary class definition "
-                    "exists inside the `__name__=='__main__'` code block in the main execution script. In either case you "
-                    "can choose one of four simple solutions: 1) pip install cloudpickle into your python environment, 2) "
-                    "evaluate your code on a single process, 3) if in Jupyter notebook define all necessary classes in a "
-                    "separate file and include the classes via import statements, or 4) move your class definitions outside "
-                    "the `__name__ == '__main__'` check."
+                    "Pip install cloudpickle to use multiprocessing with custom classes in Jupyter."
+                ),None
+            elif str(e).startswith("Can't get attribute") and " from " in emsg:
+                ex,tb = CobaException(
+                    "Move classes outside of `if __name__ == '__main__'` to use multiprocessing."
                 ),None
             else:
                 ex,tb = e,format_tb(e.__traceback__)

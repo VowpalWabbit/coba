@@ -146,11 +146,9 @@ class Multiprocessor_Tests(unittest.TestCase):
             global Test
             class Test:
                 pass
-
-            with self.assertRaises(Exception) as e:
+            with self.assertRaises(Exception) as r:
                 list(Multiprocessor(ProcessNameFilter(), 2, 1).filter([Test()]*2))
-
-            self.assertIn("unable to find", str(e.exception))
+            self.assertEqual("Move classes outside of `if __name__ == '__main__'` to use multiprocessing.", str(r.exception))
 
     @unittest.skipUnless(PackageChecker.cloudpickle(strict=False), "Cloudpickle is not installed.")
     def test_class_definitions_not_loaded_in_main_pass_with_cloudpickle(self):

@@ -1,3 +1,4 @@
+from inspect import getmodule
 from collections import abc
 from pathlib import Path
 from itertools import product
@@ -11,6 +12,7 @@ from coba.context import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLog
 from coba.exceptions import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 from coba.primitives import Learner, Environment, Evaluator
+from coba.utilities import PackageChecker
 
 from coba.experiments.process import MakeTasks, ChunkTasks, ProcessTasks
 
@@ -31,7 +33,6 @@ class Experiment:
             evaluator: The evaluation task we wish to perform on learners and environments.
             description: A description of the experiment for documentaiton purposes.
         """
-
 
     @overload
     def __init__(self,
@@ -157,6 +158,8 @@ class Experiment:
         CobaContext.store['experiment_seed'] = seed
         is_multiproc = mp > 1 or mc != 0
 
+        if is_multiproc: self._check_for_cloudpickle_dependency()
+
         old_logger = CobaContext.logger
 
         if quiet:
@@ -229,3 +232,18 @@ class Experiment:
 
         except KeyError as e:
             raise TypeError(f'Experiment.__init__ missing required arguments')
+
+    def _check_for_cloudpickle_dependency(self) -> None:
+        objs = set()
+
+        for e,l,v in self._triples:
+            objs.add(l)
+            objs.add(v)
+
+            try:
+                objs.update(e)
+            except:
+                objs.add(e)
+
+        if any(not hasattr(getmodule(o),'__file__') for o in objs):
+            PackageChecker.cloudpickle('Coba multiprocessing in Jupyter')
