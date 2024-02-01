@@ -21,4 +21,4 @@ from coba.pipes.sources import SourceFilters, DelimSource
 from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink, FiltersSink
 from coba.pipes.lines   import SourceSink, ThreadLine, ProcessLine
 
-from coba.pipes.core import Pipes, Foreach
+from coba.pipes.core import Pipes, Foreach, join

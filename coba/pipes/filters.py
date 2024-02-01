@@ -24,7 +24,7 @@ class FiltersFilter(Filter):
         return items
 
     def __str__(self) -> str:
-        return ",".join(map(str,self._filters))
+        return " | ".join(map(str,self._filters))
 
     def __getitem__(self, index: int) -> Filter:
         return self._filters[index]

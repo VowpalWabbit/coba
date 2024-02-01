@@ -772,7 +772,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             context: Shape parameters for a distribution or a callable that returns a noisy value.
             action : Shape parameters for a distribution or a callable that returns a noisy value.
             reward : Shape parameters for a distribution or a callable that returns a noisy value.
-            seed: The seed for all random values. If a sequence of seeds is given then multiple 
+            seed: The seed for all random values. If a sequence of seeds is given then multiple
                 environments will be created with each using distinct noise filters from the seeds.
 
         Remarks:

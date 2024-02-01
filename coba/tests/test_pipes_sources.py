@@ -74,7 +74,7 @@ class SourceFilters_Tests(unittest.TestCase):
         self.assertIsInstance(source[0], ReprSource)
         self.assertIsInstance(source[1], ReprFilter)
         self.assertIsInstance(source[2], ReprFilter)
-        self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(source))
+        self.assertEqual("ReprSource | ReprFilter | ReprFilter", str(source))
 
     def test_sourcefilter_filters(self):
         source = SourceFilters(SourceFilters(ReprSource([1,2]), ReprFilter()), ReprFilter())
@@ -82,7 +82,7 @@ class SourceFilters_Tests(unittest.TestCase):
         self.assertIsInstance(source[0], ReprSource)
         self.assertIsInstance(source[1], ReprFilter)
         self.assertIsInstance(source[2], ReprFilter)
-        self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(source))
+        self.assertEqual("ReprSource | ReprFilter | ReprFilter", str(source))
 
     def test_read1(self):
         source = SourceFilters(ReprSource([1,2]), ReprFilter(), ReprFilter())

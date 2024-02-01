@@ -86,7 +86,7 @@ class SourceSink_Tests(unittest.TestCase):
         pipeline.run()
 
         self.assertEqual([1,2], sink.items)
-        self.assertEqual("ReprSource,ReprSink", str(pipeline))
+        self.assertEqual("ReprSource | ReprSink", str(pipeline))
         self.assertEqual({}, pipeline.params)
 
     def test_run_source_filters_sink(self):
@@ -97,7 +97,7 @@ class SourceSink_Tests(unittest.TestCase):
         pipeline.run()
 
         self.assertEqual([1,2], sink.items)
-        self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(pipeline))
+        self.assertEqual("ReprSource | ReprFilter | ReprFilter | ReprSink", str(pipeline))
         self.assertEqual({}, pipeline.params)
 
     def test_params(self):

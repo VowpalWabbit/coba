@@ -167,7 +167,7 @@ class SourceSink(Line):
         return resolve_params(list(self))
 
     def __str__(self) -> str:
-        return ",".join(filter(None,map(str,self._pipes)))
+        return " | ".join(filter(None,map(str,self._pipes)))
 
     def __len__(self) -> int:
         return len(self._pipes)

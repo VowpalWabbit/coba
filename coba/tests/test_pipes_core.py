@@ -7,7 +7,7 @@ from typing import Iterable, Any
 from coba.exceptions import CobaException
 from coba.pipes import ListSink, IterableSource, Foreach
 
-from coba.pipes.core import Pipes
+from coba.pipes.core import Pipes, join
 
 class SingleItemIdentity:
     def filter(self,item):
@@ -49,6 +49,11 @@ class ExceptionFilter:
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise Exception("Exception Filter")
 
+class join_tests(unittest.TestCase):
+
+    def test_join(self):
+        self.assertEqual("ReprSource | ReprSink", str(join(ReprSource(), ReprSink())))
+
 class Pipes_Tests(unittest.TestCase):
 
     def test_run(self):
@@ -77,25 +82,25 @@ class Pipes_Tests(unittest.TestCase):
         source  = ReprSource()
         filters = [ReprFilter(), ReprFilter()]
         sink    = ReprSink()
-        self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(Pipes.join(source, *filters, sink)))
+        self.assertEqual("ReprSource | ReprFilter | ReprFilter | ReprSink", str(Pipes.join(source, *filters, sink)))
 
     def test_join_source_filters_repr(self):
         source  = ReprSource()
         filters = [ReprFilter(), ReprFilter()]
-        self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(Pipes.join(source, *filters)))
+        self.assertEqual("ReprSource | ReprFilter | ReprFilter", str(Pipes.join(source, *filters)))
 
     def test_join_source_foreach_filter(self):
         filter = Pipes.join(ReprSource([1,2]), Foreach(ReprFilter()))
         self.assertEqual(list(filter.read()), [1,2])
 
     def test_join_filters_sink_repr(self):
-        self.assertEqual("ReprFilter,ReprFilter,ReprSink", str(Pipes.join(ReprFilter(),ReprFilter(),ReprSink())))
+        self.assertEqual("ReprFilter | ReprFilter | ReprSink", str(Pipes.join(ReprFilter(),ReprFilter(),ReprSink())))
 
     def test_join_filters_repr(self):
-        self.assertEqual("ReprFilter,ReprFilter", str(Pipes.join(ReprFilter(), ReprFilter())))
+        self.assertEqual("ReprFilter | ReprFilter", str(Pipes.join(ReprFilter(), ReprFilter())))
 
     def test_join_source_sink_repr(self):
-        self.assertEqual("ReprSource,ReprSink", str(Pipes.join(ReprSource(), ReprSink())))
+        self.assertEqual("ReprSource | ReprSink", str(Pipes.join(ReprSource(), ReprSink())))
 
     def test_join_flattens_filters(self):
         filter = Pipes.join(ReprFilter())

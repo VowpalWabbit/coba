@@ -23,7 +23,7 @@ class FiltersSink(Sink):
         self._pipes[-1].write(item)
 
     def __str__(self) -> str:
-        return ",".join(map(str,self._pipes))
+        return " | ".join(map(str,self._pipes))
 
     def __getitem__(self, index: int) -> Union[Filter,Sink]:
         return self._pipes[index]

@@ -297,7 +297,7 @@ class CsvSource_Tests(unittest.TestCase):
     def test_simple(self):
         self.assertEqual([["1","2","3"]], list(CsvSource(IterableSource(["1,2,3"])).read()))
         self.assertEqual({}, CsvSource(IterableSource(["1,2,3"])).params)
-        self.assertEqual('{},{}', str(CsvSource(IterableSource(["1,2,3"]))))
+        self.assertEqual('IterableSource() | CsvReader()', str(CsvSource(IterableSource(["1,2,3"]))))
 
 
 class ArffSource_Tests(unittest.TestCase):
@@ -319,7 +319,7 @@ class ArffSource_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(map(list,ArffSource(IterableSource(lines)).read())))
         self.assertEqual({}, ArffSource(IterableSource(lines)).params)
-        self.assertEqual('{},{}', str(ArffSource(IterableSource(lines))))
+        self.assertEqual('IterableSource() | ArffReader()', str(ArffSource(IterableSource(lines))))
 
 class LibsvmSource_Tests(unittest.TestCase):
 
@@ -340,7 +340,7 @@ class LibsvmSource_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(LibSvmSource(IterableSource(lines)).read()))
         self.assertEqual({}, LibSvmSource(IterableSource(lines)).params)
-        self.assertEqual('{},{}', str(LibSvmSource(IterableSource(lines))))
+        self.assertEqual('IterableSource() | LibsvmReader()', str(LibSvmSource(IterableSource(lines))))
 
 class ManikSource_Tests(unittest.TestCase):
 
@@ -362,7 +362,7 @@ class ManikSource_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(ManikSource(IterableSource(lines)).read()))
         self.assertEqual({}, ManikSource(IterableSource(lines)).params)
-        self.assertEqual('{},{}', str(ManikSource(IterableSource(lines))))
+        self.assertEqual('IterableSource() | ManikReader()', str(ManikSource(IterableSource(lines))))
 
 if __name__ == '__main__':
     unittest.main()

@@ -42,7 +42,7 @@ class FiltersFilter_Tests(unittest.TestCase):
         self.assertEqual(2, len(filter._filters))
         self.assertIsInstance(filter._filters[0], ReprFilter)
         self.assertIsInstance(filter._filters[1], ReprFilter)
-        self.assertEqual("ReprFilter1,ReprFilter2", str(filter))
+        self.assertEqual("ReprFilter1 | ReprFilter2", str(filter))
 
     def test_init_filtersfilter(self):
 
@@ -52,7 +52,7 @@ class FiltersFilter_Tests(unittest.TestCase):
         self.assertIsInstance(filter._filters[0], ReprFilter)
         self.assertIsInstance(filter._filters[1], ReprFilter)
         self.assertIsInstance(filter._filters[2], ReprFilter)
-        self.assertEqual("ReprFilter,ReprFilter,ReprFilter", str(filter))
+        self.assertEqual("ReprFilter | ReprFilter | ReprFilter", str(filter))
 
     def test_read1(self):
 

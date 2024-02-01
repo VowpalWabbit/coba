@@ -138,6 +138,7 @@ class SparseDense(Dense_):
     __slots__=('_values','_length')
 
     def __init__(self, values: Dict[int,Any], length:int) -> None:
+        self._row = None
         self._values = values
         self._length = length
 

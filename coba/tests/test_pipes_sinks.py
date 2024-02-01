@@ -67,7 +67,7 @@ class FiltersSink_Tests(unittest.TestCase):
         self.assertIsInstance(filter[0], ReprFilter)
         self.assertIsInstance(filter[1], ReprFilter)
         self.assertIsInstance(filter[2], ReprSink)
-        self.assertEqual("ReprFilter,ReprFilter,ReprSink", str(filter))
+        self.assertEqual("ReprFilter | ReprFilter | ReprSink", str(filter))
 
     def test_init_filters_filterssink(self):
         filter = FiltersSink(ReprFilter(), FiltersSink(ReprFilter(), ReprSink()))
@@ -75,7 +75,7 @@ class FiltersSink_Tests(unittest.TestCase):
         self.assertIsInstance(filter[0], ReprFilter)
         self.assertIsInstance(filter[1], ReprFilter)
         self.assertIsInstance(filter[2], ReprSink)
-        self.assertEqual("ReprFilter,ReprFilter,ReprSink", str(filter))
+        self.assertEqual("ReprFilter | ReprFilter | ReprSink", str(filter))
 
     def test_write1(self):
         sink = FiltersSink(ReprFilter(), ReprFilter(), ReprSink())

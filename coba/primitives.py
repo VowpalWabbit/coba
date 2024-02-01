@@ -39,7 +39,8 @@ class Pipe:
         return { }
 
     def __str__(self) -> str:
-        return str(self.params)
+        params = str(self.params)[1:-1] if self.params else ''
+        return f"{type(self).__name__}({params})"
 
 class Source(ABC, Pipe, Generic[_T_out]):
     """A pipe that can be read."""

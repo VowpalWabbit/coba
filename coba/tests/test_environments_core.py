@@ -764,7 +764,7 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual('*', envs[0].params['sort'])
+        self.assertEqual('*', envs[0].params['sort_keys'])
 
     def test_repr(self):
         envs = Environments(TestEnvironment1('A')).repr()

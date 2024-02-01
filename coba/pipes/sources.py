@@ -26,7 +26,7 @@ class SourceFilters(Source):
         return item
 
     def __str__(self) -> str:
-        return ",".join(map(str,self._pipes))
+        return " | ".join(map(str,self._pipes))
 
     def __getitem__(self, index:int) -> Union[Source,Filter]:
         return self._pipes[index]

@@ -196,11 +196,13 @@ class Scale(EnvironmentFilter):
                 (shift,scale) = shifts_scales
                 for interaction in chain(fitting_interactions, remaining_interactions):
                     new = interaction.copy()
-                    new['context'] = (new['context']+shift)*scale
+                    if new['context'] is not None:
+                        new['context'] = (new['context']+shift)*scale
                     yield new
 
     def _get_shift_and_scale(self,values) -> Tuple[float,float]:
         try:
+            values = [v for v in values if v is not None]
             shift = self._shift_value(values)
             scale = self._scale_value(values,shift)
 
@@ -213,7 +215,7 @@ class Scale(EnvironmentFilter):
                 scale = self._scale_value(not_nan_vals,shift)
 
             return shift,scale
-        except TypeError:
+        except (TypeError,ValueError):
             return None
 
     def _shift_value(self, values) -> float:
@@ -726,7 +728,7 @@ class Sort(EnvironmentFilter):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "sort": self._keys or '*' }
+        return { "sort_keys": self._keys or '*' }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -896,7 +898,7 @@ class Noise(EnvironmentFilter):
         if not interactions:
             return
 
-        is_callable = callable(first['rewards'])
+        is_callable = callable(first.get('rewards'))
 
         for interaction in interactions:
 
@@ -1314,6 +1316,9 @@ class BatchSafe(EnvironmentFilter):
         pipe = Pipes.join(Unbatch(),self._filter,Batch(batch_size)) if batch_size else self._filter
 
         yield from pipe.filter(interactions)
+
+    def __str__(self):
+        return f"BatchSafe({self._filter})"
 
 class Harden(EnvironmentFilter):
     """Make all lazy data concrete.

@@ -47,7 +47,7 @@ CobaContext.logger = NullLogger()
 class Shuffle_Tests(unittest.TestCase):
 
     def test_str(self):
-        self.assertEqual("{'shuffle_seed': 1}", str(Shuffle(1)))
+        self.assertEqual("Shuffle('shuffle_seed': 1)", str(Shuffle(1)))
 
     def test_empty(self):
         self.assertEqual(list(Shuffle(1).filter([])),[])
@@ -61,7 +61,6 @@ class Shuffle_Tests(unittest.TestCase):
 
         self.assertEqual(normal_interactions,[{'context':0},{'context':1},{'context':2}])
         self.assertEqual(logged_interactions,[{'context':0,'action':1,'reward':2},{'context':1,'action':1,'reward':2},{'context':2,'action':1,'reward':2}])
-
         self.assertNotEqual(normal_order,normal_interactions)
         self.assertNotEqual(logged_order,logged_interactions)
         self.assertNotEqual(logged_order,normal_order)
@@ -100,7 +99,6 @@ class Sort_Tests(unittest.TestCase):
         self.assertEqual((7,2), mem_interactions[0]['context'])
         self.assertEqual((1,9), mem_interactions[1]['context'])
         self.assertEqual((8,3), mem_interactions[2]['context'])
-
         self.assertEqual((1,9), srt_interactions[0]['context'])
         self.assertEqual((7,2), srt_interactions[1]['context'])
         self.assertEqual((8,3), srt_interactions[2]['context'])
@@ -118,7 +116,6 @@ class Sort_Tests(unittest.TestCase):
         self.assertEqual((7,2), mem_interactions[0]['context'])
         self.assertEqual((1,9), mem_interactions[1]['context'])
         self.assertEqual((8,3), mem_interactions[2]['context'])
-
         self.assertEqual((1,9), srt_interactions[0]['context'])
         self.assertEqual((7,2), srt_interactions[1]['context'])
         self.assertEqual((8,3), srt_interactions[2]['context'])
@@ -136,7 +133,6 @@ class Sort_Tests(unittest.TestCase):
         self.assertEqual((1,2), mem_interactions[0]['context'])
         self.assertEqual((1,9), mem_interactions[1]['context'])
         self.assertEqual((1,3), mem_interactions[2]['context'])
-
         self.assertEqual((1,2), srt_interactions[0]['context'])
         self.assertEqual((1,3), srt_interactions[1]['context'])
         self.assertEqual((1,9), srt_interactions[2]['context'])
@@ -154,19 +150,18 @@ class Sort_Tests(unittest.TestCase):
         self.assertEqual((1,2), mem_interactions[0]['context'])
         self.assertEqual((1,9), mem_interactions[1]['context'])
         self.assertEqual((1,3), mem_interactions[2]['context'])
-
         self.assertEqual((1,2), srt_interactions[0]['context'])
         self.assertEqual((1,3), srt_interactions[1]['context'])
         self.assertEqual((1,9), srt_interactions[2]['context'])
 
     def test_params(self):
-        self.assertEqual({'sort':'*'}, Sort().params)
-        self.assertEqual({'sort':[0]}, Sort(0).params)
-        self.assertEqual({'sort':[0]}, Sort([0]).params)
-        self.assertEqual({'sort':[1,2]}, Sort([1,2]).params)
+        self.assertEqual({'sort_keys':'*'}, Sort().params)
+        self.assertEqual({'sort_keys':[0]}, Sort(0).params)
+        self.assertEqual({'sort_keys':[0]}, Sort([0]).params)
+        self.assertEqual({'sort_keys':[1,2]}, Sort([1,2]).params)
 
     def test_str(self):
-        self.assertEqual("{'sort': [0]}", str(Sort([0])))
+        self.assertEqual("Sort('sort_keys': [0])", str(Sort([0])))
 
 class Take_Tests(unittest.TestCase):
 
@@ -328,6 +323,26 @@ class Scale_Tests(unittest.TestCase):
 
         self.assertEqual(mem_interactions,interactions)
         self.assertEqual(scl_interactions,interactions)
+
+    def test_scale_partial_none_context(self):
+        interactions = [
+            LoggedInteraction(None, 1, 1),
+            LoggedInteraction(1   , 1, 1),
+            LoggedInteraction(2   , 1, 1)
+        ]
+
+        mem_interactions = interactions
+        scl_interactions = list(Scale("min","minmax").filter(interactions))
+
+        self.assertEqual(None, mem_interactions[0]['context'])
+        self.assertEqual(1   , mem_interactions[1]['context'])
+        self.assertEqual(2   , mem_interactions[2]['context'])
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertEqual(None, scl_interactions[0]['context'])
+        self.assertEqual(0   , scl_interactions[1]['context'])
+        self.assertEqual(1   , scl_interactions[2]['context'])
 
     def test_scale_none_context(self):
         interactions = [
@@ -2440,6 +2455,9 @@ class BatchSafe_Tests(unittest.TestCase):
         out_batches = BatchSafe(TestFilter()).filter(in_batches)
 
         self.assertEqual(list(in_batches),list(out_batches))
+
+    def test_str(self):
+        self.assertEqual("BatchSafe(Finalize())",str(BatchSafe(Finalize())))
 
 class Cache_Tests(unittest.TestCase):
     def test_simple_cached(self):

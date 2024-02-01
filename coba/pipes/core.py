@@ -1,4 +1,4 @@
-from typing import Mapping, Union, Iterable, Any
+from typing import Mapping, Union, Iterable, Callable, Any
 
 from coba.exceptions import CobaException
 from coba.primitives import Filter, Source, Sink, Line
@@ -37,7 +37,6 @@ class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
         return str(self._pipe)
 
 class Pipes:
-
     @staticmethod
     def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, Line]:
         """Join a sequence of pipes into a single pipe.
@@ -80,3 +79,6 @@ class Pipes:
             return FiltersSink(*pipes)
 
         raise CobaException("An unknown pipe was passed to join.")
+
+def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, Line]:
+    return Pipes.join(*pipes)
