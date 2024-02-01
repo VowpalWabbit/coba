@@ -244,7 +244,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_sim(self):
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
         learner    = ModuloLearner()
-        experiment = Experiment(env1, [learner])
+        experiment = Experiment(env1, [learner], SequentialCB(['reward']))
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -279,7 +279,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_learner(self):
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
         learner    = ModuloLearner()
-        experiment = Experiment([env1], learner)
+        experiment = Experiment([env1], learner, SequentialCB(['reward']))
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -315,7 +315,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         env2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        experiment = Experiment([env1,env2], [learner], description="abc")
+        experiment = Experiment([env1,env2], [learner], SequentialCB(['reward']), description="abc")
 
         result = experiment.run()
 
@@ -348,7 +348,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         env1       = CategoricalActionEnv()
         learner    = ModuloLearner()
-        experiment = Experiment(env1, learner)
+        experiment = Experiment(env1, learner, SequentialCB(['reward']))
 
         result = experiment.run()
 
@@ -372,7 +372,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = ModuloLearner("0")
         learner2   = ModuloLearner("1")
-        experiment = Experiment([env], [learner1, learner2])
+        experiment = Experiment([env], [learner1, learner2], SequentialCB(['reward']))
 
         expected_environments = [
             {"environment_id":0, "env_type":'LambdaSimulation'},
@@ -398,7 +398,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_learner_info(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = LearnInfoLearner("0")
-        experiment = Experiment([env],[learner1])
+        experiment = Experiment([env],[learner1],SequentialCB(['reward']))
 
         result = experiment.run()
 
@@ -421,7 +421,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_predict_info(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = PredictInfoLearner("0")
-        experiment = Experiment([env],[learner1])
+        experiment = Experiment([env],[learner1],SequentialCB(['reward']))
 
         result       = experiment.run()
 
@@ -457,8 +457,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         #the second Experiment shouldn't ever call broken_factory() because
         #we're resuming from the first experiment's transaction.log
         try:
-            first_result  = Experiment([env],[working_learner]).run("coba/tests/.temp/transactions.log")
-            second_result = Experiment([env],[broken_learner ]).run("coba/tests/.temp/transactions.log")
+            first_result  = Experiment([env],[working_learner],SequentialCB(['reward'])).run("coba/tests/.temp/transactions.log")
+            second_result = Experiment([env],[broken_learner ],SequentialCB(['reward'])).run("coba/tests/.temp/transactions.log")
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
 
@@ -486,7 +486,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_no_params(self):
         env1       = NoParamsEnvironment()
         learner    = NoParamsLearner()
-        experiment = Experiment([env1], [learner])
+        experiment = Experiment([env1], [learner], SequentialCB(['reward']))
 
         result = experiment.run()
 
@@ -511,7 +511,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         env2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
-        experiment = Experiment([env1,env2], [ModuloLearner(), BrokenLearner()])
+        experiment = Experiment([env1,env2], [ModuloLearner(), BrokenLearner()], SequentialCB(['reward']))
 
         result = experiment.run()
 

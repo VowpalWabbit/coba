@@ -762,22 +762,23 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return self.filter(Where(n_interactions=n_interactions,n_actions=n_actions))
 
     def noise(self,
-        context: Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
-        action : Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
-        reward : Union[Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
+        context: Union[Tuple[float,float],Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
+        action : Union[Tuple[float,float],Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
+        reward : Union[Tuple[float,float],Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,
         seed   : Union[int,Sequence[int]] = 1) -> 'Environments':
         """Add noise to values.
 
         Args:
-            context: A distribution with shape parameters or a callable that returns a noisy value.
-            action: A distribution with shape parameters or a callable that returns a noisy value.
-            reward: A distribution with shape parameters or a callable that returns a noisy value.
-            seed: The seed for all random values. If a sequence then multiple environments will be
-                created using separate noise values.
+            context: Shape parameters for a distribution or a callable that returns a noisy value.
+            action : Shape parameters for a distribution or a callable that returns a noisy value.
+            reward : Shape parameters for a distribution or a callable that returns a noisy value.
+            seed: The seed for all random values. If a sequence of seeds is given then multiple 
+                environments will be created with each using distinct noise filters from the seeds.
 
         Remarks:
-            Supported distribution with shapes are:
-                * random integer: ('i',`inclusive min`,`inclusive max`)
+            Supported distributions defined via tuple are:
+                * random gaussian: (`mean`,`std`)
+                * random integer : ('i',`inclusive min`,`inclusive max`)
                 * random gaussian: ('g',`mean`,`std`)
 
         Returns:

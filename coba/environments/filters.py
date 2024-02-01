@@ -842,13 +842,14 @@ class Noise(EnvironmentFilter):
         """
 
         self._args = (context,action,reward,seed)
-        self._no_noise = lambda x, _: x
 
         def make_noiser(p):
             if not p:
                 return None
             elif callable(p):
                 return p
+            elif len(p) == 2:
+                return (lambda x, rng, p=p: x+rng.gauss(*p))
             elif p[0] == 'g':
                 return (lambda x, rng, p=p[1:]: x+rng.gauss(*p))
             elif p[0] == 'i':
@@ -856,13 +857,9 @@ class Noise(EnvironmentFilter):
 
         if context is None and action is None and reward is None: context = ('g',0,1)
 
-        context = make_noiser(context)
-        action  = make_noiser(action)
-        reward  = make_noiser(reward)
-
-        self._context_noise = context or self._no_noise
-        self._action_noise  = action  or self._no_noise
-        self._reward_noise  = reward  or self._no_noise
+        self._context_noise = make_noiser(context)
+        self._action_noise  = make_noiser(action)
+        self._reward_noise  = make_noiser(reward)
         self._seed          = seed
 
     def __reduce__(self) -> tuple:
@@ -883,9 +880,9 @@ class Noise(EnvironmentFilter):
 
         params = {}
 
-        if self._context_noise != self._no_noise: params['context_noise'] = True
-        if self._action_noise  != self._no_noise: params['action_noise' ] = True
-        if self._reward_noise  != self._no_noise: params['reward_noise' ] = True
+        if self._context_noise: params['context_noise'] = True
+        if self._action_noise : params['action_noise' ] = True
+        if self._reward_noise : params['reward_noise' ] = True
 
         params['noise_seed'] = self._seed
 
@@ -925,6 +922,8 @@ class Noise(EnvironmentFilter):
             yield new
 
     def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
+        if noiser is None:
+            return value
         if isinstance(value, primitives.Sparse):
             #we sort so that noise generation is deterministic with respect to seed
             return { k:self._noise(v, rng, noiser) for k,v in sorted(value.items()) }

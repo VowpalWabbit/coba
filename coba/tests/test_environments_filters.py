@@ -1597,10 +1597,25 @@ class Noise_Tests(unittest.TestCase):
         self.assertAlmostEqual(5.61267      , actual_interactions[0]['context'][0],5)
         self.assertEqual      ([2,2]        , actual_interactions[0]['actions']     )
         self.assertEqual      ([.2,1.3]     , actual_interactions[0]['rewards']     )
-
         self.assertAlmostEqual(1.56358      , actual_interactions[1]['context'][0],5)
         self.assertEqual      ([3,4]        , actual_interactions[1]['actions']     )
         self.assertEqual      ([.1,.5]      , actual_interactions[1]['rewards']     )
+
+    def test_tuple_noise2(self):
+        interactions = [
+            {'context':[7], 'actions':[1,2], 'rewards':[.2,.3]},
+            {'context':[1], 'actions':[2,3], 'rewards':[.1,.5]},
+        ]
+
+        actual_interactions = list(Noise(context=(0,1),action=('i',0,1),reward=('i',0,1),seed=3).filter(interactions))
+
+        self.assertAlmostEqual(5.61267      , actual_interactions[0]['context'][0],5)
+        self.assertEqual      ([2,2]        , actual_interactions[0]['actions']     )
+        self.assertEqual      ([.2,1.3]     , actual_interactions[0]['rewards']     )
+        self.assertAlmostEqual(1.56358      , actual_interactions[1]['context'][0],5)
+        self.assertEqual      ([3,4]        , actual_interactions[1]['actions']     )
+        self.assertEqual      ([.1,.5]      , actual_interactions[1]['rewards']     )
+
 
     def test_noise_repeatable(self):
         interactions = [
@@ -1654,7 +1669,6 @@ class Riffle_Tests(unittest.TestCase):
         self.assertEqual((7,2), mem_interactions[0]['context'])
         self.assertEqual((1,9), mem_interactions[1]['context'])
         self.assertEqual((8,3), mem_interactions[2]['context'])
-
         self.assertEqual((7,2), cov_interactions[0]['context'])
         self.assertEqual((1,9), cov_interactions[1]['context'])
         self.assertEqual((8,3), cov_interactions[2]['context'])
@@ -1672,7 +1686,6 @@ class Riffle_Tests(unittest.TestCase):
         self.assertEqual((7,2), mem_interactions[0]['context'])
         self.assertEqual((1,9), mem_interactions[1]['context'])
         self.assertEqual((8,3), mem_interactions[2]['context'])
-
         self.assertEqual((7,2), cov_interactions[0]['context'])
         self.assertEqual((8,3), cov_interactions[1]['context'])
         self.assertEqual((1,9), cov_interactions[2]['context'])
@@ -1682,7 +1695,6 @@ class Riffle_Tests(unittest.TestCase):
         self.assertEqual((7,2), mem_interactions[0]['context'])
         self.assertEqual((1,9), mem_interactions[1]['context'])
         self.assertEqual((8,3), mem_interactions[2]['context'])
-
         self.assertEqual((8,3), cov_interactions[0]['context'])
         self.assertEqual((7,2), cov_interactions[1]['context'])
         self.assertEqual((1,9), cov_interactions[2]['context'])
@@ -1700,7 +1712,6 @@ class Riffle_Tests(unittest.TestCase):
         self.assertEqual((7,2), mem_interactions[0]['context'])
         self.assertEqual((1,9), mem_interactions[1]['context'])
         self.assertEqual((8,3), mem_interactions[2]['context'])
-
         self.assertEqual((7,2), cov_interactions[0]['context'])
         self.assertEqual((1,9), cov_interactions[1]['context'])
         self.assertEqual((8,3), cov_interactions[2]['context'])

@@ -525,11 +525,11 @@ class TransactionEncode:
             elif item[0] == "T4":
                 rows_T = collections.defaultdict(list)
 
-                keys = sorted(set().union(*[r.keys() for r in item[2]]))
+                keys = sorted(set().union(*[r.keys() for r in item[2]]),key=str)
 
                 for row in item[2]:
                     for key in keys:
-                        rows_T[key].append(row.get(key,None))
+                        rows_T[str(key)].append(row.get(key,None))
 
                 yield encoder(["I", item[1], { "_packed": rows_T }])
 

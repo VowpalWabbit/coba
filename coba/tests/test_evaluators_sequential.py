@@ -242,7 +242,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, actual_task_results)
 
     def test_None_ips(self):
-        task    = SequentialCB(learn=None,eval='ips')
+        task    = SequentialCB(learn=None,eval='ips',record='reward')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
@@ -265,7 +265,7 @@ class SequentialCB_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_None_dm(self):
-        task    = SequentialCB(learn=None,eval='dm')
+        task    = SequentialCB(learn=None,eval='dm',record='reward')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
@@ -288,7 +288,7 @@ class SequentialCB_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_None_dr(self):
-        task    = SequentialCB(learn=None,eval='dr')
+        task    = SequentialCB(learn=None,eval='dr',record='reward')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
@@ -311,7 +311,7 @@ class SequentialCB_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_dr_dr(self):
-        task    = SequentialCB(learn='dr',eval='dr')
+        task    = SequentialCB(learn='dr',eval='dr',record='reward')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
@@ -335,7 +335,7 @@ class SequentialCB_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_ips_dr(self):
-        task    = SequentialCB(learn='ips',eval='dr')
+        task    = SequentialCB(learn='ips',eval='dr',record='reward')
         learner = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
@@ -359,7 +359,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, actual_task_results)
 
     def test_on_none_context(self):
-        task         = SequentialCB()
+        task         = SequentialCB(record='reward')
         learner      = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
             SimulatedInteraction(None,[1,2,3],[7,8,9]),
@@ -384,7 +384,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_on_sparse_context_sparse_actions(self):
-        task         = SequentialCB()
+        task         = SequentialCB(record='reward')
         learner      = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
             SimulatedInteraction({'c':1},[{'a':1},{'a':2},{'a':2}],[7,8,9]),
@@ -407,7 +407,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_on_dense_context_dense_actions(self):
-        task         = SequentialCB()
+        task         = SequentialCB(record='reward')
         learner      = RecordingLearner(with_kwargs=False, with_info=False)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),
@@ -432,7 +432,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_on_continuous_actions(self):
-        task         = SequentialCB()
+        task         = SequentialCB(record='reward')
         learner      = FixedPredLearner([0,1,2])
         interactions = [
             SimulatedInteraction(1,[],DiscreteReward([0,1,2],[7,8,9])),
@@ -461,7 +461,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual("Dummy warning", str(w.warning))
 
     def test_on_info_kwargs(self):
-        task         = SequentialCB()
+        task         = SequentialCB(record='reward')
         learner      = RecordingLearner(with_kwargs=True, with_info=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9],I=1),
@@ -486,7 +486,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_on_info_kwargs_partial(self):
-        task         = SequentialCB()
+        task         = SequentialCB(record='reward')
         learner      = RecordingLearner(with_kwargs=True, with_info=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),
@@ -559,7 +559,7 @@ class SequentialCB_Tests(unittest.TestCase):
             def predict(self, context, actions):
                 return {'action_prob':(2, 0.5)}
 
-        task    = SequentialCB(learn=None,eval='ips')
+        task    = SequentialCB(learn=None,eval='ips',record='reward')
         learner = MyLearner()
         interactions = [
             LoggedInteraction(1, 2, 3,actions=[]),
@@ -593,7 +593,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_off_ips_actions_no_prob(self):
-        task    = SequentialCB(learn='off',eval='ips')
+        task    = SequentialCB(learn='off',eval='ips',record='reward')
         learner = RecordingLearner(with_kwargs=False,with_info=False)
         interactions = [
             LoggedInteraction(1, 2, 3, actions=[2,5,8]),
@@ -614,7 +614,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_off_ips_actions_prob(self):
-        task    = SequentialCB(learn='off',eval='ips')
+        task    = SequentialCB(learn='off',eval='ips',record='reward')
         learner = RecordingLearner(with_kwargs=False,with_info=False)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
@@ -635,7 +635,7 @@ class SequentialCB_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_off_ips_actions_prob_kwargs_info_extra(self):
-        task    = SequentialCB(learn='off',eval='ips')
+        task    = SequentialCB(learn='off',eval='ips',record='reward')
         learner = RecordingLearner(with_kwargs=True,with_info=True)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8], L='a'),
@@ -661,7 +661,7 @@ class SequentialCB_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.vowpalwabbit(strict=False), "VW is not installed")
     def test_off_dr_actions_prob_kwargs_info_extra(self):
-        task    = SequentialCB(learn='off',eval='dr')
+        task    = SequentialCB(learn='off',eval='dr',record='reward')
         learner = RecordingLearner(with_kwargs=True,with_info=True)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8], L='a'),
@@ -734,7 +734,7 @@ class SequentialCB_Tests(unittest.TestCase):
             def learn(self,*args):
                 self.learn_call = args
 
-        task         = SequentialCB()
+        task         = SequentialCB(record='reward')
         learner      = SimpleLearner()
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),
@@ -809,7 +809,7 @@ class SequentialCB_Tests(unittest.TestCase):
                     return TestLearner.probs.pop()
                 raise Exception()
 
-        task                 = SequentialCB(learn=None,eval='ips')
+        task                 = SequentialCB(learn=None,eval='ips',record='reward')
         learner              = TestLearner()
         interactions         = [
             LoggedInteraction(1, "action_1", 1, probability=1.0, actions=["action_1", "action_2", "action_3"]),
@@ -832,7 +832,7 @@ class SequentialCB_Tests(unittest.TestCase):
             def predict(self, context, actions):
                 return [(2, 0.5, None), (3, 0.5, None)]
 
-        task    = SequentialCB(learn=None,eval='ips')
+        task    = SequentialCB(learn=None,eval='ips',record='reward')
         learner = TestLearner()
         interactions = [
             LoggedInteraction(1, 2, 3,actions=[]),
