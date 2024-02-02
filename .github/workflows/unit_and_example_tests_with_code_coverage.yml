@@ -27,10 +27,6 @@ jobs:
       - uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python }}
-          cache: 'pip'
-          cache-dependency-path: |
-            coba/tests/requirements-soft.txt
-            coba/tests/requirements-test.txt
       - run: python --version
       - name: Min Dependency Installs
         run: |
