@@ -1510,7 +1510,7 @@ class Result:
             labels = [l.label or str(l.label) for l in lines]
             colors = [l.color                 for l in lines]
             xlabel = xlabel or ("Interaction" if x=='index' else x[0] if len(x) == 1 else x)
-            ylabel = ylabel or (y.capitalize().replace("_pct"," Percent"))
+            ylabel = ylabel or ("Reward" if y=='reward' else y.replace("_pct"," Percent"))
 
             if len(set(Y_count)) == 1: Y_count = Y_count[0]
 

@@ -519,6 +519,7 @@ class BinaryReward_Tests(unittest.TestCase):
     def test_repr(self):
         self.assertEqual(repr(BinaryReward([1,2])),'BinaryReward([1, 2])')
         self.assertEqual(repr(BinaryReward({1,2})),'BinaryReward({1, 2})')
+        self.assertEqual(repr(BinaryReward([1,2],2)),'BinaryReward([1, 2], 2)')
 
 class HammingReward_Tests(unittest.TestCase):
     def test_sequence(self):

@@ -29,7 +29,7 @@ class SequentialCB(Evaluator):
     _IMPLICIT_EXCLUDE = {"context", "actions", "rewards", "action", "reward", "probability", "eval_rewards", "learn_rewards"}
 
     def __init__(self,
-        record: Sequence[Literal['reward','time','probability','action','context','actions','rewards']] = ['reward','probability'],
+        record: Sequence[Literal['reward','time','probability','action','context','actions','rewards']] = ['reward','action','probability'],
         learn : Optional[Literal['on','off','ips','dr','dm']] = 'on',
         eval  : Optional[Literal['on','ips','dr','dm']] ='on',
         seed  : float = None) -> None:
@@ -146,7 +146,7 @@ class SequentialCB(Evaluator):
         out_reward   = 'reward'      in self._record and eval
         out_ope_loss = 'ope_loss'    in self._record and eval
 
-        should_pred = (learn and not lrn_off) or val_on or val_dm or val_dr or (val_ips and not has_score) or out_action
+        should_pred = (learn and not lrn_off) or val_on or val_dm or val_dr or (val_ips and not has_score) or out_action or out_prob
 
         if out_rewards and discrete:
             get_rewards = (lambda Rs,As:[[R(a) for a in A] for R,A in zip(Rs,As)]) if batched else (lambda R,A: [R(a) for a in A])
@@ -187,11 +187,13 @@ class SequentialCB(Evaluator):
             pred_time = time.time()-start
 
             if eval:
-                if not val_ips or not has_score:
-                    eval_reward = val_rwds(on_act)
+                if val_ips and has_score and not should_pred:
+                    scr_ = learner.score(context,actions,off_act)
+                    rwd_ = val_rwds(off_act)
+                    eval_reward = scr_*rwd_ if not batched else Batch.List(map(mul,scr_,rwd_))
                 else:
-                    SR = learner.score(context,actions,off_act),val_rwds(off_act)
-                    eval_reward = mul(*SR) if not batched else Batch.List(map(mul,*SR))
+                    eval_reward = val_rwds(on_act)
+
                 n_zero_val += n_zeroes(eval_reward)
 
             if learn:
@@ -239,7 +241,7 @@ class SequentialCB(Evaluator):
             if out_rewards : out['rewards']      = get_rewards(rewards,actions)
             if out_ope_loss: out['ope_loss']     = get_ope_loss(learner)
 
-            if out_prob and on_pr is not None:
+            if out_prob and should_pred and on_pr is not None:
                 out['probability'] = on_pr
 
             out.update({k: interaction[k] for k in interaction.keys()-SequentialCB._IMPLICIT_EXCLUDE})

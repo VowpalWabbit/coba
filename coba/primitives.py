@@ -575,8 +575,8 @@ class BinaryReward(Rewards):
 
     def __eq__(self, o: object) -> bool:
         return o == self._argmax or \
-            (isinstance(o,BinaryReward) and\
-            o._argmax == self._argmax and\
+            (isinstance(o,BinaryReward) and \
+            o._argmax == self._argmax and \
             o._value == self._value)
 
     def __getstate__(self):
@@ -587,8 +587,10 @@ class BinaryReward(Rewards):
         self._argmax,self._value = (args[0],1) if len(args) == 1 else args
 
     def __repr__(self) -> str:
-        am = self._argmax
-        return f"BinaryReward({try_else(lambda:minimize(am),str(am))})"
+        argmax = self._argmax
+        args = [try_else(lambda:str(minimize(argmax)),str(argmax))]
+        if self._value != 1: args.append(str(self._value))
+        return f"BinaryReward({', '.join(args)})"
 
 class HammingReward(Rewards):
     """A reward function using Hamming distance."""
