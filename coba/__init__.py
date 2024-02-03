@@ -27,6 +27,4 @@ from coba.primitives import Learner, Environment, Interaction, Evaluator, Reward
 from coba.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.primitives import L1Reward, HammingReward, DiscreteReward
 
-
-
-__version__ = "7.2.0"
+__version__ = "8.0.0"
