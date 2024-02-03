@@ -1,5 +1,9 @@
 name: coba
+channels:
+  - conda-forge
 dependencies:
+    - python=3.10
+    - matplotlib
+    - pip
     - pip:
-        - matplotlib
-        - coba==8.0.0
+        - coba==8.0
