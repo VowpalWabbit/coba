@@ -1,8 +1,5 @@
 name: coba
-channels:
-  - conda-forge
 dependencies:
-    - python=3.10
     - matplotlib
     - pip
     - pip:
