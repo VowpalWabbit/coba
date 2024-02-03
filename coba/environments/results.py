@@ -1,6 +1,5 @@
 from typing import Iterable, Mapping, Any
 
-import coba.json
 from coba.exceptions import CobaException
 from coba.primitives import Source, Environment, Interaction
 
@@ -21,7 +20,7 @@ class ResultEnvironment(Environment):
         return params
 
     def read(self) -> Iterable[Interaction]:
-        interactions = coba.json.loads(self._int_source.read())[2]['_packed']
+        interactions = self._int_source.read()
 
         is_all_data = {'actions','rewards'}.issubset(interactions.keys())
         is_log_data = {'action' ,'reward' }.issubset(interactions.keys())

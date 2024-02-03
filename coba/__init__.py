@@ -14,7 +14,7 @@ from coba.learners import MisguidedLearner
 from coba.evaluators import ClassMetaEvaluator, RejectionCB, SequentialCB, SequentialIGL
 from coba.experiments import Experiment
 
-from coba.results import Result, PointAndInterval, StdDevCI, StdErrCI, BootstrapCI, BinomialCI
+from coba.results import Result, PointAndInterval, StdDevCI, StdErrCI, BootstrapCI, BinomialCI, Missing
 
 from coba.encodings import InteractionsEncoder
 from coba.utilities import peek_first, minimize

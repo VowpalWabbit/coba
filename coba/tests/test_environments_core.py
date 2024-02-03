@@ -13,6 +13,7 @@ from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.learners     import FixedLearner
+from coba.results      import Result
 
 class BatchList(list):
     is_batch = True
@@ -252,7 +253,7 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertIs(r.exception,ex)
 
-    def test_from_result(self):
+    def test_from_result_path(self):
         if Path("coba/tests/.temp/from_result.log").exists():
             Path("coba/tests/.temp/from_result.log").unlink()
 
@@ -289,6 +290,49 @@ class Environments_Tests(unittest.TestCase):
         finally:
             if Path("coba/tests/.temp/from_result.log").exists():
                 Path("coba/tests/.temp/from_result.log").unlink()
+
+    def test_from_result_obj(self):
+
+        if Path("coba/tests/.temp/from_result.log").exists():
+            Path("coba/tests/.temp/from_result.log").unlink()
+
+        try:
+            Path("coba/tests/.temp/from_result.log").write_text('''
+                ["version",4]
+                ["E", 0, {"e":1}]
+                ["L", 0, {"l":1}]
+                ["V", 0, {"v":1}]
+                ["I",[0,0,0],{"_packed":{"actions":[[1,2],[1,2]],"rewards":[[0,1],[1,0]]}}]
+                ["I",[0,1,2],{"_packed":{"action":[1,2],"reward":[1,0]} }]
+                ["L", 1, {"l":2}]
+            ''')
+
+            env = Environments.from_result(Result.from_save("coba/tests/.temp/from_result.log"))
+
+            self.assertEqual(2, len(env))
+
+            actual = list(env[0].read())
+            expected = [
+                {'actions':[1,2],"rewards":DiscreteReward([1,2],[0,1])},
+                {'actions':[1,2],"rewards":DiscreteReward([1,2],[1,0])}
+            ]
+
+            self.assertEqual(env[0].params, {'e':1,'l':1,'v':1})
+            self.assertEqual(actual, expected)
+
+            actual = list(env[1].read())
+            expected = [{'action':1,"reward":1},{'action':2,"reward":0}]
+
+            self.assertEqual(env[1].params, {'e':1,'l':2})
+            self.assertEqual(actual,expected)
+
+        finally:
+            try:
+                if Path("coba/tests/.temp/from_result.log").exists():
+                    Path("coba/tests/.temp/from_result.log").unlink()
+            except:
+                pass
+
 
     def test_from_linear_synthetic(self):
         envs = Environments.from_linear_synthetic(100,2,3,4,5,["xa"],5)

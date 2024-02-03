@@ -4,16 +4,19 @@ import collections.abc
 from urllib import request
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
+from itertools import compress
 from typing import Sequence, overload, Union, Iterable, Iterator, Optional, Tuple, Callable, Mapping, Type, Literal, Any
 
+import coba.json
 from coba                 import pipes
 from coba.context         import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
 from coba.primitives      import Context, Action, Source, Learner, Environment, EnvironmentFilter
 from coba.random          import CobaRandom
 from coba.primitives      import Dense, Sparse
-from coba.pipes           import Pipes, HttpSource, IterableSource, DataFrameSource, DiskSource, NextSource
+from coba.pipes           import Pipes, HttpSource, IterableSource, DataFrameSource, DiskSource, NextSource, IdentitySource
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
+from coba.results         import Result, Missing
 
 from coba.environments.templates  import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 from coba.environments.openml     import OpenmlSimulation
@@ -414,12 +417,13 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return Environments(DataFrameSource(dataframe))
 
     @staticmethod
-    def from_result(path:str) -> 'Environments':
+    def from_result(result:Union[str,Result]) -> 'Environments':
         """Create Environments from a given Result file.
 
         Args:
-            path: The path to results of an experiment. One environment will be
-            created for every environment in the Experiment that produced the results.
+            result: The path to results or the results of an experiment. One
+                environment will be created for every environment in the
+                Experiment that produced the results.
 
         Remarks:
             We assume that 'context', 'action', probability', and 'reward' was
@@ -429,26 +433,55 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             An Environments object.
         """
 
-        env_rows = collections.defaultdict(dict)
-        lrn_rows = collections.defaultdict(dict)
-        val_rows = collections.defaultdict(dict)
-        interactions = []
+        if isinstance(result,str):
 
-        for (loc,line) in DiskSource(path,include_loc=True).read():
-            if line.strip():
-                trx = json.loads(line)
-                if trx[0] == "E": env_rows[trx[1]].update(trx[2])
-                if trx[0] == "L": lrn_rows[trx[1]].update(trx[2])
-                if trx[0] == "V": val_rows[trx[1]].update(trx[2])
-                if trx[0] == "I": interactions.append((loc,*trx[1],0)[:4] )
+            class InteractionSource:
+                def __init__(self,source:Source[str]):
+                    self._source = source
+                def read(self) -> Mapping[str,Sequence]:
+                    return coba.json.loads(self._source.read())[2]['_packed']
 
-        envs = []
-        for loc, env_id, lrn_id, val_id in interactions:
-            env_params = env_rows.get(env_id)
-            lrn_params = lrn_rows.get(lrn_id)
-            val_params = val_rows.get(val_id)
-            int_source = NextSource(DiskSource(path,start_loc=loc))
-            envs.append(ResultEnvironment(int_source,env_params,lrn_params,val_params))
+            env_rows = collections.defaultdict(dict)
+            lrn_rows = collections.defaultdict(dict)
+            val_rows = collections.defaultdict(dict)
+            interactions = []
+
+            for (loc,line) in DiskSource(result,include_loc=True).read():
+                if line.strip():
+                    trx = json.loads(line)
+                    if trx[0] == "E": env_rows[trx[1]].update(trx[2])
+                    if trx[0] == "L": lrn_rows[trx[1]].update(trx[2])
+                    if trx[0] == "V": val_rows[trx[1]].update(trx[2])
+                    if trx[0] == "I": interactions.append((loc,*trx[1],0)[:4] )
+
+            envs = []
+            for loc, env_id, lrn_id, val_id in interactions:
+                env_params = env_rows.get(env_id)
+                lrn_params = lrn_rows.get(lrn_id)
+                val_params = val_rows.get(val_id)
+                int_source = InteractionSource(NextSource(DiskSource(result,start_loc=loc)))
+
+                envs.append(ResultEnvironment(int_source,env_params,lrn_params,val_params))
+        else:
+            env_rows = { d.pop('environment_id'): d for d in result.environments.to_dicts() }
+            lrn_rows = { d.pop('learner_id'): d for d in result.learners.to_dicts() }
+            val_rows = { d.pop('evaluator_id'): d for d in result.evaluators.to_dicts() }
+
+            all_hdrs = result.interactions.columns[4:]
+
+            envs = []
+            for (env_id,lrn_id,val_id), cols in result.interactions.groupby(3,all_hdrs):
+                env_params = env_rows.get(env_id)
+                lrn_params = lrn_rows.get(lrn_id)
+                val_params = val_rows.get(val_id)
+
+                keep = [ not all(c == Missing for c in col) for col in cols]
+                hdrs = list(compress(all_hdrs,keep))
+                cols = list(compress(cols,keep))
+
+                int_source = IdentitySource(dict(zip(hdrs,cols)))
+                envs.append(ResultEnvironment(int_source,env_params,lrn_params,val_params))
+
 
         return Environments(envs)
 

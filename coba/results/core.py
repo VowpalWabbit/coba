@@ -492,7 +492,7 @@ class Table:
 
 class TransactionDecode:
     def filter(self, transactions:Iterable[str]) -> Iterable[Any]:
-        transactions = iter(transactions)
+        transactions = iter(filter(None,map(methodcaller('strip'),transactions)))
         ver_row = json.loads(next(transactions))
         if ver_row[1] == 4:
             yield ver_row
