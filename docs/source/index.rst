@@ -3,11 +3,17 @@ Welcome to coba's documentation!
 ================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    getting_started
-   suggested_workflow
-   environments_101
-   example_notebooks
+   First_Experiment
+   Environments
+   Learners
+   Evaluators
+   Experiments
+   Results
+   Interactions
+   Synthetics
+   Logged
    api_reference

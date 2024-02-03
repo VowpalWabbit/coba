@@ -1,8 +1,8 @@
-=================
+===============
 Getting Started
-=================
+===============
 
-``Coba`` is a contextual bandit (CB) research package for both algorithmic and applied research.
+``Coba`` is a contextual bandit research package made for algorithmic and applied research.
 
 Installation
 ~~~~~~~~~~~~
@@ -13,53 +13,10 @@ If you're brand-new to ``Coba`` the first step is to install it. This can be don
 
    $ pip install coba
 
-Also, for the walkthrough below, you will need matplotlib as well (a Python plotting package).
-
-.. code-block:: bash
-
-   $ pip install matplotlib
-
-
-First Experiment
-~~~~~~~~~~~~~~~~
-
-Once ``Coba`` is installed we are ready to conduct our first experiment.
-
-To begin save the following Python code below to a text file called ``first.py``.
-
-.. code-block:: python
-
-    from coba.environments import Environments
-    from coba.learners     import RandomLearner, LinUCBLearner
-    from coba.experiments  import Experiment
-
-    env = Environments.from_linear_synthetic(500,seed=5)
-    lrn = [ RandomLearner(), LinUCBLearner() ]
-
-    result = Experiment(env, lrn).run()
-    result.plot_learners()
-
-
-Once the file has been saved run the file using python.
-
-.. code-block:: bash
-
-   $ python first.py
-
-When the code finishes running this exact plot should appear:
-
-.. image:: _statics/fig_1.png
-  :width: 600
-  :alt: First experiment plot
-
-And that's it. Just like that we've run an experiment comparing the performance
-of LinUCB to randomly selecting actions. This is just the tip of the iceberg for
-what is possible.
-
 Key Concepts
-~~~~~~~~~~~~~
+~~~~~~~~~~~~
 
-The experiment above introduced us to ``Coba``'s five key concepts.
+The ``Coba`` package is organized around five key concepts.
 
 .. note::
    ``Coba`` is organized around five key concepts:
@@ -72,20 +29,14 @@ The experiment above introduced us to ``Coba``'s five key concepts.
 
    Knowing these concepts can help you find help and perform advanced experiments.
 
-The core concepts help in finding more information about ``Coba``. For example, all the built-in learners provided by coba can be
+The core concepts help in finding more information about ``Coba``. For example, all built-in learners can be
 found at :ref:`coba-learners`. Help with creating environments can be found at :ref:`coba-environments`. The types of evaluation
 that coba supports out of the box can be found at :ref:`coba-evaluators`. The various ways an experiment can be configured is
 described at :ref:`coba-experiments`. And details regarding analysis functionality can be found at :ref:`coba-results`.
 
-Conclusion
+Next Steps
 ~~~~~~~~~~
 
-Everything above was meant to get you up and running with a first experiment and important concepts so you can find the resources going forward.
-Unfortunately, doing real work with ``Coba`` probably still requires that you have a little more knowledge (though not too much).
-
-To get you there as quickly as possible we have two recommendations for next-steps (depending on what your research is). Once you've read through these we think
-you'll be making real meaningful progress with your research in no-time. Then you can use this documentation simply as a reference when issues come up.
-
- * For *all* researchers we suggest reading about the recommended workflow. :ref:`to-do`
- * For *algorithm* researchers we suggest reading about creating custom Learners. :ref:`to-do`
- * For *applied* researchers we suggest reading about creating custom Environments. :ref:`to-do`
+ * For *all* researchers we suggest reading about how to create your :doc:`first experiment <First_Experiment>`.
+ * For *algorithm* researchers we suggest reading about how to create :doc:`custom learners <Learners>`.
+ * For *applied* researchers we suggest reading about creating :doc:`custom environments <Environments>`.

@@ -1,2 +1,7 @@
-sphinx==7.2.6
-sphinx_rtd_theme==2.0.0
+sphinx==7.2.*
+sphinx_rtd_theme==2.0.*
+nbsphinx==0.9.*
+ipykernel
+
+#we need pandoc which is installed via an executable
+#pandoc install -- https://pandoc.org/installing.html
