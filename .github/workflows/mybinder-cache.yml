@@ -12,5 +12,5 @@ jobs:
         MYBINDERORG_TAG: ${{ github.event.ref }} # This builds the container on mybinder.org with the branch that was pushed on.
     - name: Dump GitHub context
       env:
-        GITHUB_CONTEXT: ${{ toJson(context) }}
+        GITHUB_CONTEXT: ${{ toJson(github) }}
       run: echo "$GITHUB_CONTEXT"
