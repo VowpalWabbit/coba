@@ -1,4 +1,4 @@
-name: caching mybinder
+name: cache mybinder build
 on: [push]
 
 jobs:

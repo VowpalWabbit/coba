@@ -3,7 +3,7 @@
 
 #dependency caching does not appear to be working currently. All install steps take the same amount of time with and without dependency cahcing.
 
-name: unittests and coverage
+name: unittest and coverage
 
 on:
   push:
