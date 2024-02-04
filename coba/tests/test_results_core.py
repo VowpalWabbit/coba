@@ -24,10 +24,10 @@ class TestPlotter:
 class Missing_Tests(unittest.TestCase):
 
     def test_str(self):
-        self.assertEqual(str(Missing),"Missing")
+        self.assertEqual(str(Missing),"None")
 
     def test_repr(self):
-        self.assertEqual(repr(Missing),"Missing")
+        self.assertEqual(repr(Missing),"None")
 
     def test_gt(self):
         self.assertTrue(Missing > 'a')
@@ -233,63 +233,54 @@ class Table_Tests(unittest.TestCase):
             table._ipython_display_()
             mock.assert_called_once_with(str(table))
 
+    def test_insert_with_missing(self):
+        table = Table(columns=['a']).insert([{'a':'a'},{}])
+        self.assertEqual(list(table), [('a',),(Missing,)])
+        self.assertSequenceEqual(table.columns, ['a'])
+        self.assertEqual(2, len(table))
+
     def test_insert_item(self):
         table = Table(columns=['a','b']).insert({'a':['a','B'],'b':['A','B']})
-
         self.assertEqual(list(table), [('a','A'),('B','B')])
         self.assertSequenceEqual(table.columns, ['a','b'])
         self.assertEqual(2, len(table))
 
     def test_bad_index(self):
         table = Table(columns=['a','b']).insert({'a':['a','B'],'b':['A','B']})
-
         with self.assertRaises(KeyError):
             table['c']
-
         with self.assertRaises(KeyError):
             table[0]
 
     def test_where_kwarg_str(self):
         table = Table(columns=['a','b']).insert({'a':['a','A'],'b':['b','B']})
-
         filtered_table = table.where(b="B")
-
         self.assertEqual(2, len(table))
         self.assertEqual([('a','b'),('A','B')],list(table))
-
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A','B')], list(filtered_table))
 
     def test_where_kwarg_int_1(self):
         table = Table(columns=['a','b']).insert([['1','b'],['11','B']])
-
         filtered_table = table.where(a=1,comparison='match')
-
         self.assertEqual(2, len(table))
         self.assertEqual([('1','b'),('11','B')], list(table))
-
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('1','b')], list(filtered_table))
 
     def test_where_kwarg_int_2(self):
         table = Table(columns=['a','b']).insert([[1,'b'],[2,'B']])
-
         filtered_table = table.where(a=1)
-
         self.assertEqual(2, len(table))
         self.assertEqual([(1,'b'),(2,'B')], list(table))
-
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([(1,'b')], list(filtered_table))
 
     def test_where_kwarg_pred(self):
         table = Table(columns=['a','b']).insert([['1','b'],['12','B']])
-
         filtered_table = table.where(a=lambda v: v=='1')
-
         self.assertEqual(2, len(table))
         self.assertEqual([('1','b'),('12','B')], list(table))
-
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('1','b')], list(filtered_table))
 
@@ -300,9 +291,7 @@ class Table_Tests(unittest.TestCase):
             ['3', 'B', 'c'],
             ['4', 'B', 'C']
         ])
-
         filtered_table = table.where(b="b", c="C")
-
         self.assertEqual(4, len(table))
         self.assertEqual(3, len(filtered_table))
         self.assertEqual([('1','b','c'),('2','b','C'),('4','B','C')], list(filtered_table))
@@ -312,196 +301,128 @@ class Table_Tests(unittest.TestCase):
             ['1', 'b', 'c'],
             ['2', 'b', 'C'],
         ])
-
         filtered_table = table.where()
-
         self.assertEqual(2, len(table))
         self.assertEqual(2, len(filtered_table))
         self.assertEqual([('1','b','c'),('2','b','C')], list(filtered_table))
 
     def test_where_pred(self):
         table = Table(columns=['a','b']).insert([['A','B'],['a','b']])
-
         filtered_table = table.where(lambda row: row[1]=="B")
-
         self.assertEqual(2, len(table))
         self.assertEqual([('A','B'),('a','b')], list(table))
-
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A','B')], list(filtered_table))
 
     def test_where_in_1(self):
         table = Table(columns=['a','b']).insert([['a','b'], ['A','B'], ['1','C']])
-
         filtered_table = table.where(a=['a','1'])
-
         self.assertEqual(3, len(table))
         self.assertEqual([('a','b'),('A','B'),('1','C')], list(table))
-
         self.assertEqual(2, len(filtered_table))
         self.assertEqual([('a','b'),('1','C')], list(filtered_table))
 
     def test_where_in_2(self):
         table = Table(columns=['a']).insert([[['1']],[['2']],[['3']]])
-
         filtered_table = table.where(a=[['1']],comparison='in')
-
         self.assertEqual(3, len(table))
         self.assertEqual([(['1'],),(['2'],),(['3'],)], list(table))
-
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([(['1'],)], list(filtered_table))
 
     def test_where_not_in_foreach(self):
         table = Table(columns=['a','b']).insert([['a','b'], ['A','B'], ['1','C']])
-
         filtered_table = table.where(a=['a','1'],comparison='!in')
-
         self.assertEqual(3, len(table))
         self.assertEqual([('a','b'),('A','B'),('1','C')], list(table))
-
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A','B')], list(filtered_table))
 
     def test_where_not_in_bisect(self):
         table = Table(columns=['a','b']).insert([['a','b'], ['A','B'], ['1','C']]).index('a')
-
         filtered_table = table.where(a=['a','1'],comparison='!in')
-
         self.assertEqual(3, len(table))
         self.assertEqual([('1','C'),('A','B'),('a','b')], list(table))
-
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A','B')], list(filtered_table))
 
     def test_where_le(self):
         table = Table(columns=['a']).insert([[1]]*10)
         table = table.insert([[2]]*10)
-
-        filtered_table = table.where(a=1,comparison='<=')
-
         self.assertEqual(20, len(table))
-        self.assertEqual(10, len(filtered_table))
-
-        filtered_table = table.index('a').where(a=1,comparison='<=')
-
+        self.assertEqual(10, len(table.where(a=1,comparison='<=')))
         self.assertEqual(20, len(table))
-        self.assertEqual(10, len(filtered_table))
+        self.assertEqual(10, len(table.index('a').where(a=1,comparison='<=')))
 
     def test_where_lt(self):
         table = Table(columns=['a']).insert([[1]]*10)
         table = table.insert([[2]]*10)
-
-        filtered_table = table.where(a=1,comparison='<')
-
         self.assertEqual(20, len(table))
-        self.assertEqual(0, len(filtered_table))
-
-        filtered_table = table.index('a').where(a=1,comparison='<')
-
+        self.assertEqual(0, len(table.where(a=1,comparison='<')))
         self.assertEqual(20, len(table))
-        self.assertEqual(0, len(filtered_table))
+        self.assertEqual(0, len(table.index('a').where(a=1,comparison='<')))
 
     def test_where_gt(self):
         table = Table(columns=['a']).insert([[1]]*10)
         table = table.insert([[2]]*10)
-
-        filtered_table = table.where(a=1,comparison='>')
-
         self.assertEqual(20, len(table))
-        self.assertEqual(10, len(filtered_table))
-
-        filtered_table = table.index('a').where(a=1,comparison='>')
-
+        self.assertEqual(10, len(table.where(a=1,comparison='>')))
         self.assertEqual(20, len(table))
-        self.assertEqual(10, len(filtered_table))
+        self.assertEqual(10, len(table.index('a').where(a=1,comparison='>')))
 
     def test_where_ge(self):
         table = Table(columns=['a']).insert([[1]]*10)
         table = table.insert([[2]]*10)
-
-        filtered_table = table.where(a=1,comparison='>=')
-
         self.assertEqual(20, len(table))
-        self.assertEqual(20, len(filtered_table))
-
-        filtered_table = table.index('a').where(a=1,comparison='>=')
-
+        self.assertEqual(20, len(table.where(a=1,comparison='>=')))
         self.assertEqual(20, len(table))
-        self.assertEqual(20, len(filtered_table))
+        self.assertEqual(20, len(table.index('a').where(a=1,comparison='>=')))
 
     def test_where_eq(self):
         table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
-
-        filtered_table = table.where(a=1,comparison='=')
-
         self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
-
-        filtered_table = table.index('a').where(a=1,comparison='=')
-
+        self.assertEqual(2, len(table.where(a=1,comparison='=')))
         self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
+        self.assertEqual(2, len(table.index('a').where(a=1,comparison='=')))
 
     def test_where_ne(self):
         table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
-
-        filtered_table = table.where(a=1,comparison='!=')
-
         self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
-
-        filtered_table = table.index('a').where(a=1,comparison='!=')
-
+        self.assertEqual(2, len(table.where(a=1,comparison='!=')))
         self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
+        self.assertEqual(2, len(table.index('a').where(a=1,comparison='!=')))
 
     def test_where_match_number_number(self):
         table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
-
-        filtered_table = table.where(a=1,comparison='match')
-
         self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
+        self.assertEqual(2, len(table.where(a=1,comparison='match')))
 
     def test_where_match_str_number(self):
         table = Table(columns=['a']).insert([[1],[1]]).insert([[2],[2]])
-
-        filtered_table = table.where(a={'match':'1'})
-
         self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
+        self.assertEqual(2, len(table.where(a={'match':'1'})))
 
     def test_where_match_number_str(self):
         table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
-
-        filtered_table = table.where(a=1,comparison='match')
-
         self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
+        self.assertEqual(2, len(table.where(a=1,comparison='match')))
 
     def test_where_match_str_str(self):
         table = Table(columns=['a']).insert([['1'],['1']]).insert([['2'],['2']])
-        filtered_table = table.where(a='1',comparison='match')
         self.assertEqual(4, len(table))
-        self.assertEqual(2, len(filtered_table))
+        self.assertEqual(2, len(table.where(a='1',comparison='match')))
 
     def test_where_preserves_order(self):
         table = Table(columns=['a']).insert({'a':list(range(1000))})
-
         no_index_where = table.where(a=list(reversed([0,10,20,30,40,50,60])))
         self.assertSequenceEqual(no_index_where['a'],[0,10,20,30,40,50,60])
-
         index_where = table.index('a').where(a=list(reversed([0,10,20,30,40,50,60])))
         self.assertSequenceEqual(index_where['a'],[0,10,20,30,40,50,60])
 
     def test_where_lt_multilevel_index(self):
         table = Table({'a':[1,1,1,2,2,2],'b':[1,2,3,1,2,3]}).index('a','b')
-
-        filtered_table = table.where(b={'<':3})
-
         self.assertEqual(6, len(table))
-        self.assertEqual(4, len(filtered_table))
+        self.assertEqual(4, len(table.where(b={'<':3})))
 
     def test_multilevel_index(self):
         table = Table(columns=['a','b','c','d']).insert([(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
@@ -534,7 +455,6 @@ class Table_Tests(unittest.TestCase):
     def test_copy(self):
         table = Table(columns=['a','b','c','d']).insert([[0,0,1,1],[0,1,1,1],[1,0,1,1]]).index('a','b','c')
         tcopy = table.copy()
-
         self.assertIsNot(table,tcopy)
         self.assertIs(table._data, tcopy._data)
         self.assertEqual(table._columns,tcopy._columns)
@@ -543,67 +463,46 @@ class Table_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.pandas(strict=False), "this test requires pandas")
     def test_to_pandas(self):
-
         import pandas as pd
         import pandas.testing
-
         table = Table(columns=['a','b','c','d','e']).insert([['A','B',1,'d',None],['B',None,None,None,'E']])
-
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=1,d='d',e=None),
             dict(a='B',b=None,c=None,d=None,e='E')
         ])
-
-        actual_df = table.to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df)
+        pandas.testing.assert_frame_equal(expected_df,table.to_pandas())
 
     @unittest.skipUnless(PackageChecker.pandas(strict=False), "this test requires pandas")
     def test_to_pandas_with_array_column(self):
         import pandas as pd
         import pandas.testing
-
         table = Table(columns=['a','b','c','d','e']).insert([['A','B',[1,2],'d',None],['B',None,None,None,'E']])
-
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=[1,2],d='d',e=None),
             dict(a='B',b=None,c=None,d=None,e='E')
         ])
-
-        actual_df = table.to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df)
+        pandas.testing.assert_frame_equal(expected_df,table.to_pandas())
 
     @unittest.skipUnless(PackageChecker.pandas(strict=False), "this test requires pandas")
     def test_to_pandas_with_dict_column(self):
         import pandas as pd
         import pandas.testing
-
         table = Table(columns=['a','b','c','d','e']).insert([['A','B',{'z':10},'d',None],['B',None,None,None,'E']])
-
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c={'z':10},d='d',e=None),
             dict(a='B',b=None,c=None,d=None,e='E')
         ])
-
-        actual_df = table.to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df)
+        pandas.testing.assert_frame_equal(expected_df,table.to_pandas())
 
     @unittest.skipUnless(PackageChecker.pandas(strict=False), "this test requires pandas")
     def test_to_pandas_with_View(self):
         import pandas as pd
         import pandas.testing
-
         table = Table(columns=['a','b','c','d','e']).insert([['A','B',1,'d',None],['B',None,None,None,'E']])
-
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=1,d='d',e=None),
         ])
-
-        actual_df = table.where(a='A').to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df)
+        pandas.testing.assert_frame_equal(expected_df,table.where(a='A').to_pandas())
 
 @unittest.skipUnless(PackageChecker.matplotlib(strict=False), "this test requires matplotlib")
 class MatplotPlotter_Tests(unittest.TestCase):
@@ -2030,7 +1929,7 @@ class Result_Tests(unittest.TestCase):
 
         expected_lines = [
             Points([1,2],[1,1.5],[],[0,0],0,1,'learner_1','-', 1),
-            Points([1,2],[1,1.5],[],[0,0],1,1,'Missing','-', 1)
+            Points([1,2],[1,1.5],[],[0,0],1,1,'None','-', 1)
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -2793,10 +2692,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(2,1,x='a',mode='prob')
 
         expected_lines = [
-            Points(('2',)         , (0,   ), None, (0, ), 0     , 1, '2. learner_2 (1)' , '.', 1.),
-            Points(()             , ()     , None , None , 1    , 1, 'Tie (0)'          , '.', 1.),
-            Points(('1','Missing'), (1,1  ), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
-            Points(('2','Missing'), (.5,.5), None, None , "#888", 1, None               , '-', .5)
+            Points(('2',)      , (0,   ), None, (0, ), 0     , 1, '2. learner_2 (1)' , '.', 1.),
+            Points(()          , ()     , None , None , 1    , 1, 'Tie (0)'          , '.', 1.),
+            Points(('1','None'), (1,1  ), None, (0,0), 2     , 1, '1. learner_1 (2)' , '.', 1.),
+            Points(('2','None'), (.5,.5), None, None , "#888", 1, None               , '-', .5)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))

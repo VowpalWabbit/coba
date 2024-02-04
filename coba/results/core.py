@@ -34,16 +34,22 @@ class MissingType:
         return cls._instance
 
     def __str__(self):
-        return "Missing"
+        return "None"
 
     def __repr__(self):
-        return "Missing"
+        return "None"
 
     def __gt__(self,other):
        return True
 
     def __lt__(self,other):
        return False
+    
+    def __eq__(self,other):
+        return other is None or super().__eq__(other)
+    
+    def __hash__(self):
+        return hash(None)
 
 Missing = MissingType()
 
@@ -221,7 +227,7 @@ class Table:
             return self
 
         if data_is_sequence_of_dicts:
-            data = {k:[d.get(k) for d in data] for k in set().union(*(d.keys() for d in data))}
+            data = {k:[d.get(k,Missing) for d in data] for k in set().union(*(d.keys() for d in data))}
             data_is_mapping_of_cols = True
 
         if data_is_mapping_of_cols:
@@ -1400,7 +1406,8 @@ class Result:
                         for g1_, g2_ in zip(g1,g2):
                             XY[g1_[1]].append((g1_[2],g2_[2]))
                     else:
-                        makex = lambda x1,x2: x1 if x1 == x2 else f"{x2}-{x1}"
+                        def makex(x1,x2):
+                            return x1 if x1 == x2 else f"{x2}-{x1}"
                         for g1_,g2_ in product(g1,g2):
                             XY[makex(g1_[1],g2_[1])].append((g1_[2],g2_[2]))
                     p1,g1 = next(P1)
