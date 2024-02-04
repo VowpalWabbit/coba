@@ -37,6 +37,6 @@ described at :ref:`coba-experiments`. And details regarding analysis functionali
 Next Steps
 ~~~~~~~~~~
 
- * For *all* researchers we suggest reading about how to create your :doc:`first experiment <First_Experiment>`.
- * For *algorithm* researchers we suggest reading about how to create :doc:`custom learners <Learners>`.
- * For *applied* researchers we suggest reading about creating :doc:`custom environments <Environments>`.
+ * For *all* researchers we suggest reading about how to create your :doc:`first experiment <notebooks/First_Experiment>`.
+ * For *algorithm* researchers we suggest reading about how to create :doc:`custom learners <notebooks/Learners>`.
+ * For *applied* researchers we suggest reading about creating :doc:`custom environments <notebooks/Environments>`.

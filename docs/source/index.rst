@@ -7,13 +7,13 @@ Welcome to coba's documentation!
    :caption: Contents:
 
    getting_started
-   First_Experiment
-   Environments
-   Learners
-   Evaluators
-   Experiments
-   Results
-   Interactions
-   Synthetics
-   Logged
+   notebooks/First_Experiment
+   notebooks/Environments
+   notebooks/Learners
+   notebooks/Evaluators
+   notebooks/Experiments
+   notebooks/Results
+   notebooks/Interactions
+   notebooks/Synthetics
+   notebooks/Logged_Bandit_Data
    api_reference
