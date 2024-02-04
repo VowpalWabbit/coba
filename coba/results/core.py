@@ -1,4 +1,3 @@
-import time
 import re
 import json
 import collections
@@ -7,7 +6,7 @@ import collections.abc
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, mul, itemgetter, methodcaller, not_
+from operator import truediv, sub, mul, itemgetter, methodcaller
 from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, astuple, field, replace
@@ -15,11 +14,11 @@ from itertools import chain, repeat, accumulate, groupby, count, compress, group
 from typing import Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, List, Any, overload, Literal
 
 import coba.json
-from coba.primitives import is_batch, Source, Environment, HashableDense
+from coba.primitives import is_batch, Source, Environment
 from coba.statistics import mean
 from coba.context import CobaContext, NullLogger
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker, peek_first, KeyDefaultDict, minimize, try_else
+from coba.utilities import PackageChecker, peek_first, KeyDefaultDict, minimize, try_else, grouper
 from coba.pipes import Pipes, DiskSource
 
 from coba.results.errors import StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
@@ -44,10 +43,10 @@ class MissingType:
 
     def __lt__(self,other):
        return False
-    
+
     def __eq__(self,other):
         return other is None or super().__eq__(other)
-    
+
     def __hash__(self):
         return hash(None)
 
@@ -550,6 +549,12 @@ class TransactionResult:
         transactions = iter(transactions)
         version      = next(transactions)[1]
 
+        def handle_lists(item:dict):
+            return {k: tuple(v) if isinstance(v,list) else v for k,v in item.items()}
+
+        def handle_packed_lists(item:dict):
+            return {k: list(map(tuple,v)) if k != 'rewards' and isinstance(v[0],list) else v for k,v in item.items()}
+
         if version == 3:
             raise CobaException("Deprecated transaction format. Please revert to an older version of Coba to read it.")
 
@@ -564,13 +569,13 @@ class TransactionResult:
                 exp_dict = trx[1]
 
             if trx[0] == "E":
-                env_rows[trx[1]].update(trx[2])
+                env_rows[trx[1]].update(handle_lists(trx[2]))
 
             if trx[0] == "L":
-                lrn_rows[trx[1]].update(trx[2])
+                lrn_rows[trx[1]].update(handle_lists(trx[2]))
 
             if trx[0] == "V":
-                val_rows[trx[1]].update(trx[2])
+                val_rows[trx[1]].update(handle_lists(trx[2]))
 
             if trx[0] == "I":
                 if len(trx[1]) == 2: trx[1] = [*trx[1],0]
@@ -597,7 +602,7 @@ class TransactionResult:
         for (env_id, lrn_id, val_id), results in sorted(int_rows.items()):
             if '_packed' in results and results['_packed']:
 
-                packed = results['_packed']
+                packed = handle_packed_lists(results['_packed'])
                 N = len(next(iter(packed.values())))
 
                 packed['environment_id'] = repeat(env_id,N)
@@ -1043,13 +1048,20 @@ class Result:
 
         full_id = ['environment_id','learner_id','evaluator_id']
 
-        indexes = self._grouped_ys(p,l,full_l,full_id,y=y,func='list',card='S')
+        groups = self._grouped_ys(p,l,full_l,full_id,y=y,func='list',card='S')
+
+        try:
+            groups = sorted(groups)
+        except:
+            sorted_=False
+        else:
+            sorted_=True
 
         to_keep, to_drop = [], []
-        for _, group in groupby(indexes,key=itemgetter(0)):
-            for _, group in groupby(group, key=itemgetter(1)):
+        for _, group in grouper(groups, key=itemgetter(0), sorted_=sorted_):
+            for _, group in grouper(group, key=itemgetter(1), sorted_=sorted_):
                 max_val, k, d = -float('inf'), [], []
-                for _, group in groupby(group, key=itemgetter(2)):
+                for _, group in grouper(group, key=itemgetter(2), sorted_=sorted_):
                     group = list(group)
                     ids,vals = zip(*((g[3], mean(islice(g[-1],n))) for g in group))
                     mean_val = mean(vals)
@@ -1316,17 +1328,25 @@ class Result:
 
         rows = plottable._grouped_ys(l,x,y=y,span=span)
 
-        try:
-            Xs = sorted(set(map(itemgetter(1),rows)))
-        except:
-            Xs = list(map(itemgetter(0),groupby(sorted(map(itemgetter(1),rows)))))
+        Xs = set(map(itemgetter(1),rows))
 
-        data = {'x': Xs}
-        for _l, group in groupby(rows,key=itemgetter(0)):
-            i,Y = 0,[[float('nan')]]*len(Xs)
-            for _x, group in groupby(group,key=itemgetter(1)):
-                i = Xs.index(_x,max(i-1,0))
-                Y[i] = list(chain.from_iterable(map(itemgetter(-1),group)))
+        try:
+            Xs = dict(zip(sorted(Xs),count()))
+        except:
+            Xs = dict(zip(sorted(Xs,key=str),count()))
+
+        try:
+            rows = sorted(rows)
+        except:
+            sorted_ = False
+        else:
+            sorted_ = True
+
+        data = {'x': list(Xs.keys())}
+        for _l, group in grouper(rows, key=itemgetter(0), val=itemgetter(slice(1,None)), sorted_=sorted_):
+            Y = [[float('nan')]]*len(Xs)
+            for _x, group in grouper(group, key=itemgetter(0), val=itemgetter(1), sorted_=sorted_):
+                Y[Xs[_x]] = list(chain.from_iterable(group))
             data[_l] = Y
         return Table(data)
 
@@ -1388,36 +1408,20 @@ class Result:
             if L in l1: L1.extend(values)
             else      : L2.extend(values)
 
-        L1.sort()
-        L2.sort()
+        #We have to materialize because we can't rely on sorting
+        P1 = {k:list(v) for k,v in grouper(L1,key=itemgetter(0))}
+        P2 = {k:list(v) for k,v in grouper(L2,key=itemgetter(0))}
 
-        P1 = iter(groupby(L1,key=itemgetter(0)))
-        P2 = iter(groupby(L2,key=itemgetter(0)))
+        def makex(x1,x2): return x1 if x1 == x2 else f"{x2}-{x1}"
 
-        start = time.time()
         XY = defaultdict(list)
-        try:
-            p1,g1 = next(P1)
-            p2,g2 = next(P2)
-
-            while True:
-                if p1 == p2:
-                    if x == 'index':
-                        for g1_, g2_ in zip(g1,g2):
-                            XY[g1_[1]].append((g1_[2],g2_[2]))
-                    else:
-                        def makex(x1,x2):
-                            return x1 if x1 == x2 else f"{x2}-{x1}"
-                        for g1_,g2_ in product(g1,g2):
-                            XY[makex(g1_[1],g2_[1])].append((g1_[2],g2_[2]))
-                    p1,g1 = next(P1)
-                    p2,g2 = next(P2)
-                elif p1 < p2:
-                    p1,g1 = next(P1)
-                else:
-                    p2,g2 = next(P2)
-        except StopIteration:
-            pass
+        for k in P1.keys() & P2.keys():
+            if x == 'index':
+                for g1_, g2_ in zip(P1[k],P2[k]):
+                    XY[g1_[1]].append((g1_[2],g2_[2]))
+            else:
+                for g1_,g2_ in product(P1[k],P2[k]):
+                    XY[makex(g1_[1],g2_[1])].append((g1_[2],g2_[2]))
 
         if not XY:
             raise CobaException(f"We were unable to create any pairings to contrast. Make sure l1={og_l[0]} and l2={og_l[1]} is correct.")
@@ -1840,19 +1844,8 @@ class Result:
             if need_hasher is None:
                 out, outs = (outs, outs) if N == 0 else peek_first(outs)
                 need_hasher = try_else(lambda: not bool(hash(out)), True)
-
                 if need_hasher:
-                    can_hash  = [try_else(lambda: bool(hash(o)), False) for o in out]
-                    cant_hash = list(map(not_, can_hash))
-                    def hasher(O,can_hash=can_hash,cant_hash=cant_hash):
-                        return hash(tuple(chain(compress(O,can_hash),map(id,compress(O,cant_hash)))))
-
-            if need_hasher:
-                if N == 0:
-                    outs = HashableDense(outs,hasher(outs))
-                else:
-                    o1,o2 = tee(outs,2)
-                    outs = map(HashableDense, o1, map(hasher,o2))
+                    raise CobaException("Result requires all data to be hashable.")
 
             if N == 0:
                 if y is None:
@@ -1876,7 +1869,7 @@ class Result:
                 else:
                     D.update(zip(outs,v))
 
-        return sorted([k + (v,) for k,v in D.items()])
+        return [k + (v,) for k,v in D.items()]
 
     def _global_n(self, n: Union[int,Literal['min']]):
 

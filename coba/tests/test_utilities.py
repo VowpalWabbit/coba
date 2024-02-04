@@ -1,9 +1,10 @@
 import sys
 import unittest
 import unittest.mock
+import operator
 
 from coba.exceptions import CobaExit, sans_tb_sys_except_hook
-from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit, peek_first, minimize
+from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit, peek_first, minimize, grouper
 
 class coba_exit_Tests(unittest.TestCase):
     def test_coba_exit(self):
@@ -184,6 +185,39 @@ class minimize_Tests(unittest.TestCase):
     def test_torch_number(self):
         import torch
         self.assertEqual(minimize(torch.tensor(1.123456)), 1.12346)
+
+class grouper_Tests(unittest.TestCase):
+
+    def test_int_list_unsorted(self):
+        groups = {k:list(g) for k,g in grouper([1,2,1,2])}
+        self.assertEqual({1:[1,1],2:[2,2]}, groups)
+
+    def test_int_list_sorted(self):
+        groups = {k:list(g) for k,g in grouper([1,1,2,2], sorted_=True)}
+        self.assertEqual({1:[1,1],2:[2,2]}, groups)
+
+    def test_str_list_unsorted(self):
+        groups = {k:list(g) for k,g in grouper(['1','2','1','2'])}
+        self.assertEqual({'1':['1','1'],'2':['2','2']}, groups)
+
+    def test_str_iterable_unsorted(self):
+        groups = {k:list(g) for k,g in grouper(map(str,[1,2,1,2]))}
+        self.assertEqual({'1':['1','1'],'2':['2','2']}, groups)
+
+    def test_mixed_list_unsorted(self):
+        groups = {k:list(g) for k,g in grouper([1,2,'1','2',None,None])}
+        self.assertEqual({1:[1],'1':['1'],2:[2],'2':['2'],None:[None,None]}, groups)
+
+    def test_tuples_val_none_unsorted(self):
+        key = operator.itemgetter(0)
+        groups = {k:list(g) for k,g in grouper([(1,2),(2,2)]*2,key=key)}
+        self.assertEqual({1:[(1,2),(1,2)],2:[(2,2),(2,2)]}, groups)
+
+    def test_tuples_val_getter_unsorted(self):
+        key = operator.itemgetter(0)
+        val = operator.itemgetter(1)
+        groups = {k:list(g) for k,g in grouper([(1,2),(1,3),(2,3),(2,4)],key=key,val=val)}
+        self.assertEqual({1:[2,3],2:[3,4]}, groups)
 
 if __name__ == '__main__':
     unittest.main()

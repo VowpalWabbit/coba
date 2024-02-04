@@ -2,9 +2,9 @@ import warnings
 import importlib.util
 
 from math import isfinite
-from itertools import chain, islice
+from itertools import chain, islice, groupby
 from collections import defaultdict
-from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Callable
+from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Callable, Hashable, Mapping
 
 from coba.exceptions import CobaExit
 
@@ -183,3 +183,17 @@ def minimize(obj,precision=5):
         obj = minobj(obj)
 
     return obj
+
+def grouper(items: Sequence[Any], key:Callable[[Any],Hashable]=None, val:Callable[[Any],Any]=None, sorted_: bool= False) -> Iterable[Tuple[Hashable,Iterable[Any]]]:
+
+    if sorted_:
+        for k, group in groupby(items,key=key):
+            if val: yield (k, map(val,group))
+            else  : yield (k, group)
+
+    else:
+        groups = defaultdict(list)
+        for key,items in groupby(items,key=key):
+            if val: groups[key].extend(map(val,items))
+            else  : groups[key].extend(items)
+        yield from groups.items()

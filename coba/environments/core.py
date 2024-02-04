@@ -434,7 +434,6 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         """
 
         if isinstance(result,str):
-
             class InteractionSource:
                 def __init__(self,source:Source[str]):
                     self._source = source
