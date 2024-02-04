@@ -2,5 +2,5 @@
 # all versions are selected for compatability with python 3.7
 
 coverage~=6.2.0
-ipython~=7.34
+ipython~=8.10
 jupyterlab~=4.0.11
