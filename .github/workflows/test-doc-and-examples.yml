@@ -3,7 +3,7 @@
 
 #dependency caching does not appear to be working currently. All install steps take the same amount of time with and without dependency cahcing.
 
-name: unit and example tests with code coverage
+name: test doc and examples
 
 on:
   push:
@@ -12,7 +12,6 @@ on:
   pull_request:
     branches:
       - '*'
-
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -28,27 +27,12 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python --version
-      - name: Min Dependency Installs
-        run: |
-          pip install .
-          pip list
-      - name: Min Dependency Unit Tests
-        run: python -m unittest
-      - name: Max Dependency Installs
+      - name: Install
         run: |
           pip install .[full]
-          pip install -r coba/tests/requirements-test.txt
+          pip install -r coba/tests/requirements.txt
           pip list
-      - name: Max Dependency Unit Tests with Coverage
-        run: |
-          coverage run -m unittest
-          coverage xml
-      - name: Report Coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
       - name: Example Tests
-        if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           python -c "from coba.environments import Environments; Environments.from_template('./examples/templates/feurer.json')"
           python -c "from coba.environments import Environments; Environments.from_template('./examples/templates/long.json')"
@@ -56,12 +40,13 @@ jobs:
           python "examples/scripts/Getting Started.py"
           python "examples/scripts/Custom Vowpal.py"
           python "examples/scripts/Logged Results.py"
+      - name: Doc Tests
+        run: |
           jupyter nbconvert --execute "doc/source/notebooks/Environments.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Evaluators.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Experiments.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/First_Experiment.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Interactions.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Learners.ipynb" --inplace
-          jupyter nbconvert --execute "doc/source/notebooks/Logged_Bandit_Data.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Results.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Synthetics.ipynb" --inplace

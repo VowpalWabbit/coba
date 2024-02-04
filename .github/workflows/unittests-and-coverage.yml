@@ -1,0 +1,49 @@
+# codecov recommends calculating coverage on all configurations and submitting with flags
+# here https://community.codecov.com/t/upload-of-coverage-of-several-python-versions/2349/2
+
+#dependency caching does not appear to be working currently. All install steps take the same amount of time with and without dependency cahcing.
+
+name: unittests and coverage
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # macos-latest took at least 20 minutes to complete so I've removed it for now
+        # windows-latest took about 1:30 minutes longer than ubuntu so I've removed it for now
+        os: [ubuntu-latest]
+        python: ['3.8.x', '3.9.x', '3.10.x']
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python --version
+      - name: Min Dependency Installs
+        run: |
+          pip install .
+          pip list
+      - name: Min Dependency Unit Tests
+        run: python -m unittest
+      - name: Max Dependency Installs
+        run: |
+          pip install .[full]
+          pip install -r coba/tests/requirements.txt
+          pip list
+      - name: Max Dependency Unit Tests with Coverage
+        run: |
+          coverage run -m unittest
+          coverage xml
+      - name: Report Coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
