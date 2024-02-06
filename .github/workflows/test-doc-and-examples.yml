@@ -49,4 +49,3 @@ jobs:
           jupyter nbconvert --execute "doc/source/notebooks/Interactions.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Learners.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Results.ipynb" --inplace
-          jupyter nbconvert --execute "doc/source/notebooks/Synthetics.ipynb" --inplace
