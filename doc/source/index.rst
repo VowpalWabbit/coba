@@ -2,19 +2,17 @@
 Welcome to coba's documentation!
 ================================
 
-.. Hidden TOCs
-
 .. toctree::
    :caption: Intro
    :maxdepth: 1
 
    getting_started
+   notebooks/First_Experiment
 
 .. toctree::
    :caption: Basic Examples
    :maxdepth: 1
 
-   notebooks/First_Experiment
    notebooks/Interactions
    notebooks/Environments
    notebooks/Learners
