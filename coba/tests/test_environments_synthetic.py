@@ -6,7 +6,7 @@ from coba.exceptions import CobaException
 from coba.context import CobaContext, NullLogger
 
 from coba.environments import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
-from coba.environments import MLPSyntheticSimulation, KernelSyntheticSimulation, BanditSimulation
+from coba.environments import MLPSyntheticSimulation, KernelSyntheticSimulation, BanditSyntheticSimulation
 
 CobaContext.logger = NullLogger()
 
@@ -138,25 +138,25 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         self.assertIn("pickle", str(e.exception))
 
-class BanditSimulation_Tests(unittest.TestCase):
+class BanditSyntheticSimulation_Tests(unittest.TestCase):
     def test_params(self):
-        self.assertEqual({ "env_type": "BanditSimulation", "seed": 3},BanditSimulation(1,2,3).params)
+        self.assertEqual({ "env_type": "BanditSimulation", 'n_actions':2, "seed": 3},BanditSyntheticSimulation(1,2,3).params)
 
     def test_read(self):
-        I = list(BanditSimulation(2,2,3).read())
+        I = list(BanditSyntheticSimulation(2,2,3).read())
         self.assertEqual(len(I), 2)
         self.assertEqual([(1,0),(0,1)], I[0]['actions'])
         self.assertEqual(I[0]['rewards'],I[1]['rewards'])
 
     def test_repeatable(self):
-        I1 = list(BanditSimulation(2,2,1).read())
-        I2 = list(BanditSimulation(2,2,1).read())
-        I3 = list(BanditSimulation(2,2,3).read())
+        I1 = list(BanditSyntheticSimulation(2,2,1).read())
+        I2 = list(BanditSyntheticSimulation(2,2,1).read())
+        I3 = list(BanditSyntheticSimulation(2,2,3).read())
         self.assertEqual(I1,I2)
         self.assertNotEqual(I1,I3)
 
     def test_str(self):
-        self.assertEqual('BanditSimulation(seed=1)',str(BanditSimulation(2,2,1)))
+        self.assertEqual('BanditSimulation(A=2,seed=1)',str(BanditSyntheticSimulation(2,2,1)))
 
 class LinearSyntheticSimulation_Tests(unittest.TestCase):
     def test_bad_features(self):

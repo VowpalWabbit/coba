@@ -20,7 +20,7 @@ from coba.results         import Result, Missing
 
 from coba.environments.templates  import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 from coba.environments.openml     import OpenmlSimulation
-from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation, BanditSyntheticSimulation
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
 from coba.environments.supervised import SupervisedSimulation
 from coba.environments.results    import ResultEnvironment
@@ -97,6 +97,27 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         definition_txt = definition_txt.replace('"./', f'"{repo_url}/{name}/')
         definition_txt = definition_txt.replace('.json"', '.json?raw=True"')
         return Environments.from_template(IterableSource([definition_txt]))
+
+    @staticmethod
+    def from_bandit_synthetic(
+        n_interactions: Optional[int],
+        n_actions: int,
+        seed: Union[int,Sequence[int]] =1) -> 'Environments':
+        """Create Environments from bandit environment.
+
+        Args:
+            n_interactions: An optional integer indicating the number of interactions in the simulation.
+            n_actions: The number of actions each interaction should have.
+            seed: An integer seed to guarantee repeatability.
+
+        Returns:
+            An Environments object.
+        """
+
+        seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
+        args = (n_interactions, n_actions)
+
+        return Environments([BanditSyntheticSimulation(*args, s) for s in seed])
 
     @staticmethod
     def from_linear_synthetic(

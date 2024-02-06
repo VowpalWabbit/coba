@@ -10,8 +10,9 @@ from coba.pipes        import DiskSource, LazyDense, Cache
 from coba.exceptions   import CobaException
 from coba.primitives   import Categorical, L1Reward, DiscreteReward
 from coba.environments import Environments, Shuffle, Take
-from coba.environments import LinearSyntheticSimulation
-from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
+from coba.environments import BanditSyntheticSimulation, LinearSyntheticSimulation
+from coba.environments import KernelSyntheticSimulation, MLPSyntheticSimulation
+from coba.environments import NeighborsSyntheticSimulation
 from coba.learners     import FixedLearner
 from coba.results      import Result
 
@@ -333,6 +334,21 @@ class Environments_Tests(unittest.TestCase):
             except:
                 pass
 
+    def test_from_bandit_synthetic(self):
+        envs = Environments.from_bandit_synthetic(100,2,5)
+        env  = envs[0]
+
+        self.assertIsInstance(env[0], BanditSyntheticSimulation)
+        interactions = list(env.read())
+
+        self.assertEqual(1     , len(envs))
+        self.assertEqual(100   , len(interactions))
+        self.assertEqual(2     , len(interactions[0]['actions']))
+        self.assertEqual(None  , interactions[0]['context'])
+        self.assertEqual((1,0) , interactions[0]['actions'][0])
+        self.assertEqual((0,1) , interactions[0]['actions'][1])
+        self.assertEqual(2     , env.params['n_actions'])
+        self.assertEqual(5     , env.params['seed'])
 
     def test_from_linear_synthetic(self):
         envs = Environments.from_linear_synthetic(100,2,3,4,5,["xa"],5)

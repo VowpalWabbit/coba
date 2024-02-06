@@ -115,7 +115,7 @@ class LambdaSimulation(Environment):
                 "allows us to create the interactions in memory ahead of time and convert to an in-memory simulation to pickle).")
             raise CobaException(message)
 
-class BanditSimulation(Environment):
+class BanditSyntheticSimulation(Environment):
     """A simulation with fixed reward values for each action."""
 
     def __init__(self, n_interactions: Optional[int], n_actions: int, seed: Optional[int]=None) -> None:
@@ -133,7 +133,7 @@ class BanditSimulation(Environment):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "env_type": "BanditSimulation", "seed": self._seed }
+        return { "env_type": "BanditSimulation", 'n_actions': self._n_actions, "seed": self._seed }
 
     def read(self) -> Iterable[SimulatedInteraction]:
         rewards = CobaRandom(self._seed).randoms(self._n_actions)
@@ -142,7 +142,7 @@ class BanditSimulation(Environment):
         yield from repeat({'context': None, 'actions': actions, 'rewards': rewards}, self._n_interactions)
 
     def __str__(self) -> str:
-        return f"BanditSimulation(seed={self._seed})"
+        return f"BanditSimulation(A={self._n_actions},seed={self._seed})"
 
 class LinearSyntheticSimulation(Environment):
     """A synthetic simulation whose rewards are linear with respect to the given reward features.
@@ -200,7 +200,7 @@ class LinearSyntheticSimulation(Environment):
         reward_features    = self._reward_features
 
         if not n_context_features and not n_action_features:
-            yield from BanditSimulation(self._n_interactions, self._n_actions, self._seed).read()
+            yield from BanditSyntheticSimulation(self._n_interactions, self._n_actions, self._seed).read()
             return
 
         replace = 'x' if not n_context_features else 'a' if not n_action_features else ''
@@ -319,7 +319,7 @@ class NeighborsSyntheticSimulation(Environment):
         n_neighborhoods = self._n_neighborhoods
 
         if not n_context_feats and not n_action_feats:
-            yield from BanditSimulation(self._n_interactions, self._n_actions, self._seed).read()
+            yield from BanditSyntheticSimulation(self._n_interactions, self._n_actions, self._seed).read()
             return
 
         rng = CobaRandom(self._seed)
@@ -421,7 +421,7 @@ class KernelSyntheticSimulation(Environment):
         kernel             = self._kernel
 
         if not n_context_features and not n_action_features:
-            yield from BanditSimulation(self._n_interactions, self._n_actions, self._seed).read()
+            yield from BanditSyntheticSimulation(self._n_interactions, self._n_actions, self._seed).read()
             return
 
         if kernel == "linear":
@@ -566,7 +566,7 @@ class MLPSyntheticSimulation(Environment):
         n_actions          = self._n_actions
 
         if not n_context_features and not n_action_features:
-            yield from BanditSimulation(self._n_interactions, self._n_actions, self._seed).read()
+            yield from BanditSyntheticSimulation(self._n_interactions, self._n_actions, self._seed).read()
             return
 
         # a lot of emprical experiments showed
