@@ -18,11 +18,11 @@ sys.path.insert(0,os.path.abspath('../../'))
 # -- Project information -----------------------------------------------------
 
 project = 'coba'
-copyright = '2021, Mark Rucker'
+copyright = '2024, Mark Rucker'
 author = 'Mark Rucker'
 
 # The full version, including alpha/beta/rc tags
-release = '4.5'
+release = '8.0.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -37,7 +37,7 @@ extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
+templates_path = ["misc/_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

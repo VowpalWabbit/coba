@@ -13,4 +13,3 @@ API Reference
    coba.primitives
    coba.random
    coba.results
-

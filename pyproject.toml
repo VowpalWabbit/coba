@@ -35,7 +35,6 @@ coba = "coba.register"
 [project.optional-dependencies]
 full = [
     "vowpalwabbit",
-    "scikit-learn",
     "pandas",
     "matplotlib",
     "numpy",
