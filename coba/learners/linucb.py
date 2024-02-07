@@ -77,7 +77,7 @@ class LinUCBLearner(Learner):
         features = np.array([self._X_encoder.encode(x=context,a=action) for action in actions]).T
 
         point_estimate = self._theta @ features
-        point_bounds   = np.diagonal(features.T @ self._A_inv @ features)
+        point_bounds   = np.einsum('ij,ij->j', self._A_inv @ features, features) #== np.diagonal(features.T @ self._A_inv @ features)
 
         action_values = point_estimate + self._alpha*np.sqrt(point_bounds)
         max_indexes   = np.where(action_values == np.amax(action_values))[0]
