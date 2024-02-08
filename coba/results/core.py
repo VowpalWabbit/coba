@@ -549,10 +549,10 @@ class TransactionResult:
         transactions = iter(transactions)
         version      = next(transactions)[1]
 
-        def handle_lists(item:dict):
+        def list2tuple(item:dict):
             return {k: tuple(v) if isinstance(v,list) else v for k,v in item.items()}
 
-        def handle_packed_lists(item:dict):
+        def packed_list2tuple(item:dict):
             return {k: list(map(tuple,v)) if k != 'rewards' and isinstance(v[0],list) else v for k,v in item.items()}
 
         if version == 3:
@@ -569,13 +569,13 @@ class TransactionResult:
                 exp_dict = trx[1]
 
             if trx[0] == "E":
-                env_rows[trx[1]].update(handle_lists(trx[2]))
+                env_rows[trx[1]].update(list2tuple(trx[2]))
 
             if trx[0] == "L":
-                lrn_rows[trx[1]].update(handle_lists(trx[2]))
+                lrn_rows[trx[1]].update(list2tuple(trx[2]))
 
             if trx[0] == "V":
-                val_rows[trx[1]].update(handle_lists(trx[2]))
+                val_rows[trx[1]].update(list2tuple(trx[2]))
 
             if trx[0] == "I":
                 if len(trx[1]) == 2: trx[1] = [*trx[1],0]
@@ -602,7 +602,7 @@ class TransactionResult:
         for (env_id, lrn_id, val_id), results in sorted(int_rows.items()):
             if '_packed' in results and results['_packed']:
 
-                packed = handle_packed_lists(results['_packed'])
+                packed = packed_list2tuple(results['_packed'])
                 N = len(next(iter(packed.values())))
 
                 packed['environment_id'] = repeat(env_id,N)
@@ -974,7 +974,7 @@ class Result:
         for value in self._lrn_cache.values():
             lrn_id = value['learner_id']
             family = value.get('family',lrn_id)
-            params = [f'{k}={v}' for k,v in value.items() if k and k not in ['family','learner_id'] and v is not None ]
+            params = [f'{k}={v}' for k,v in value.items() if k and k not in ['family','learner_id'] and v is not Missing ]
             params = f"({', '.join(params)})" if params else ''
             value['full_name'] = f"{lrn_id}. {family}{params}" if family != 'vw' else f"{lrn_id}. {family}({value['args']}, seed={value['seed']})"
 
@@ -1392,7 +1392,7 @@ class Result:
         plottable = self._plottable(x,y)
 
         L1,L2 = [],[]
-        for L in l1+l2:
+        for L in chain(l1,l2):
             subplot = plottable
             wheres = [ (l,L) ] if isinstance(l,str) else zip(l,L)
 
@@ -1426,8 +1426,8 @@ class Result:
         if not XY:
             raise CobaException(f"We were unable to create any pairings to contrast. Make sure l1={og_l[0]} and l2={og_l[1]} is correct.")
 
-        l1_label = self._lrn_cache[l1[0]]['full_name'] if l=='learner_id' and x != 'index' else 'l1'
-        l2_label = self._lrn_cache[l2[0]]['full_name'] if l=='learner_id' and x != 'index' else 'l2'
+        l1_label = self._lrn_cache[l1[0]]['full_name'] if l=='learner_id' else 'l1'
+        l2_label = self._lrn_cache[l2[0]]['full_name'] if l=='learner_id' else 'l2'
 
         X,Y = zip(*sorted(XY.items()))
 
@@ -1638,7 +1638,11 @@ class Result:
             if x == 'index':
                 X,Y,YE = zip(*X_Y_YE)
                 color  = self._get_color(colors,                         0)
-                label  = self._get_label(labels,f'{l2_label}-{l1_label}',0)
+                if mode == "diff":
+                    label  = self._get_label(labels,f'{l2_label} — {l1_label}',0)
+                else:
+                    label  = self._get_label(labels,f'P[{l2_label} > {l1_label}]',0)
+
                 label  = f"{label}" if legend else None
                 lines  = [Points(X, Y, None, YE, style=style, label=label, color=color, alpha=alpha)]
 

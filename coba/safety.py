@@ -1,5 +1,3 @@
-import warnings
-
 from math import isclose
 from collections import abc
 from typing import Union, Tuple, Mapping, Iterable, Literal, Callable, Optional, Any

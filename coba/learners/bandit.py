@@ -1,3 +1,4 @@
+import warnings
 import math
 
 from collections import defaultdict
@@ -14,11 +15,11 @@ def make_hashable(item):
     if isinstance(item,Sparse): return HashableSparse(item)
     return item
 
-class EpsilonBanditLearner(Learner):
+class BanditEpsilonLearner(Learner):
     """Select the greedy action with probability (1-epsilon)."""
 
     def __init__(self, epsilon: float=.05, seed:int = 1) -> None:
-        """Instantiate an EpsilonBanditLearner.
+        """Instantiate an BanditEpsilonLearner.
 
         Args:
             epsilon: We explore with probability epsilon and exploit otherwise.
@@ -31,7 +32,7 @@ class EpsilonBanditLearner(Learner):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'family': 'epsilon_bandit', 'epsilon': self._epsilon, 'seed': self._pred.seed}
+        return {'family': 'BanditEpsilon', 'epsilon': self._epsilon, 'seed': self._pred.seed}
 
     def _pmf(self, context, actions):
 
@@ -58,11 +59,11 @@ class EpsilonBanditLearner(Learner):
         self._Q[action] = (1-alpha) * old_Q + alpha * reward
         self._N[action] = self._N[action] + 1
 
-class UcbBanditLearner(Learner):
+class BanditUCBLearner(Learner):
     """Select the action with the highest upper confidence bound estimate.
 
-    This algorithm is an implementation of Auer et al. (2002) UCB1-Tuned algorithm
-    and requires that all rewards are in [0,1].
+    This algorithm is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
+    The paper's proven regret bounds only assume that rewards have support in [0,1].
 
     References:
         Auer, Peter, Nicolo Cesa-Bianchi, and Paul Fischer. "Finite-time analysis of
@@ -70,7 +71,7 @@ class UcbBanditLearner(Learner):
     """
 
     def __init__(self, seed: int = 1):
-        """Instantiate a UcbBanditLearner.
+        """Instantiate a BanditUcbLearner.
 
         Args:
             seed: The seed used to select actions in predict.
@@ -84,7 +85,7 @@ class UcbBanditLearner(Learner):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'family': 'UCB_bandit', 'seed': self._pred.seed }
+        return {'family': 'BanditUCB', 'seed': self._pred.seed }
 
     def _pmf(self, context, actions):
 
@@ -107,7 +108,6 @@ class UcbBanditLearner(Learner):
         return self._pred.predict(context,actions)
 
     def learn(self, context: 'Context', action: 'Action', reward: float, probability: float) -> None:
-        assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
 
         self._t += 1
 
@@ -136,6 +136,7 @@ class UcbBanditLearner(Learner):
             See the beginning of section 4 in the algorithm's paper for this equation.
         """
         ln = math.log; n = self._t; n_j = self._s[action]; V_j = self._Var_R_UCB(action)
+
         return math.sqrt(ln(n)/n_j * min(1/4,V_j))
 
     def _Var_R_UCB(self, action: 'Action') -> float:

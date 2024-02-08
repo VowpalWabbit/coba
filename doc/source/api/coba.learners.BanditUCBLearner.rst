@@ -1,9 +1,9 @@
-﻿UcbBanditLearner
+﻿BanditUCBLearner
 ================
 
 .. currentmodule:: coba.learners
 
-.. autoclass:: UcbBanditLearner
+.. autoclass:: BanditUCBLearner
    :exclude-members: __init__, __new__, mro
 
    .. rubric:: Constructors

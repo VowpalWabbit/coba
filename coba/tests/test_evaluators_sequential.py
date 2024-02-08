@@ -7,7 +7,7 @@ from coba.utilities    import PackageChecker
 from coba.exceptions   import CobaException
 from coba.context      import CobaContext, BasicLogger
 from coba.environments import Batch, OpeRewards
-from coba.learners     import VowpalSoftmaxLearner, EpsilonBanditLearner
+from coba.learners     import VowpalSoftmaxLearner, BanditEpsilonLearner
 from coba.primitives   import is_batch, Learner
 from coba.primitives   import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.primitives   import L1Reward, DiscreteReward
@@ -1160,7 +1160,7 @@ class Helper_Tests(unittest.TestCase):
         self.assertEqual(get_ope_loss(SafeLearner(learner)), -1.0)
 
         # Non-VW learner
-        self.assertTrue(math.isnan(get_ope_loss(SafeLearner(EpsilonBanditLearner()))))
+        self.assertTrue(math.isnan(get_ope_loss(SafeLearner(BanditEpsilonLearner()))))
 
 if __name__ == '__main__':
     unittest.main()

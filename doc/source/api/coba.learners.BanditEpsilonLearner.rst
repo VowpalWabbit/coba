@@ -1,9 +1,9 @@
-﻿EpsilonBanditLearner
+﻿BanditEpsilonLearner
 ====================
 
 .. currentmodule:: coba.learners
 
-.. autoclass:: EpsilonBanditLearner
+.. autoclass:: BanditEpsilonLearner
    :exclude-members: __init__, __new__, mro
 
    .. rubric:: Constructors

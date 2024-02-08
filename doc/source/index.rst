@@ -23,11 +23,11 @@ Welcome to coba's documentation!
 .. toctree::
    :caption: Advanced Examples
    :maxdepth: 1
-   
+
    notebooks/Logged_Bandit_Data
 
 .. toctree::
    :caption: API Reference
    :maxdepth: 1
-   
+
    api_reference

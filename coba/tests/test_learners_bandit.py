@@ -2,34 +2,34 @@ import math
 import unittest
 from collections import Counter
 
-from coba.learners import EpsilonBanditLearner, UcbBanditLearner, RandomLearner, FixedLearner
+from coba.learners import BanditEpsilonLearner, BanditUCBLearner, RandomLearner, FixedLearner
 
-class EpsilonBanditLearner_Tests(unittest.TestCase):
+class BanditEpsilonLearner_Tests(unittest.TestCase):
     def test_params(self):
-        self.assertEqual({"family":"epsilon_bandit", "epsilon":0.05, "seed": 1}, EpsilonBanditLearner().params)
+        self.assertEqual({"family":"BanditEpsilon", "epsilon":0.05, "seed": 1}, BanditEpsilonLearner().params)
 
     def test_score_no_learn(self):
-        learner = EpsilonBanditLearner(epsilon=0.5)
+        learner = BanditEpsilonLearner(epsilon=0.5)
         self.assertEqual([.25,.25,.25,.25],[learner.score(None, [1,2,3,4],a) for a in [1,2,3,4]])
 
     def test_predict_no_learn(self):
-        learner = EpsilonBanditLearner(epsilon=0.5)
+        learner = BanditEpsilonLearner(epsilon=0.5)
         self.assertEqual((1,0.25),learner.predict(None, [1,2,3,4]))
         self.assertEqual((4,0.25),learner.predict(None, [1,2,3,4]))
 
     def test_predict_lots_of_actions(self):
-        learner = EpsilonBanditLearner(epsilon=0.5)
+        learner = BanditEpsilonLearner(epsilon=0.5)
         self.assertAlmostEqual(learner.predict(None, list(range(993)))[1] * 993, 1, delta=.001)
 
     def test_learn_predict_no_epsilon(self):
-        learner = EpsilonBanditLearner(epsilon=0)
+        learner = BanditEpsilonLearner(epsilon=0)
         learner.learn(None, 2, 1, None)
         learner.learn(None, 1, 2, None)
         learner.learn(None, 3, 3, None)
         self.assertEqual((3,1.0),learner.predict(None, [1,2,3]))
 
     def test_learn_predict_epsilon(self):
-        learner = EpsilonBanditLearner(epsilon=0.1)
+        learner = BanditEpsilonLearner(epsilon=0.1)
         learner.learn(None, 2, 1, None)
         learner.learn(None, 1, 2, None)
         learner.learn(None, 2, 1, None)
@@ -40,7 +40,7 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         self.assertAlmostEqual(counts[(2,.05)]/sum(counts.values()), .05, delta=0.05)
 
     def test_learn_score_epsilon(self):
-        learner = EpsilonBanditLearner(epsilon=0.1)
+        learner = BanditEpsilonLearner(epsilon=0.1)
         learner.learn(None, 2, 1, None)
         learner.learn(None, 1, 2, None)
         learner.learn(None, 2, 1, None)
@@ -48,7 +48,7 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         self.assertAlmostEqual(.05,learner.score(None, [1,2], 2))
 
     def test_learn_predict_epsilon_unhashables(self):
-        learner = EpsilonBanditLearner(epsilon=0.1)
+        learner = BanditEpsilonLearner(epsilon=0.1)
         learner.learn(None, [2], 1, None)
         learner.learn(None, [1], 2, None)
         learner.learn(None, [2], 1, None)
@@ -61,19 +61,19 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         self.assertAlmostEqual(counts.most_common()[1][1]/sum(counts.values()), .05, delta=0.05)
 
     def test_learn_predict_epsilon_all_equal(self):
-        learner = EpsilonBanditLearner(epsilon=0.1)
+        learner = BanditEpsilonLearner(epsilon=0.1)
         learner.learn(None, 2, 1, None)
         learner.learn(None, 1, 2, None)
         learner.learn(None, 2, 3, None)
         self.assertEqual(.5, learner.score(None,[1,2],1))
         self.assertEqual(.5, learner.score(None,[1,2],2))
 
-class UcbBanditLearner_Tests(unittest.TestCase):
+class BanditUCBLearner_Tests(unittest.TestCase):
     def test_params(self):
-        self.assertEqual({'family': 'UCB_bandit', 'seed': 1 }, UcbBanditLearner().params)
+        self.assertEqual({'family': 'BanditUCB', 'seed': 1 }, BanditUCBLearner().params)
 
     def test_predict_all_actions_first(self):
-        learner,actions = UcbBanditLearner(),[1,2,3]
+        learner,actions = BanditUCBLearner(),[1,2,3]
         self.assertEqual((1,1/3),learner.predict(None, actions))
         learner.learn(None, 1, 0, 0)
         self.assertEqual((3,1/2),learner.predict(None, actions))
@@ -84,7 +84,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         self.assertEqual([1/3, 1/3, 1/3],[learner.score(None, actions,a) for a in actions])
 
     def test_score_all_actions_first(self):
-        learner,actions = UcbBanditLearner(),[1,2,3]
+        learner,actions = BanditUCBLearner(),[1,2,3]
         self.assertEqual([1/3,1/3,1/3],[learner.score(None, actions, a) for a in actions])
         learner.learn(None, 1, 0, 0)
         self.assertEqual([0,1/2,1/2],[learner.score(None, actions, a) for a in actions])
@@ -95,7 +95,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         self.assertEqual([1/3,1/3,1/3],[learner.score(None, actions, a) for a in actions])
 
     def test_learn_predict_best1(self):
-        learner,actions = UcbBanditLearner(),[1,2,3,4]
+        learner,actions = BanditUCBLearner(),[1,2,3,4]
         learner.learn(None, 1, 1, None)
         learner.learn(None, 2, 1, None)
         learner.learn(None, 3, 1, None)
@@ -109,7 +109,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         self.assertAlmostEqual(counts[(4,1/4)]/sum(counts.values()), .25, delta=0.05)
 
     def test_learn_predict_best2(self):
-        learner,actions = UcbBanditLearner(),[1,2,3,4]
+        learner,actions = BanditUCBLearner(),[1,2,3,4]
         learner.learn(None, 1, 0, None)
         learner.learn(None, 2, 0, None)
         learner.learn(None, 3, 0, None)
@@ -120,7 +120,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         self.assertIn((4,1),counts)
 
     def test_learn_predict_best3(self):
-        learner,actions = UcbBanditLearner(),[1,2,3,4]
+        learner,actions = BanditUCBLearner(),[1,2,3,4]
         learner.learn(None, 1, 0, None)
         learner.learn(None, 2, 0, None)
         learner.learn(None, 3, 0, None)
@@ -135,7 +135,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         self.assertIn((4,1),counts)
 
     def test_learn_score_best2(self):
-        learner,actions = UcbBanditLearner(),[1,2,3,4]
+        learner,actions = BanditUCBLearner(),[1,2,3,4]
         learner.learn(None, 1, 0, None)
         learner.learn(None, 2, 0, None)
         learner.learn(None, 3, 0, None)

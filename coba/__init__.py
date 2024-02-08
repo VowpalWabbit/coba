@@ -5,7 +5,7 @@ from coba.environments import Environments, ArffSource, CsvSource, LibSvmSource,
 from coba.environments import LambdaSimulation
 
 from coba.learners import FixedLearner, RandomLearner
-from coba.learners import EpsilonBanditLearner, UcbBanditLearner
+from coba.learners import BanditEpsilonLearner, BanditUCBLearner
 from coba.learners import CorralLearner, LinUCBLearner, LinTSLearner
 from coba.learners import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, VowpalRndLearner
 from coba.learners import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner, VowpalMediator

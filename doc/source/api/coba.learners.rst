@@ -18,8 +18,8 @@ Bandit Learners
    .. autosummary::
       :toctree:
 
-      EpsilonBanditLearner
-      UcbBanditLearner
+      BanditEpsilonLearner
+      BanditUCBLearner
 
 Contextual Bandit Learners
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -101,7 +101,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @staticmethod
     def from_bandit_synthetic(
         n_interactions: Optional[int],
-        n_actions: int,
+        n_actions: int = 5,
         seed: Union[int,Sequence[int]] =1) -> 'Environments':
         """Create Environments from bandit environment.
 
@@ -152,7 +152,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @staticmethod
     def from_neighbors_synthetic(
         n_interactions: int,
-        n_actions: int = 2,
+        n_actions: int = 5,
         n_context_features: int = 5,
         n_action_features: int = 5,
         n_neighborhoods: int = 30,
@@ -180,10 +180,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @staticmethod
     def from_kernel_synthetic(
         n_interactions:int,
-        n_actions:int = 10,
-        n_context_features:int = 10,
-        n_action_features:int = 10,
-        n_exemplars:int = 10,
+        n_actions:int = 5,
+        n_context_features:int = 5,
+        n_action_features:int = 5,
+        n_exemplars:int = 5,
         kernel: Literal['linear','polynomial','exponential','gaussian'] = 'gaussian',
         degree: int = 3,
         gamma: float = 1,
@@ -214,9 +214,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @staticmethod
     def from_mlp_synthetic(
         n_interactions:int,
-        n_actions:int = 10,
-        n_context_features:int = 10,
-        n_action_features:int = 10,
+        n_actions:int = 5,
+        n_context_features:int = 5,
+        n_action_features:int = 5,
         seed: Union[int,Sequence[int]] = 1) -> 'Environments':
         """Create Environments from kernel-based reward functions.
 

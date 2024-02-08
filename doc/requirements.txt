@@ -3,6 +3,6 @@ sphinx_rtd_theme==2.0.*
 nbsphinx==0.9.*
 ipykernel
 
-#we also need pandoc. I've only been 
+#we also need pandoc. I've only been
 #able to get it to work using conda
 #   > conda install conda-forge::pandoc

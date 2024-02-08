@@ -983,6 +983,22 @@ class MatplotPlotter_Tests(unittest.TestCase):
 
 class Result_Tests(unittest.TestCase):
 
+    def test_vw_fullname(self):
+
+        lrn_table = Table(columns=['learner_id']).insert([
+            {"learner_id":1, "family": "vw" , "args": '123', "seed": 2, 'other': 3},
+            {"learner_id":2, "family": "eps", "epsilon": .2, "seed": 3, 'other': 4},
+            {"learner_id":3, "family": "perf"},
+            {"learner_id":4, "family": "perf", 'this': None}
+        ])
+
+        result = Result(None,lrn_table,None,None)
+
+        self.assertEqual(result._lrn_cache[1]['full_name'], "1. vw(123, seed=2)")
+        self.assertEqual(result._lrn_cache[2]['full_name'], "2. eps(epsilon=0.2, other=4, seed=3)")
+        self.assertEqual(result._lrn_cache[3]['full_name'], "3. perf")
+        self.assertEqual(result._lrn_cache[4]['full_name'], "4. perf(this=None)")
+
     def test_set_plotter(self):
         result = Result()
         self.assertIsNotNone(result._plotter)
@@ -1855,7 +1871,7 @@ class Result_Tests(unittest.TestCase):
                 [1,2,0,1,1],[1,2,0,2,2]
         ]
         table = Result(envs, lrns, vals, ints).raw_contrast(1,2,x='index')
-        self.assertEqual(('x',('l1','l2')), table.columns)
+        self.assertEqual(('x',('1. learner_1', '2. learner_2')), table.columns)
         self.assertEqual([(1,[(1,1),(1,1)]),(2,[(1.5,1.5),(1.5,1.5)])], list(table))
 
     def test_raw_contrast_bad_l(self):
@@ -2040,7 +2056,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_one_environment_lrn_params(self):
         envs = [['environment_id'],[0]]
-        lrns = [['learner_id', 'family','i','j','t'],[1,'learner_1',1,2,None],[2,'learner_2',None,None,2]]
+        lrns = [['learner_id', 'family','i','j','t'],[1,'learner_1',1,2,Missing],[2,'learner_2',Missing,Missing,2]]
         vals = [['evaluator_id'],[0]]
         ints = [['environment_id','learner_id','evaluator_id','index','reward'],[0,1,0,1,1],[0,1,0,2,2],[0,2,0,1,1],[0,2,0,2,2]]
 
@@ -2556,7 +2572,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(f"We were unable to create any pairings to contrast. Make sure l1=0 and l2=1 is correct.",CobaContext.logger.sink.items[0])
 
-    def test_plot_contrast_index(self):
+    def test_plot_contrast_index_mode_diff(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
         vals = [['evaluator_id'],[0]]
@@ -2574,8 +2590,33 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(1, 2, x='index')
 
         expected_lines = [
-            Points((1,2,3), (0, 0, -1), None, (0,0,0), 0     , 1, 'l2-l1', '-', 1.),
+            Points((1,2,3), (0, 0, -1), None, (0,0,0), 0     , 1, '2. learner_2 — 1. learner_1', '-', 1.),
             Points((1,3)  , (0, 0    ), None,  None  , "#888", 1, None   , '-', .5),
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_contrast_index_mode_prob(self):
+        envs = [['environment_id'],[0],[1]]
+        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
+        vals = [['evaluator_id'],[0]]
+        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
+            [0,1,0,1,0],[0,1,0,2,3],[0,1,0,3,9],
+            [0,2,0,1,1],[0,2,0,2,2],[0,2,0,3,6],
+            [1,1,0,1,1],[1,1,0,2,2],[1,1,0,3,9],
+            [1,2,0,1,0],[1,2,0,2,3],[1,2,0,3,6],
+        ]
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, vals, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast(1, 2, x='index',mode='prob')
+
+        expected_lines = [
+            Points((1,2,3), (.5, 0, 0), None, (0,0,0), 0     , 1, 'P[2. learner_2 > 1. learner_1]', '-', 1.),
+            Points((1,3)  , (.5, .5  ), None,  None  , "#888", 1, None   , '-', .5),
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
