@@ -45,10 +45,11 @@
 
  A number of algorithms are provided natively with Coba for quick comparsions. These include:
 
- * All contextual bandit learners in VowpalWabbit
- * UCB1-Tuned Bandit Learner by Auer et al. 2002
- * LinUCB by Li and Chu et al. 2010
- * Corral by Agarwal et al. 2017
+ * All contextual bandit learners in [VowpalWabbit](https://vowpalwabbit.org/)
+ * UCB1-Tuned Bandit Learner (Auer et al., 2002)
+ * LinUCB (Li and Chu et al., 2011)
+ * Linear Thompson Sampling (Agrawal and Goyal et al., 2013)
+ * Corral (Agarwal et al., 2017)
 
  ## Environments
 
