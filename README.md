@@ -35,9 +35,9 @@
 
  ## Workflow
 
- Coba is architected around a simple workflow: Learners -> Environments -> Experiments -> Results -> Analysis.
+ Coba is architected around a simple workflow: (Learners, Environments) -> Experiments -> Results -> Analysis.
 
- Environments represent unique CB problems that need to be solved. Learners are the CB algorithms that we can use to learn policies. Experiments are combinations of Environments and Learners that we want to evaluate. And Results are the outcome of an Experiment, containing all the data from the Experiment.
+ Environments represent unique CB problems that need to be solved. Learners are the CB algorithms that we can use to solve these problems. Experiments are combinations of Environments and Learners that we want to evaluate. And Results are the outcome of an Experiment, containing all the data from the Experiment.
 
  ## Learners
 
@@ -63,22 +63,18 @@
  * Openml, Csv, Arff, Libsvm, and the extreme classification (Manik) format
  * Local files and files over http (with local caching)
 
- ### Creating Environments From Generative Functions
-
- Sometimes we have well defined models that an agent has to make decisions within but no data. To support evaluation in these domains one can use `LambdaSimulation` to define generative functions to create an Environment.
-
  ### Creating Environments From Scratch
 
- If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's `Environment` interface.
+ If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's `Environment` interface and generating interactions.
 
  ## Experiments
 
- Experiments are combinations of Learners and Environments. The Experiment class orchestrates the complex tasks of evaluating learners on environments in a resource efficient, repeatable, and robust manner. Experiments can be run on any number of processes (we often run on 96 core machines) and writes all results to file as it runs so that it can be restarted if it ever stops.
+ Experiments are combinations of Learners and Environments. The Experiment class orchestrates the complex tasks of evaluating learners on environments in a resource efficient, repeatable, and robust manner. Experiments can be run on any number of processes (we often run on 96 core machines) and writes all results to file as it runs so that it can be restarted if it gets interrupted.
 
  ## Results
 
- The end result of an Experiment is a Result object which has been built for easy analysis. The result class provides a number of plots as well as filtering capabilities out of the box. If the built in functionality isn't advanced enough data from experiments can be accesed directly from a three table structure: a Learner table, Environment table, and Interaction table. These tables can be ported to pandas dataframes where all manner of advanced filtering and plotting can be performed to discover the strengths and weaknesses of Learners on various Environments.
+ The end result of an Experiment is a Result object that supports easy analysis. The result class provides a number of plots as well as filtering capabilities out of the box. If the built in functionality isn't advanced enough data can be exported to pandas dataframes where all manner of advanced filtering and plotting can be performed.
 
  ## Examples
 
- An examples directory is included in the repository with a number of code and experiment demonstrations. These examples show how to create experiments, evaluate learners against them and plot the results.
+ To learn more, many working code examples are provided in the [documentation](https://coba-docs.readthedocs.io/).
