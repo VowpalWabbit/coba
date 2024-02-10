@@ -12,6 +12,7 @@
 
 import os
 import sys
+import coba
 
 sys.path.insert(0,os.path.abspath('../../'))
 
@@ -22,7 +23,7 @@ copyright = '2024, Mark Rucker'
 author = 'Mark Rucker'
 
 # The full version, including alpha/beta/rc tags
-release = '8.0.0'
+release = 'v8.0.1' #the release tag containing last built documentation
 
 # -- General configuration ---------------------------------------------------
 
