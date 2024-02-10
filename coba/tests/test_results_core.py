@@ -234,17 +234,35 @@ class Table_Tests(unittest.TestCase):
             table._ipython_display_()
             mock.assert_called_once_with(str(table))
 
-    def test_insert_with_missing(self):
-        table = Table(columns=['a']).insert([{'a':'a'},{}])
-        self.assertEqual(list(table), [('a',),(Missing,)])
+    def test_insert_row_mapping(self):
+        table = Table(columns=['a']).insert([{'a':'a'},{'a':'B'}])
+        self.assertEqual(list(table), [('a',),('B',)])
         self.assertSequenceEqual(table.columns, ['a'])
         self.assertEqual(2, len(table))
 
-    def test_insert_item(self):
+    def test_insert_col_mapping(self):
         table = Table(columns=['a','b']).insert({'a':['a','B'],'b':['A','B']})
         self.assertEqual(list(table), [('a','A'),('B','B')])
         self.assertSequenceEqual(table.columns, ['a','b'])
         self.assertEqual(2, len(table))
+
+    def test_insert_row_sequence(self):
+        table = Table(columns=['a','b']).insert([['a','A'],['B','B']])
+        self.assertEqual(list(table), [('a','A'),('B','B')])
+        self.assertSequenceEqual(table.columns, ['a','b'])
+        self.assertEqual(2, len(table))
+
+    def test_insert_row_mapping_with_missing(self):
+        table = Table(columns=['a']).insert([{'a':'a'},{},{'b':1}])
+        self.assertEqual(list(table), [('a',Missing),(Missing,Missing),(Missing,1)])
+        self.assertSequenceEqual(table.columns, ['a','b'])
+        self.assertEqual(3, len(table))
+
+    def test_insert_row_mapping_with_missing2(self):
+        table = Table(columns=['a']).insert([{'a':'a','b':'b'}]).insert([{}]).insert([{'a':'A'}])
+        self.assertEqual(list(table), [('a','b'),(Missing,Missing),('A',Missing)])
+        self.assertSequenceEqual(table.columns, ['a','b'])
+        self.assertEqual(3, len(table))
 
     def test_bad_index(self):
         table = Table(columns=['a','b']).insert({'a':['a','B'],'b':['A','B']})

@@ -7,7 +7,8 @@ Welcome to coba's documentation!
    :maxdepth: 1
 
    getting_started
-   notebooks/First_Experiment
+   notebooks/First_Algorithm
+   notebooks/First_Application
 
 .. toctree::
    :caption: Basic Examples

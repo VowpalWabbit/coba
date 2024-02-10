@@ -133,12 +133,12 @@ class KeyDefaultDict(defaultdict):
             return value
 
 _T = TypeVar("_T")
-def peek_first(items: Iterable[_T], n:int=1) -> Tuple[Union[_T,Sequence[_T]], Iterable[_T]]:
+def peek_first(items: Iterable[_T], n:int=1, reduce:bool=True) -> Tuple[Union[_T,Sequence[_T]], Iterable[_T]]:
     items = iter(items)
     first = list(islice(items,n))
 
     items = [] if not first and n>0 else chain(first,items)
-    first = [] if n==0 else None if not first else first[0] if n==1 else first
+    first = [] if n==0 else None if not first else first[0] if n==1 and reduce else first
 
     return first, items
 

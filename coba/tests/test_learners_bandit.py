@@ -176,7 +176,7 @@ class FixedLearner_Tests(unittest.TestCase):
 class RandomLearner_Tests(unittest.TestCase):
 
     def test_params(self):
-        self.assertEqual({'family':'random','seed':1}, RandomLearner().params)
+        self.assertEqual({'family':'Random','seed':1}, RandomLearner().params)
 
     def test_score(self):
         learner = RandomLearner()

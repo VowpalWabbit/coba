@@ -237,7 +237,7 @@ class Table:
             pad_cols = old-new
 
             if new_cols: old_len = len(self)
-            if pad_cols: new_len = old_len+len(next(iter(data.values())))
+            if pad_cols: dat_len = 1 if not data else len(next(iter(data.values())))
 
             for hdr in new_cols:
                 self._data[hdr] = list(chain(repeat(Missing, old_len), data[hdr]))
@@ -246,7 +246,7 @@ class Table:
                 self._data[hdr].extend(data[hdr])
 
             for hdr in pad_cols:
-                self._data[hdr].extend(repeat(Missing, new_len-old_len))
+                self._data[hdr].extend(repeat(Missing, dat_len))
 
             if new_cols:
                 self._columns += tuple(sorted(new_cols))

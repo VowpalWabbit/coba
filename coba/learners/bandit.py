@@ -199,7 +199,7 @@ class RandomLearner(Learner):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {'family':'random', 'seed': self._rng.seed}
+        return {'family':'Random', 'seed': self._rng.seed}
 
     def score(self, context: 'Context', actions: 'Actions', action: 'Action') -> 'Prob':
         return 1/len(actions)

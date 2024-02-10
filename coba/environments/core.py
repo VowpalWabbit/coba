@@ -802,17 +802,19 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     def where(self,*,
             n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None,
-            n_actions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> 'Environments':
+            n_actions: Union[int,Tuple[Optional[int],Optional[int]]] = None,
+            n_features: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> 'Environments':
         """Select for characteristics.
 
         Args:
             n_interactions: The min, max or exact number of interactions an Environment must have.
             n_actions: The min, max or exact number of actions an interaction must have.
+            n_features: The minimum, maximum or exact number of features interactions must have.
 
         Returns:
             An Environments object.
         """
-        return self.filter(Where(n_interactions=n_interactions,n_actions=n_actions))
+        return self.filter(Where(n_interactions=n_interactions,n_actions=n_actions,n_features=n_features))
 
     def noise(self,
         context: Union[Tuple[float,float],Tuple[str,float,float],Callable[[float,CobaRandom], float]] = None,

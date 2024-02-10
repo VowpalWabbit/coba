@@ -756,16 +756,19 @@ class Where(EnvironmentFilter):
 
     def __init__(self, *,
         n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None,
-        n_actions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> None:
+        n_actions: Union[int,Tuple[Optional[int],Optional[int]]] = None,
+        n_features: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> None:
         """Instantiate a Where filter.
 
         Args:
             n_interactions: The minimum, maximum or exact number of interactions Environments must have.
             n_actions: The minimum, maximum or exact number of actions interactions must have.
+            n_features: The minimum, maximum or exact number of features interactions must have.
         """
 
         self._n_interactions = n_interactions
         self._n_actions = n_actions
+        self._n_features = n_features
 
     @property
     def params(self) -> Mapping[str, Any]:
@@ -777,19 +780,31 @@ class Where(EnvironmentFilter):
         if self._n_actions is not None:
             params["where_n_actions"] = self._n_actions
 
+        if self._n_features is not None:
+            params["where_n_features"] = self._n_features
+
         return params
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-
         n_int = self._n_interactions
         n_int = list(n_int) if isinstance(n_int,(list,tuple)) else [n_int]*2
 
         n_act = self._n_actions
         n_act = list(n_act) if isinstance(n_act,(list,tuple)) else [n_act]*2
 
-        firstn,interactions = peek_first(interactions, n=1+next(filter(None,[*n_int,-1])))
+        n_fet = self._n_features
+        n_fet = list(n_fet) if isinstance(n_fet,(list,tuple)) else [n_fet]*2
 
-        if not interactions or not self._in_min_max(len(firstn), *n_int):
+        firstn = 1+next((v for v in [*n_int,0] if v is not None))
+        first,interactions = peek_first(interactions, n=firstn, reduce=False)
+
+        if not interactions:
+            return
+
+        if not self._in_min_max(len(first), *n_int):
+            return
+
+        if not self._in_min_max(self._context_len(first), *n_fet):
             return
 
         for interaction in interactions:
@@ -798,6 +813,13 @@ class Where(EnvironmentFilter):
 
     def _in_min_max(self,v:int, minv:Optional[float], maxv:Optional[float]):
         return (minv is None or minv <= v) and (maxv is None or v <= maxv)
+
+    def _context_len(self,firstn) -> int:
+        try:
+            context = firstn[0].get('context')
+            return try_else(lambda: len(context), 1) if context or context == 0 else 0
+        except:
+            return 0
 
 class Riffle(EnvironmentFilter):
     """Riffle shuffle interactions."""

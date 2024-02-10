@@ -15,7 +15,6 @@ class coba_exit_Tests(unittest.TestCase):
             coba_exit("abc")
 
 class PackageChecker_sans_package_Tests(unittest.TestCase):
-
     def setUp(self) -> None:
         self.patch = unittest.mock.patch('importlib.util.find_spec',return_value=None)
         self.patch.start()
@@ -61,7 +60,6 @@ class PackageChecker_sans_package_Tests(unittest.TestCase):
             with self.assertRaises(CobaExit): PackageChecker.matplotlib("")
 
 class PackageChecker_with_package_Tests(unittest.TestCase):
-
     def setUp(self) -> None:
         self.patch = unittest.mock.patch('importlib.util.find_spec',return_value=True)
         self.patch.start()
@@ -102,7 +100,6 @@ class PackageChecker_with_package_Tests(unittest.TestCase):
         self.assertEqual(True,PackageChecker.cloudpickle("",strict=False))
 
 class KeyDefaultDict_Tests(unittest.TestCase):
-
     def test_with_factory(self):
         a = KeyDefaultDict(lambda key: str(key))
         self.assertEqual("1",a[1])
@@ -115,7 +112,6 @@ class KeyDefaultDict_Tests(unittest.TestCase):
             a[1]
 
 class peek_first_Tests(unittest.TestCase):
-
     def test_simple_empty(self):
         first,items = peek_first([])
 
@@ -127,12 +123,20 @@ class peek_first_Tests(unittest.TestCase):
         self.assertIsNone(first)
         self.assertEqual(items,[])
 
-    def test_simple_peek_1(self):
+    def test_simple_peek_1_reduce(self):
         init_items = iter([1,2,3])
 
         first,items = peek_first(init_items)
 
         self.assertEqual(first,1)
+        self.assertEqual(list(items),[1,2,3])
+
+    def test_simple_peek_1_no_reduce(self):
+        init_items = iter([1,2,3])
+
+        first,items = peek_first(init_items,reduce=False)
+
+        self.assertEqual(first,[1])
         self.assertEqual(list(items),[1,2,3])
 
     def test_simple_peek_n(self):
