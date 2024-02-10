@@ -28,6 +28,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/vowpalwabbit/coba"
+Documentation  = "https://coba-docs.readthedocs.io/"
 
 [project.entry-points."coba.register"]
 coba = "coba.register"
