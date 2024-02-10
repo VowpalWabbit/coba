@@ -2,18 +2,18 @@
 Getting Started
 ===============
 
-``Coba`` is a Python package supporting algorithmic and applied contextual bandit research.
+Coba is a Python package supporting algorithmic and applied contextual bandit research.
 
 Installation
 ~~~~~~~~~~~~
 
- ``Coba`` can be installed via pip.
+Coba can be installed via pip.
 
 .. code-block:: bash
 
    $ pip install coba
 
-``Coba`` has no hard dependencies, but it does have optional depdencies for certain functionality.
+Coba has no hard dependencies, but it does have optional depdencies for certain functionality.
 
 The examples contained in the documentation use the following optional dependencies.
 
@@ -27,11 +27,13 @@ About Contextual Bandits
 A contextual bandit (sometimes called a contextual multi-armed bandit) is an abstract game where players
 repeatedly interact with a "contextual bandit". In each interaction the contextual bandit presents the
 player with a context and a choice of actions. The player must then choose to play one action from the
-set of presented actions. If the player chooses well the contextual bandit gives a large reward. If the
-player chooses poorly the contextual bandit gives a small reward. The player only observes the reward
-for the action they choose. The player's goal is to earn as much reward as possible. To succeed players
-need to learn what actions give large rewards in what contexts. This game is of interest to researchers
-because it ammenable to mathematical analysis while also being applicable to many real world problems.
+set of presented actions. 
+
+If the player chooses well the contextual bandit gives a large reward. If the player chooses poorly the
+contextual bandit gives a small reward. The player only observes the reward for the action they choose.
+The player's goal is to earn as much reward as possible. To succeed players need to learn what actions
+give large rewards in what contexts. This game is of interest to researchers because it ammenable to
+mathematical analysis while also being applicable to many real world problems.
 
 About Contextual Bandit Learners
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
