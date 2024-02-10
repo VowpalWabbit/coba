@@ -96,7 +96,7 @@ nbsphinx_prolog = r"""
 
     <div class="admonition note">
       To view an interactive online version of this page
-      <span style="white-space: nowrap;"><a href="https://mybinder.org/v2/gh/vowpalWabbit/coba/{{ env.config.release|e }}?filepath={{ docname|e }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a> (requires some time to initialize).</span>
+      <a href="https://mybinder.org/v2/gh/vowpalWabbit/coba/{{ env.config.release|e }}?filepath={{ docname|e }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a> (takes time to initialize).
     </div>
 """
 
