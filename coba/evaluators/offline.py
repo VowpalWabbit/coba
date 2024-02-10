@@ -14,7 +14,8 @@ from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first
 from coba.primitives import Environment
 
-class ClassMetaEvaluator:
+#this has largely been deprecated at this point...
+class ClassMetaEvaluator:#pragma: no cover
     """Describe an Environment made from a Classification dataset.
 
     This evlaluator calculates a number of statistics which describe a given environment. These
