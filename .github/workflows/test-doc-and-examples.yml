@@ -45,7 +45,8 @@ jobs:
           jupyter nbconvert --execute "doc/source/notebooks/Environments.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Evaluators.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Experiments.ipynb" --inplace
-          jupyter nbconvert --execute "doc/source/notebooks/First_Experiment.ipynb" --inplace
+          jupyter nbconvert --execute "doc/source/notebooks/First_Algorithm.ipynb" --inplace
+          jupyter nbconvert --execute "doc/source/notebooks/First_Application.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Interactions.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Learners.ipynb" --inplace
           jupyter nbconvert --execute "doc/source/notebooks/Results.ipynb" --inplace
