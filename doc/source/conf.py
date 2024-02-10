@@ -22,7 +22,7 @@ copyright = '2024, Mark Rucker'
 author = 'Mark Rucker'
 
 # The full version, including alpha/beta/rc tags
-release = 'v8.0.1' #the release tag containing last built documentation
+release = 'v8.0.2' #the release tag containing last built documentation
 
 # -- General configuration ---------------------------------------------------
 
