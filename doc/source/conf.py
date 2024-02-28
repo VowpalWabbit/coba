@@ -37,7 +37,7 @@ extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ["misc/_templates"]
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -55,7 +55,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = [ "misc/_statics" ]
+html_static_path = [ ]
 
 html_theme_options = {
     #'analytics_id': 'G-XXXXXXXXXX',  #  Provided by Google in your dashboard
@@ -94,9 +94,23 @@ nbsphinx_prolog = r"""
 
 .. raw:: html
 
+    <style>
+        /*Make children of section and not (nbinput/nboutput) 
+        followed by (nbinput/nboutput) have24px padding. This 
+        is what the rtd_theme uses.*/
+        :is(section > :not(section):last-child,
+            section > :not(:is(
+                .nbinput:has (+ .nboutput, + .nbinput),
+                .nboutput:has(+ .nboutput, + .nbinput)
+            ))
+        ) {
+            margin-bottom: 24px !important 
+        }
+    </style>
+
     <div class="admonition note">
-      To view an interactive online version of this page
-      <a href="https://mybinder.org/v2/gh/vowpalWabbit/coba/{{ env.config.release|e }}?filepath={{ docname|e }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a> (takes time to initialize).
+      To interact with this Notebook:
+      <a href="https://mybinder.org/v2/gh/vowpalWabbit/coba/{{ env.config.release|e }}?filepath={{ docname|e }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>. To download this Notebook: <a href="{{ env.docname.split('/')|last|e + '.ipynb' }}" download>click here</a>.
     </div>
 """
 
