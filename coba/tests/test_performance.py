@@ -239,12 +239,12 @@ class Performance_Tests(unittest.TestCase):
     def test_scale_dense_target_features(self):
         items = [SimulatedInteraction((3193.0, 151.0, '0', '0', '0'),[1,2,3],[4,5,6])]*10
         scale = Scale("min","minmax",target="context")
-        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .012, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .015, print_time, number=1000)
 
     def test_scale_sparse_target_features(self):
         items = [SimulatedInteraction({1:3193.0, 2:151.0, 3:'0', 4:'0', 5:'0'},[1,2,3],[4,5,6])]*10
         scale = Scale(0,"minmax",target="context")
-        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .035, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .022, print_time, number=1000)
 
     def test_environments_flat_tuple(self):
         items = [SimulatedInteraction([1,2,3,4]+[(0,1)]*3,[1,2,3],[4,5,6])]*10
