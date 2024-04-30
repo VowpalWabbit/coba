@@ -556,6 +556,14 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(5,exp.maxchunksperchild)
         self.assertEqual(3,exp.maxtasksperchunk)
 
+    def test_run_config(self):
+        exp = Experiment([], [])
+        exp.run(processes=2, maxchunksperchild=5, maxtasksperchunk=3)
+
+        self.assertEqual(2,exp.processes)
+        self.assertEqual(5,exp.maxchunksperchild)
+        self.assertEqual(3,exp.maxtasksperchunk)
+
     def test_restore_not_matched_environments(self):
         path = Path("coba/tests/.temp/experiment.log")
         if path.exists(): path.unlink()

@@ -344,6 +344,8 @@ class NeighborsSyntheticSimulation(Environment):
         def f(x):
             return [ min(world, key=lambda w: dist(w[0],x))[1] for world in worlds ]
 
+        self.worlds = worlds
+
         for _ in range(n_interactions):
 
             context = next(context_iter)

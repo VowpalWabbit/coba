@@ -1,4 +1,4 @@
-from typing import Mapping, Union, Iterable, Callable, Any
+from typing import Mapping, Union, Iterable, Any
 
 from coba.exceptions import CobaException
 from coba.primitives import Filter, Source, Sink, Line

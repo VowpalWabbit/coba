@@ -95,8 +95,8 @@ nbsphinx_prolog = r"""
 .. raw:: html
 
     <style>
-        /*Make children of section and not (nbinput/nboutput) 
-        followed by (nbinput/nboutput) have24px padding. This 
+        /*Make children of section and not (nbinput/nboutput)
+        followed by (nbinput/nboutput) have24px padding. This
         is what the rtd_theme uses.*/
         :is(section > :not(section):last-child,
             section > :not(:is(
@@ -104,7 +104,7 @@ nbsphinx_prolog = r"""
                 .nboutput:has(+ .nboutput, + .nbinput)
             ))
         ) {
-            margin-bottom: 24px !important 
+            margin-bottom: 24px !important
         }
     </style>
 

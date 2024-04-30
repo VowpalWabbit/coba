@@ -4,7 +4,7 @@ import importlib.util
 from math import isfinite
 from itertools import chain, islice, groupby
 from collections import defaultdict
-from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Callable, Hashable, Mapping
+from typing import TypeVar, Iterable, Tuple, Union, Sequence, Any, Callable, Hashable
 
 from coba.exceptions import CobaExit
 

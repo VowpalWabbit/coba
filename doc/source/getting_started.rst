@@ -30,8 +30,8 @@ A contextual bandit (sometimes called a contextual multi-armed bandit) is an abs
 repeatedly interact with a "contextual bandit". In each interaction the contextual bandit presents the
 player with a context and a choice of actions.
 
-The player must choose an action to play from the set of presented actions. If the player chooses well 
-the contextual bandit gives a large reward. If the player chooses poorly the contextual bandit gives a 
+The player must choose an action to play from the set of presented actions. If the player chooses well
+the contextual bandit gives a large reward. If the player chooses poorly the contextual bandit gives a
 small reward. The player only observes the reward for the action they chose.
 
 The player's goal is to earn as much reward as possible. To succeed players need to learn what actions

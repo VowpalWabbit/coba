@@ -142,7 +142,7 @@ class CobaRandom:
             r_range = b-a
             return [floor(r_range*r) + a for r in islice(self._randu,n)]
 
-    def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Union[Any, Tuple[Any,float]]:
+    def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Any:
         """Choose a random item from the given sequence.
 
         Args:
@@ -150,7 +150,7 @@ class CobaRandom:
             weights: The frequency which seq is selected.
 
         Returns:
-            An item in seq.
+            A random item in seq.
         """
         if weights and len(weights) != len(seq):
             raise ValueError("The length of weights and sequence must be equal.")
@@ -162,7 +162,7 @@ class CobaRandom:
             if tot == 0: raise ValueError("The sum of weights cannot be zero.")
             return next(compress(seq, map((next(self._randu)*tot).__le__, accumulate(weights))))
 
-    def choicew(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Union[Any, Tuple[Any,float]]:
+    def choicew(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Tuple[Any,float]:
         """Choose a random item from the given sequence.
 
         Args:
@@ -170,7 +170,7 @@ class CobaRandom:
             weights: The frequency which seq is selected.
 
         Returns:
-            An random item with its weight.
+            A random item in seq with its weight.
         """
 
         if weights is None:

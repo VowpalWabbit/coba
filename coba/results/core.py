@@ -1048,7 +1048,7 @@ class Result:
 
         full_id = ['environment_id','learner_id','evaluator_id']
 
-        groups = self._grouped_ys(p,l,full_l,full_id,y=y,func='list',card='S')
+        groups = only_finished._grouped_ys(p,l,full_l,full_id,y=y,func='list',card='S')
 
         try:
             groups = sorted(groups)
@@ -1075,7 +1075,7 @@ class Result:
                 to_drop.extend(d)
 
         if to_drop:
-            select = self._remove(to_drop)
+            select = only_finished._remove(to_drop)
             interactions = Table(View(interactions._data,select), interactions.columns, interactions.indexes)
 
         e_keep,l_keep,v_keep = map(set,zip(*to_keep)) if to_keep else ([],[],[])
@@ -1083,7 +1083,7 @@ class Result:
         if len(l_keep) != len(learners)    : learners     = learners    .where(learner_id    =l_keep)
         if len(v_keep) != len(evaluators)  : evaluators   = evaluators  .where(evaluator_id  =v_keep)
 
-        return Result(environments, learners, evaluators, interactions, self.experiment)
+        return Result(environments, learners, evaluators, interactions, only_finished.experiment)
 
     def filter_fin(self,
         n: Union[int,Literal['min']] = None,

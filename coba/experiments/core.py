@@ -152,7 +152,7 @@ class Experiment:
             Result of the experiment.
         """
 
-        self.config(processes,maxtasksperchunk,maxchunksperchild)
+        self.config(processes,maxchunksperchild,maxtasksperchunk)
         mp,mc,mt = self.processes,self.maxchunksperchild,self.maxtasksperchunk
 
         CobaContext.store['experiment_seed'] = seed
