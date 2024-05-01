@@ -133,7 +133,7 @@ class KeyDefaultDict(defaultdict):
             return value
 
 _T = TypeVar("_T")
-def peek_first(items: Iterable[_T], n:int=1, reduce:bool=True) -> Tuple[Union[_T,Sequence[_T]], Iterable[_T]]:
+def peek_first(items:Iterable[_T], n:int=1, reduce:bool=True) -> Tuple[Union[_T,Sequence[_T]], Iterable[_T]]:
     items = iter(items)
     first = list(islice(items,n))
 
@@ -184,7 +184,7 @@ def minimize(obj,precision=5):
 
     return obj
 
-def grouper(items: Sequence[Any], key:Callable[[Any],Hashable]=None, val:Callable[[Any],Any]=None, sorted_: bool= False) -> Iterable[Tuple[Hashable,Iterable[Any]]]:
+def grouper(items:Sequence[Any], key:Callable[[Any],Hashable]=None, val:Callable[[Any],Any]=None, sorted_:bool=False) -> Iterable[Tuple[Hashable,Iterable[Any]]]:
 
     if sorted_:
         for k, group in groupby(items,key=key):

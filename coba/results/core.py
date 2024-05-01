@@ -1933,8 +1933,15 @@ class Result:
         indexes  = list(self._grouped_ys(p,l,'environment_id','learner_id','evaluator_id',y=None,card='S'))
         n_levels = len(set(map(itemgetter(1),indexes)))
 
+        try:
+            indexes = sorted(indexes)
+        except:
+            sorted_=False
+        else:
+            sorted_=True
+
         to_keep, to_remove, n_larger, n_smaller = [], [], 0, 0
-        for _, group in groupby(indexes,key=itemgetter(0)):
+        for _, group in grouper(indexes,key=itemgetter(0), sorted_=sorted_):
             group = list(group)
             if len(group) > n_levels:
                 n_larger += 1
