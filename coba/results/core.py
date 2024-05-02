@@ -1214,7 +1214,7 @@ class Result:
 
     def where_best(self,
         l:Union[str, Sequence[str]],
-        p:Union[str, Sequence[str]] = 'environment_id',
+        p:Union[str, Sequence[str]] = None,
         y:str = 'reward',
         n:int = None,
         full_l:Union[str, Sequence[str]]='learner_id',
@@ -1223,19 +1223,25 @@ class Result:
 
         Args:
             l: The hyperparameter values we wish to optimize.
-            p: The grouping variable we wish to optimize over.
+            p: The grouping variable we wish to optimize over (defaults to full_p).
             y: The variable we wish to optimize.
             n: The number of interactions we wish to consider.
-            full_l: The true lowest level label (e.g., learner_id)
-            full_p: The true lowest level pair (e.g., environment_id)
+            full_l: The true lowest level label (e.g., learner_id).
+            full_p: The true lowest level pair (e.g., environment_id).
 
         Returns:
-            A Result with full `l` and `p` that is the optimal over
+            A Result with `l` and `p` that is the optimal over
                 `full_l` and `full_p`. For example we could say `l`
                 is 'family' while `full_l` is 'learner_id'. This would
                 pick the best performing learner grouped by family for
                 each `p`.
 
+        Notes:
+            Another way to think of it is under the group `l` pick the
+            `full_l` with the best average performance over `p`. The
+            value of `full_p` is not used to select the best. It is only
+            used to make sure the final selection is valid (i.e. one `full_p`
+            exists for every `l` at the end of the selection process).
         """
 
         return self.filter_best(l,p,y,n,full_l,full_p)
@@ -1274,7 +1280,7 @@ class Result:
                 single where applies an or conjuction. Chaining where statements is equivalent
                 to an and conjuctor.
 
-        Reutrns:
+        Returns:
             A `Result` whose environments, learners, evaluators, and interactions satisfy the
                 where selectors.
         """
@@ -1319,7 +1325,7 @@ class Result:
             p: The pairings to require across all l. If None no pairing checks are performed.
             span: The size of the rolling average (None means progressive mean.)
 
-        Reutrns:
+        Returns:
             A Table with the raw data used to construct plot_learners.
         """
 
@@ -1373,7 +1379,7 @@ class Result:
             raw_contrast(1,2,x='environment_id',y='reward',l='learner_id',p='environment_id')
             would contrast learner_id=1 and learner_id=2 in terms of reward on all environment_ids.
 
-        Reutrns:
+        Returns:
             A Table with the raw data used to construct plot_contrast.
         """
 
