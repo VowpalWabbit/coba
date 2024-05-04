@@ -1791,22 +1791,6 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(table['1. learner_1'],[[1,1],[1.5,1.5]])
         self.assertEqual(table['2. learner_2'],[[1,2],[2,3]])
 
-    def test_raw_learners_select_n_column(self):
-        envs = [['environment_id'],[0],[1]]
-        lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]
-        vals = [['evaluator_id'],[0]]
-        ints = [['environment_id','learner_id','evaluator_id','index','reward'],
-                [0,1,0,1,1],[0,1,0,3,2],
-                [0,2,0,1,1],[0,2,0,3,3],
-                [1,1,0,1,1],[1,1,0,3,2],
-                [1,2,0,1,2],[1,2,0,3,4],
-        ]
-        table = Result(envs, lrns, vals, ints).raw_learners(x="__N__")
-        self.assertEqual(('x','1. learner_1','2. learner_2'), table.columns)
-        self.assertEqual(table['x'], [1,2])
-        self.assertEqual(table['1. learner_1'],[[1,1],[1.5,1.5]])
-        self.assertEqual(table['2. learner_2'],[[1,2],[2,3]])
-
     def test_raw_learners_tuple1(self):
         envs = [['environment_id'],[0],[1]]
         lrns = [['learner_id', 'family'],[1,'learner_1'],[2,'learner_2']]

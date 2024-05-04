@@ -1823,8 +1823,6 @@ class Result:
             for col in cols:
                 if isinstance(col,(tuple,list)):
                     yield lambda e,l,v,s,N,G=list(make_gets(col)): zip(*map(methodcaller('__call__',e,l,v,s,N),G)) if N != 0 else tuple(map(methodcaller('__call__',e,l,v,s,N),G))
-                elif col == '__N__':
-                    yield lambda e,l,v,s,N,col=col: range(1,N+1)
                 elif col in self.environments.columns:
                     yield lambda e,l,v,s,N,col=col: repeat(e[col],N) if N != 0 else e[col]
                 elif col in self.learners.columns or col == 'full_name':
@@ -1838,7 +1836,6 @@ class Result:
         icols = list(get_icols(keys))
         icols.reverse()
 
-        if '__N__' in keys: icols += ['index']
         if y: icols += [y]
         for (eid,lid,vid), sel in self.interactions.groupby(3,icols):
 
@@ -1848,7 +1845,6 @@ class Result:
 
             Y = sel.pop() if y else None
             N = 0 if not sel else len(sel[0])
-            if '__N__' in keys: sel.pop()
 
             outs = tuple(map(methodcaller('__call__',env,lrn,val,sel,N),gets))
 
