@@ -923,6 +923,95 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertIn('openml_042693_arff', CobaContext.cacher)
 
     @unittest.mock.patch('coba.environments.openml.HttpSource')
+    def test_two_timeouts(self,mock):
+
+        task = {
+            "task":{
+                "task_type_id":"1",
+                "input":[
+                    {"name":"source_data","data_set":{"data_set_id":"42693","target_feature":"play"}}
+                ]
+            }
+        }
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+                "default_target_attribute":"play"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        arff = """
+            @relation weather
+
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {n, y}
+
+            @data
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
+        """
+
+        responses = [
+            TimeoutError(),
+            TimeoutError(),
+            json.dumps(task).splitlines(),
+            json.dumps(data).splitlines(),
+            json.dumps(feat).splitlines(),
+            arff.splitlines()
+        ]
+
+        mock.return_value.read.side_effect = responses
+
+        #this should complete despite us acquiring above
+        #because it doesn't lock since everything is cached
+        features,labels,_ = zip(*[r.labeled for r in OpenmlSource(task_id=123).read()])
+
+        self.assertEqual(len(features), 5)
+        self.assertEqual(len(labels  ), 5)
+
+        self.assertEqual([8.1, 27, 1410, Categorical('2',["2","1"])], features[0])
+        self.assertEqual([8.2, 29, 1180, Categorical('2',["2","1"])], features[1])
+        self.assertEqual([8.2, 28, 1410, Categorical('2',["2","1"])], features[2])
+        self.assertEqual([8.3, 27, 1020, Categorical('1',["2","1"])], features[3])
+        self.assertEqual([7.6, 23, 4700, Categorical('1',["2","1"])], features[4])
+
+        self.assertEqual(Categorical('n',["n","y"]), labels[0])
+        self.assertEqual(Categorical('n',["n","y"]), labels[1])
+        self.assertEqual(Categorical('y',["n","y"]), labels[2])
+        self.assertEqual(Categorical('y',["n","y"]), labels[3])
+        self.assertEqual(Categorical('y',["n","y"]), labels[4])
+
+        self.assertIn('openml_042693_data', CobaContext.cacher)
+        self.assertIn('openml_042693_feat', CobaContext.cacher)
+        self.assertIn('openml_042693_arff', CobaContext.cacher)
+
+    @unittest.mock.patch('coba.environments.openml.HttpSource')
     def test_three_timeouts(self,mock):
 
         task = {
@@ -978,97 +1067,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         """
 
         responses = [
-            TimeoutError(),
-            TimeoutError(),
-            TimeoutError(),
-            json.dumps(task).splitlines(),
-            json.dumps(data).splitlines(),
-            json.dumps(feat).splitlines(),
-            arff.splitlines()
-        ]
-
-        mock.return_value.read.side_effect = responses
-
-        #this should complete despite us acquiring above
-        #because it doesn't lock since everything is cached
-        features,labels,_ = zip(*[r.labeled for r in OpenmlSource(task_id=123).read()])
-
-        self.assertEqual(len(features), 5)
-        self.assertEqual(len(labels  ), 5)
-
-        self.assertEqual([8.1, 27, 1410, Categorical('2',["2","1"])], features[0])
-        self.assertEqual([8.2, 29, 1180, Categorical('2',["2","1"])], features[1])
-        self.assertEqual([8.2, 28, 1410, Categorical('2',["2","1"])], features[2])
-        self.assertEqual([8.3, 27, 1020, Categorical('1',["2","1"])], features[3])
-        self.assertEqual([7.6, 23, 4700, Categorical('1',["2","1"])], features[4])
-
-        self.assertEqual(Categorical('n',["n","y"]), labels[0])
-        self.assertEqual(Categorical('n',["n","y"]), labels[1])
-        self.assertEqual(Categorical('y',["n","y"]), labels[2])
-        self.assertEqual(Categorical('y',["n","y"]), labels[3])
-        self.assertEqual(Categorical('y',["n","y"]), labels[4])
-
-        self.assertIn('openml_042693_data', CobaContext.cacher)
-        self.assertIn('openml_042693_feat', CobaContext.cacher)
-        self.assertIn('openml_042693_arff', CobaContext.cacher)
-
-    @unittest.mock.patch('coba.environments.openml.HttpSource')
-    def test_four_timeouts(self,mock):
-
-        task = {
-            "task":{
-                "task_type_id":"1",
-                "input":[
-                    {"name":"source_data","data_set":{"data_set_id":"42693","target_feature":"play"}}
-                ]
-            }
-        }
-
-        data = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-                "default_target_attribute":"play"
-            }
-        }
-
-        feat = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        arff = """
-            @relation weather
-
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {n, y}
-
-            @data
-            8.1,27,1410,2,n
-            8.2,29,1180,2,n
-            8.2,28,1410,2,y
-            8.3,27,1020,1,y
-            7.6,23,4700,1,y
-        """
-
-        responses = [
-            TimeoutError(),
             TimeoutError(),
             TimeoutError(),
             TimeoutError(),

@@ -89,7 +89,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
                 raise CobaException(f"We were unable to find an appropriate target column for the given openml source.")
 
             if data_descr.get('status') == 'deactivated':
-                raise CobaException(f"Openml {self._data_id} has been deactivated. This is often due to flags on the data.")
+                raise CobaException(f"Openml {self._data_id} has been deactivated (see, https://docs.openml.org/#dataset-status).")
 
             is_ignore = lambda feat_descr:(
                 feat_descr['is_ignore'        ] == 'true' or
@@ -139,25 +139,24 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             self._clear_cache()
             raise
 
-    def _http_request(self, url: str, tries: int = 0) -> Iterable[str]:
+    def _http_request(self, url: str, tries: int = 1, timeout: int = 5) -> Iterable[str]:
         api_key   = CobaContext.api_keys.get('openml')
         semaphore = CobaContext.store.get("openml_semaphore")
 
-        # In an attempt to be considerate we stagger/limit our hits of the REST API.
-        # Openml doesn't publish any rate-limiting guidelines, so this is just a guess.
         # if semaphore is not None it indictes that we are in a CobaMultiprocessor.
+        # When this is the case we stagger/limit our hits of the REST API to be considerate.
+        # Openml doesn't publish any rate-limiting guidelines, so our staggering is a guess.
         if semaphore: time.sleep(2*random())
 
         try:
             KB = 1024
             MB = 1024*KB
             if api_key: url = f"{url}?api_key={api_key}"
-            yield from HttpSource(url, timeout=20, chunk_size=10*MB).read()
+            yield from HttpSource(url, timeout=timeout, chunk_size=10*MB).read()
 
         except TimeoutError:
-            if tries >= 3: raise
-            yield from self._http_request(url, tries+1)
-            return
+            if tries == 3: raise
+            yield from self._http_request(url, timeout=5**(tries+1), tries=tries+1)
 
         except request.HTTPError as e:
             status, content = e.code, e.fp.read()
@@ -178,7 +177,6 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
                 raise CobaException("We're sorry but we were unable to find the requested dataset on openml.")
 
             raise CobaException(f"An error was returned by openml: {content}")
-
 
     def _get_data_descr(self, data_id:int) -> Dict[str,Any]:
         descr_txt = " ".join(self._get_data(f'https://openml.org/api/v1/json/data/{data_id}', self._cache_keys['data']))
