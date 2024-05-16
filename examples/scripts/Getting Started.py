@@ -1,6 +1,6 @@
 """
-This is an example script that creates and executes an Experiment.
-This script depends on the matplotlib and vowpalwabbit packages.
+This script creates and executes an Experiment.
+This script requires the matplotlib and vowpalwabbit package.
 """
 
 import coba as cb

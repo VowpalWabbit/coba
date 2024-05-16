@@ -1,3 +1,8 @@
+"""
+This script creates and executes an Experiment to generate logged data and then performs off-policy evaluation.
+This script requires the matplotlib and vowpalwabbit package.
+"""
+
 import coba as cb
 
 def main():
@@ -23,6 +28,7 @@ def main():
     log = cb.Environments.from_result(filename)
     lrn = cb.VowpalLearner("--cb_explore_adf --explore_eval")
     val = cb.SequentialCB(learn='off',eval=False)
+
     cb.Experiment(log, lrn, val).run()
 
     # performance in the original online run

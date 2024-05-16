@@ -1,9 +1,8 @@
 """
-This is an example script that creates and executes an Experiment.
-This script requires that the matplotlib and vowpalwabbit packages be installed.
+This script creates and executes an Experiment with a custom namespace.
+This script requires the matplotlib and vowpalwabbit package.
 """
 
-import math
 import coba as cb
 
 class MakeCustomNamespaces:
@@ -17,6 +16,8 @@ class MakeCustomNamespaces:
         return {"target": self.target, "parts": self.partitions}
 
     def filter(self, interactions):
+        import math
+
         n_parts = len(self.partitions)
 
         for old in interactions:
