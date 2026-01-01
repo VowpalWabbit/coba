@@ -104,7 +104,7 @@ class SafeLearner(Learner):
     def pred_format(std_pred:Pred, actions:Actions, og_pred:Pred = None):
         unclear_format = CobaException("We were unable to determine the prediction format from the "
         f"given value: {og_pred}. To work around this you can provide explicit format information by "
-        "returnning a dict wrapper: {'pmf':<pred>}, {'action':<pred>}, or {'action_prob':<pred>}.")
+        "returning a dict wrapper: {'pmf':<pred>}, {'action':<pred>}, or {'action_prob':<pred>}.")
         no_act_two  = CobaException("We were given a two item pred without actions. We cannot tell "
         "if this is an action or action_prob. Please use explicit hints to let us know by returning "
         "either {'action':<pred>} or {'action_prob':<pred>}.")
