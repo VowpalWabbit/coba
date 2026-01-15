@@ -1,6 +1,6 @@
 [![codecov](https://codecov.io/gh/VowpalWabbit/coba/branch/master/graph/badge.svg?token=885XLZJ2D4)](https://codecov.io/gh/VowpalWabbit/coba)
 [![doc](https://readthedocs.org/projects/coba-docs/badge/?version=latest)](https://coba-docs.readthedocs.io/?badge=v8.0.3)
-[![pypi](https://img.shields.io/badge/pypi-v8.0.3-blue)](https://pypi.org/project/coba/)
+[![pypi](https://img.shields.io/badge/pypi-v8.0.5-blue)](https://pypi.org/project/coba/)
 
 # Coba
 
