@@ -20,8 +20,25 @@ jobs:
       matrix:
         # macos-latest took at least 20 minutes to complete so I've removed it for now
         # windows-latest took about 1:30 minutes longer than ubuntu so I've removed it for now
-        os: [ubuntu-latest]
-        python: ['3.10.x']
+        #
+        # Each combination is listed explicitly (rather than as a python/full_deps cross product)
+        # to avoid relying on GitHub's include-merge semantics. torch/vowpalwabbit (installed via
+        # .[full]) no longer publish wheels for 3.8, so 3.8 only gets the Min Dependency job --
+        # that still exercises coba's own code against its declared minimum supported version
+        # (pyproject.toml requires-python), without a spurious install failure unrelated to coba.
+        include:
+          - os: ubuntu-latest
+            python: '3.8.x'
+            full_deps: false
+          - os: ubuntu-latest
+            python: '3.10.x'
+            full_deps: true
+          - os: ubuntu-latest
+            python: '3.12.x'
+            full_deps: true
+          - os: ubuntu-latest
+            python: '3.14.x'
+            full_deps: true
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -35,15 +52,18 @@ jobs:
       - name: Min Dependency Unit Tests
         run: python -m unittest
       - name: Max Dependency Installs
+        if: matrix.full_deps
         run: |
           pip install .[full]
           pip install -r coba/tests/requirements.txt
           pip list
       - name: Max Dependency Unit Tests with Coverage
+        if: matrix.full_deps
         run: |
           coverage run -m unittest
           coverage xml
       - name: Report Coverage to Codecov
+        if: matrix.full_deps
         uses: codecov/codecov-action@v5
         with:
-          flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
+          flags: unittest, ${{ matrix.os }}, ${{ matrix.python }}

@@ -19,8 +19,11 @@ jobs:
       matrix:
         # macos-latest took at least 20 minutes to complete so I've removed it for now
         # windows-latest took about 1:30 minutes longer than ubuntu so I've removed it for now
+        #
+        # 3.8 isn't included here: this workflow always installs .[full] (torch/vowpalwabbit),
+        # and their latest releases no longer publish wheels for 3.8.
         os: [ubuntu-latest]
-        python: ['3.10.x']
+        python: ['3.10.x', '3.12.x', '3.14.x']
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
