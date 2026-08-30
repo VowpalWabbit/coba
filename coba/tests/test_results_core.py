@@ -3,7 +3,7 @@ import unittest.mock
 import shutil
 
 from pathlib import Path
-from statistics import mean
+from statistics import fmean
 
 from coba.utilities import PackageChecker
 from coba.pipes import ListSink
@@ -3231,7 +3231,7 @@ class Result_Tests(unittest.TestCase):
 
     @unittest.skipUnless(PackageChecker.scipy(strict=False), "this test requires scipy")
     def test_confidence_ci(self):
-        self.assertEqual((2.5, (1.5,0.5)),Result()._confidence(BootstrapCI(.95,mean))([1,2,3,4]))
+        self.assertEqual((2.5, (1.0,1.0)),Result()._confidence(BootstrapCI(.95,fmean))([1,2,3,4]))
 
     def test_confidence_none(self):
         self.assertEqual((2,0),Result()._confidence(None)([1,2,3]))
