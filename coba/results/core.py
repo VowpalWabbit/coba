@@ -19,7 +19,7 @@ from coba.statistics import mean
 from coba.context import CobaContext, NullLogger
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, peek_first, KeyDefaultDict, minimize, try_else, grouper
-from coba.pipes import Pipes, DiskSource
+from coba.pipes import Pipes, DiskSource, IterableSource
 
 from coba.results.errors import StdDevCI, StdErrCI, BootstrapCI, BinomialCI, PointAndInterval
 
@@ -839,6 +839,55 @@ class Result:
     def from_file(filename: str) -> 'Result':
         """Create a Result from a transaction file."""
         return Result.from_save(filename)
+
+    @staticmethod
+    def from_files(filenames: Sequence[str]) -> 'Result':
+        """Create a Result by merging multiple transaction files.
+
+        This is meant for combining the separate result files written by multiple partial runs
+        of the same Experiment (e.g. one file per start/end slice or batch_index -- see
+        Experiment.run). Each file is expected to have been written to its own, unshared path:
+        writing multiple processes' output to one shared file concurrently is not supported here
+        (many distributed/cloud filesystems can't reliably enforce the file locking that would
+        require), so give each slice/batch its own result_file and combine them afterward with
+        this method instead.
+
+        Args:
+            filenames: The paths to the transaction files to merge.
+
+        Returns:
+            A Result object.
+        """
+        missing = [f for f in filenames if not Path(f).exists()]
+        if missing:
+            raise CobaException(f"We were unable to find the given Result file(s): {missing}.")
+        return Result.from_source(IterableSource(chain.from_iterable(DiskSource(f).read() for f in filenames)))
+
+    @staticmethod
+    def from_folder(folder: str, pattern: str = '*') -> 'Result':
+        """Create a Result by merging every transaction file in a folder.
+
+        A convenience wrapper around Result.from_files for the common case of pointing each
+        start/end slice or batch_index at its own file inside one shared folder (see
+        Experiment.run), then merging everything in that folder afterward.
+
+        Args:
+            folder: The directory containing the transaction files to merge.
+            pattern: A glob pattern (relative to folder) used to select which files to include.
+                Defaults to every file directly inside the folder (non-recursive).
+
+        Returns:
+            A Result object.
+        """
+        if not Path(folder).is_dir():
+            raise CobaException(f"We were unable to find the given Result folder: {folder}.")
+
+        filenames = sorted(str(f) for f in Path(folder).glob(pattern) if f.is_file())
+
+        if not filenames:
+            raise CobaException(f"We were unable to find any files matching '{pattern}' in {folder}.")
+
+        return Result.from_files(filenames)
 
     @staticmethod
     def from_logged_envs(environments: Iterable[Environment], include_prob:bool=False):

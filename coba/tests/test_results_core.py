@@ -1,6 +1,8 @@
 import unittest
 import unittest.mock
+import shutil
 
+from pathlib import Path
 from statistics import mean
 
 from coba.utilities import PackageChecker
@@ -1034,6 +1036,97 @@ class Result_Tests(unittest.TestCase):
     def test_exception_when_no_file(self):
         with self.assertRaises(Exception):
             Result.from_file("abcd")
+
+    def test_exception_when_no_files(self):
+        with self.assertRaises(CobaException):
+            Result.from_files(["abcd","efgh"])
+
+    def test_from_files_merges_separate_files(self):
+        path1 = Path("coba/tests/.temp/merge1.log")
+        path2 = Path("coba/tests/.temp/merge2.log")
+
+        lines1 = TransactionEncode(None).filter([
+            ['T0', {'n_learners':1,'n_environments':2}],
+            ['T1', 0, {'env_type':'A'}],
+            ['T2', 0, {'family':'L'}],
+            ['T4', [0,0], [{'reward':1},{'reward':2}]],
+        ])
+        lines2 = TransactionEncode(None).filter([
+            ['T1', 1, {'env_type':'A'}],
+            ['T4', [1,0], [{'reward':3},{'reward':4},{'reward':5}]],
+        ])
+
+        path1.write_text('\n'.join(lines1))
+        path2.write_text('\n'.join(lines2))
+
+        try:
+            result = Result.from_files([str(path1), str(path2)])
+
+            self.assertCountEqual(result.environments.to_dicts(), [
+                {"environment_id":0, "env_type":"A"},
+                {"environment_id":1, "env_type":"A"},
+            ])
+            self.assertCountEqual(result.learners.to_dicts(), [{"learner_id":0, "family":"L"}])
+            self.assertCountEqual(result.interactions.to_dicts(), [
+                {"environment_id":0,"learner_id":0,"evaluator_id":0,"index":1,"reward":1},
+                {"environment_id":0,"learner_id":0,"evaluator_id":0,"index":2,"reward":2},
+                {"environment_id":1,"learner_id":0,"evaluator_id":0,"index":1,"reward":3},
+                {"environment_id":1,"learner_id":0,"evaluator_id":0,"index":2,"reward":4},
+                {"environment_id":1,"learner_id":0,"evaluator_id":0,"index":3,"reward":5},
+            ])
+        finally:
+            path1.unlink(missing_ok=True)
+            path2.unlink(missing_ok=True)
+
+    def test_exception_when_no_folder(self):
+        with self.assertRaises(CobaException):
+            Result.from_folder("coba/tests/.temp/does_not_exist_folder")
+
+    def test_exception_when_no_matching_files_in_folder(self):
+        folder = Path("coba/tests/.temp/empty_result_folder")
+        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            with self.assertRaises(CobaException):
+                Result.from_folder(str(folder))
+        finally:
+            shutil.rmtree(folder)
+
+    def test_from_folder_merges_matching_files(self):
+        folder = Path("coba/tests/.temp/result_folder")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        lines1 = TransactionEncode(None).filter([
+            ['T0', {'n_learners':1,'n_environments':2}],
+            ['T1', 0, {'env_type':'A'}],
+            ['T2', 0, {'family':'L'}],
+            ['T4', [0,0], [{'reward':1},{'reward':2}]],
+        ])
+        lines2 = TransactionEncode(None).filter([
+            ['T1', 1, {'env_type':'A'}],
+            ['T4', [1,0], [{'reward':3},{'reward':4},{'reward':5}]],
+        ])
+
+        (folder/"batch_0.log").write_text('\n'.join(lines1))
+        (folder/"batch_1.log").write_text('\n'.join(lines2))
+        (folder/"notes.txt").write_text("not a transaction file -- shouldn't be picked up by the *.log pattern")
+
+        try:
+            result = Result.from_folder(str(folder), pattern='*.log')
+
+            self.assertCountEqual(result.environments.to_dicts(), [
+                {"environment_id":0, "env_type":"A"},
+                {"environment_id":1, "env_type":"A"},
+            ])
+            self.assertCountEqual(result.learners.to_dicts(), [{"learner_id":0, "family":"L"}])
+            self.assertCountEqual(result.interactions.to_dicts(), [
+                {"environment_id":0,"learner_id":0,"evaluator_id":0,"index":1,"reward":1},
+                {"environment_id":0,"learner_id":0,"evaluator_id":0,"index":2,"reward":2},
+                {"environment_id":1,"learner_id":0,"evaluator_id":0,"index":1,"reward":3},
+                {"environment_id":1,"learner_id":0,"evaluator_id":0,"index":2,"reward":4},
+                {"environment_id":1,"learner_id":0,"evaluator_id":0,"index":3,"reward":5},
+            ])
+        finally:
+            shutil.rmtree(folder)
 
     def test_from_logged_envs(self):
         class Logged1:

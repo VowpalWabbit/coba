@@ -172,16 +172,19 @@ class Experiment:
             A start/end slice or batch only restricts which evaluations actually run; every
             environment/learner/evaluator in the full experiment still gets registered (and, for
             environments, peeked) by every slice/batch, exactly as a full run would register them. This
-            keeps ids stable across separate slices/batches writing to the same result_file (harmless
-            duplicate registration attempts are deduplicated by id once merged), at the cost of some
-            redundant registration work for entities the given slice/batch doesn't actually evaluate --
-            most costly if run truly in parallel (rather than one after another into the same
-            result_file), since none of the parallel runs can see what the others have already
-            registered.
+            keeps ids stable across separate slices/batches, at the cost of some redundant registration
+            work for entities the given slice/batch doesn't actually evaluate.
 
-            Running every start/end slice or batch_index (0 to batch_count-1) into the same result_file
-            will eventually cover the entire experiment, but the result_file should only be treated as
-            correct and complete once every slice/batch has finished.
+            Give each slice/batch its own result_file (e.g. one per batch_index inside a shared
+            folder) and combine them afterward with Result.from_files or Result.from_folder, rather
+            than pointing multiple slices/batches at one shared result_file. DiskSink does not use
+            any file locking, so concurrent writers appending to one shared file can silently lose
+            data (not just duplicate/interleave it) -- this was confirmed empirically, not just
+            theoretical -- and even running slices/batches one after another into a shared file only
+            works if they are guaranteed to never overlap in time. Separate files sidestep this
+            entirely: nothing ever writes concurrently to the same file, so no coordination between
+            slices/batches is needed regardless of where or how they run (including truly parallel
+            jobs on a cluster, which is the scenario this option exists for).
 
         Returns:
             Result of the experiment.
@@ -239,7 +242,7 @@ class Experiment:
         meta = {'n_learners':n_given_lrns,'n_environments':n_given_envs,'description':self._description,'seed':seed}
 
         workitems = MakeTasks(self._triples,restored)
-        selecter  = SelectTasks(select)
+        selector  = SelectTasks(select)
         chunker   = ChunkTasks(mt)
         process   = CobaMultiprocessor(ProcessTasks(), mp, mc, False)
         encode    = TransactionEncode(restored)
@@ -253,7 +256,7 @@ class Experiment:
             lrn_mismatch = restored and n_given_lrns != restored.experiment.get('n_learners',n_given_lrns)
             env_mismatch = restored and n_given_envs != restored.experiment.get('n_environments',n_given_envs)
             if lrn_mismatch or env_mismatch: raise CobaException("The experiment does not match the given logs")
-            Pipes.join(workitems, selecter, chunker, process, preamble, encode, sink).run()
+            Pipes.join(workitems, selector, chunker, process, preamble, encode, sink).run()
         except KeyboardInterrupt: #pragma: no cover
             CobaContext.logger.log("Experiment Aborted (aborted via Ctrl-C)")
         except Exception as ex: #pragma: no cover

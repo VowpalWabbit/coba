@@ -83,12 +83,14 @@ class DiskSource(Source[Iterable[str]]):
     In order to make this distinction gzip files must end with a gz extension.
     """
 
-    def __init__(self, path:str, mode:str='rt+', start_loc:int = 0, include_loc: bool = False):
+    def __init__(self, path:str, mode:str='rt', start_loc:int = 0, include_loc: bool = False):
         """Instantiate a DiskSource.
 
         Args:
             filename: The path to the file to read.
-            mode: The mode with which the file should be read.
+            mode: The mode with which the file should be read. Read-only by default: DiskSource
+                never writes, and requesting write access can fail unnecessarily on a file whose
+                permissions only grant read access (e.g. a read-only shared/mounted results file).
         """
 
         self._path        = path

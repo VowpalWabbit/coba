@@ -2,6 +2,8 @@ import unittest
 import unittest.mock
 import pickle
 import gzip
+import os
+import stat
 
 from urllib import request, error
 from queue import Queue
@@ -144,12 +146,16 @@ class IdentitySource_Tests(unittest.TestCase):
 
 class DiskSource_Tests(unittest.TestCase):
     def setUp(self) -> None:
-        if Path("coba/tests/.temp/test.log").exists(): Path("coba/tests/.temp/test.log").unlink()
-        if Path("coba/tests/.temp/test.gz").exists(): Path("coba/tests/.temp/test.gz").unlink()
+        self._clean()
 
     def tearDown(self) -> None:
-        if Path("coba/tests/.temp/test.log").exists(): Path("coba/tests/.temp/test.log").unlink()
-        if Path("coba/tests/.temp/test.gz").exists(): Path("coba/tests/.temp/test.gz").unlink()
+        self._clean()
+
+    def _clean(self) -> None:
+        for p in [Path("coba/tests/.temp/test.log"), Path("coba/tests/.temp/test.gz")]:
+            if p.exists():
+                os.chmod(p, stat.S_IWRITE|stat.S_IREAD) #in case a test left it read-only
+                p.unlink()
 
     def test_simple_sans_gz(self):
         Path("coba/tests/.temp/test.log").write_text("a\nb\nc")
@@ -171,6 +177,18 @@ class DiskSource_Tests(unittest.TestCase):
         Path("coba/tests/.temp/test.gz").write_bytes(gzip.compress(b'a\nb\nc'))
         for (loc,val) in DiskSource("coba/tests/.temp/test.gz", include_loc=True).read():
             self.assertEqual(next(DiskSource("coba/tests/.temp/test.gz", start_loc=loc).read()),val)
+
+    def test_read_only_file(self):
+        #DiskSource only ever reads, so it shouldn't request write access -- requesting write
+        #access unnecessarily breaks reading a file whose permissions only grant read access
+        #(e.g. a read-only shared/mounted results file).
+        path = Path("coba/tests/.temp/test.log")
+        path.write_text("a\nb\nc")
+        os.chmod(path, stat.S_IREAD)
+        try:
+            self.assertEqual(["a","b","c"], list(DiskSource(str(path)).read()))
+        finally:
+            os.chmod(path, stat.S_IWRITE|stat.S_IREAD)
 
 class QueueSource_Tests(unittest.TestCase):
     def test_read_sans_blocking(self):
