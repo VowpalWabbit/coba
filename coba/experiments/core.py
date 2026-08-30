@@ -14,7 +14,7 @@ from coba.multiprocessing import CobaMultiprocessor
 from coba.primitives import Learner, Environment, Evaluator
 from coba.utilities import PackageChecker
 
-from coba.experiments.process import MakeTasks, ChunkTasks, ProcessTasks
+from coba.experiments.process import MakeTasks, SelectTasks, ChunkTasks, ProcessTasks
 
 class Experiment:
     """Experiment for environments, learners and evaluators."""
@@ -84,6 +84,10 @@ class Experiment:
         self._maxchunksperchild: Optional[int] = None
         self._maxtasksperchunk : Optional[int] = None
 
+    def __len__(self) -> int:
+        """The total number of environment-learner-evaluator tasks in the experiment."""
+        return len(self._triples)
+
     def config(self,
         processes: int = None,
         maxchunksperchild: int = None,
@@ -133,7 +137,11 @@ class Experiment:
             processes:int = None,
             maxchunksperchild: int = None,
             maxtasksperchunk: int = None,
-            seed: Optional[int] = 1) -> Result:
+            seed: Optional[int] = 1,
+            start: Optional[int] = None,
+            end: Optional[int] = None,
+            batch_index: Optional[int] = None,
+            batch_count: Optional[int] = None) -> Result:
         """Run the experiment and return the results.
 
         Args:
@@ -147,6 +155,33 @@ class Experiment:
                 tasks it will be split into smaller chunks. A value of 0 means that chunks are never
                 broken down into smaller chunks.
             seed: The seed that will determine all randomness within the experiment.
+            start: The index (0-based, inclusive) of the first environment-learner-evaluator task to
+                run. Tasks are indexed according to their position in the full experiment definition
+                (i.e., the full cartesian product of environments, learners and evaluators), not the
+                subset being run. Defaults to 0 if not given. Cannot be given with batch_index/batch_count.
+            end: The index (0-based, exclusive) of the last environment-learner-evaluator task to run.
+                Defaults to the total number of tasks in the experiment if not given. Cannot be given
+                with batch_index/batch_count.
+            batch_index: Which batch of tasks to run when the experiment's tasks are split into
+                batch_count contiguous, (as close as possible to) equally sized batches. Valid values
+                are 0 to batch_count-1. Cannot be given with start/end.
+            batch_count: The total number of batches the experiment's tasks should be split into. Must
+                be given together with batch_index. Cannot be given with start/end.
+
+        Note:
+            A start/end slice or batch only restricts which evaluations actually run; every
+            environment/learner/evaluator in the full experiment still gets registered (and, for
+            environments, peeked) by every slice/batch, exactly as a full run would register them. This
+            keeps ids stable across separate slices/batches writing to the same result_file (harmless
+            duplicate registration attempts are deduplicated by id once merged), at the cost of some
+            redundant registration work for entities the given slice/batch doesn't actually evaluate --
+            most costly if run truly in parallel (rather than one after another into the same
+            result_file), since none of the parallel runs can see what the others have already
+            registered.
+
+            Running every start/end slice or batch_index (0 to batch_count-1) into the same result_file
+            will eventually cover the entire experiment, but the result_file should only be treated as
+            correct and complete once every slice/batch has finished.
 
         Returns:
             Result of the experiment.
@@ -154,6 +189,29 @@ class Experiment:
 
         self.config(processes,maxchunksperchild,maxtasksperchunk)
         mp,mc,mt = self.processes,self.maxchunksperchild,self.maxtasksperchunk
+
+        n_tasks = len(self._triples)
+
+        if batch_index is not None or batch_count is not None:
+            if start is not None or end is not None:
+                raise CobaException("The batch_index/batch_count and start/end arguments cannot be used together.")
+            if batch_index is None or batch_count is None:
+                raise CobaException("Both batch_index and batch_count must be given together.")
+            assert batch_count > 0, "batch_count must be greater than 0."
+            assert 0 <= batch_index < batch_count, "batch_index must be between 0 and batch_count-1."
+
+            base_size, n_large = divmod(n_tasks, batch_count)
+            start = batch_index * base_size + min(batch_index, n_large)
+            end   = start + base_size + (1 if batch_index < n_large else 0)
+        else:
+            start = 0       if start is None else start
+            end   = n_tasks if end   is None else end
+
+        assert 0 <= start <= end <= n_tasks, (
+            f"The given start/end ({start}/{end}) is invalid for an experiment with {n_tasks} tasks."
+        )
+        is_partial = (start,end) != (0,n_tasks)
+        select     = set(self._triples[start:end]) if is_partial else None
 
         CobaContext.store['experiment_seed'] = seed
         is_multiproc = mp > 1 or mc != 0
@@ -181,6 +239,7 @@ class Experiment:
         meta = {'n_learners':n_given_lrns,'n_environments':n_given_envs,'description':self._description,'seed':seed}
 
         workitems = MakeTasks(self._triples,restored)
+        selecter  = SelectTasks(select)
         chunker   = ChunkTasks(mt)
         process   = CobaMultiprocessor(ProcessTasks(), mp, mc, False)
         encode    = TransactionEncode(restored)
@@ -194,7 +253,7 @@ class Experiment:
             lrn_mismatch = restored and n_given_lrns != restored.experiment.get('n_learners',n_given_lrns)
             env_mismatch = restored and n_given_envs != restored.experiment.get('n_environments',n_given_envs)
             if lrn_mismatch or env_mismatch: raise CobaException("The experiment does not match the given logs")
-            Pipes.join(workitems, chunker, process, preamble, encode, sink).run()
+            Pipes.join(workitems, selecter, chunker, process, preamble, encode, sink).run()
         except KeyboardInterrupt: #pragma: no cover
             CobaContext.logger.log("Experiment Aborted (aborted via Ctrl-C)")
         except Exception as ex: #pragma: no cover

@@ -11,7 +11,7 @@ from coba.results      import Result
 from coba.primitives   import Learner
 from coba.primitives   import SimulatedInteraction
 
-from coba.experiments.process import Task, MakeTasks, ChunkTasks, ProcessTasks
+from coba.experiments.process import Task, MakeTasks, SelectTasks, ChunkTasks, ProcessTasks
 
 #for testing purposes
 class ModuloLearner(Learner):
@@ -232,6 +232,75 @@ class MakeTasks_Tests(unittest.TestCase):
             Task((0,triple[0]),(0,triple[1]),(0,triple[2]))
         ]
         self.assertEqual(expected, actual)
+
+class SelectTasks_Tests(unittest.TestCase):
+    def test_no_select_passes_everything_through_unchanged(self):
+        env,lrn,val = object(),object(),object()
+        tasks = [
+            Task((0,env), None       , None      ),
+            Task(None   , (0,lrn)    , None      ),
+            Task(None   , None       , (0,val)   ),
+            Task((0,env), (0,lrn)    , (0,val)   ),
+        ]
+        self.assertEqual(tasks, list(SelectTasks(None).filter(tasks)))
+
+    def test_select_keeps_all_registrations_but_only_selected_evaluations(self):
+        env0,env1 = object(),object()
+        lrn0      = object()
+        val0      = object()
+
+        reg_env0 = Task((0,env0), None    , None     )
+        reg_env1 = Task((1,env1), None    , None     )
+        reg_lrn  = Task(None    , (0,lrn0), None     )
+        reg_val  = Task(None    , None    , (0,val0) )
+        eval0    = Task((0,env0), (0,lrn0), (0,val0) )
+        eval1    = Task((1,env1), (0,lrn0), (0,val0) )
+
+        select = {(env0,lrn0,val0)} #only eval0's triple is selected
+        tasks  = [reg_env0, reg_env1, reg_lrn, reg_val, eval0, eval1]
+        actual = list(SelectTasks(select).filter(tasks))
+
+        #every registration passes through, regardless of whether it's needed by the selection
+        self.assertIn(reg_env0, actual)
+        self.assertIn(reg_env1, actual)
+        self.assertIn(reg_lrn , actual)
+        self.assertIn(reg_val , actual)
+
+        #only the selected evaluation triple survives
+        self.assertIn(eval0, actual)
+        self.assertNotIn(eval1, actual)
+
+    def test_select_sorts_registrations_before_evaluations(self):
+        env0,env1 = object(),object()
+        lrn0      = object()
+        val0      = object()
+
+        reg_env = Task((1,env1), None    , None     )
+        reg_lrn = Task(None    , (0,lrn0), None     )
+        reg_val = Task(None    , None    , (0,val0) )
+        eval0   = Task((0,env0), (0,lrn0), (0,val0) )
+        eval1   = Task((1,env1), (0,lrn0), (0,val0) )
+
+        select = {(env0,lrn0,val0), (env1,lrn0,val0)} #both evaluations selected
+        #evaluations are fed in ahead of the registrations they depend on
+        tasks  = [eval0, eval1, reg_env, reg_lrn, reg_val]
+        actual = list(SelectTasks(select).filter(tasks))
+
+        #registrations move ahead of evaluations; relative order otherwise preserved (stable sort)
+        self.assertEqual([reg_env,reg_lrn,reg_val,eval0,eval1], actual)
+
+    def test_no_select_does_not_sort(self):
+        env0,env1 = object(),object()
+        lrn0      = object()
+        val0      = object()
+
+        reg_env = Task((1,env1), None    , None     )
+        eval0   = Task((0,env0), (0,lrn0), (0,val0) )
+        eval1   = Task((1,env1), (0,lrn0), (0,val0) )
+
+        #a full run (select=None) never reorders, even though this batch of tasks could be
+        tasks = [eval0, eval1, reg_env]
+        self.assertEqual(tasks, list(SelectTasks(None).filter(tasks)))
 
 class ChunkTasks_Tests(unittest.TestCase):
     def test_no_chunks(self):

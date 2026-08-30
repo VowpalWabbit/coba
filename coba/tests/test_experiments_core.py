@@ -197,6 +197,16 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(exp._triples, [])
         self.assertEqual(exp._description, 'd')
 
+    def test_cartesian_product(self):
+        envs = [LambdaSimulation(1, lambda i: i, lambda i,c: [0,1], lambda i,c,a: cast(float,a)) for _ in range(10)]
+        lrns = [ModuloLearner(str(i)) for i in range(10)]
+        vals = [SequentialCB() for _ in range(10)]
+
+        exp = Experiment(envs, lrns, vals)
+
+        self.assertEqual(1000, len(exp._triples))
+        self.assertEqual(1000, len(exp))
+
     def test_init_incomplete(self):
         with self.assertRaises(TypeError):
             exp = Experiment()
@@ -587,6 +597,132 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         finally:
             path.unlink()
+
+    def test_run_start_end(self):
+        env0       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        env1       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
+        lrn0       = ModuloLearner("0")
+        lrn1       = ModuloLearner("1")
+        experiment = Experiment([env0,env1], [lrn0,lrn1], SequentialCB(['reward']))
+
+        #triples in order: (env0,lrn0),(env0,lrn1),(env1,lrn0),(env1,lrn1) -- only evaluate the last two
+        result = experiment.run(start=2, end=4)
+
+        #env0 is still registered even though this run doesn't evaluate it -- every environment in the
+        #full experiment gets registered by every partial run so ids stay stable across separate runs
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+            {"environment_id":1, "env_type":'LambdaSimulation'},
+        ]
+        expected_learners = [
+            {"learner_id":0, "family":"Modulo", "p":'0'},
+            {"learner_id":1, "family":"Modulo", "p":'1'}
+        ]
+        expected_interactions = [
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":1, "reward":3},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":2, "reward":4},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":3, "reward":5},
+            {"environment_id":1, "learner_id":1, "evaluator_id":0, "index":1, "reward":3},
+            {"environment_id":1, "learner_id":1, "evaluator_id":0, "index":2, "reward":4},
+            {"environment_id":1, "learner_id":1, "evaluator_id":0, "index":3, "reward":5},
+        ]
+
+        self.assertDictEqual({"description":None, "n_learners":2, "n_environments":2, "seed":1}, result.experiment)
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
+
+    def test_run_start_end_merged_into_same_result_file(self):
+        path = Path("coba/tests/.temp/split_transactions.log")
+        if path.exists(): path.unlink()
+
+        env0       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        env1       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
+        lrn0       = ModuloLearner("0")
+        lrn1       = ModuloLearner("1")
+
+        try:
+            Experiment([env0,env1], [lrn0,lrn1], SequentialCB(['reward'])).run(str(path), start=0, end=2)
+            result = Experiment([env0,env1], [lrn0,lrn1], SequentialCB(['reward'])).run(str(path), start=2, end=4)
+        finally:
+            if path.exists(): path.unlink()
+
+        expected_environments = [
+            {"environment_id":0, "env_type":'LambdaSimulation'},
+            {"environment_id":1, "env_type":'LambdaSimulation'},
+        ]
+        expected_learners = [
+            {"learner_id":0, "family":"Modulo", "p":'0'},
+            {"learner_id":1, "family":"Modulo", "p":'1'}
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "evaluator_id":0, "index":2, "reward":1},
+            {"environment_id":0, "learner_id":1, "evaluator_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":1, "evaluator_id":0, "index":2, "reward":1},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":1, "reward":3},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":2, "reward":4},
+            {"environment_id":1, "learner_id":0, "evaluator_id":0, "index":3, "reward":5},
+            {"environment_id":1, "learner_id":1, "evaluator_id":0, "index":1, "reward":3},
+            {"environment_id":1, "learner_id":1, "evaluator_id":0, "index":2, "reward":4},
+            {"environment_id":1, "learner_id":1, "evaluator_id":0, "index":3, "reward":5},
+        ]
+
+        self.assertCountEqual(result.environments.to_dicts(), expected_environments)
+        self.assertCountEqual(result.learners.to_dicts()    , expected_learners)
+        self.assertCountEqual(result.interactions.to_dicts(), expected_interactions)
+
+    def test_run_start_end_invalid(self):
+        exp = Experiment([1,2], [1])
+        with self.assertRaises(AssertionError):
+            exp.run(start=-1)
+        with self.assertRaises(AssertionError):
+            exp.run(end=3)
+        with self.assertRaises(AssertionError):
+            exp.run(start=1, end=0)
+
+    def test_run_batches_cover_all_tasks(self):
+        path = Path("coba/tests/.temp/batch_transactions.log")
+        if path.exists(): path.unlink()
+
+        env0 = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        env1 = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
+        lrn0 = ModuloLearner("0")
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        #2 envs x 3 learners = 6 tasks total
+        full_result = Experiment([env0,env1], [lrn0,lrn1,lrn2], SequentialCB(['reward'])).run()
+
+        try:
+            batch_count = 4 #uneven split of 6 tasks into 4 batches: sizes 2,2,1,1
+            result = None
+            for batch_index in range(batch_count):
+                result = Experiment([env0,env1], [lrn0,lrn1,lrn2], SequentialCB(['reward'])) \
+                    .run(str(path), batch_index=batch_index, batch_count=batch_count)
+        finally:
+            if path.exists(): path.unlink()
+
+        self.assertCountEqual(result.environments.to_dicts(), full_result.environments.to_dicts())
+        self.assertCountEqual(result.learners.to_dicts()    , full_result.learners.to_dicts())
+        self.assertCountEqual(result.interactions.to_dicts(), full_result.interactions.to_dicts())
+
+    def test_run_batch_invalid(self):
+        exp = Experiment([1,2], [1])
+        with self.assertRaises(AssertionError):
+            exp.run(batch_index=0, batch_count=0)
+        with self.assertRaises(AssertionError):
+            exp.run(batch_index=2, batch_count=2)
+        with self.assertRaises(AssertionError):
+            exp.run(batch_index=-1, batch_count=2)
+        with self.assertRaises(CobaException):
+            exp.run(batch_index=0)
+        with self.assertRaises(CobaException):
+            exp.run(batch_count=2)
+        with self.assertRaises(CobaException):
+            exp.run(start=0, batch_index=0, batch_count=2)
+        with self.assertRaises(CobaException):
+            exp.run(end=1, batch_index=0, batch_count=2)
 
     def test_quiet(self):
         env      = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))

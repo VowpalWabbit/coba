@@ -81,6 +81,40 @@ class MakeTasks(Source[Iterable[Task]]):
             if val and (eid,lid,vid) not in restored_outs:
                 yield Task((eid,env),(lid,lrn),(vid,val),copy=learner_counts[lrn]>1)
 
+class SelectTasks(Filter[Iterable[Task], Iterable[Task]]):
+    """Passes every registration task through unchanged, but only lets an evaluation
+    (env+learner+evaluator) task through if its triple is in the given selection.
+
+    This lets MakeTasks run completely untouched, over the full triples list, so ids stay
+    identical to what a full run would assign -- selection only decides which evaluations
+    actually execute. The tradeoff: every environment/learner/evaluator in the full experiment
+    still gets registered (and, for environments, peeked) even for a run that only evaluates a
+    small slice of it.
+
+    Whenever selection is active (a start/end/batch_index partial run) registrations are also
+    moved ahead of evaluations. Such a run is often a deliberately time-boxed slice (e.g. a
+    cluster job) at real risk of being cut off mid-evaluation, so persisting the cheap,
+    already-computed registration metadata before any slow evaluation begins shrinks the window
+    in which an interruption could cost us work that was otherwise ready to save. A full run
+    (select is None) skips this: its registrations/evaluations already interleave naturally
+    per-environment, and its crash-recovery already comes for free from result_file restore
+    regardless of order, so reordering there would only delay every evaluation's start for no
+    matching benefit.
+    """
+
+    def __init__(self, select: Optional[set]) -> None:
+        self._select = select
+
+    def filter(self, items: Iterable[Task]) -> Iterable[Task]:
+        if self._select is None:
+            yield from items
+            return
+
+        is_eval  = lambda t: bool(t.env and t.lrn and t.val)
+        selected = [t for t in items if not is_eval(t) or (t.env,t.lrn,t.val) in self._select]
+
+        yield from sorted(selected, key=is_eval) #stable: registrations before evaluations
+
 class ChunkTasks(Filter[Iterable[Task], Iterable[Sequence[Task]]]):
 
     def __init__(self, max_tasks: int = None) -> None:
