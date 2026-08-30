@@ -560,10 +560,9 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     self.assertEqual('L2'             , mock_ax.plot.call_args_list[1][1]["label"])
                     self.assertEqual(1                , mock_ax.plot.call_args_list[1][1]["zorder"])
 
-                    mock_ax.set_xticks.called_once_with([2,2])
-                    mock_ax.set_title.colled_once_with('title')
-                    mock_ax.set_xlabel.called_once_with('xlabel')
-                    mock_ax.set_ylabel.called_once_with('ylabel')
+                    mock_ax.set_title.assert_called_once_with('title', loc='left')
+                    mock_ax.set_xlabel.assert_called_once_with('xlabel')
+                    mock_ax.set_ylabel.assert_called_once_with('ylabel')
 
                     self.assertEqual(1, show.call_count)
                     self.assertEqual(0, savefig.call_count)
@@ -595,10 +594,9 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     self.assertEqual('L2'                          , mock_ax.errorbar.call_args_list[1][1]["label"])
                     self.assertEqual(1                             , mock_ax.errorbar.call_args_list[1][1]["zorder"])
 
-                    mock_ax.set_xticks.called_once_with([2,2])
-                    mock_ax.set_title.colled_once_with('title')
-                    mock_ax.set_xlabel.called_once_with('xlabel')
-                    mock_ax.set_ylabel.called_once_with('ylabel')
+                    mock_ax.set_title.assert_called_once_with('title', loc='left')
+                    mock_ax.set_xlabel.assert_called_once_with('xlabel')
+                    mock_ax.set_ylabel.assert_called_once_with('ylabel')
 
                     self.assertEqual(1, show.call_count)
                     self.assertEqual(0, savefig.call_count)
@@ -813,10 +811,9 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     self.assertEqual('L2'             , mock_ax.plot.call_args_list[1][1]["label"])
                     self.assertEqual(1                , mock_ax.plot.call_args_list[1][1]["zorder"])
 
-                    mock_ax.set_xticks.called_once_with([2,2])
-                    mock_ax.set_title.colled_once_with('title')
-                    mock_ax.set_xlabel.called_once_with('xlabel')
-                    mock_ax.set_ylabel.called_once_with('ylabel')
+                    mock_ax.set_title.assert_called_once_with('title', loc='left')
+                    mock_ax.set_xlabel.assert_called_once_with('xlabel')
+                    mock_ax.set_ylabel.assert_called_once_with('ylabel')
 
                     self.assertEqual(0, show.call_count)
                     self.assertEqual(0, savefig.call_count)
@@ -876,10 +873,9 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     self.assertEqual('L2'             , mock_ax.plot.call_args_list[1][1]["label"])
                     self.assertEqual(1                , mock_ax.plot.call_args_list[1][1]["zorder"])
 
-                    mock_ax.set_xticks.called_once_with([2,2])
-                    mock_ax.set_title.colled_once_with('title')
-                    mock_ax.set_xlabel.called_once_with('xlabel')
-                    mock_ax.set_ylabel.called_once_with('ylabel')
+                    mock_ax.set_title.assert_called_once_with('title', loc='left')
+                    mock_ax.set_xlabel.assert_called_once_with('xlabel')
+                    mock_ax.set_ylabel.assert_called_once_with('ylabel')
 
                     self.assertEqual(1, show.call_count)
                     self.assertEqual(1, savefig.call_count)
@@ -915,10 +911,9 @@ class MatplotPlotter_Tests(unittest.TestCase):
                     self.assertEqual('L2'             , mock_ax.plot.call_args_list[1][1]["label"])
                     self.assertEqual(1                , mock_ax.plot.call_args_list[1][1]["zorder"])
 
-                    mock_ax.set_xticks.called_once_with([2,2])
-                    mock_ax.set_title.colled_once_with('title')
-                    mock_ax.set_xlabel.called_once_with('xlabel')
-                    mock_ax.set_ylabel.called_once_with('ylabel')
+                    mock_ax.set_title.assert_called_once_with('title', loc='left')
+                    mock_ax.set_xlabel.assert_called_once_with('xlabel')
+                    mock_ax.set_ylabel.assert_called_once_with('ylabel')
 
                     self.assertEqual(0, show.call_count)
                     self.assertEqual(0, savefig.call_count)

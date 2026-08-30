@@ -1,3 +1,4 @@
+import os
 import unittest
 import timeit
 
@@ -40,6 +41,10 @@ print_time = False # a global variable that determines whether the below tests p
 # Look at the doc args below for _assert_call_time, _assert_scale_time and _z_assert_less for more information.
 #################################################
 
+@unittest.skipIf(
+    os.environ.get('GITHUB_ACTIONS') == 'true',
+    "Wall-clock timing thresholds are unreliable on shared/contended CI runners. Run locally instead."
+)
 class Performance_Tests(unittest.TestCase):
 
     def test_numeric_encode_performance(self):
