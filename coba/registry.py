@@ -47,6 +47,7 @@ class CobaRegistry(metaclass=CobaRegistry_meta):
     def clear(cls) -> None:
         cls._endpoints_loaded = False
         cls._registry.clear()
+        cls._setstate.clear()
 
     @classmethod
     def register(cls, name:str, tipe:type) -> None:

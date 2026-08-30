@@ -2,7 +2,8 @@ import threading as mt
 import multiprocessing as mp
 
 from traceback import format_tb
-from typing import Union, Callable, Sequence, Optional, Mapping, Iterator, Any
+from types import ModuleType
+from typing import Union, Callable, Sequence, Optional, Mapping, Iterator, Any, Tuple
 
 from coba.utilities  import try_else
 from coba.exceptions import CobaException
@@ -49,12 +50,12 @@ class ProcessLine(spawn_context.Process):
         try:
             self._line.run()
         except Exception as e:
-            emsg = str(e)
-            if emsg.startswith("Can't get attribute") and " from " not in emsg:
+            is_missing_attr, has_file = self._missing_module_attr(e)
+            if is_missing_attr and not has_file:
                 ex,tb = CobaException(
                     "Pip install cloudpickle to use multiprocessing with custom classes in Jupyter."
                 ),None
-            elif str(e).startswith("Can't get attribute") and " from " in emsg:
+            elif is_missing_attr and has_file:
                 ex,tb = CobaException(
                     "Move classes outside of `if __name__ == '__main__'` to use multiprocessing."
                 ),None
@@ -66,6 +67,23 @@ class ProcessLine(spawn_context.Process):
             ex,tb = None,None
 
         self._send.send((ex, tb, hasattr(self._line[0],'_poisoned') and self._line[0]._poisoned))
+
+    @staticmethod
+    def _missing_module_attr(e: Exception) -> Tuple[bool,bool]:
+        #detects pickle's find_class failure (a class missing from a freshly re-imported module,
+        #e.g. because it was only ever defined dynamically/interactively in the original process)
+        #and whether that module came from a file on disk (vs. an interactive/Jupyter session).
+        #Python 3.10+ exposes this structurally via AttributeError.name/.obj; we fall back to
+        #matching pickle's original "Can't get attribute X on Y" message text (older Python, or
+        #any future message format we don't recognize) so this keeps working either way.
+        if isinstance(e, AttributeError) and getattr(e,'name',None) and isinstance(getattr(e,'obj',None), ModuleType):
+            return True, getattr(e.obj,'__file__',None) is not None
+
+        emsg = str(e)
+        if emsg.startswith("Can't get attribute"):
+            return True, " from " in emsg
+
+        return False, False
 
     def join(self) -> None:
         super().join()
