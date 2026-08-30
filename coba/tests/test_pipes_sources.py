@@ -271,11 +271,13 @@ class HttpSource_Tests(unittest.TestCase):
         try:
             req  = request.Request('https://google.com',headers={'Accept-Encoding':'gzip, deflate'})
             resp = request.urlopen(req)
+            ex = request.HTTPError('',405,'','',resp)
             with unittest.mock.patch('coba.pipes.sources.request.urlopen') as mock:
-                mock.side_effect = request.HTTPError('',405,'','',resp)
+                mock.side_effect = ex
                 with self.assertRaises(request.HTTPError) as r:
                     list(HttpSource("http://www.google.com",chunk_size=1024).read())
             self.assertIn("google", r.exception.fp.read())
+            ex.close() #fp is read just above so we can only close it once done
         except error.URLError as e:
             if 'getaddrinfo failed' in str(e): pass #no internet connection
             else: raise

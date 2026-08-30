@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock
 
+from io import StringIO
 from urllib import request
 from pathlib import Path
 
@@ -227,7 +228,9 @@ class Environments_Tests(unittest.TestCase):
         def func(first_time=[True]):
             if first_time[0]:
                 first_time[0] = False
-                raise request.HTTPError('',404,'','','')
+                ex = request.HTTPError('',404,'','',StringIO(''))
+                ex.close()
+                raise ex
             else:
                 return '[{ "name":"test"}]'
 
@@ -245,7 +248,8 @@ class Environments_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.environments.core.HttpSource')
     def test_from_prebuilt_unexpected_error(self, mock):
 
-        ex = request.HTTPError('',420,'','','')
+        ex = request.HTTPError('',420,'','',StringIO(''))
+        ex.close()
 
         mock.return_value.read.side_effect = ex
 

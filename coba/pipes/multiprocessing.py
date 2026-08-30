@@ -113,7 +113,13 @@ class Pickler:
             else:
                 yield from map(pickle.dumps,items)
         except Exception as e:
-            if "pickle" in str(e) or "Pickling" in str(e):
+            #the exact wording/type CPython uses for "this object can't be pickled by reference"
+            #has shifted across even patch releases of the same minor version (e.g. "Can't pickle
+            #local object" on 3.12.0 vs "Can't get local object" on 3.12.12+, PicklingError vs
+            #AttributeError), so this can't rely on one exact phrase -- check for any of the
+            #substrings we've seen used across versions instead.
+            emsg = str(e).lower()
+            if any(s in emsg for s in ("pickle","pickling","local object","local attribute")):
                 message = (
                     f"We attempted to process your code on multiple processes but were unable to do so due to a pickle "
                     f"error. The exact error received was '{str(e)}'. Errors of this kind can often be fixed in one of three "

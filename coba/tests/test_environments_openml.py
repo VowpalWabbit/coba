@@ -1083,27 +1083,35 @@ class OpenmlSource_Tests(unittest.TestCase):
 
     @unittest.mock.patch('coba.environments.openml.HttpSource')
     def test_status_code_412_request_api_key(self,mock):
-        mock.return_value.read.side_effect = request.HTTPError('',412,'','',StringIO("please provide api key"))
+        ex = request.HTTPError('',412,'','',StringIO("please provide api key"))
+        mock.return_value.read.side_effect = ex
         with self.assertRaises(CobaException) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+        ex.close() #the code under test reads ex.fp above so we can only close it once done
 
     @unittest.mock.patch('coba.environments.openml.HttpSource')
     def test_status_code_412_rejected_api_key(self,mock):
-        mock.return_value.read.side_effect = request.HTTPError('',412,'','',StringIO("authentication failed"))
+        ex = request.HTTPError('',412,'','',StringIO("authentication failed"))
+        mock.return_value.read.side_effect = ex
         with self.assertRaises(CobaException) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+        ex.close() #the code under test reads ex.fp above so we can only close it once done
 
     @unittest.mock.patch('coba.environments.openml.HttpSource')
     def test_status_code_404(self,mock):
-        mock.return_value.read.side_effect = request.HTTPError('',404,'','',StringIO(""))
+        ex = request.HTTPError('',404,'','',StringIO(""))
+        mock.return_value.read.side_effect = ex
         with self.assertRaises(CobaException) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+        ex.close() #the code under test reads ex.fp above so we can only close it once done
 
     @unittest.mock.patch('coba.environments.openml.HttpSource')
     def test_status_code_405(self,mock):
-        mock.return_value.read.side_effect = request.HTTPError('',405,'','',StringIO("Random Error"))
+        ex = request.HTTPError('',405,'','',StringIO("Random Error"))
+        mock.return_value.read.side_effect = ex
         with self.assertRaises(CobaException) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+        ex.close() #the code under test reads ex.fp above so we can only close it once done
 
 class OpenmlSimulation_Tests(unittest.TestCase):
 
